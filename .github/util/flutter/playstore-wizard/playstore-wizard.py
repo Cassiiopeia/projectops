@@ -1,29 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ===================================================================
-# Flutter Android Play Store 마법사 로컬 실행 스크립트 (Python 단일 파일)
+# Flutter Android Play Store wizard local runner script (single Python file)
 # ===================================================================
 #
-# 구 sh/ps1 스크립트 3쌍 + 패치 py 1개를 argparse 서브커맨드로 통합했다.
-#   setup         : Play Store 배포 초기 설정 (구 setup 스크립트, sh 829줄 canonical)
-#   apply         : 생성된 설정을 Flutter 프로젝트에 적용 (구 apply 스크립트)
-#   detect-app-id : 환경 검사 + applicationId 자동 감지 (구 감지 스크립트, JSON 출력)
+# Merges the old 3 sh/ps1 script pairs + 1 patch py into argparse subcommands.
+#   setup         : initial Play Store deploy setup (old setup script, sh 829 lines canonical)
+#   apply         : apply the generated settings to the Flutter project (old apply script)
+#   detect-app-id : environment check + applicationId auto-detection (old detect script, JSON output)
 #
-# ★ 로직 보존 원칙 ★
-# - 구 .sh가 canonical이다. 동일 입력 → 동일 산출물(파일 경로/내용), 동일 검증 순서,
-#   동일 에러 메시지(한국어 문구 그대로), 동일 종료 코드를 유지한다.
-# - .sh와 .ps1이 갈리던 지점은 .sh 기준으로 통일했고, 각 지점에 "sh/ps1 분기:" 주석으로
-#   기록했다. Windows에서만 의미 있는 동작(프로세스 종료, SDK 경로, 사용자 env 등록)은
-#   .ps1 동작을 Windows 분기로 채택했다.
-# - 구 gradle 패치 py의 로직은 patch_build_gradle() 내부 함수로 문자열/정규식
-#   한 글자도 바꾸지 않고 흡수했다 (단독 파일은 삭제됨).
+# ★ Logic preservation rule ★
+# - The old .sh is canonical. Same input → same output (file paths/contents), same validation order,
+#   same error messages (Korean text as it was), same exit codes.
+# - Where .sh and .ps1 differed, .sh wins, and each spot is recorded with a "sh/ps1 branch:" comment.
+#   Windows-only behavior (killing processes, SDK path, user env registration)
+#   adopts the .ps1 behavior as the Windows branch.
+# - The old gradle patch py logic was absorbed into patch_build_gradle() as inner functions without
+#   changing a single character of strings/regexes (the standalone file was deleted).
 #
-# 사용법:
+# Usage:
 #   python playstore-wizard.py setup PROJECT_PATH APPLICATION_ID KEY_ALIAS STORE_PASSWORD KEY_PASSWORD VALIDITY_DAYS CERT_CN CERT_O CERT_L CERT_C
 #   python playstore-wizard.py apply [config_json_file]
 #   python playstore-wizard.py detect-app-id PROJECT_PATH
 #
-# stdlib 전용 (외부 패키지 금지) — 내부망/양OS 동작 목표.
+# stdlib only (no external packages) — aims to work offline on both OSes.
 # ===================================================================
 
 import argparse
@@ -35,22 +35,22 @@ import subprocess
 import sys
 import time
 
-# 한국어 Windows cp949 콘솔 대응
+# Korean Windows cp949 console support
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # ===================================================================
-# 색상 정의 (구 sh와 동일 팔레트)
-# Windows에서는 ctypes로 VT 모드 활성화 시도, 실패 시 색코드 없이 출력
+# Color definitions (same palette as the old sh)
+# On Windows try enabling VT mode via ctypes; on failure print without color codes
 # ===================================================================
 
 
 def _ansi_enabled():
     if os.name != "nt":
         return True
-    # 파이프/리다이렉트면 sh와 동일하게 코드를 그대로 내보낸다
+    # For pipes/redirects, emit codes as is, same as sh
     if not sys.stdout.isatty():
         return True
     try:
@@ -80,7 +80,7 @@ else:
     RED = GREEN = YELLOW = BLUE = CYAN = NC = ""
 
 
-# 출력 함수 (setup: 구 sh와 동일)
+# Output functions (setup: same as the old sh)
 def print_step(msg):
     print(f"{CYAN}▶{NC} {msg}")
 
@@ -102,17 +102,17 @@ def print_error(msg):
 
 
 # ===================================================================
-# build.gradle.kts 자동 패치 (구 단독 패치 py에서 그대로 흡수 — 로직/문구 무변경)
-# - key.properties 로드 코드 추가
-# - signingConfigs 블록 추가/업데이트
-# - buildTypes.release에 signingConfig 설정
+# build.gradle.kts auto patch (absorbed as is from the old standalone patch py — logic/text unchanged)
+# - add key.properties loading code
+# - add/update the signingConfigs block
+# - set signingConfig in buildTypes.release
 # ===================================================================
 
 
 def patch_build_gradle(gradle_file_path):
-    """build.gradle.kts 파일을 자동으로 패치합니다."""
+    """Patch build.gradle.kts automatically."""
 
-    # 1. 파일 읽기
+    # 1. Read the file
     try:
         with open(gradle_file_path, 'r', encoding='utf-8') as f:
             content = f.read()
@@ -123,7 +123,7 @@ def patch_build_gradle(gradle_file_path):
         print(f"❌ Could not read the file: {e}")
         return False
 
-    # 백업 생성 (게이트 경유 — dry-run/--no-backup 반영)
+    # Create a backup (through the gate — honors dry-run/--no-backup)
     backup_path = f"{gradle_file_path}.bak"
     if NO_BACKUP:
         print("ℹ️  --no-backup: skipping the backup")
@@ -136,7 +136,7 @@ def patch_build_gradle(gradle_file_path):
 
     original_content = content
 
-    # 2. key.properties 로드 코드 추가 (없는 경우)
+    # 2. Add key.properties loading code (if missing)
     if 'keystorePropertiesFile' not in content:
         key_properties_code = '''
 // Load key.properties file
@@ -148,7 +148,7 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 '''
-        # plugins { ... } 다음에 추가
+        # Add after plugins { ... }
         pattern = r'(plugins\s*\{[^}]*\})'
         replacement = r'\1\n' + key_properties_code
         content = re.sub(pattern, replacement, content, count=1, flags=re.DOTALL)
@@ -156,9 +156,9 @@ if (keystorePropertiesFile.exists()) {
     else:
         print("ℹ️  key.properties loading code already present")
 
-    # 3. signingConfigs 블록 추가/업데이트
+    # 3. Add/update the signingConfigs block
     if 'signingConfigs {' not in content and 'signingConfigs{' not in content:
-        # signingConfigs 블록 추가
+        # Add the signingConfigs block
         signing_configs_code = '''
     // Signing Configurations
     signingConfigs {
@@ -170,14 +170,14 @@ if (keystorePropertiesFile.exists()) {
         }
     }
 '''
-        # android { 다음에 추가
+        # Add after android {
         pattern = r'(android\s*\{)'
         replacement = r'\1\n' + signing_configs_code
         content = re.sub(pattern, replacement, content, count=1)
         print("✅ Added the signingConfigs block")
     else:
         print("ℹ️  signingConfigs block already present")
-        # 기존 storeFile 경로 수정 (file(it) → rootProject.file(it))
+        # Fix the existing storeFile path (file(it) → rootProject.file(it))
         if 'storeFile = keystoreProperties["storeFile"]?.let { file(it) }' in content:
             content = content.replace(
                 'storeFile = keystoreProperties["storeFile"]?.let { file(it) }',
@@ -185,19 +185,19 @@ if (keystorePropertiesFile.exists()) {
             )
             print("✅ Fixed the existing storeFile path (file(it) → rootProject.file(it))")
 
-    # 4. buildTypes.release에 signingConfig 설정
-    # 기존 debug signingConfig 제거
+    # 4. Set signingConfig in buildTypes.release
+    # Remove the existing debug signingConfig
     content = re.sub(
         r'\s*signingConfig\s*=\s*signingConfigs\.getByName\(["\']debug["\']\)',
         '',
         content
     )
 
-    # release { } 블록에 signingConfig 추가 (없는 경우)
+    # Add signingConfig to the release { } block (if missing)
     if 'signingConfig = signingConfigs.getByName("release")' not in content and \
        "signingConfig = signingConfigs.getByName('release')" not in content:
-        # release { 다음에 추가 (중복 방지)
-        # buildTypes 블록 내부의 release 블록 찾기
+        # Add after release { (avoid duplicates)
+        # Find the release block inside the buildTypes block
         pattern = r'(buildTypes\s*\{[^}]*release\s*\{)'
         if re.search(pattern, content, re.DOTALL):
             replacement = r'\1\n            signingConfig = signingConfigs.getByName("release")'
@@ -208,11 +208,11 @@ if (keystorePropertiesFile.exists()) {
     else:
         print("ℹ️  The release buildType already has signingConfig")
 
-    # 5. flutter.source 설정 추가/수정
+    # 5. Add/fix the flutter.source setting
     if 'flutter {' in content or 'flutter{' in content:
-        # source = "../.." 확인
+        # Check source = "../.."
         if not re.search(r'flutter\s*\{[^}]*source\s*=\s*"\.\.\/\.\."', content, re.DOTALL):
-            # source = "." → "../.." 변경
+            # Change source = "." → "../.."
             if re.search(r'flutter\s*\{[^}]*source\s*=\s*"\."', content, re.DOTALL):
                 content = re.sub(
                     r'(flutter\s*\{[^}]*source\s*=\s*)"\."',
@@ -222,7 +222,7 @@ if (keystorePropertiesFile.exists()) {
                     flags=re.DOTALL
                 )
                 print("✅ flutter.source updated to '../..' (project root)")
-            # flutter 블록은 있지만 source가 없는 경우
+            # flutter block exists but has no source
             elif re.search(r'flutter\s*\{', content):
                 content = re.sub(
                     r'(flutter\s*\{)',
@@ -236,7 +236,7 @@ if (keystorePropertiesFile.exists()) {
     else:
         print("ℹ️  No flutter block (add it by hand if you need it)")
 
-    # 6. 파일 저장 (변경사항이 있는 경우에만)
+    # 6. Save the file (only if changed)
     if content != original_content:
         try:
             write_text(gradle_file_path, content)
@@ -244,7 +244,7 @@ if (keystorePropertiesFile.exists()) {
             return True
         except Exception as e:
             print(f"❌ Could not save the file: {e}")
-            # 백업에서 복원 시도
+            # Try restoring from the backup
             if path_exists(backup_path):
                 try:
                     write_text(gradle_file_path, read_text(backup_path))
@@ -258,9 +258,9 @@ if (keystorePropertiesFile.exists()) {
 
 
 # ===================================================================
-# 공통: 파일을 사용 중인 프로세스 찾기 및 종료 (setup 전용 헬퍼)
-# sh/ps1 분기: sh는 lsof + pgrep, ps1은 Get-Process로 java/gradle 전체 종료.
-#   POSIX에서는 sh 로직 그대로, Windows에서는 ps1과 동등한 taskkill 방식을 쓴다.
+# Shared: find and kill processes using a file (setup-only helper)
+# sh/ps1 branch: sh used lsof + pgrep, ps1 killed all java/gradle via Get-Process.
+#   POSIX keeps the sh logic as is; Windows uses a taskkill approach equivalent to ps1.
 # ===================================================================
 
 
@@ -273,7 +273,7 @@ def stop_processes_using_file(file_path):
     processes_killed = False
 
     if os.name != "nt":
-        # lsof 명령어 사용 (Linux/macOS)
+        # Use the lsof command (Linux/macOS)
         if shutil.which("lsof"):
             try:
                 out = subprocess.run(
@@ -288,7 +288,7 @@ def stop_processes_using_file(file_path):
                 except ValueError:
                     continue
                 try:
-                    os.kill(pid, 0)  # kill -0: 살아있는지 확인
+                    os.kill(pid, 0)  # kill -0: check it is alive
                 except OSError:
                     continue
                 try:
@@ -306,7 +306,7 @@ def stop_processes_using_file(file_path):
                     pass
                 time.sleep(0.5)
 
-        # 모든 Java/Gradle 프로세스 종료 (파일이 잠겨있을 때)
+        # Kill all Java/Gradle processes (when the file is locked)
         if not processes_killed:
             print_warning("No process using the file was found. Trying to stop all Java/Gradle processes...")
             for proc_name in ("java", "javaw", "gradle", "gradlew"):
@@ -330,7 +330,7 @@ def stop_processes_using_file(file_path):
                         pass
                     time.sleep(0.5)
     else:
-        # Windows (ps1 방식): java/gradle 프로세스 강제 종료
+        # Windows (ps1 style): force-kill java/gradle processes
         print_warning("No process using the file was found. Trying to stop all Java/Gradle processes...")
         for proc_name in ("java", "javaw", "gradle", "gradlew"):
             try:
@@ -354,10 +354,10 @@ def stop_processes_using_file(file_path):
 
 
 # ===================================================================
-# setup 서브커맨드 (구 setup 스크립트 — sh canonical)
+# setup subcommand (old setup script — sh canonical)
 # ===================================================================
 
-# keystore 생성 스킵 여부 (sh와 동일 — sh에서도 1로 바뀌는 경로는 없다, 동작 보존용)
+# Whether to skip keystore creation (same as sh — sh had no path setting it to 1 either; kept for behavior)
 KEYSTORE_SKIPPED = False
 
 
@@ -418,8 +418,8 @@ def show_help():
 
 
 def validate_params(params):
-    # sh/ps1 분기: ps1은 param() 필수 바인딩 + Application ID 정규식 검증이었지만,
-    #   sh 기준(개수 검증 + '.' 포함 여부만)으로 통일.
+    # sh/ps1 branch: ps1 had mandatory param() binding + an Application ID regex check,
+    #   unified to the sh rule (count check + contains '.' only).
     if len(params) < 10:
         print_error("Not enough parameters.")
         print("")
@@ -439,43 +439,43 @@ def validate_params(params):
         "CERT_C": params[9],
     }
 
-    # 프로젝트 경로 확인
+    # Check the project path
     if not os.path.isdir(ctx["PROJECT_PATH"]):
         print_error(f"Project path does not exist: {ctx['PROJECT_PATH']}")
         sys.exit(1)
 
-    # pubspec.yaml 확인 (Flutter 프로젝트)
+    # Check pubspec.yaml (Flutter project)
     if not os.path.isfile(os.path.join(ctx["PROJECT_PATH"], "pubspec.yaml")):
         print_error("Not a Flutter project (no pubspec.yaml)")
         sys.exit(1)
 
-    # android 폴더 확인
+    # Check the android folder
     if not os.path.isdir(os.path.join(ctx["PROJECT_PATH"], "android")):
         print_error("No android folder. Run 'flutter create .' first.")
         sys.exit(1)
 
-    # Application ID 형식 확인
+    # Check the Application ID format
     if "." not in ctx["APPLICATION_ID"]:
         print_error(f"Invalid Application ID format: {ctx['APPLICATION_ID']}")
         print_error("Example: com.example.app")
         sys.exit(1)
 
-    # 비밀번호 확인
+    # Check the password
     if not ctx["STORE_PASSWORD"] or not ctx["KEY_PASSWORD"]:
         print_error("The keystore password and key password are required.")
         sys.exit(1)
 
-    # 유효기간 확인
+    # Check the validity period
     if not re.match(r"^[0-9]+$", ctx["VALIDITY_DAYS"]):
         print_error(f"Validity must be a number: {ctx['VALIDITY_DAYS']}")
         sys.exit(1)
 
-    # 인증서 정보 확인
+    # Check the certificate info
     if not ctx["CERT_CN"] or not ctx["CERT_O"] or not ctx["CERT_L"] or not ctx["CERT_C"]:
         print_error("All certificate fields (CN, O, L, C) are required.")
         sys.exit(1)
 
-    # Country Code 길이 확인
+    # Check the country code length
     if len(ctx["CERT_C"]) != 2:
         print_error(f"Country Code must be 2 letters: {ctx['CERT_C']}")
         sys.exit(1)
@@ -484,7 +484,7 @@ def validate_params(params):
 
 
 def find_template_dir():
-    # 스크립트 위치 기준
+    # Relative to the script location
     script_dir = os.path.dirname(os.path.abspath(__file__))
     template_dir = os.path.join(script_dir, "templates")
 
@@ -496,23 +496,23 @@ def find_template_dir():
     return template_dir
 
 
-# 파일 IO: 읽기는 깨진 바이트를 대체 문자로, 쓰기는 OS와 무관하게 LF 고정
+# File IO: reads replace broken bytes, writes always use LF regardless of OS
 _READ_KWARGS = dict(encoding="utf-8", errors="replace")
 _WRITE_KWARGS = dict(encoding="utf-8", newline="\n")
 
-# >>> 공통 블록: 쓰기 게이트 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
-# 파일을 변경하는 원시 동작(쓰기·복사·이동·삭제·디렉터리 생성)은 전부 아래 게이트를 거친다.
-# DRY_RUN이면 디스크를 건드리지 않고 "무엇을 할지"만 출력한다.
+# >>> 공통 블록: 쓰기 게이트 (identical in testflight/playstore — compared by _shared/check-consistency.py)
+# Every primitive that changes files (write, copy, move, delete, mkdir) goes through the gates below.
+# With DRY_RUN the disk is untouched and only "what would happen" is printed.
 #
-# ⚠️ 오버레이가 필요한 이유
-#   "쓰고 → 다시 읽어 검증"하는 단계가 있어, 쓰기만 건너뛰면 뒷 단계가 낡은 내용을
-#   읽어 실제 실행과 다른 경로를 타고 거짓 실패를 낸다. 그래서 dry-run에서는
-#   쓰였을 내용을 메모리에 두고 read_text가 그것을 먼저 본다.
-# 인코딩·개행 처리는 마법사마다 다르므로 블록 밖의 _READ_KWARGS·_WRITE_KWARGS 를 쓴다.
+# ⚠️ Why the overlay is needed
+#   Some steps "write → read back to verify"; skipping only the write makes later steps read stale content,
+#   take a different path than a real run and fail falsely. So in dry-run the content that
+#   would have been written is kept in memory and read_text checks it first.
+# Encoding/newline handling differs per wizard, so _READ_KWARGS/_WRITE_KWARGS outside the block are used.
 DRY_RUN = False
 NO_BACKUP = False
-_DRY_FS = {}          # path -> content (dry-run 가상 파일 내용)
-_DRY_DELETED = set()  # dry-run에서 삭제된 것으로 간주하는 경로
+_DRY_FS = {}          # path -> content (virtual file content in dry-run)
+_DRY_DELETED = set()  # paths treated as deleted in dry-run
 
 
 def _dry(msg):
@@ -520,7 +520,7 @@ def _dry(msg):
 
 
 def copy_file(src, dst):
-    """shutil.copyfile 대체 — dry-run이면 계획만 출력하고 오버레이에 반영한다."""
+    """Replacement for shutil.copyfile — in dry-run, only prints the plan and updates the overlay."""
     if DRY_RUN:
         _dry(f"copy: {src} → {dst}")
         try:
@@ -533,14 +533,14 @@ def copy_file(src, dst):
 
 
 def backup_file(path, suffix=".bak"):
-    """백업 생성. --no-backup이면 건너뛴다."""
+    """Create a backup. Skipped with --no-backup."""
     if NO_BACKUP:
         return
     copy_file(path, f"{path}{suffix}")
 
 
 def remove_file(path):
-    """삭제 — dry-run이면 계획만. 없으면 조용히 통과."""
+    """Delete — plan only in dry-run. Passes quietly if missing."""
     if DRY_RUN:
         _dry(f"delete: {path}")
         _DRY_FS.pop(path, None)
@@ -551,7 +551,7 @@ def remove_file(path):
 
 
 def move_file(src, dst):
-    """이동(주로 백업 복원) — dry-run이면 계획만."""
+    """Move (mainly backup restore) — plan only in dry-run."""
     if DRY_RUN:
         _dry(f"move: {src} → {dst}")
         try:
@@ -573,7 +573,7 @@ def make_dirs(path):
 
 
 def path_exists(path):
-    """존재 확인 — dry-run 오버레이를 반영한다."""
+    """Existence check — honors the dry-run overlay."""
     if DRY_RUN:
         if path in _DRY_FS:
             return True
@@ -614,8 +614,8 @@ def append_text(path, content):
 # <<< 공통 블록: 쓰기 게이트
 
 
-# 워크플로의 store_deploy_config.py 와 같은 값만 받는다. 오타를 조용히 넘기면
-# 설정이 먹었다고 믿은 채 다른 모드로 배포된다 — 이 설정은 프로덕션 심사 자동 등록까지 정한다.
+# Accept only the same values as the workflow's store_deploy_config.py. Silently passing a typo
+# would deploy in a different mode while believing the setting applied — this setting even decides automatic production review submission.
 DEPLOY_MODES = ("store_only", "store_prepare", "store_submit")
 
 
@@ -635,10 +635,10 @@ def validate_deploy_config(ctx):
 
 
 def create_store_deploy_config(ctx):
-    """.github/config/store-deploy.json 의 android 섹션에 배포 모드와 출시 비율을 기록한다 (#767).
+    """Record the deploy mode and rollout fraction in the android section of .github/config/store-deploy.json (#767).
 
-    플래그를 주지 않았으면 아무것도 하지 않는다. 이미 있는 파일은 지우지 않고 android 섹션만 합친다 —
-    ios 섹션이나 사용자가 적은 키를 날리면 안 된다. 이 파일은 템플릿이 싣지 않아 업데이트 때 덮어써지지 않는다.
+    Does nothing without the flags. An existing file is not deleted; only the android section is merged —
+    the ios section or keys the user wrote must not be lost. The template does not ship this file, so updates never overwrite it.
     """
     mode, rollout = ctx.get("DEPLOY_MODE", ""), ctx.get("PRODUCTION_ROLLOUT", "")
     if not mode and not rollout:
@@ -673,7 +673,7 @@ def update_gitignore(ctx):
 
     project_path = ctx["PROJECT_PATH"]
 
-    # Git 저장소 확인
+    # Check for a Git repository
     if not os.path.isdir(os.path.join(project_path, ".git")):
         print_info("Not a Git repository. Skipping the .gitignore update.")
         return
@@ -682,8 +682,8 @@ def update_gitignore(ctx):
     android_gitignore_path = os.path.join(project_path, "android", ".gitignore")
     gitignore_updated = False
 
-    # 루트 .gitignore 처리 (파일이 존재할 때만)
-    # sh/ps1 분기: ps1은 4개 항목("# Android signing" 포함)이었지만 sh의 7개 항목을 채택.
+    # Handle the root .gitignore (only when the file exists)
+    # sh/ps1 branch: ps1 had 4 entries (including "# Android signing"), but sh's 7 entries were adopted.
     if path_exists(gitignore_path):
         gitignore_entries = [
             "android/key.properties",
@@ -697,17 +697,17 @@ def update_gitignore(ctx):
 
         content = read_text(gitignore_path)
         for entry in gitignore_entries:
-            if entry not in content:  # grep -qF 대응 (고정 문자열 부분 일치)
+            if entry not in content:  # equivalent of grep -qF (fixed-string partial match)
                 appended = f"\n# Play Store CI/CD - 민감한 파일 (자동 생성됨)\n{entry}\n"
                 append_text(gitignore_path, appended)
                 content += appended
                 print_info(f"Added to the root .gitignore: {entry}")
                 gitignore_updated = True
-    # 루트 .gitignore가 없으면 생성하지 않음 (Git 미사용 프로젝트 가능성)
+    # Do not create a root .gitignore if missing (the project may not use Git)
 
-    # android/.gitignore 처리
+    # Handle android/.gitignore
     if path_exists(android_gitignore_path):
-        # 항목 확인 및 추가
+        # Check and add entries
         if "key.properties" not in read_text(android_gitignore_path):
             append_text(
                 android_gitignore_path,
@@ -716,7 +716,7 @@ def update_gitignore(ctx):
             print_info("Added to android/.gitignore")
             gitignore_updated = True
     else:
-        # android/.gitignore가 없으면 생성
+        # Create android/.gitignore if missing
         make_dirs(os.path.join(project_path, "android"))
         write_text(android_gitignore_path, """# Play Store CI/CD - 민감한 파일 (자동 생성됨)
 key.properties
@@ -739,7 +739,7 @@ keystore/
 
 
 def _git(project_path, args, quiet_stdout=False, quiet_stderr=True):
-    """git -C PROJECT_PATH ... 실행. sh와 동일하게 기본은 stderr만 숨긴다."""
+    """Run git -C PROJECT_PATH .... Like sh, hides only stderr by default."""
     kwargs = {}
     if quiet_stdout:
         kwargs["stdout"] = subprocess.DEVNULL
@@ -756,12 +756,12 @@ def commit_gitignore(ctx):
 
     project_path = ctx["PROJECT_PATH"]
 
-    # Git 저장소 확인
+    # Check for a Git repository
     if not os.path.isdir(os.path.join(project_path, ".git")):
         print_info("Not a Git repository. Skipping the commit.")
         return
 
-    # Git 명령어 사용 가능 여부 확인
+    # Check that the Git command is available
     if shutil.which("git") is None:
         print_warning("Git is not installed. Skipping the commit.")
         return
@@ -770,7 +770,7 @@ def commit_gitignore(ctx):
     android_gitignore_path = os.path.join(project_path, "android", ".gitignore")
     has_changes = False
 
-    # .gitignore 변경사항 확인
+    # Check .gitignore changes
     if path_exists(gitignore_path):
         if _git(project_path, ["diff", "--quiet", gitignore_path]) != 0:
             has_changes = True
@@ -780,7 +780,7 @@ def commit_gitignore(ctx):
             has_changes = True
 
     if has_changes:
-        # 이미 추적 중인 파일 제거 (있는 경우)
+        # Remove already tracked files (if any)
         key_properties = os.path.join(project_path, "android", "key.properties")
         keystore_jks = os.path.join(project_path, "android", "app", "keystore", "key.jks")
 
@@ -794,7 +794,7 @@ def commit_gitignore(ctx):
             print_warning("Removing the already tracked keystore files from Git...")
             _git(project_path, ["rm", "--cached", keystore_jks])
 
-        # .gitignore 커밋
+        # Commit .gitignore
         if path_exists(gitignore_path):
             _git(project_path, ["add", gitignore_path])
         if path_exists(android_gitignore_path):
@@ -803,8 +803,8 @@ def commit_gitignore(ctx):
         if _git(project_path, ["diff", "--cached", "--quiet"]) == 0:
             print_info("No .gitignore changes (already committed).")
         else:
-            # sh/ps1 분기: 커밋 메시지가 달랐다
-            #   (ps1: "chore: Update .gitignore for Android signing files") — sh 문구 채택.
+            # sh/ps1 branch: the commit messages differed
+            #   (ps1: "chore: Update .gitignore for Android signing files") — sh text adopted.
             if _git(project_path, ["commit", "-m", "chore: Add keystore files to .gitignore"]) == 0:
                 print_success(".gitignore changes committed")
             else:
@@ -820,15 +820,15 @@ def create_keystore(ctx):
     keystore_dir = os.path.join(project_path, "android", "app", "keystore")
     keystore_path = os.path.join(keystore_dir, "key.jks")
 
-    # 디렉토리 생성
+    # Create the directory
     make_dirs(keystore_dir)
 
-    # 기존 keystore 확인
+    # Check for an existing keystore
     if path_exists(keystore_path):
         print_info(f"A keystore already exists: {keystore_path}")
         print_info("Overwriting the existing keystore...")
 
-        # 기존 keystore에서 alias 삭제 시도 (파일 삭제 전에)
+        # Try deleting the alias from the existing keystore (before deleting the file)
         print_info("Trying to delete the alias from the existing keystore...")
         try:
             delete_rc = subprocess.run(
@@ -846,17 +846,17 @@ def create_keystore(ctx):
             print_warning("Could not delete the alias from the keystore (it may not exist or the password may differ)")
             print_warning("Trying to delete or replace the file...")
 
-        # 백업 파일이 있으면 삭제
+        # Delete the backup file if present
         backup_path = keystore_path + ".bak"
         if path_exists(backup_path):
             remove_file(backup_path)
 
-        # 파일 백업 시도
+        # Try backing up the file
         try:
             move_file(keystore_path, backup_path)
             print_info(f"Backed up the existing keystore: {backup_path}")
         except OSError:
-            # 파일이 잠겨있으면 프로세스 종료 후 재시도
+            # If the file is locked, kill processes and retry
             print_warning("Could not move the keystore file. Trying to stop processes using the file...")
 
             if stop_processes_using_file(keystore_path):
@@ -872,7 +872,7 @@ def create_keystore(ctx):
                 print_error("Delete the file by hand or close the program that is using it.")
                 sys.exit(1)
 
-    # keytool 명령어 생성
+    # Build the keytool command
     dname = f"CN={ctx['CERT_CN']}, O={ctx['CERT_O']}, L={ctx['CERT_L']}, C={ctx['CERT_C']}"
 
     print_info("Keystore details:")
@@ -881,9 +881,9 @@ def create_keystore(ctx):
     print_info(f"  • Validity: {ctx['VALIDITY_DAYS']} days")
     print_info(f"  • Certificate: {dname}")
 
-    # keytool 실행 (비밀번호는 stdin으로 전달)
-    # sh/ps1 분기: ps1은 -genkeypair + stdin 미사용이었지만 sh의 -genkey + stdin 전달을 채택.
-    #   sh와 동일하게 출력에서 "Warning:" 포함 라인은 숨긴다.
+    # Run keytool (password passed via stdin)
+    # sh/ps1 branch: ps1 used -genkeypair without stdin, but sh's -genkey + stdin was adopted.
+    #   Like sh, lines containing "Warning:" in the output are hidden.
     stdin_text = (
         f"{ctx['STORE_PASSWORD']}\n{ctx['STORE_PASSWORD']}\n"
         f"{ctx['KEY_PASSWORD']}\n{ctx['KEY_PASSWORD']}\n{dname}\ny\n\n"
@@ -909,15 +909,15 @@ def create_keystore(ctx):
             input=stdin_text,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            # sh는 keytool 출력 바이트를 그대로 흘려보냈다 — 로케일 인코딩(mac: UTF-8,
-            # 한국어 Windows: cp949)으로 디코딩하는 것이 가장 근접한 동작이다.
+            # sh streamed keytool's output bytes as is — decoding with the locale encoding (mac: UTF-8,
+            # Korean Windows: cp949) is the closest behavior.
             text=True, errors="replace",
         )
         for line in (proc.stdout or "").splitlines():
             if "Warning:" not in line:
                 print(line)
     except OSError as e:
-        # sh에서는 셸이 "command not found"를 출력하는 상황 — 오류 원문을 그대로 보여준다
+        # The case where sh's shell prints "command not found" — show the original error as is
         print(str(e))
 
     if path_exists(keystore_path):
@@ -930,7 +930,7 @@ def create_keystore(ctx):
 def create_key_properties(ctx):
     print_step("Creating key.properties...")
 
-    # keystore 생성이 스킵되었으면 key.properties도 스킵
+    # If keystore creation was skipped, skip key.properties too
     if KEYSTORE_SKIPPED:
         print_warning("Skipping key.properties (the keystore was not overwritten)")
         print_warning("⚠️ The existing keystore is used, so check the passwords in key.properties by hand!")
@@ -940,22 +940,22 @@ def create_key_properties(ctx):
 
     key_properties_path = os.path.join(ctx["PROJECT_PATH"], "android", "key.properties")
 
-    # 기존 파일 백업 및 삭제
+    # Back up and delete the existing file
     if path_exists(key_properties_path):
         print_info("Found an existing key.properties. Overwriting...")
         backup_path = key_properties_path + ".bak"
 
-        # 백업 파일이 있으면 삭제
+        # Delete the backup file if present
         if path_exists(backup_path):
             remove_file(backup_path)
 
-        # 파일 백업 시도
+        # Try backing up the file
         try:
             copy_file(key_properties_path, backup_path)
             remove_file(key_properties_path)
             print_info(f"Backed up the existing key.properties: {backup_path}")
         except OSError:
-            # 파일이 잠겨있으면 프로세스 종료 후 재시도
+            # If the file is locked, kill processes and retry
             print_warning("Could not back up or delete key.properties. Trying to stop processes using the file...")
 
             if stop_processes_using_file(key_properties_path):
@@ -971,7 +971,7 @@ def create_key_properties(ctx):
                 print_error("Delete the file by hand or close the program that is using it.")
                 sys.exit(1)
 
-    # sh/ps1 분기: ps1은 주석 없이 storePassword부터 쓰는 다른 내용이었다 — sh 내용 채택.
+    # sh/ps1 branch: ps1 wrote different content starting at storePassword without comments — sh content adopted.
     key_properties_content = f"""# Release Keystore Configuration
 # WARNING: Do not commit this file to version control!
 # This file is automatically generated by Play Store Wizard
@@ -982,11 +982,11 @@ keyAlias={ctx['KEY_ALIAS']}
 keyPassword={ctx['KEY_PASSWORD']}
 """
 
-    # 파일 쓰기 시도
+    # Try writing the file
     try:
         write_text(key_properties_path, key_properties_content)
     except OSError:
-        # 파일이 잠겨있으면 프로세스 종료 후 재시도
+        # If the file is locked, kill processes and retry
         print_warning("Could not write key.properties. Trying to stop processes using the file...")
 
         if stop_processes_using_file(key_properties_path):
@@ -1002,12 +1002,12 @@ keyPassword={ctx['KEY_PASSWORD']}
             print_error("Another process may be using the file. Close the program that is using it and try again.")
             sys.exit(1)
 
-    # 파일이 제대로 생성되었는지 확인
+    # Check the file was created properly
     if not path_exists(key_properties_path):
         print_error(f"key.properties was not created: {key_properties_path}")
         sys.exit(1)
 
-    # 파일 내용 확인
+    # Check the file content
     if "storePassword" not in read_text(key_properties_path):
         print_error(f"key.properties exists but its content is invalid: {key_properties_path}")
         sys.exit(1)
@@ -1027,9 +1027,9 @@ def patch_build_gradle_step(ctx):
         print_error(f"build.gradle.kts not found: {gradle_file}")
         sys.exit(1)
 
-    # 구 sh의 패치 스크립트 존재 확인 + Python 실행 파일 탐지는 내부 함수 흡수로 불필요해짐.
-    # sh/ps1 분기: ps1은 자체 regex 패치(문구/패턴이 미묘하게 다름)였지만,
-    #   sh가 호출하던 패치 py 로직(위 patch_build_gradle)을 그대로 채택.
+    # The old sh's patch script existence check + Python executable detection became unnecessary after absorbing it as an inner function.
+    # sh/ps1 branch: ps1 had its own regex patch (subtly different text/patterns),
+    #   but the patch py logic sh called (patch_build_gradle above) was adopted as is.
     try:
         success = patch_build_gradle(gradle_file)
     except Exception as e:
@@ -1039,7 +1039,7 @@ def patch_build_gradle_step(ctx):
         success = False
 
     if not success:
-        # 구 sh는 set -e 때문에 패치 실패 시 추가 메시지 없이 종료 코드 1로 끝났다 — 동일하게 유지.
+        # Because of set -e, the old sh ended with exit code 1 and no extra message when the patch failed — kept the same.
         sys.exit(1)
 
     print_success("build.gradle.kts configured!")
@@ -1052,26 +1052,26 @@ def create_fastfile(ctx, template_dir):
     fastfile_path = os.path.join(fastlane_dir, "Fastfile.playstore")
     template_fastfile = os.path.join(template_dir, "Fastfile.playstore.template")
 
-    # fastlane 디렉토리 생성
+    # Create the fastlane directory
     make_dirs(fastlane_dir)
 
-    # 기존 파일 백업
+    # Back up the existing file
     if path_exists(fastfile_path):
         print_warning(f"Backing up existing Fastfile.playstore: {fastfile_path}.bak")
         backup_file(fastfile_path)
 
-    # 템플릿 파일 존재 확인
+    # Check the template file exists
     if path_exists(template_fastfile):
-        # 템플릿에서 복사하고 플레이스홀더 치환
+        # Copy from the template and substitute placeholders
         write_text(
             fastfile_path,
             read_text(template_fastfile).replace("{{APPLICATION_ID}}", ctx["APPLICATION_ID"]),
         )
         print_info("Created from the template")
     else:
-        # 템플릿이 없으면 직접 생성
-        # 주의: 구 sh 헤레독은 \#{...}의 백슬래시를 그대로 출력했다 (bash 실측 확인) — 바이트 동일 유지.
-        # sh/ps1 분기: ps1 fallback은 package_name 없는 전혀 다른 내용이었다 — sh 내용 채택.
+        # No template: create it directly
+        # Note: the old sh heredoc printed the backslash in \#{...} as is (verified in bash) — kept byte-identical.
+        # sh/ps1 branch: the ps1 fallback was entirely different content without package_name — sh content adopted.
         write_text(fastfile_path, f"""# Fastfile for Play Store Internal Testing Deployment
 # Path: android/fastlane/Fastfile.playstore
 # Generated by Flutter Play Store CI/CD Helper
@@ -1135,12 +1135,12 @@ def create_gemfile(ctx):
 
     gemfile_path = os.path.join(ctx["PROJECT_PATH"], "android", "Gemfile")
 
-    # 기존 파일 백업
+    # Back up the existing file
     if path_exists(gemfile_path):
         print_warning(f"Backing up existing Gemfile: {gemfile_path}.bak")
         backup_file(gemfile_path)
 
-    # sh/ps1 분기: ps1에는 "# frozen_string_literal: true" 줄이 없었다 — sh 내용 채택.
+    # sh/ps1 branch: ps1 lacked the "# frozen_string_literal: true" line — sh content adopted.
     write_text(gemfile_path, """# frozen_string_literal: true
 
 source "https://rubygems.org"
@@ -1156,7 +1156,7 @@ gem "multi_json"
 
 
 def print_completion(ctx):
-    # sh/ps1 분기: ps1은 영어 요약 + base64 안내 등 다른 내용이었다 — sh 문구 채택.
+    # sh/ps1 branch: ps1 had different content (English summary + base64 notes, etc.) — sh text adopted.
     print("")
     print(f"{GREEN}╔════════════════════════════════════════════════════════════════╗{NC}")
     print(f"{GREEN}║          🎉 Android Play Store deployment setup complete! 🎉  ║{NC}")
@@ -1216,31 +1216,31 @@ def print_completion(ctx):
     print("      (Accounts created before that date and organization accounts are not affected.)")
 
 
-# >>> 공통 블록: 인자 계약 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
+# >>> 공통 블록: 인자 계약 (identical in testflight/playstore — compared by _shared/check-consistency.py)
 # ===================================================================
-# 공통 인자 계약 (명명 플래그 정본 + 구 위치인자 호환)
+# Shared argument contract (named flags canonical + old positional compatibility)
 # ===================================================================
-# 정본은 **명명 플래그**다. 위치인자가 10개까지 늘어나면서 순서 실수가
-# 잦았고(특히 비밀번호 자리), 무엇을 넘기는지 명령어만 보고 알 수 없었다.
+# **Named flags** are canonical. As positional arguments grew to 10, order mistakes
+# became common (especially the password slot), and the command alone did not show what was passed.
 #
-# 다만 구 위치인자 호출도 계속 받는다 — 마법사 HTML이 이미 생성해 사용자가
-# 복사해 둔 명령어가 위치인자 형식이기 때문이다. 둘 다 동작한다.
+# Old positional calls are still accepted — commands the wizard HTML already generated and users
+# copied are in positional form. Both work.
 #
-#   신형:  setup --project-path /p --bundle-id com.x.y --team-id ABC123 ...
-#   구형:  setup /p com.x.y ABC123 "Profile Name"
+#   new:  setup --project-path /p --bundle-id com.x.y --team-id ABC123 ...
+#   old:  setup /p com.x.y ABC123 "Profile Name"
 #
-# firebase 는 위치인자 호출 이력이 없어 argparse 로 같은 플래그만 받는다.
+# firebase has no history of positional calls, so it takes the same flags via argparse.
 # ===================================================================
 
 COMMON_FLAGS = ("--dry-run", "--non-interactive", "--no-backup")
 
 
 def normalize_params(params, order):
-    """명명 플래그와 위치인자를 함께 받아 (위치인자 리스트, 옵션 dict)로 정규화한다.
+    """Accept named flags and positional arguments together and normalize to (positional list, options dict).
 
-    order: 위치인자 순서에 대응하는 플래그 이름 튜플
-           예) ("project-path", "bundle-id", "team-id", "profile-name")
-    지원 형식: --key value / --key=value / 부울 플래그(COMMON_FLAGS)
+    order: tuple of flag names matching the positional order
+           e.g. ("project-path", "bundle-id", "team-id", "profile-name")
+    Supported forms: --key value / --key=value / boolean flags (COMMON_FLAGS)
     """
     named, positional = {}, []
     opts = {"dry_run": False, "non_interactive": False, "backup": True}
@@ -1276,10 +1276,10 @@ def normalize_params(params, order):
         i += 1
 
     if named:
-        # 명명 플래그가 하나라도 있으면 명명 방식으로 간주하고 order대로 재배열한다.
-        # 값이 빠진 자리는 빈 문자열로 채워 기존 검증 로직이 그대로 잡아내게 한다.
+        # If any named flag is present, treat it as named style and reorder by order.
+        # Missing slots are filled with empty strings so the existing validation catches them.
         merged = [named.get(k, "") for k in order]
-        # 위치인자를 섞어 쓴 경우(부분 마이그레이션) 앞에서부터 빈 자리를 메운다
+        # With mixed positional arguments (partial migration), fill empty slots from the front
         for value in positional:
             for idx in range(len(merged)):
                 if not merged[idx]:
@@ -1298,12 +1298,12 @@ def cmd_setup(params):
     print(f"{CYAN}╚════════════════════════════════════════════════════════════════╝{NC}")
     print("")
 
-    # 도움말 옵션 확인
+    # Check help options
     if params and params[0] in ("-h", "--help"):
         show_help()
         sys.exit(0)
 
-    # 명명 플래그 → 위치인자 정규화 (구/신 호출 형식 모두 지원)
+    # Normalize named flags → positional (both old and new call forms supported)
     global DRY_RUN, NO_BACKUP
     params, cli_opts = normalize_params(params, ("project-path", "application-id", "key-alias", "store-password", "key-password", "validity-days", "cert-cn", "cert-o", "cert-l", "cert-c", "deploy-mode", "production-rollout"))
     DRY_RUN = cli_opts["dry_run"]
@@ -1312,13 +1312,13 @@ def cmd_setup(params):
         print(f"{YELLOW}⚠️  dry-run mode — no files are created or changed.{NC}")
         print("")
 
-    # 매개변수 검증
+    # Validate parameters
     ctx = validate_params(params)
-    # 선택 플래그(#767): 배포 모드와 출시 비율을 코드 설정(store-deploy.json)에 기록한다.
-    # 구 위치인자 호출은 10개뿐이라 없으면 빈 값이고, 그러면 아무것도 쓰지 않는다.
+    # Optional flags (#767): record the deploy mode and rollout fraction in the code config (store-deploy.json).
+    # Old positional calls have only 10, so these are empty then, and nothing is written.
     ctx["DEPLOY_MODE"] = (params[10] if len(params) > 10 else "").strip()
     ctx["PRODUCTION_ROLLOUT"] = (params[11] if len(params) > 11 else "").strip()
-    validate_deploy_config(ctx)   # 부수효과(키스토어 생성 등)보다 먼저 — 오타는 여기서 멈춘다
+    validate_deploy_config(ctx)   # before side effects (keystore creation, etc.) — typos stop here
 
     print(f"{BLUE}Project path:{NC} {ctx['PROJECT_PATH']}")
     print(f"{BLUE}Application ID:{NC} {ctx['APPLICATION_ID']}")
@@ -1326,36 +1326,36 @@ def cmd_setup(params):
     print(f"{BLUE}Validity:{NC} {ctx['VALIDITY_DAYS']} days")
     print("")
 
-    # 템플릿 디렉토리 찾기
+    # Find the template directory
     template_dir = find_template_dir()
 
-    # 파일 생성 (순서 중요!)
-    update_gitignore(ctx)       # 1. 먼저 .gitignore 업데이트
-    commit_gitignore(ctx)       # 2. .gitignore 커밋 (Keystore 생성 전!)
-    create_keystore(ctx)        # 3. 이제 Keystore 생성 (안전)
+    # Create files (order matters!)
+    update_gitignore(ctx)       # 1. update .gitignore first
+    commit_gitignore(ctx)       # 2. commit .gitignore (before creating the keystore!)
+    create_keystore(ctx)        # 3. now create the keystore (safe)
     create_key_properties(ctx)
     patch_build_gradle_step(ctx)
     create_fastfile(ctx, template_dir)
     create_gemfile(ctx)
     create_store_deploy_config(ctx)
 
-    # 완료
+    # Done
     print_completion(ctx)
 
 
 # ===================================================================
-# apply 서브커맨드 (구 apply 스크립트 — sh canonical)
-# 프로젝트 루트(cwd)에서 실행한다. config_json_file 인자는 구 sh와 동일하게 받되 사용하지 않는다.
+# apply subcommand (old apply script — sh canonical)
+# Runs at the project root (cwd). The config_json_file argument is accepted like the old sh but unused.
 # ===================================================================
 
 
 def _sed_double_quoted_greedy(line):
-    """sed 's/.*"\\(.*\\)".*/\\1/' 대응 — 매치 없으면 원본 라인 그대로 반환."""
+    """Equivalent of sed 's/.*"\\(.*\\)".*/\\1/' — returns the original line unchanged when there is no match."""
     return re.sub(r'.*"(.*)".*', r'\1', line, count=1)
 
 
 def cmd_apply(params):
-    # params: [config_json_file] — 구 sh도 인자를 읽지 않았다 (usage에만 존재).
+    # params: [config_json_file] — the old sh did not read the argument either (only in usage).
     print(f"{BLUE}========================================={NC}")
     print(f"{BLUE} Flutter Play Store CI/CD Auto Apply{NC}")
     print(f"{BLUE}========================================={NC}")
@@ -1368,7 +1368,7 @@ def cmd_apply(params):
         sys.exit(1)
 
     # Create necessary directories
-    # sh/ps1 분기: ps1은 존재 시 "Exists:"를 출력했지만 sh는 항상 Created를 출력 — sh 채택.
+    # sh/ps1 branch: ps1 printed "Exists:" when present, but sh always printed Created — sh adopted.
     print(f"{YELLOW}[1/5] Creating directories...{NC}")
     make_dirs("android/app/keystore")
     make_dirs("android/fastlane")
@@ -1546,27 +1546,27 @@ keyPassword=YOUR_KEY_PASSWORD
 
 
 # ===================================================================
-# detect-app-id 서브커맨드 (구 감지 스크립트 — sh canonical, JSON 출력)
+# detect-app-id subcommand (old detect script — sh canonical, JSON output)
 # ===================================================================
 
 
 def _detect_android_env_posix():
-    """구 sh 로직: mac/linux SDK 탐색 + 쉘 rc 자동 추가."""
+    """Old sh logic: mac/linux SDK search + automatic shell rc addition."""
     env_status = "ok"
     env_message = ""
 
     home = os.path.expanduser("~")
     android_home = os.environ.get("ANDROID_HOME", "")
 
-    # ANDROID_HOME 확인
+    # Check ANDROID_HOME
     if not android_home:
-        # 기본 경로에서 Android SDK 찾기
+        # Find the Android SDK in default paths
         if os.path.isdir(os.path.join(home, "Library", "Android", "sdk")):
             android_home = os.path.join(home, "Library", "Android", "sdk")
         elif os.path.isdir(os.path.join(home, "Android", "Sdk")):
             android_home = os.path.join(home, "Android", "Sdk")
 
-    # ANDROID_HOME이 여전히 없으면 자동 설정 시도
+    # If ANDROID_HOME is still missing, try setting it automatically
     if not android_home or not os.path.isdir(android_home):
         possible_paths = [
             os.path.join(home, "Library", "Android", "sdk"),
@@ -1578,7 +1578,7 @@ def _detect_android_env_posix():
                 android_home = path
                 break
 
-    # ~/.zshrc에 ANDROID_HOME 추가 (없으면)
+    # Add ANDROID_HOME to ~/.zshrc (if missing)
     if android_home and os.path.isdir(android_home):
         shell_rc = ""
         if path_exists(os.path.join(home, ".zshrc")):
@@ -1589,7 +1589,7 @@ def _detect_android_env_posix():
             shell_rc = os.path.join(home, ".bash_profile")
 
         if shell_rc:
-            # ANDROID_HOME이 설정되어 있는지 확인
+            # Check that ANDROID_HOME is set
             if "export ANDROID_HOME" not in read_text(shell_rc):
                 append_text(
                     shell_rc,
@@ -1600,7 +1600,7 @@ def _detect_android_env_posix():
                 )
                 env_message = f"Added ANDROID_HOME to {shell_rc}. Reopen the terminal or run source {shell_rc}"
 
-        # 현재 세션에도 적용
+        # Apply to the current session too
         os.environ["ANDROID_HOME"] = android_home
         os.environ["PATH"] = (
             os.environ.get("PATH", "")
@@ -1615,8 +1615,8 @@ def _detect_android_env_posix():
 
 
 def _detect_android_env_windows():
-    """sh/ps1 분기: sh의 SDK 경로는 mac/linux 전용이라 Windows에서는 ps1 로직을 채택
-    (LOCALAPPDATA 경로 탐색 + 사용자 환경 변수 영구 등록)."""
+    """sh/ps1 branch: the sh SDK path is mac/linux only, so Windows adopts the ps1 logic
+    (LOCALAPPDATA path search + permanent user env var registration)."""
     env_status = "ok"
     env_message = ""
 
@@ -1636,10 +1636,10 @@ def _detect_android_env_windows():
                 break
 
     if android_home and os.path.isdir(android_home):
-        # 환경 변수 설정 (현재 세션)
+        # Set env vars (current session)
         os.environ["ANDROID_HOME"] = android_home
 
-        # 사용자 환경 변수에 추가 (영구적) - 없는 경우만 (ps1의 SetEnvironmentVariable 대응)
+        # Add to user env vars (permanent) - only if missing (equivalent of ps1's SetEnvironmentVariable)
         try:
             import winreg
 
@@ -1663,7 +1663,7 @@ def _detect_android_env_windows():
 
 
 def cmd_detect_app_id(project_path):
-    # 프로젝트 경로 확인
+    # Check the project path
     if not project_path:
         print('{"error": "Enter the project path", "env": "error"}')
         sys.exit(1)
@@ -1672,28 +1672,28 @@ def cmd_detect_app_id(project_path):
         print('{"error": "The project path does not exist", "env": "error"}')
         sys.exit(1)
 
-    # 1. Android SDK 환경 검사 및 자동 설정
+    # 1. Android SDK environment check and auto-setup
     if os.name == "nt":
         env_status, env_message = _detect_android_env_windows()
     else:
         env_status, env_message = _detect_android_env_posix()
 
-    # 2. keytool 명령어 확인
+    # 2. Check the keytool command
     keytool_status = "ok"
     if shutil.which("keytool") is None:
-        # Java가 설치되어 있는지 확인
+        # Check that Java is installed
         if shutil.which("java") is None:
             keytool_status = "error"
             env_status = "error"
             if os.name == "nt":
-                # sh/ps1 분기: sh 메시지의 brew 안내는 mac 전용이라 Windows는 ps1 문구 채택
+                # sh/ps1 branch: sh's brew hint is mac-only, so Windows adopts the ps1 text
                 env_message = "Java is not installed. Install a JDK."
             else:
                 env_message = "Java is not installed. Install a JDK: brew install openjdk"
         else:
             keytool_status = "warning"
 
-    # 3. Application ID 추출
+    # 3. Extract the Application ID
     if path_exists(os.path.join(project_path, "android", "app", "build.gradle.kts")):
         gradle_file = os.path.join(project_path, "android", "app", "build.gradle.kts")
         gradle_type = "kts"
@@ -1711,7 +1711,7 @@ def cmd_detect_app_id(project_path):
     if gradle_type == "kts":
         matched = [l for l in gradle_lines if re.search(r'applicationId\s*=', l)]
         if matched:
-            # sed 's/.*"\([^"]*\)".*/\1/' 대응 (매치 없으면 라인 그대로 — sh 동작 보존)
+            # Equivalent of sed 's/.*"\([^"]*\)".*/\1/' (line unchanged without a match — preserves sh behavior)
             application_id = re.sub(r'.*"([^"]*)".*', r'\1', matched[0], count=1)
 
     # Groovy (build.gradle)
@@ -1723,7 +1723,7 @@ def cmd_detect_app_id(project_path):
             line = re.sub(r".*'([^']*)'.*", r'\1', line, count=1)
             application_id = line
 
-    # namespace에서 추출 시도
+    # Try extracting from namespace
     if not application_id:
         matched = [l for l in gradle_lines if re.search(r'namespace\s*=', l)]
         if matched:
@@ -1733,7 +1733,7 @@ def cmd_detect_app_id(project_path):
         print('{"error": "applicationId not found", "env": "error"}')
         sys.exit(1)
 
-    # 4. 결과 출력 (JSON) — 구 sh와 동일한 수동 포맷 유지
+    # 4. Print the result (JSON) — same manual format as the old sh
     if env_message:
         print(f'{{"applicationId": "{application_id}", "env": "{env_status}", "keytool": "{keytool_status}", "message": "{env_message}", "gradleType": "{gradle_type}"}}')
     else:
@@ -1741,7 +1741,7 @@ def cmd_detect_app_id(project_path):
 
 
 # ===================================================================
-# 엔트리포인트
+# Entry point
 # ===================================================================
 
 
@@ -1752,7 +1752,7 @@ def build_parser():
     )
     sub = parser.add_subparsers(dest="command")
 
-    # setup은 구 sh처럼 -h/--help와 위치 인자를 자체 처리한다 (argparse 개입 차단)
+    # setup handles -h/--help and positional arguments itself like the old sh (blocks argparse)
     p_setup = sub.add_parser(
         "setup", add_help=False,
         help="Initial Play Store deployment setup (keystore, key.properties, build.gradle.kts, Fastfile, Gemfile)",
@@ -1775,8 +1775,8 @@ def build_parser():
 
 
 def main():
-    # 서브커맨드 뒤의 인자는 구 sh처럼 원문 그대로 각 커맨드가 처리한다.
-    # (argparse REMAINDER는 "-h" 선행 인자를 삼키지 못해 수동 디스패치를 쓴다)
+    # Arguments after the subcommand are handled as is by each command, like the old sh.
+    # (argparse REMAINDER cannot swallow a leading "-h", so dispatch is manual)
     parser = build_parser()
     argv = sys.argv[1:]
 

@@ -1,38 +1,38 @@
 # ===================================================================
 # PROJECT-COMMON-VERSION-CONTROL.yaml
-# 버전 자동 관리 워크플로우 v2.1
+# Automatic version management workflow v2.1
 # ===================================================================
 #
-# [안전망] main(프로덕션)에 릴리스 PR을 거치지 않은 직접 push가 발생했을 때만
-# 버전을 자동으로 증가시키고 모든 관련 파일을 동기화합니다.
-# 정상 릴리스(develop→main PR)의 버전 증가는 RELEASE-CHANGELOG이 머지 전에 수행하며,
-# 그 머지 push는 version.yml 변경을 포함하므로 이 워크플로우는 가드에 의해 건너뜁니다.
+# [Safety net] Only when a direct push to main (production) skips the release PR,
+# bumps the version automatically and syncs every related file.
+# For normal releases (develop->main PR), RELEASE-CHANGELOG bumps before merging,
+# and that merge push includes a version.yml change, so the guard skips this workflow.
 #
-# [semver] options.semver_auto 가 켜져 있으면(키가 없으면 켜진 것으로 본다) 개발 브랜치 유무와 상관없이
-# push 구간 커밋 제목으로 major/minor/patch 를 정한다 — 릴리스 PR 경로(RELEASE-CHANGELOG)와 같은 규칙이다 (#805, #815).
-# semver_auto: false 로 명시했을 때만 항상 patch.
+# [semver] With options.semver_auto on (a missing key counts as on), regardless of a development branch,
+# major/minor/patch is decided from commit subjects in the push range — same rule as the release PR path (RELEASE-CHANGELOG) (#805, #815).
+# Always patch only when semver_auto: false is set explicitly.
 #
 # ===================================================================
-# 주요 개선사항:
-# - 버전 동기화 자동화 (version.yml ↔ 프로젝트 파일)
-# - 에러 처리 강화
-# - 로깅 개선
-# - 스크립트 안정성 향상
-# - [v2.1] Race Condition 방지를 위한 pull-rebase + retry 로직 추가
+# Main improvements:
+# - Automatic version sync (version.yml <-> project files)
+# - Stronger error handling
+# - Better logging
+# - More robust scripts
+# - [v2.1] pull-rebase + retry logic to prevent race conditions
 #
-# 지원 프로젝트 타입:
+# Supported project types:
 # - spring: build.gradle
 # - flutter: pubspec.yaml
 # - react/node: package.json
 # - react-native: Info.plist + build.gradle
 # - react-native-expo: app.json
 # - python: pyproject.toml
-# - basic: version.yml만 관리
+# - basic: manages version.yml only
 # ===================================================================
 
 name: PROJECT-VERSION-CONTROL
 
-# 동시 실행 방지 (https://github.com/Cassiiopeia/projectops/issues/63)
+# Prevent concurrent runs (https://github.com/Cassiiopeia/projectops/issues/63)
 concurrency:
   group: version-increment
   cancel-in-progress: false
@@ -43,7 +43,7 @@ on:
     paths-ignore:
       - 'CHANGELOG.md'
       - 'CHANGELOG.json'
-      - 'version.yml'  # 무한 루프 방지
+      - 'version.yml'  # prevents infinite loops
   workflow_dispatch:
 
 permissions:
@@ -66,21 +66,21 @@ jobs:
         id: release_guard
         run: |
           BEFORE="${{ github.event.before }}"
-          # 브랜치 신규 생성(zero SHA)·강제 push 등으로 BEFORE가 없으면 직전 커밋 1개만 검사
+          # Without BEFORE (new branch with zero SHA, force push, etc.), check only the previous commit
           if [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
             RANGE="HEAD^..HEAD"
           else
             RANGE="$BEFORE..HEAD"
           fi
-          # 파일 이름이 아니라 `version:` 값으로 판단한다 (#806).
-          # version.yml 에는 설정(options.*, metadata.template.*)도 있어서, 설정만 바꾼 push 나
-          # projectops 업데이트 PR 까지 릴리스로 오인해 버전·태그가 빠졌다.
+          # Decided by the `version:` value, not the file name (#806).
+          # version.yml also holds settings (options.*, metadata.template.*), so pushes changing only settings
+          # and projectops update PRs were mistaken for releases and lost their version/tag.
           RELEASE_MERGE=false
           if git diff --name-only $RANGE 2>/dev/null | grep -qx "version.yml"; then
             BASE="${RANGE%%..*}"
             OLD_V=$(git show "$BASE:version.yml" 2>/dev/null | grep -m1 -E '^version:' || true)
             NEW_V=$(grep -m1 -E '^version:' version.yml 2>/dev/null || true)
-            # 이전에 version.yml 이 없었다면(최초 통합) 기존처럼 건너뛴다 — 처음 정한 버전을 바로 올리지 않는다.
+            # If version.yml did not exist before (first integration), skip as before — the initial version is not bumped right away.
             if [ -z "$OLD_V" ] || [ "$OLD_V" != "$NEW_V" ]; then
               RELEASE_MERGE=true
             else
@@ -126,7 +126,7 @@ jobs:
           if [ "$SEMVER_AUTO" != "true" ]; then
             echo "ℹ️ semver_auto is off, using patch"
           else
-            # 개발 브랜치 유무와 상관없이 push 구간 커밋 제목으로 판정한다 (RELEASE-CHANGELOG 와 같은 규칙).
+            # Decide from commit subjects in the push range regardless of a development branch (same rule as RELEASE-CHANGELOG).
             git log --pretty=%s $RANGE > "$RUNNER_TEMP/commits.txt"
             BUMP=$(python3 .github/scripts/changelog_manager.py classify-bump --commits-file "$RUNNER_TEMP/commits.txt" | tail -n 1)
             echo "ℹ️ semver_auto: deciding from $(wc -l < "$RUNNER_TEMP/commits.txt") push range commit lines"
@@ -154,9 +154,9 @@ jobs:
         if: steps.release_guard.outputs.is_release_merge != 'true'
         run: |
           if [ -f "version.yml" ]; then
-            # 멀티타입 — project_types 배열을 csv로 추출 (v4.1.0 SSOT: 단수 project_type 키는 읽지 않음)
-            PROJECT_TYPES=$(python3 .github/scripts/version_manager.py get-types 2>/dev/null || true)  # #851 블록 리스트도 읽는다
-            # primary 타입 = 배열 첫 항목
+            # Multi-type — extract the project_types array as csv (v4.1.0 SSOT: the singular project_type key is not read)
+            PROJECT_TYPES=$(python3 .github/scripts/version_manager.py get-types 2>/dev/null || true)  # #851 also reads block lists
+            # primary type = first array item
             PROJECT_TYPE=$(echo "$PROJECT_TYPES" | cut -d',' -f1)
             [ -z "$PROJECT_TYPE" ] && PROJECT_TYPE="unknown"
             [ -z "$PROJECT_TYPES" ] && PROJECT_TYPES="$PROJECT_TYPE"
@@ -176,23 +176,23 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-          # 모든 변경사항 스테이징
+          # Stage all changes
           git add -A
 
-          # 변경사항이 있는지 확인
+          # Check for changes
           if git diff --staged --quiet; then
             echo "ℹ️ No changes (already in sync)."
           else
             echo "📤 Committing changes..."
             REPO_NAME=$(basename "${{ github.repository }}")
             NEW_VERSION="${{ steps.version.outputs.new_version }}"
-            # 커밋 메시지는 version.yml 의 언어로 만든다 (#787). 카탈로그가 없으면 기존 한국어 문구.
+            # The commit message uses the version.yml language (#787). Without the catalog, the old Korean text.
             COMMIT_TITLE=$(python3 .github/scripts/i18n/messages.py get release.commit.version_control --var repo="$REPO_NAME" --var version="$NEW_VERSION" 2>/dev/null) \
               || COMMIT_TITLE="$REPO_NAME 버전 정보 관리: chore: 버전 $NEW_VERSION"
             COMMIT_MSG="$COMMIT_TITLE [skip ci]"
 
             if git commit -m "$COMMIT_MSG"; then
-              # Race Condition 방지: pull-rebase 후 push (최대 3회 재시도)
+              # Prevent race conditions: pull-rebase, then push (up to 3 retries)
               MAX_RETRIES=3
               RETRY_COUNT=0
               PUSH_SUCCESS=false
@@ -208,7 +208,7 @@ jobs:
                 else
                   echo "⚠️ Push failed, syncing remote changes..."
 
-                  # remote에서 최신 변경사항 가져와서 rebase
+                  # Fetch the latest from remote and rebase
                   if git pull --rebase origin ${{ github.event.repository.default_branch || 'main' }}; then
                     echo "✅ Rebase succeeded, retrying push..."
                   else
@@ -234,7 +234,7 @@ jobs:
         run: |
           NEW_VERSION="${{ steps.version.outputs.new_version }}"
 
-          # 버전이 비면 이름이 "v" 뿐인 태그가 올라가고 성공으로 보고된다 (#545).
+          # An empty version pushes a tag named just "v" and reports success (#545).
           if [ -z "$NEW_VERSION" ]; then
             echo "::error::Release version is empty, stopping without creating a tag."
             exit 1
@@ -248,7 +248,7 @@ jobs:
 
           echo "🏷️ Creating Git tag: $TAG_NAME"
 
-          # 기존 태그 확인
+          # Check for an existing tag
           if git tag -l | grep -q "^$TAG_NAME$"; then
             echo "⚠️ Tag $TAG_NAME already exists, skipping."
           else
@@ -260,8 +260,8 @@ jobs:
             fi
           fi
 
-          # 실제로 원격에 올라갔는지 본다 — push 가 조용히 실패하면
-          # 전부 초록불인데 태그만 없는 상태가 된다 (#545 의 실사고).
+          # Check it actually reached the remote — if push fails silently,
+          # everything is green but the tag is missing (the real incident in #545).
           if ! git ls-remote --tags origin "refs/tags/$TAG_NAME" | grep -q "$TAG_NAME"; then
             echo "::error::Tag $TAG_NAME is not on the remote, the release is missing."
             exit 1
@@ -284,7 +284,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          # 실패한 경우에만 에러 표시
+          # Show an error only on failure
           if [ "${{ job.status }}" != "success" ]; then
             echo "❌ Some steps failed. Check the log."
           else

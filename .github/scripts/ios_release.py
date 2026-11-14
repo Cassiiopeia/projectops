@@ -2,22 +2,22 @@
 """
 ios_release.py
 
-iOS 테스트 빌드와 릴리스의 버전 판단과 Apple 업로드 오류 해석 (이슈 #643).
-Apple 오류 해석의 유일한 위치다. 새 오류 코드는 여기 패턴과 test_ios_release.py의
-실제 문구 샘플을 함께 추가한다.
+Version decisions for iOS test builds and releases, and Apple upload error interpretation (issue #643).
+The only place Apple errors are interpreted. Add new error codes here together with a
+real message sample in test_ios_release.py.
 
-버전 닫힘 규칙: 앱 버전(train)은 승인되는 순간 닫히고, 이후 개발자 반려로도 다시 열리지 않는다.
-닫힌 버전으로 올리면 12~18분 빌드 뒤 업로드에서 거부되므로, 테스트 빌드는 빌드 전에
-다음 패치 버전으로 바꾸고 릴리스는 즉시 실패시킨다.
+Version closing rule: an app version (train) closes the moment it is approved and does not reopen even after developer rejection.
+Uploading to a closed version is rejected after a 12-18 minute build, so test builds switch to
+the next patch version before building and releases fail immediately.
 
-  - 커맨드: precheck-version | classify-error | archive-upload
-  - 출력: 언제나 JSON (ok / 데이터 / summary / next), 로그와 ::error:: 는 stderr
-  - 사유(reason, reason_line)는 PR 댓글에 그대로 실리므로 레포 언어(카탈로그 ios_release.*), 로그는 영문 (#769)
-  - ASC 조회가 안 되는 환경(시크릿 누락, 권한 부족)은 version.yml 버전으로 진행한다
+  - Commands: precheck-version | classify-error | archive-upload
+  - Output: always JSON (ok / data / summary / next); logs and ::error:: go to stderr
+  - Reasons (reason, reason_line) go into PR comments as is, so they use the repo language (catalog ios_release.*); logs are English (#769)
+  - Environments where ASC lookup fails (missing secrets, insufficient permissions) proceed with the version.yml version
 
-사용 예:
+Usage:
   python3 ios_release.py precheck-version --mode test --version 2.1.2 --bundle-id com.a.b
-  python3 ios_release.py precheck-version --mode test --version 2.1.2 --bundle-id com.a.b --base-version 2.4.0   # 오래된 브랜치 경고 (Android 테스트 빌드도 같은 명령, #1006)
+  python3 ios_release.py precheck-version --mode test --version 2.1.2 --bundle-id com.a.b --base-version 2.4.0   # stale branch warning (Android test builds use the same command, #1006)
   python3 ios_release.py classify-error --log build/upload_attempt_1.log
 """
 
@@ -41,15 +41,15 @@ import asc_client  # noqa: E402
 import build_number  # noqa: E402
 from i18n.messages import t as message  # noqa: E402
 
-# 대기는 모듈 수준으로 두어 테스트에서 0초로 바꾼다
+# Waits live at module level so tests can set them to 0 seconds
 sleep = time.sleep
 
-# 승인 이후 상태. DEVELOPER_REJECTED는 승인 전 철회와 승인 후 반려를 구분할 수 없어 열림으로 본다.
+# States after approval. DEVELOPER_REJECTED cannot tell pre-approval withdrawal from post-approval rejection, so it counts as open.
 CLOSED_VERSION_STATES = {
     "ACCEPTED", "PENDING_DEVELOPER_RELEASE", "PENDING_APPLE_RELEASE",
     "PROCESSING_FOR_DISTRIBUTION", "READY_FOR_DISTRIBUTION", "REPLACED_WITH_NEW_VERSION",
 }
-# 구형 appStoreState 값. 신형과 같은 의미에 판매 관련 상태가 더해진다.
+# Old appStoreState values. Same meaning as the new ones plus sales-related states.
 CLOSED_STORE_STATES = CLOSED_VERSION_STATES | {
     "READY_FOR_SALE", "PROCESSING_FOR_APP_STORE", "PREORDER_READY_FOR_SALE",
     "DEVELOPER_REMOVED_FROM_SALE", "REMOVED_FROM_SALE",
@@ -58,9 +58,9 @@ CLOSED_STORE_STATES = CLOSED_VERSION_STATES | {
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
-# ── 버전 ──────────────────────────────────────────────────────────────
+# ── Version ──────────────────────────────────────────────────────────────
 def parse_version(s: str | None) -> tuple[int, int, int] | None:
-    """정수 1~3개를 점으로 이은 문자열만 인정한다. 부족한 자리는 0, 그 외는 None."""
+    """Accept only 1-3 integers joined by dots. Missing parts become 0; anything else is None."""
     if not s:
         return None
     parts = str(s).strip().split(".")
@@ -75,7 +75,7 @@ def format_version(t: tuple[int, int, int]) -> str:
 
 
 def next_patch(s: str) -> str:
-    """다음 패치 버전. 파싱할 수 없는 문자열이면 ValueError."""
+    """Next patch version. ValueError for an unparsable string."""
     t = parse_version(s)
     if t is None:
         raise ValueError(message("ios_release.version_unparsable", value=repr(s)))
@@ -83,7 +83,7 @@ def next_patch(s: str) -> str:
 
 
 def closed_max(versions: list[dict]) -> str | None:
-    """닫힌 버전 중 최대. 신형과 구형 상태 필드를 모두 보고, 파싱할 수 없는 버전은 제외한다."""
+    """Highest closed version. Checks both new and old state fields and skips unparsable versions."""
     best: tuple[int, int, int] | None = None
     for v in versions:
         closed = (v.get("appVersionState") in CLOSED_VERSION_STATES
@@ -95,13 +95,13 @@ def closed_max(versions: list[dict]) -> str | None:
 
 
 def decide_version(current: str, closed: str | None, mode: str) -> dict:
-    """사용할 버전 결정. 릴리스는 닫힌 버전이면 바꾸지 않고 실패(ok False)로 알린다."""
+    """Decide the version to use. For a release, a closed version is not changed but reported as a failure (ok False)."""
     cur_t, closed_t = parse_version(current), parse_version(closed)
     base = {"ok": True, "version": current, "changed": False, "closed_max": closed}
     if closed_t is None:
         return {**base, "reason": message("ios_release.reason.no_closed")}
     if cur_t is None:
-        # 판단할 수 없는 버전 문자열은 손대지 않는다 (사후 복구가 받쳐준다)
+        # Leave version strings we cannot judge untouched (post-failure recovery covers it)
         return {**base, "reason": message("ios_release.reason.unparsable", current=repr(current))}
     if cur_t > closed_t:
         return {**base, "reason": message("ios_release.reason.open", current=current, closed=closed)}
@@ -109,7 +109,7 @@ def decide_version(current: str, closed: str | None, mode: str) -> dict:
         return {**base, "ok": False,
                 "reason": message("ios_release.reason.release_closed", current=current)}
     nxt = next_patch(closed)
-    # 숫자 뒤 조사(는/은, 로/으로)는 받침에 따라 달라지므로 조사 없는 문구로 쓴다
+    # Korean particles after a number (는/은, 로/으로) depend on the final consonant, so the text avoids particles
     why = (message("ios_release.reason.closed_same", current=current) if cur_t == closed_t
            else message("ios_release.reason.closed_lower", current=current, closed=closed))
     return {"ok": True, "version": nxt, "changed": True, "closed_max": closed,
@@ -117,21 +117,21 @@ def decide_version(current: str, closed: str | None, mode: str) -> dict:
 
 
 def stale_branch_reason(current: str, base: str | None) -> str | None:
-    """브랜치 버전이 기본 브랜치보다 낮으면 병합 권장 사유, 아니면 None (비교 불가면 조용히 None)."""
+    """Merge-recommendation reason if the branch version is lower than the default branch's, else None (None quietly if not comparable)."""
     cur_t, base_t = parse_version(current), parse_version(base)
     if cur_t is None or base_t is None or cur_t >= base_t:
         return None
     return message("ios_release.stale_branch", current=current, base=base)
 
 
-# ── 업로드 오류 분류 ──────────────────────────────────────────────────
+# ── Upload error classification ──────────────────────────────────────────────────
 def _code(n: str) -> str:
-    """Apple 오류 코드는 문맥이 있을 때만 일치시킨다 (#694).
+    """Match Apple error codes only with context (#694).
 
-    실제 로그에서 코드가 나오는 형태: `ITMS-90189`, altool 의 `(90186)`,
-    `STATE_ERROR.VALIDATION_ERROR.90061` 처럼 대문자 코드 뒤 `.숫자`.
-    숫자만 보면 빌드 번호, 바이트 수, 소요 ms 가 같은 값일 때 오분류되고,
-    그 결과가 재시도와 버전 전환을 정한다.
+    Forms the code takes in real logs: `ITMS-90189`, altool's `(90186)`,
+    `.digits` after an uppercase code as in `STATE_ERROR.VALIDATION_ERROR.90061`.
+    Matching bare digits misclassifies when a build number, byte count or ms duration has the same value,
+    and the result decides retries and version switching.
     """
     return rf"(?:ITMS-{n}(?!\d)|(?<=[A-Z]\.){n}(?!\d)|\({n}\))"
 
@@ -143,7 +143,7 @@ _TOO_LOW_NUMBERS = [
     re.compile(r"bundle version must be higher than the previously uploaded version: '(?P<n>\d+)'", re.I),
 ]
 
-# 종류별 패턴. 앞에 있는 종류가 우선한다 (train_closed > too_low > duplicate)
+# Patterns per kind. Earlier kinds win (train_closed > too_low > duplicate)
 _KIND_PATTERNS: list[tuple[str, list[re.Pattern]]] = [
     ("train_closed", [re.compile(_code("90186")), _TRAIN_VERSION,
                       re.compile(_code("90062")), _APPROVED_VERSION,
@@ -168,7 +168,7 @@ def _clean_line(line: str) -> str:
 
 
 def classify_upload_error(log: str) -> dict:
-    """fastlane 업로드 로그를 분류한다. 색상 코드는 먼저 걷어낸다."""
+    """Classify the fastlane upload log. Color codes are stripped first."""
     text = _ANSI.sub("", log or "")
     kind, hit_patterns = "other", []
     for k, pats in _KIND_PATTERNS:
@@ -202,7 +202,7 @@ def _write_github_output(pairs: dict) -> None:
         return
     with open(path, "a", encoding="utf-8") as f:
         for k, v in pairs.items():
-            # 값에 개행이 있으면 GITHUB_OUTPUT 형식이 깨져 뒤 줄이 다른 키로 해석된다
+            # A newline in a value breaks the GITHUB_OUTPUT format and the next line is read as another key
             f.write(f"{k}={_one_line(v)}\n")
 
 
@@ -211,7 +211,7 @@ def _emit(payload: dict) -> None:
 
 
 def _stale_outputs(args: argparse.Namespace) -> dict:
-    """오래된 브랜치 경고 출력 (stale, stale_reason) — ASC 조회 성공 여부와 무관하게 항상 같이 낸다."""
+    """Stale branch warning outputs (stale, stale_reason) — always emitted together, whether or not the ASC lookup succeeded."""
     reason = stale_branch_reason(args.version, args.base_version)
     return {"stale": str(reason is not None).lower(), "stale_reason": reason or ""}
 
@@ -264,23 +264,23 @@ def cmd_classify(args: argparse.Namespace) -> int:
 STATE_NAME = "ios_release_state.json"
 _REEXIST_CHECKS = 3
 _REEXIST_INTERVAL = 20
-# 본체 앱과 그 안에 중첩된 확장/워치/App Clip 번들의 Info.plist
+# Info.plist of the main app and the extension/watch/App Clip bundles nested in it
 _BUNDLE_PLIST = re.compile(
     r"^Payload/[^/]+\.app(?:/(?:PlugIns|Watch|AppClips)/[^/]+\.(?:appex|app))*/Info\.plist$")
 _SECRET_ENV = re.compile(r"KEY|TOKEN|SECRET|PASSWORD", re.I)
 
 
 class _Fail(Exception):
-    """archive-upload 실패. 메시지가 그대로 reason_line이 된다."""
+    """archive-upload failure. The message becomes reason_line as is."""
 
 
 def _one_line(v) -> str:
-    """개행과 색상 코드를 걷어 한 줄로 만든다."""
+    """Strip newlines and color codes into one line."""
     return " ".join(_ANSI.sub("", str(v)).split())
 
 
 def _scrub(text: str) -> str:
-    """환경변수에 들어 있는 비밀값이 로그나 사유에 섞여 나가지 않게 가린다."""
+    """Mask secrets held in environment variables so they never leak into logs or reasons."""
     for k, v in os.environ.items():
         if _SECRET_ENV.search(k) and len(v) >= 8:
             text = text.replace(v, "***")
@@ -292,8 +292,8 @@ def _reason(text: str) -> str:
 
 
 def run_cmd(cmd: list[str], cwd: str, env: dict) -> tuple[int, str]:
-    """명령을 실행하며 출력을 stderr로 실시간 흘리고, 합친 출력을 돌려준다.
-    stdout은 JSON 한 줄 전용이라 자식 출력은 절대 stdout으로 보내지 않는다."""
+    """Run a command streaming its output to stderr live, and return the combined output.
+    stdout is reserved for the single JSON line, so child output never goes to stdout."""
     try:
         proc = subprocess.Popen(cmd, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, encoding="utf-8", errors="replace", bufsize=1)
@@ -309,7 +309,7 @@ def run_cmd(cmd: list[str], cwd: str, env: dict) -> tuple[int, str]:
 
 
 def write_runtime_export_options(src: Path, dst: Path) -> Path:
-    """원본은 건드리지 않고 사본에만 번호 자동 관리를 끈다 (Xcode가 export 중 번호를 바꾸지 못하게)."""
+    """Turn off automatic numbering only in a copy, leaving the original (so Xcode cannot change numbers during export)."""
     with open(src, "rb") as f:
         data = plistlib.load(f)
     data["manageAppVersionAndBuildNumber"] = False
@@ -320,7 +320,7 @@ def write_runtime_export_options(src: Path, dst: Path) -> Path:
 
 
 def verify_ipa(ipa: Path, version: str, build: int) -> list[str]:
-    """IPA 안 모든 앱/확장 번들의 버전과 빌드 번호가 기대값과 같은지 본다. 비면 통과."""
+    """Check that every app/extension bundle in the IPA has the expected version and build number. Empty passes."""
     problems: list[str] = []
     try:
         zf = zipfile.ZipFile(ipa)
@@ -345,14 +345,14 @@ def verify_ipa(ipa: Path, version: str, build: int) -> list[str]:
 
 
 def _last_error_line(out: str) -> str:
-    """실패 사유로 보일 한 줄. 진짜 원인은 `error: ...` 줄이고 마지막의 `** ARCHIVE FAILED **`
-    배너는 원인이 아니라 결과라, 배너는 error 줄이 없을 때만 쓴다 (E2E에서 배너만 보이던 결함)."""
+    """One line to show as the failure reason. The real cause is the `error: ...` line; the trailing `** ARCHIVE FAILED **`
+    banner is a result, not a cause, so the banner is used only when there is no error line (E2E showed only the banner)."""
     lines = [l for l in _ANSI.sub("", out or "").splitlines() if l.strip()]
     errors = [l for l in lines if "error:" in l]
     if errors:
-        # 앞의 파일 경로는 떼고 원인 문장만 남긴다
+        # Drop the leading file path and keep only the cause sentence
         return _clean_line(errors[-1].split("error:", 1)[1])
-    # run_cmd 실패 문구는 언어별 (ko 실행 실패 / en failed to run)
+    # run_cmd failure text depends on language (ko 실행 실패 / en failed to run)
     hits = [l for l in lines if re.search(r"\*\* .* FAILED|실행 실패|failed to run", l)]
     return _clean_line((hits or lines or [message("ios_release.no_output")])[-1])
 
@@ -369,7 +369,7 @@ def _int_env(name: str, default: int | None) -> int | None:
 
 
 class _Cfg:
-    """환경변수 입력. 빈 문자열은 없음으로 취급한다 (Actions는 없는 시크릿을 빈 값으로 넣는다)."""
+    """Environment variable input. An empty string counts as missing (Actions passes missing secrets as empty values)."""
 
     def __init__(self) -> None:
         e = os.environ
@@ -393,7 +393,7 @@ class _Cfg:
 
 
 def _asc_context(cfg: _Cfg) -> tuple[str, str]:
-    """(토큰, 앱 ID). 하나라도 못 구하면 _Fail이 아니라 AscError로 알린다."""
+    """(token, app ID). If either cannot be obtained, raise AscError rather than _Fail."""
     token = asc_client.token_from_env()
     if not token:
         raise asc_client.AscError(message("ios_release.asc.no_credentials"))
@@ -406,7 +406,7 @@ def _asc_context(cfg: _Cfg) -> tuple[str, str]:
 
 
 def _asc_floor(cfg: _Cfg) -> int | None:
-    """ASC 최근 빌드 번호 + 1. 조회가 안 되면 하한 없이 진행한다."""
+    """Latest ASC build number + 1. If the lookup fails, proceed without a floor."""
     try:
         token, app_id = _asc_context(cfg)
         latest = asc_client.recent_max_build(app_id, token)
@@ -417,11 +417,11 @@ def _asc_floor(cfg: _Cfg) -> int | None:
 
 
 def _archive_and_export(cfg: _Cfg, version: str, number: int) -> Path:
-    """아카이브, 런타임 ExportOptions로 export, IPA 번호 검증. 통과한 IPA 경로를 돌려준다."""
+    """Archive, export with runtime ExportOptions, verify IPA numbers. Returns the path of the IPA that passed."""
     env = dict(os.environ)
     ios = str(cfg.ios_dir)
     build_dir = cfg.ios_dir / "build"
-    # 재시도 시 이전 산출물이 섞이지 않게 비운다
+    # Clear previous output so it does not mix in on retry
     shutil.rmtree(build_dir / "Runner.xcarchive", ignore_errors=True)
     shutil.rmtree(build_dir / "ipa", ignore_errors=True)
 
@@ -430,7 +430,7 @@ def _archive_and_export(cfg: _Cfg, version: str, number: int) -> Path:
         "-archivePath", "build/Runner.xcarchive", "-destination", "generic/platform=iOS", "archive",
         "CODE_SIGN_STYLE=Manual", f"PROVISIONING_PROFILE_SPECIFIER={cfg.profile}",
         "CODE_SIGN_IDENTITY=Apple Distribution",
-        # 확장 타깃이 어느 변수를 쓰든 맞도록 네 개를 함께 넘긴다
+        # Pass all four so it works whichever variable the extension targets use
         f"FLUTTER_BUILD_NUMBER={number}", f"CURRENT_PROJECT_VERSION={number}",
         f"FLUTTER_BUILD_NAME={version}", f"MARKETING_VERSION={version}",
     ], ios, env)
@@ -482,21 +482,21 @@ def _load_state(cfg: _Cfg) -> dict:
 
 
 def _confirm_not_uploaded(cfg: _Cfg, number: int, reason: str) -> None:
-    """재업로드 직전 ASC에 이번 번호가 이미 있는지 확인한다. 못 믿겠으면 재시도하지 않는다."""
+    """Before re-uploading, check whether ASC already has this number. Do not retry if unsure."""
     try:
         token, app_id = _asc_context(cfg)
         for i in range(_REEXIST_CHECKS):
             if asc_client.build_exists(app_id, number, token):
-                # 업로드 후 단계 실패일 수도, 같은 초에 번호가 겹친 동시 빌드일 수도 있어 둘을 구분하지 않고 멈춘다
+                # It may be a post-upload step failure or a concurrent build with the same number in the same second; stop without telling them apart
                 raise _Fail(_reason(message("ios_release.fail.already_uploaded", reason=reason)))
             if i < _REEXIST_CHECKS - 1:
-                sleep(_REEXIST_INTERVAL)  # 방금 올린 빌드는 목록 반영이 늦을 수 있다
+                sleep(_REEXIST_INTERVAL)  # a build just uploaded may show up in the list late
     except asc_client.AscError as e:
         raise _Fail(_reason(message("ios_release.fail.reupload_unknown", error=e, reason=reason)))
 
 
 def _next_closed_version(cfg: _Cfg, closed_version: str | None, reason: str) -> str:
-    """train이 닫혔을 때 다음 패치 버전. 버전을 모르면(90478) ASC로 구한다."""
+    """Next patch version when the train is closed. If the version is unknown (90478), get it from ASC."""
     if not closed_version:
         try:
             token, app_id = _asc_context(cfg)
@@ -530,7 +530,7 @@ def _phase_upload(cfg: _Cfg, info: dict) -> None:
         env = dict(os.environ)
         env.update(IPA_PATH=str(ipa), BUILD_NUMBER=str(number), APP_VERSION=version)
         if cfg.mode == "test":
-            # 테스트 빌드가 심사 제출까지 가지 않도록 이미 다른 값이 들어와 있어도 못 박는다 (#601)
+            # Pin it even if another value is already set, so a test build never goes as far as review submission (#601)
             env["DEPLOY_MODE"] = "store_only"
         rc, out = run_cmd(["bundle", "exec", "fastlane", "deploy"], str(cfg.ios_dir), env)
         try:
@@ -561,7 +561,7 @@ def _phase_upload(cfg: _Cfg, info: dict) -> None:
         attempt += 1
         info.update(build_number=number, version=version, attempts=attempt,
                     built_at_utc=build_number.describe(number))
-        # Flutter 빌드는 다시 하지 않고 아카이브부터 다시 한다
+        # Do not rebuild Flutter; restart from the archive
         ipa = _archive_and_export(cfg, version, number)
         info["ipa_path"] = str(ipa)
         _save_state(cfg, version, number, attempt, ipa)
@@ -595,7 +595,7 @@ def _status_fail(reason: str) -> int:
 
 
 def _status_markdown(bundle_id: str, versions: list[dict], closed: str | None, recent: int | None) -> str:
-    """실행 요약용 표. 값은 버전 문자열과 상태 이름뿐이라 비밀값이 섞일 수 없다."""
+    """Table for the run summary. Values are only version strings and state names, so no secrets can mix in."""
     lines = [f"## App Store Connect status ({bundle_id})", "",
              f"- Highest closed version: `{closed or 'none'}`",
              f"- Latest uploaded build number: `{recent if recent is not None else 'unavailable'}`", "",
@@ -607,8 +607,8 @@ def _status_markdown(bundle_id: str, versions: list[dict], closed: str | None, r
 
 
 def cmd_asc_status(args: argparse.Namespace) -> int:
-    """앱 버전 상태와 최근 빌드 번호를 조회만 한다 (#651). 무언가를 올리거나 바꾸지 않는다.
-    사전 점검과 달리 조회가 목적이라 조회가 안 되면 폴백하지 않고 실패로 알린다."""
+    """Only look up the app version state and latest build number (#651). Uploads or changes nothing.
+    Unlike the precheck, the purpose is the lookup, so a failed lookup is reported as failure instead of falling back."""
     token = asc_client.token_from_env()
     if not token:
         return _status_fail("No App Store Connect credentials (check the APP_STORE_CONNECT_API_KEY_ID, ISSUER_ID and API_KEY_BASE64 secrets)")
@@ -633,7 +633,7 @@ def cmd_asc_status(args: argparse.Namespace) -> int:
                      or r.get("appStoreState") in CLOSED_STORE_STATES)
         versions.append({"version": r.get("version"), "appVersionState": r.get("appVersionState"),
                          "appStoreState": r.get("appStoreState"), "closed": is_closed, "_key": t or (0, 0, 0)})
-    versions.sort(key=lambda v: v["_key"], reverse=True)  # 최신 버전이 위로
+    versions.sort(key=lambda v: v["_key"], reverse=True)  # newest version on top
     for v in versions:
         del v["_key"]
 

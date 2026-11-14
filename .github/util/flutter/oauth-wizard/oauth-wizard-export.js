@@ -1,7 +1,7 @@
 /**
- * OAuth 마법사 내보내기 (분할 파일 — 함수 선언만)
- * JSON·TXT: Secret 값만 / ZIP: Secret + 모든 산출물 + README
- * 파일 이름 접두사는 .gitignore 패턴(oauth-wizard.py)과 같다 — 실수로 커밋되지 않게
+ * OAuth wizard export (split file — function declarations only)
+ * JSON/TXT: Secret values only / ZIP: Secrets + all outputs + README
+ * The file name prefix matches the .gitignore pattern (oauth-wizard.py) — so it is not committed by mistake
  */
 
 /* eslint-disable no-unused-vars */
@@ -30,7 +30,7 @@ function downloadAsTxt() {
     showToast(translate('toast.downloaded'));
 }
 
-/** 선택에 맞는 산출물 > {ZIP 안 경로: 내용} (두 언어에서 같은 내용) */
+/** Outputs for the selection > {path inside ZIP: content} (same content in both languages) */
 function collectSnippetFiles() {
     const files = {};
     if (state.providers.kakao) {

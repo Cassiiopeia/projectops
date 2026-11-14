@@ -1,24 +1,24 @@
 # ===================================================================
-# Flutter Android Play Store 내부 테스트 배포 워크플로우
+# Flutter Android Play Store internal testing deploy workflow
 # ===================================================================
 #
-# main 브랜치 푸시 시 Android AAB를 빌드하고
-# Play Store 내부 테스트에 자동 배포합니다.
+# On a push to main, builds the Android AAB and
+# deploys it to Play Store internal testing automatically.
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# ENV_FILE 또는 ENV: .env 파일 내용 (둘 중 하나, ENV_FILE 우선)
-# RELEASE_KEYSTORE_BASE64: 서명용 keystore (base64)
-# RELEASE_KEYSTORE_PASSWORD: keystore 비밀번호
+# ENV_FILE or ENV: contents of the .env file (either; ENV_FILE first)
+# RELEASE_KEYSTORE_BASE64: signing keystore (base64)
+# RELEASE_KEYSTORE_PASSWORD: keystore password
 # RELEASE_KEY_ALIAS: key alias
-# RELEASE_KEY_PASSWORD: key 비밀번호
+# RELEASE_KEY_PASSWORD: key password
 # GOOGLE_SERVICES_JSON: Firebase google-services.json
-# GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: Play Console 서비스 계정 (base64)
+# GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: Play Console service account (base64)
 # ===================================================================
 
 name: PROJECT-FLUTTER-ANDROID-PLAYSTORE-INTERNAL-CICD
-# 수동 실행은 고른 모드를 실행 이름에 남긴다 — push 배포가 "최근에 프로덕션을 제출했는지" 이 이름으로 판단한다 (#816).
+# A manual run records the chosen mode in the run name — push deploys use this name to tell "whether production was submitted recently" (#816).
 run-name: ${{ github.event_name == 'workflow_dispatch' && format('PLAYSTORE deploy_mode={0} closed_testing={1}', inputs.deploy_mode, inputs.promote_to_closed_testing) || github.event.head_commit.message }}
 
 on:
@@ -35,7 +35,7 @@ on:
           - store_only
           - store_prepare
           - store_submit
-      # 출시 방식을 이 실행만 바꾼다. default = 레포 변수 STORE_RELEASE_MODE → auto (#1125)
+      # Changes the release mode for this run only. default = repo variable STORE_RELEASE_MODE → auto (#1125)
       store_release_mode:
         description: "Release after review (store_submit only): auto = goes live when approved / manual = production stays a draft and a person starts the rollout in Play Console. default = repo variable STORE_RELEASE_MODE, then auto"
         required: false
@@ -45,7 +45,7 @@ on:
           - default
           - auto
           - manual
-      # default = 수동 실행에서도 store-deploy.json → 레포 변수 → 기본값을 따른다 (#1005)
+      # default = manual runs also follow store-deploy.json → repo variable → default (#1005)
       promote_to_closed_testing:
         description: "Also upload to the closed testing (alpha) track, needed for production access on personal accounts (12 testers, 14 days). default = store-deploy.json, then repo variable ANDROID_PROMOTE_TO_CLOSED_TESTING, then true"
         required: false
@@ -64,7 +64,7 @@ on:
           - default
           - "true"
           - "false"
-      # 심사 중 보호(review-guard)를 이 실행만 끈다 — 승급은 진행 중인 프로덕션 심사를 다시 시작시킨다 (#1005)
+      # Turns off in-review protection (review-guard) for this run only — promotion restarts the production review in progress (#1005)
       force_promote_during_review:
         description: "Promote to closed/open testing even if a manual production submission (store_submit) ran recently. This restarts a production review in progress"
         required: false
@@ -77,73 +77,73 @@ on:
         type: string
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
-  # 최근 수동 프로덕션 제출을 찾는다 (store_deploy_config.py review-guard, #816)
+  # Find recent manual production submissions (store_deploy_config.py review-guard, #816)
   actions: read
 
 # ============================================
-# 🔧 프로젝트별 설정 (아래 값들을 수정하세요)
+# 🔧 Per-project settings (edit the values below)
 # ============================================
 env:
-  # 프로젝트 이름
+  # Project name
   APP_ARTIFACT_NAME: "__APP_ARTIFACT_NAME__"  # @wizard ask:@repo
-  # Flutter/Java 버전
-  # 레포 변수 FLUTTER_VERSION·JAVA_VERSION 이 있으면 아래 값보다 먼저 쓴다 (템플릿 업데이트에도 유지, #758)
+  # Flutter/Java versions
+  # Repo variables FLUTTER_VERSION/JAVA_VERSION take precedence over the values below (kept across template updates, #758)
   FLUTTER_VERSION: "3.38.9"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:17
   PROJECT_TYPE: "flutter"
-  # Flutter 루트 경로(레포 루트 기준). 단일레포면 ".", 모노레포면 "app" 등.
-  # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
-  # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
+  # Flutter root path (relative to repo root). "." for a single repo, "app" etc. for a monorepo.
+  # At integration, the integrator's flutter-root resolver substitutes it once with project_paths.flutter.
+  # FLUTTER_ROOT is the official Flutter SDK path variable and would clash — hence APP_ROOT
   APP_ROOT: "."  # @wizard auto:flutter-root
-  # ⚠️ push(자동 배포)는 프로덕션 단계를 타지 않는다 (#816). 아래 값이 store_prepare·store_submit 이어도
-  #    push 에서는 store_only 로 낮춘다 — Google Play 는 심사 중에 새 변경이 오면 그 심사에 합쳐 다시 심사해서,
-  #    배포마다 제출하면 심사가 끝나지 않는다(실측). 프로덕션은 Actions 에서 수동 실행(deploy_mode)으로 올린다.
-  #    push 마다 자동으로 하려면 .github/config/store-deploy.json 에 "android": {"auto_submit_on_push": true}.
-  # 배포 모드 — main 배포 시 Play 프로덕션 단계를 어디까지 갈지
-  #   store_only    : 내부 테스트 업로드까지 (기본)
-  #   store_prepare : + 프로덕션에 draft 로 올림 (Play Console 에서 '출시 시작'은 사람이 누른다)
-  #   store_submit  : + 프로덕션 심사 자동 등록
-  # 값은 .github/config/store-deploy.json(코드, git 에 남는다) → 레포 변수 ANDROID_DEPLOY_MODE 순으로 읽는다 (#767).
-  # 아래 식은 파일이 없을 때의 값이고, 파일이 있으면 Resolve store deploy config 단계가 덮어쓴다.
-  # 레포 변수는 Settings → Secrets and variables → Actions → Variables 에서 바꾼다.
-  # 코드가 아니라 레포 변수에 두는 이유: 급할 때 배포 없이 자동 제출을 바로 끌 수 있어야 한다 (값을 store_only 로).
-  # 프로덕션 액세스가 없는 동안은 비워 둔다(store_only) — 프로덕션 단계가 매번 실패한다.
-  # 수동 실행(workflow_dispatch)에서 고른 값이 있으면 그것이 우선한다. 중간 트랙은 아래 PROMOTE_* 스위치가 맡는다.
+  # ⚠️ push (automatic deploy) skips production stages (#816). Even if the value below is store_prepare/store_submit,
+  #    push drops it to store_only — Google Play merges new changes arriving during review into that review and reviews again,
+  #    so submitting on every deploy means review never ends (measured). Production goes up via a manual run (deploy_mode) in Actions.
+  #    To do it automatically on every push, set "android": {"auto_submit_on_push": true} in .github/config/store-deploy.json.
+  # Deploy mode — how far into Play production stages a main deploy goes
+  #   store_only    : up to the internal testing upload (default)
+  #   store_prepare : + uploads to production as a draft (a person presses 'Start rollout' in Play Console)
+  #   store_submit  : + submits for production review automatically
+  # Read in order: .github/config/store-deploy.json (code, kept in git) → repo variable ANDROID_DEPLOY_MODE (#767).
+  # The expression below is the value when the file is missing; with the file, the Resolve store deploy config step overrides it.
+  # Change repo variables in Settings → Secrets and variables → Actions → Variables.
+  # Why a repo variable and not code: in an emergency, automatic submission must be switchable off at once without a deploy (set store_only).
+  # Leave it empty (store_only) while you have no production access — production stages would fail every time.
+  # A value chosen in a manual run (workflow_dispatch) wins. Intermediate tracks are handled by the PROMOTE_* switches below.
   DEPLOY_MODE: ${{ github.event.inputs.deploy_mode || vars.ANDROID_DEPLOY_MODE || 'store_only' }}
-  # 스토어 '새로운 기능(What's new)' 문구 덮어쓰기 — Play Console 의 '출시 노트' 칸.
-  #   값이 있으면 → 버전과 상관없이 매번 이 문구를 그대로 넣는다.
-  #   ""(빈 문자열)이면 → 덮어쓰지 않고 CHANGELOG.json 의 해당 버전 항목을 넣는다.
-  # 이 칸은 사용자뿐 아니라 심사자도 본다. 변경 내용을 자세히 적고 싶지 않으면 한 줄 고정 문구를 쓴다.
-  # 출시 노트는 내부 테스트에 올릴 때 한 번 정해지고 비공개 테스트·프로덕션으로 승급할 때 그대로 따라간다.
-  # 그래서 이 값은 모든 트랙(내부·비공개·공개·프로덕션)에 같이 적용된다.
-  # 수동 실행 입력 whats_new_override 에 값을 주면 그 실행만 그 문구가 우선한다.
-  # iOS(PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml)에도 같은 이름의 설정이 있다. 두 곳을 함께 바꾼다.
+  # Override for the store 'What's new' text — the 'Release notes' field in Play Console.
+  #   With a value → that text is used every time regardless of version.
+  #   ""(empty string) → no override; the matching version entry from CHANGELOG.json is used.
+  # Reviewers see this field as well as users. If you do not want to detail changes, use a fixed one-line text.
+  # Release notes are set once on upload to internal testing and carry over when promoted to closed testing/production.
+  # So this value applies to every track (internal, closed, open, production).
+  # Giving a value to the manual run input whats_new_override makes that text win for that run only.
+  # iOS (PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml) has a setting with the same name. Change both together.
   STORE_WHATS_NEW_OVERRIDE: ""
-  # 트랙 승급 스위치 — DEPLOY_MODE 와 독립이다 (#618).
-  # 비공개 테스트는 2023-11-13 이후 개인 계정이 프로덕션 액세스를 받는 조건이라,
-  # 내부 테스트만 돌리면 그 조건이 영영 차지 않는다.
-  # 비공개 테스트는 기본으로 켠다 (#816) — push 마다 테스터가 최신판을 받는다. 끄려면 레포 변수
-  # ANDROID_PROMOTE_TO_CLOSED_TESTING=false 또는 store-deploy.json "promote_closed_testing": false.
-  # 수동 프로덕션 제출 뒤 review_cooldown_hours(기본 48) 동안은 push 의 승급을 건너뛴다 — 아래 review-guard 단계.
-  # 수동 실행 입력이 default 면 레포 변수로 넘어간다 (push 는 입력이 비어 같은 경로) (#1005).
-  # 수동 실행도 심사 중이면 승급을 건너뛴다 — 강행은 force_promote_during_review 입력.
-  # 프로덕션 액세스를 받은 뒤에는 비공개 승급이 필요 없으니 끄는 것을 권한다 (매 승급이 심사 제출이다).
+  # Track promotion switches — independent of DEPLOY_MODE (#618).
+  # Since 2023-11-13, closed testing is the condition for personal accounts to get production access,
+  # so running only internal testing never meets that condition.
+  # Closed testing is on by default (#816) — testers get the latest build on every push. To turn it off, set the repo variable
+  # ANDROID_PROMOTE_TO_CLOSED_TESTING=false or store-deploy.json "promote_closed_testing": false.
+  # After a manual production submission, push promotions are skipped for review_cooldown_hours (default 48) — the review-guard step below.
+  # If the manual run input is default it falls through to the repo variable (push has an empty input, same path) (#1005).
+  # Manual runs also skip promotion during review — force it with the force_promote_during_review input.
+  # Once you have production access, closed promotion is unnecessary, so turning it off is recommended (every promotion is a review submission).
   PROMOTE_TO_CLOSED_TESTING: ${{ (github.event.inputs.promote_to_closed_testing != 'default' && github.event.inputs.promote_to_closed_testing) || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'true' }}
   PROMOTE_TO_OPEN_TESTING: ${{ (github.event.inputs.promote_to_open_testing != 'default' && github.event.inputs.promote_to_open_testing) || vars.ANDROID_PROMOTE_TO_OPEN_TESTING || 'false' }}
-  # 트랙 이름은 콘솔에서 바꿀 수 있으므로 값으로 둔다 (박아두면 조용히 안 올라간다).
+  # Track names can be renamed in the console, so they are values (hard-coding them makes uploads silently fail).
   CLOSED_TESTING_TRACK: ${{ vars.ANDROID_CLOSED_TESTING_TRACK || 'alpha' }}
   OPEN_TESTING_TRACK: ${{ vars.ANDROID_OPEN_TESTING_TRACK || 'beta' }}
-  # 프로덕션 출시 비율 (0 초과 1.0 이하). 1.0 = 심사 통과 즉시 전체 출시(되돌릴 수 없음), 0.1 = 10% 단계적 출시.
-  # 단계적 출시 후 비율을 올리는 일은 자동화되지 않는다 — Play Console 프로덕션 > 출시 관리에서 사람이 올리고,
-  # 문제가 생기면 같은 화면에서 출시를 중단한다. 레포 변수 ANDROID_PRODUCTION_ROLLOUT 로 바꾼다.
+  # Production rollout fraction (above 0, up to 1.0). 1.0 = full release as soon as review passes (irreversible), 0.1 = 10% staged rollout.
+  # Raising the fraction after a staged rollout is not automated — a person raises it in Play Console Production > Release management,
+  # and halts the rollout on the same screen if something goes wrong. Change it with the repo variable ANDROID_PRODUCTION_ROLLOUT.
   PRODUCTION_ROLLOUT: ${{ vars.ANDROID_PRODUCTION_ROLLOUT || '1.0' }}
-  # 출시 방식 (#1125) — store_submit 에서 심사 통과 뒤 출시를 누가 하나. 우선순위: 수동 실행 입력 > 레포 변수 > auto
-  #   auto   : 프로덕션 completed 승급 → 심사 통과 즉시 출시 (기본, 지금 동작)
-  #   manual : 프로덕션 draft 승급 → 사람이 콘솔에서 '출시 시작' (Play API 에 "심사만 보내고 보류" 상태가 없음)
-  # 레포 변수 STORE_RELEASE_MODE 는 iOS(PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml)와 같이 쓴다.
+  # Release mode (#1125) — who releases after review passes in store_submit. Priority: manual run input > repo variable > auto
+  #   auto   : production promoted as completed → released as soon as review passes (default, current behavior)
+  #   manual : production promoted as draft → a person presses 'Start rollout' in the console (the Play API has no "review only, hold" state)
+  # The repo variable STORE_RELEASE_MODE is shared with iOS (PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml).
   STORE_RELEASE_MODE: ${{ (github.event.inputs.store_release_mode != 'default' && github.event.inputs.store_release_mode) || vars.STORE_RELEASE_MODE || 'auto' }}
 
 jobs:
@@ -153,7 +153,7 @@ jobs:
     defaults:
       run:
         working-directory: ${{ env.APP_ROOT }}
-    # CHANGELOG 워크플로우가 성공한 경우에만 실행
+    # Run only when the CHANGELOG workflow succeeded
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
 
     outputs:
@@ -162,12 +162,12 @@ jobs:
       project_type: ${{ steps.current_version.outputs.project_type }}
 
     steps:
-      # 사전 점검 (#666)
-      # 신규 설치 직후에는 배포용 Secret 이 없는 것이 정상이다. 그대로 두면 빌드를 끝까지 돌린 뒤
-      # 서명, 업로드 단계에서 원인을 짚기 어려운 에러로 실패하므로, 빌드 전에 무엇이 없는지 알린다.
-      # Secret 이 모두 있으면 이 step 은 그대로 통과하며 이후 동작은 달라지지 않는다.
+      # Preflight (#666)
+      # Right after a fresh install, missing deploy Secrets are normal. Left alone, the build runs to the end and then
+      # fails at signing or upload with an error whose cause is hard to see, so report what is missing before the build.
+      # With every Secret present this step passes unchanged and later behavior does not change.
       - name: Preflight check of deploy secrets
-        working-directory: ${{ github.workspace }}   # 체크아웃 전이라 APP_ROOT 가 아직 없을 수 있다
+        working-directory: ${{ github.workspace }}   # before checkout APP_ROOT may not exist yet
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
         run: |
@@ -178,7 +178,7 @@ jobs:
               fail=1
             fi
           done
-          # 출시 방식 오타는 빌드 전에 멈춘다 — 조용히 auto 로 가면 원치 않는 자동 출시가 된다 (#1125)
+          # A typo in the release mode stops before the build — silently going auto would cause an unwanted automatic release (#1125)
           case "$STORE_RELEASE_MODE" in
             auto|manual) ;;
             *)
@@ -198,14 +198,14 @@ jobs:
       - name: Pull latest changes
         run: git pull origin main
 
-      # 사전 점검 (#666) — 배포 job 이 복사할 Fastfile 이 저장소에 있는지 미리 확인
+      # Preflight (#666) — check in advance that the Fastfile the deploy job copies exists in the repo
       - name: Preflight check of Fastfile.playstore
         run: |
           if [ ! -f android/fastlane/Fastfile.playstore ]; then
             echo "::error title=Deploy preflight::android/fastlane/Fastfile.playstore is missing. Run .github/util/flutter/playstore-wizard to create it, then commit it."
             exit 1
           fi
-          # manual 인데 옛 Fastfile 이 값을 안 읽으면 심사 통과 즉시 출시된다 (되돌릴 수 없음) — 경고가 아니라 멈춘다 (#1125)
+          # With manual, an old Fastfile that ignores the value releases as soon as review passes (irreversible) — stop instead of warning (#1125)
           if [ "$STORE_RELEASE_MODE" = "manual" ] && ! grep -q "STORE_RELEASE_MODE" android/fastlane/Fastfile.playstore; then
             echo "::error title=Deploy preflight::Release mode is manual, but android/fastlane/Fastfile.playstore never reads STORE_RELEASE_MODE, so production would still go live when approved. Regenerate it with .github/util/flutter/playstore-wizard, or set the release mode back to auto."
             exit 1
@@ -234,54 +234,54 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # 버전 관리 스크립트 권한 설정
+      # Make the version script executable
       - name: Make version scripts executable
-        working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts)은 APP_ROOT가 아닌 레포 루트 기준
+        working-directory: ${{ github.workspace }}   # repo-root assets (.github/scripts) are relative to the repo root, not APP_ROOT
         run: |
           chmod +x ./.github/scripts/version_manager.sh
           chmod +x ./.github/scripts/changelog_manager.py
 
-      # version_manager.sh를 사용하여 현재 버전 정보 가져오기
+      # Get the current version info with version_manager.sh
       - name: Read current version
         id: current_version
-        working-directory: ${{ github.workspace }}   # version_manager.sh가 레포 루트 version.yml을 읽어야 함
+        working-directory: ${{ github.workspace }}   # version_manager.sh must read the repo-root version.yml
         run: |
-          # VERSION 가져오기 (x.y.z 형식)
+          # Get VERSION (x.y.z format)
           VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
 
-          # VERSION_CODE 가져오기 (version.yml에서 관리되는 단순 증가 번호)
+          # Get VERSION_CODE (a simple increasing number managed in version.yml)
           VERSION_CODE=$(./.github/scripts/version_manager.sh get-code)
 
-          # 결과 출력
+          # Print the result
           echo "✅ VERSION: $VERSION"
           echo "✅ VERSION_CODE: $VERSION_CODE"
           echo "🔧 Project type: ${{ env.PROJECT_TYPE }}"
 
-          # GitHub outputs 설정
+          # Set GitHub outputs
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
           echo "project_type=${{ env.PROJECT_TYPE }}" >> $GITHUB_OUTPUT
 
-          # 환경변수로도 설정 (스크립트에서 사용)
+          # Also set as env vars (used by scripts)
           echo "VERSION=$VERSION" >> $GITHUB_ENV
           echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
           echo "TODAY=$(date '+%Y-%m-%d')" >> $GITHUB_ENV
           echo "TIMESTAMP=$(date '+%Y-%m-%d %H:%M:%S')" >> $GITHUB_ENV
           echo "PROJECT_TYPE=${{ env.PROJECT_TYPE }}" >> $GITHUB_ENV
 
-      # CHANGELOG.json에서 릴리즈 노트 추출 - changelog_manager.py 사용
+      # Extract release notes from CHANGELOG.json - uses changelog_manager.py
       - name: Generate release notes
         id: release_notes
-        working-directory: ${{ github.workspace }}   # CHANGELOG.json·changelog_manager.py·final_release_notes.txt(upload 짝)는 레포 루트 기준
+        working-directory: ${{ github.workspace }}   # CHANGELOG.json, changelog_manager.py, final_release_notes.txt (upload pair) are relative to the repo root
         run: |
           VERSION="${{ steps.current_version.outputs.version }}"
 
           if [ -f "CHANGELOG.json" ]; then
             echo "📄 Extracting v$VERSION release notes from CHANGELOG.json..."
-            # CHANGELOG.md 생성
+            # Generate CHANGELOG.md
             python3 ./.github/scripts/changelog_manager.py generate-md
 
-            # changelog_manager.py export로 릴리즈 노트 추출
+            # Extract release notes with changelog_manager.py export
             python3 ./.github/scripts/changelog_manager.py export --version $VERSION --output final_release_notes.txt
 
             if [ -s final_release_notes.txt ]; then
@@ -294,7 +294,7 @@ jobs:
             else
               echo "❌ Could not extract release notes"
               echo "RELEASE_NOTES_FOUND=false" >> $GITHUB_ENV
-              # ko-KR 스토어 출시 노트로 올라가는 문구라 레포 언어가 아니라 스토어 언어를 따른다 (#769)
+              # This text goes into the ko-KR store release notes, so it follows the store language, not the repo language (#769)
               echo "v$VERSION 업데이트" > final_release_notes.txt
             fi
           else
@@ -303,7 +303,7 @@ jobs:
             echo "v$VERSION 업데이트" > final_release_notes.txt
           fi
 
-      # 릴리즈 노트를 아티팩트로 업로드
+      # Upload release notes as an artifact
       - name: Upload release notes
         uses: actions/upload-artifact@v4
         with:
@@ -311,13 +311,13 @@ jobs:
           path: final_release_notes.txt
           retention-days: 1
 
-      # 프로젝트 파일들을 아티팩트로 업로드
-      # .env는 보안상 아티팩트에 포함하지 않고, 각 job에서 secrets로 재생성
+      # Upload project files as an artifact
+      # .env is not in the artifact for security; each job recreates it from secrets
       - name: Upload project files
         uses: actions/upload-artifact@v4
         with:
           name: project-files
-          # 아티팩트 액션은 defaults를 따르지 않고 항상 레포 루트 기준이라 APP_ROOT prefix가 필요
+          # Artifact actions ignore defaults and always use the repo root, so the APP_ROOT prefix is needed
           path: |
             ${{ env.APP_ROOT }}/pubspec.yaml
             ${{ env.APP_ROOT }}/lib/
@@ -342,14 +342,14 @@ jobs:
       - name: Pull latest changes
         run: git pull origin main
 
-      # 프로젝트 파일들 다운로드
+      # Download project files
       - name: Download project files
         uses: actions/download-artifact@v4
         with:
           name: project-files
           path: .
 
-      # .env 파일 생성 (보안을 위해 아티팩트가 아닌 시크릿에서 생성)
+      # Create the .env file (from secrets, not the artifact, for security)
       - name: Create .env file
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -357,12 +357,12 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > .env
           echo "✅ .env file created (size: $(wc -c < .env) bytes)"
 
-      # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
+      # Build profile — runtime (.env) and compile time (dart-define) decided in one place (#603)
       #
-      # 배포 빌드는 개발 키가 켜진 채로 나가면 안 된다. 이 스텝이 .env 를 정리하고
-      # 양쪽 층이 모두 꺼진 것을 확인한다 — 한쪽이라도 뚫려 있으면 빌드를 세운다.
+      # A release build must never ship with dev keys on. This step cleans .env and
+      # confirms both layers are off — if either leaks, it stops the build.
       #
-      # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
+      # Repos without the config (.github/config/build-profile.json) are left untouched.
       - name: Apply build profile (release)
         id: build_profile
         run: |
@@ -370,7 +370,7 @@ jobs:
             release .env \
             --config "${{ github.workspace }}/.github/config/build-profile.json"
 
-      # Release Keystore 설정
+      # Set up the release keystore
       - name: Setup Release Keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -380,7 +380,7 @@ jobs:
           echo "✅ Release keystore created"
           ls -la android/app/keystore/
 
-      # key.properties 생성 (Release 서명 정보)
+      # Create key.properties (release signing info)
       - name: Create key.properties
         env:
           STORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
@@ -393,10 +393,10 @@ jobs:
           keyAlias=$KEY_ALIAS
           keyPassword=$KEY_PASSWORD
           EOF
-          # 서명 비밀번호가 담긴 파일 — 내용 출력 금지 (#785)
+          # File holding signing passwords — never print its contents (#785)
           echo "✅ key.properties created"
 
-      # Secret 이 있을 때만 쓴다 — 없으면 커밋된 파일을 그대로 두고, 필요한데 없으면 원인을 ::error 로 (#785)
+      # Written only when the Secret exists — otherwise the committed file stays, and if needed but missing the cause goes to ::error (#785)
       - name: Create Google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -434,20 +434,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # Android build.gradle.kts 수정 (release 서명 설정)
+      # Edit Android build.gradle.kts (release signing config)
       - name: Configure Android build for release
         run: |
-          # build.gradle.kts에 release 서명 설정이 없으면 추가
+          # Add the release signing config to build.gradle.kts if missing
           if ! grep -q "signingConfigs" android/app/build.gradle.kts; then
             echo "⚠️ build.gradle.kts needs a signing config"
-            # 서명 설정은 이미 되어있다고 가정 (수동으로 미리 설정해야 함)
+            # Assumes signing is already configured (must be set up by hand beforehand)
           fi
           echo "✅ Android build settings checked"
 
-      # pubspec.yaml은 x.y.z 형식 그대로 유지
-      # Flutter build 명령어의 --build-name, --build-number 플래그가 pubspec.yaml을 오버라이드함
+      # pubspec.yaml keeps the x.y.z format
+      # The --build-name and --build-number flags of flutter build override pubspec.yaml
 
-      # Flutter build appbundle (AAB 생성)
+      # Flutter build appbundle (creates the AAB)
       - name: Build Android App Bundle (AAB)
         run: |
           VERSION_NAME="${{ needs.prepare-build.outputs.version }}"
@@ -459,31 +459,31 @@ jobs:
           echo "🎯 Build version: $VERSION_NAME"
           echo "🎯 Build code: $VERSION_CODE"
 
-          # 입력 검증
+          # Validate input
           if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
             echo "❌ VERSION_NAME or VERSION_CODE is empty!"
             exit 1
           fi
           
-          # Flutter 환경 정보 출력
+          # Print Flutter environment info
           echo "🔍 Flutter environment:"
           flutter --version
           flutter doctor -v | head -20
           
-          # 빌드 디렉토리 정리
+          # Clean the build directory
           echo "🧹 Cleaning previous build outputs..."
           rm -rf build/app/outputs/bundle/release/
           mkdir -p build/app/outputs/bundle/release/
           
-          # Flutter clean 및 pub get
+          # Flutter clean and pub get
           echo "🔄 Running flutter clean and reinstalling dependencies..."
           flutter clean
           flutter pub get
 
-          # local.properties에 버전 정보 추가 (Flutter 플래그가 무시되는 문제 해결)
+          # Add version info to local.properties (works around Flutter flags being ignored)
           echo "🔧 Writing version info to local.properties..."
 
-          # 기존 local.properties가 있으면 버전 정보 제거
+          # Remove version info from an existing local.properties
           if [ -f "android/local.properties" ]; then
             grep -v "flutter.versionName\|flutter.versionCode" android/local.properties > android/local.properties.tmp || true
             mv android/local.properties.tmp android/local.properties
@@ -491,27 +491,27 @@ jobs:
             touch android/local.properties
           fi
 
-          # 버전 정보 추가
+          # Add version info
           echo "flutter.versionName=$VERSION_NAME" >> android/local.properties
           echo "flutter.versionCode=$VERSION_CODE" >> android/local.properties
 
           echo "✅ local.properties updated"
           echo "📋 Version info: VERSION_NAME=$VERSION_NAME, VERSION_CODE=$VERSION_CODE"
 
-          # Gradle 성능 최적화 설정
+          # Gradle performance settings
           export GRADLE_OPTS="-Dorg.gradle.daemon=false -Dorg.gradle.parallel=true -Dorg.gradle.workers.max=4"
           export JAVA_OPTS="-Xmx4g"
           echo "✅ Gradle optimization settings applied"
 
-          # Flutter build 명령어에 버전 정보 전달
-          # --build-name과 --build-number 플래그가 pubspec.yaml의 version을 오버라이드함
-          # pubspec.yaml은 x.y.z 형식 유지, VERSION_CODE는 version.yml에서 자동 관리
+          # Pass version info to flutter build
+          # The --build-name and --build-number flags override version in pubspec.yaml
+          # pubspec.yaml keeps x.y.z; VERSION_CODE is managed automatically in version.yml
           echo "🔨 Running flutter build..."
           echo "📋 Command: flutter build appbundle --release --build-name=$VERSION_NAME --build-number=$VERSION_CODE --verbose"
           echo "⏱️ Build start time: $(date '+%Y-%m-%d %H:%M:%S')"
 
           BUILD_FLAGS="${{ steps.build_profile.outputs.build_flags }}"
-          # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
+          # shellcheck disable=SC2086  # flags must split on spaces
           flutter build appbundle \
             --release \
             --build-name="$VERSION_NAME" \
@@ -529,11 +529,11 @@ jobs:
           
           echo "✅ flutter build succeeded!"
           
-          # 빌드 결과 확인
+          # Check the build output
           echo "🔍 Checking build output:"
           ls -lah build/app/outputs/bundle/release/
           
-          # AAB 파일 존재 확인
+          # Check that the AAB file exists
           AAB_FILE="build/app/outputs/bundle/release/app-release.aab"
           if [ ! -f "$AAB_FILE" ]; then
             echo "❌ The AAB file was not created!"
@@ -548,7 +548,7 @@ jobs:
           echo "📱 AAB file size: $(du -h "$AAB_FILE" | cut -f1)"
           echo "📋 AAB file info: $(ls -lah "$AAB_FILE")"
           
-          # bundletool 다운로드 및 설치
+          # Download and install bundletool
           echo "📦 Downloading bundletool..."
           BUNDLETOOL_VERSION="1.15.6"
           BUNDLETOOL_URL="https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
@@ -570,17 +570,17 @@ jobs:
           echo "✅ bundletool downloaded"
           echo "📋 bundletool file size: $(du -h bundletool.jar | cut -f1)"
           
-          # Java 환경 확인
+          # Check the Java environment
           echo "🔍 Java environment:"
           java -version
           
-          # AAB 파일 내부의 실제 버전 정보 확인
-          # Flutter CLI 플래그로 전달한 VERSION_CODE가 제대로 적용되었는지 검증
+          # Check the actual version info inside the AAB
+          # Verify the VERSION_CODE passed via Flutter CLI flags was applied
           echo "=========================================="
           echo "🔍 Verifying the version inside the AAB file"
           echo "=========================================="
 
-          # AndroidManifest.xml에서 버전 정보 추출
+          # Extract version info from AndroidManifest.xml
           echo "📋 Extracting the actual version from the AAB..."
           echo "📋 Command to run: java -jar bundletool.jar dump manifest --bundle='$AAB_FILE'"
           
@@ -593,7 +593,7 @@ jobs:
           if [ $MANIFEST_EXIT_CODE -eq 0 ]; then
             echo "✅ Manifest extracted"
             
-            # 실제 버전 코드와 버전 이름 추출
+            # Extract the actual version code and version name
             ACTUAL_VERSION_CODE=$(echo "$MANIFEST_OUTPUT" | grep -o 'android:versionCode="[0-9]*"' | grep -o '[0-9]*' | head -1)
             ACTUAL_VERSION_NAME=$(echo "$MANIFEST_OUTPUT" | grep -o 'android:versionName="[^"]*"' | sed 's/android:versionName="//;s/"//' | head -1)
             
@@ -603,7 +603,7 @@ jobs:
             echo "  Expected VERSION_NAME: '$VERSION_NAME'"
             echo "  Actual VERSION_NAME: '$ACTUAL_VERSION_NAME'"
             
-            # VERSION_CODE 검증 - version.yml에서 관리되는 단순 증가 번호
+            # Verify VERSION_CODE - a simple increasing number managed in version.yml
             if [ -z "$ACTUAL_VERSION_CODE" ]; then
               echo "❌ Fatal: could not extract VERSION_CODE from the AAB!"
               echo "🔍 Full manifest:"
@@ -628,7 +628,7 @@ jobs:
               echo "✅ VERSION_CODE verified: $ACTUAL_VERSION_CODE"
             fi
             
-            # 버전 이름도 확인 (경고만)
+            # Check the version name too (warning only)
             if [ -z "$ACTUAL_VERSION_NAME" ]; then
               echo "⚠️ Warning: could not extract VERSION_NAME from the AAB"
             elif [ "$ACTUAL_VERSION_NAME" != "$VERSION_NAME" ]; then
@@ -642,7 +642,7 @@ jobs:
             echo "❌ bundletool could not extract the manifest"
             echo "🔄 Trying a fallback check..."
             
-            # unzip으로 직접 확인 시도
+            # Try checking directly with unzip
             echo "📋 Trying direct extraction with unzip..."
             UNZIP_OUTPUT=$(unzip -p "$AAB_FILE" base/manifest/AndroidManifest.xml 2>/dev/null | strings | grep -E "versionCode|versionName")
             
@@ -661,12 +661,12 @@ jobs:
           echo "📱 File size: $(du -h "$AAB_FILE" | cut -f1)"
           echo "=========================================="
 
-      # AAB 파일을 아티팩트로 업로드
+      # Upload the AAB as an artifact
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: android-aab
-          # 아티팩트 액션은 defaults를 따르지 않고 항상 레포 루트 기준이라 APP_ROOT prefix가 필요
+          # Artifact actions ignore defaults and always use the repo root, so the APP_ROOT prefix is needed
           path: ${{ env.APP_ROOT }}/build/app/outputs/bundle/release/app-release.aab
           retention-days: 1
 
@@ -685,7 +685,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # Service Account JSON 설정
+      # Set up the Service Account JSON
       - name: Setup Google Play Service Account
         env:
           SERVICE_ACCOUNT_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
@@ -694,25 +694,25 @@ jobs:
           echo "$SERVICE_ACCOUNT_BASE64" | base64 --decode > ~/.config/gcloud/service-account.json
           echo "✅ Service account JSON set up"
 
-      # AAB 파일 다운로드
+      # Download the AAB
       - name: Download AAB artifact
         uses: actions/download-artifact@v4
         with:
           name: android-aab
-          # ⚠️ 업로드 path가 '단일 파일'이면 upload-artifact가 그 파일의 디렉터리를 루트로
-          #    삼아 경로를 평탄화한다(아티팩트 내부 = app-release.aab 하나).
-          #    따라서 레포 루트에 풀면 원래 위치가 복원되지 않으므로,
-          #    빌드 job과 동일한 디렉터리를 명시해 그 자리에 되돌린다.
+          # ⚠️ When the upload path is a single file, upload-artifact uses that file's directory as root
+          #    and flattens the path (artifact content = just app-release.aab).
+          #    So extracting at the repo root would not restore the original location;
+          #    name the same directory as the build job to put it back in place.
           path: ${{ env.APP_ROOT }}/build/app/outputs/bundle/release/
 
-      # 릴리즈 노트 다운로드
+      # Download release notes
       - name: Download release notes
         uses: actions/download-artifact@v4
         with:
           name: release-notes
           path: .
 
-      # Ruby 및 Fastlane 설치
+      # Install Ruby and Fastlane
       - name: Set up Ruby
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -721,32 +721,32 @@ jobs:
       - name: Install Fastlane
         working-directory: ${{ env.APP_ROOT }}/android
         run: |
-          # multi_json: google-apis transitive 의존성이 선언 누락한 upstream 버그 회피 (gemspec 미선언 → Gem::LoadError)
+          # multi_json: works around an upstream bug where a google-apis transitive dependency is undeclared (missing in gemspec → Gem::LoadError)
           printf 'source "https://rubygems.org"\ngem "fastlane"\ngem "multi_json"\n' > Gemfile
           bundle install
           echo "✅ Fastlane installed (Bundler)"
           bundle exec fastlane --version
 
-      # 배포 설정을 코드(.github/config/store-deploy.json)에서 읽는다 (#767).
-      # 우선순위: 수동 실행 입력 > 설정 파일 > 레포 변수 ANDROID_DEPLOY_MODE > store_only.
-      # 파일이 없으면 아무것도 하지 않아 기존 동작 그대로다. 값이 잘못 적혀 있으면 여기서 실패한다.
+      # Read deploy settings from code (.github/config/store-deploy.json) (#767).
+      # Priority: manual run input > config file > repo variable ANDROID_DEPLOY_MODE > store_only.
+      # Without the file it does nothing, keeping existing behavior. A mistyped value fails here.
       - name: Resolve store deploy config
         env:
           INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
-          # true/false 를 고른 수동 실행만 파일보다 우선한다 (default·push 는 파일이 이긴다, #1005)
+          # Only a manual run choosing true/false wins over the file (default and push let the file win, #1005)
           INPUT_PROMOTE_TO_CLOSED_TESTING: ${{ github.event.inputs.promote_to_closed_testing }}
         run: python3 .github/scripts/store_deploy_config.py resolve --platform android
 
-      # 수동으로 올린 프로덕션 심사가 도는 동안 비공개·공개 승급이 그 심사를 다시 시작시키지 않게 한다 (#816).
-      # 수동 실행에도 적용한다 — force_promote_during_review 를 켠 실행만 건너뛴다 (#1005).
-      # 확인에 실패하면 경고만 남기고 설정대로 진행한다 — 배포를 막지 않는다.
+      # Keep closed/open promotions from restarting a manually submitted production review in progress (#816).
+      # Applies to manual runs too — only runs with force_promote_during_review on skip it (#1005).
+      # If the check fails, only warn and proceed as configured — never block the deploy.
       - name: Guard production review in progress
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_PROMOTE_DURING_REVIEW: ${{ github.event.inputs.force_promote_during_review }}
         run: python3 .github/scripts/store_deploy_config.py review-guard
 
-      # 이번 실행의 출시 방식을 요약에 남긴다 — 실행 목록만 보고도 어떤 출시였는지 알 수 있게 (#1125)
+      # Record this run's release mode in the summary — so the run list alone shows what kind of release it was (#1125)
       - name: Summarize store release mode
         run: |
           case "$DEPLOY_MODE" in
@@ -766,17 +766,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           echo "🚦 Store release mode: ${STORE_RELEASE_MODE} / deploy mode: ${DEPLOY_MODE} — ${effect}"
 
-      # Fastfile 복사 (Play Store 배포용)
-      # android/fastlane/Fastfile.playstore를 사용하여 일관성 유지
+      # Copy the Fastfile (for Play Store deploy)
+      # Uses android/fastlane/Fastfile.playstore for consistency
       - name: Copy Fastfile for Play Store
         run: |
           mkdir -p android/fastlane
           cp android/fastlane/Fastfile.playstore android/fastlane/Fastfile
           echo "✅ Fastfile copied (Fastfile.playstore → Fastfile)"
 
-          # 워크플로가 넘기는 값을 Fastfile 이 읽지 않으면 설정이 조용히 무시된다 (#766).
-          # 직접 고친 Fastfile 에서 실제로 일어난 일이라, 기본값과 다른 값을 넘기는데
-          # Fastfile 에 그 이름이 없으면 경고로 알린다. 막지는 않는다.
+          # If the Fastfile does not read a value the workflow passes, the setting is silently ignored (#766).
+          # This really happened with a hand-edited Fastfile, so when a non-default value is passed
+          # but the Fastfile lacks that name, warn about it. Not blocking.
           for pair in "DEPLOY_MODE:store_only" "PROMOTE_TO_CLOSED_TESTING:true" "PROMOTE_TO_OPEN_TESTING:false" "PRODUCTION_ROLLOUT:1.0"; do
             name="${pair%%:*}"; default="${pair#*:}"
             eval "value=\"\${$name:-}\""
@@ -787,7 +787,7 @@ jobs:
           echo "📋 Fastfile contents:"
           cat android/fastlane/Fastfile
 
-      # Play Store에 업로드
+      # Upload to the Play Store
       - name: Upload to Play Store Internal Testing
         env:
           PROMOTE_TO_CLOSED_TESTING: ${{ env.PROMOTE_TO_CLOSED_TESTING }}
@@ -795,7 +795,7 @@ jobs:
           CLOSED_TESTING_TRACK: ${{ env.CLOSED_TESTING_TRACK }}
           OPEN_TESTING_TRACK: ${{ env.OPEN_TESTING_TRACK }}
           STORE_WHATS_NEW_OVERRIDE: ${{ env.STORE_WHATS_NEW_OVERRIDE }}
-          # 수동 실행 입력은 step env 로 받아 셸 주입을 막는다
+          # Manual run inputs come in via step env to prevent shell injection
           INPUT_WHATS_NEW_OVERRIDE: ${{ github.event.inputs.whats_new_override }}
         run: |
           echo "=========================================="
@@ -805,7 +805,7 @@ jobs:
           echo "🔍 GitHub Run Number: ${{ github.run_number }}"
           echo "🔍 GitHub SHA: ${{ github.sha }}"
           
-          # 환경 변수 초기화 및 검증
+          # Initialize and validate env vars
           VERSION_CODE="${{ needs.prepare-build.outputs.version_code }}"
           VERSION_NAME="${{ needs.prepare-build.outputs.version }}"
           
@@ -813,7 +813,7 @@ jobs:
           echo "  VERSION_NAME: '$VERSION_NAME'"
           echo "  VERSION_CODE: '$VERSION_CODE'"
           
-          # 입력 검증
+          # Validate input
           if [ -z "$VERSION_NAME" ] || [ -z "$VERSION_CODE" ]; then
             echo "❌ Fatal: VERSION_NAME or VERSION_CODE is empty!"
             echo "VERSION_NAME: '$VERSION_NAME'"
@@ -822,7 +822,7 @@ jobs:
             exit 1
           fi
           
-          # AAB 파일 절대 경로 찾기
+          # Find the absolute AAB path
           AAB_PATH=$(realpath build/app/outputs/bundle/release/app-release.aab)
           echo "📦 AAB file path: $AAB_PATH"
 
@@ -839,12 +839,12 @@ jobs:
           echo "📋 AAB file info: $(ls -lah "$AAB_PATH")"
           echo "📱 AAB file size: $(du -h "$AAB_PATH" | cut -f1)"
           
-          # 배포 전 AAB 버전 검증
+          # Verify the AAB version before deploying
           echo "=========================================="
           echo "🔍 Verifying the AAB version..."
           echo "=========================================="
           
-          # bundletool 다운로드
+          # Download bundletool
           if [ ! -f "bundletool.jar" ]; then
             wget -q "https://github.com/google/bundletool/releases/download/1.15.6/bundletool-all-1.15.6.jar" -O bundletool.jar
           fi
@@ -858,7 +858,7 @@ jobs:
               
               echo "📋 AAB version: $FINAL_VERSION_NAME (code: $FINAL_VERSION_CODE)"
               
-              # VERSION_CODE 검증
+              # Verify VERSION_CODE
               if [ "$FINAL_VERSION_CODE" != "$VERSION_CODE" ]; then
                 echo "❌ Error: the AAB version code does not match! (expected: $VERSION_CODE, actual: $FINAL_VERSION_CODE)"
                 exit 1
@@ -870,12 +870,12 @@ jobs:
             fi
           fi
 
-          # Release notes 준비
+          # Prepare release notes
           CHANGELOG_DIR="android/fastlane/metadata/android/ko-KR/changelogs"
           mkdir -p "$CHANGELOG_DIR"
 
-          # >>> whats-new — 출시 노트 출처 결정. 테스트(test_store_whats_new.py)가 이 구간만 떼어 실행한다.
-          # 우선순위: 수동 실행 입력 → env STORE_WHATS_NEW_OVERRIDE → CHANGELOG. 공백만 있는 값은 없는 것으로 본다.
+          # >>> whats-new — decides where the release notes come from. A test (test_store_whats_new.py) runs only this block.
+          # Priority: manual run input → env STORE_WHATS_NEW_OVERRIDE → CHANGELOG. A whitespace-only value counts as missing.
           WHATS_NEW_OVERRIDE="$INPUT_WHATS_NEW_OVERRIDE"
           if [ -z "$(printf '%s' "$WHATS_NEW_OVERRIDE" | tr -d '[:space:]')" ]; then
             WHATS_NEW_OVERRIDE="$STORE_WHATS_NEW_OVERRIDE"
@@ -889,38 +889,38 @@ jobs:
           # <<< whats-new
 
           if [ -f "$GITHUB_WORKSPACE/final_release_notes.txt" ]; then
-            # Google Play release notes 한도(500 글자)에 맞춰 절단 (마진 두어 480자)
-            # final_release_notes.txt·truncate 스크립트는 레포 루트 기준 — working-directory가 APP_ROOT이므로 절대경로 사용
+            # Truncate to the Google Play release notes limit (500 characters; 480 with margin)
+            # final_release_notes.txt and the truncate script are relative to the repo root — working-directory is APP_ROOT, so use absolute paths
             bash "$GITHUB_WORKSPACE/.github/scripts/truncate_release_notes.sh" "$GITHUB_WORKSPACE/final_release_notes.txt" 480 char
             cp "$GITHUB_WORKSPACE/final_release_notes.txt" "$CHANGELOG_DIR/${VERSION_CODE}.txt"
             echo "✅ Changelog ready (version code: $VERSION_CODE)"
           else
-            # ko-KR 스토어 출시 노트 기본 문구 (스토어 언어 기준, #769)
+            # Default text for the ko-KR store release notes (store language, #769)
             echo "v$VERSION_NAME 업데이트" > "$CHANGELOG_DIR/${VERSION_CODE}.txt"
             echo "⚠️ Created the default changelog (version code: $VERSION_CODE)"
           fi
 
-          # 언어별 릴리스 노트 (#829) — version.yml 에 store_locales 가 있을 때만 동작한다.
-          # 없으면 아무것도 하지 않아 위에서 만든 ko-KR 한 개가 그대로 올라간다(기존 동작).
-          # 번역이 없는 언어는 기본 언어 문구로 채운다 (빈 채로 두지 않는다).
+          # Per-language release notes (#829) — only when version.yml has store_locales.
+          # Otherwise it does nothing and the single ko-KR file made above is uploaded (existing behavior).
+          # Languages without a translation are filled with the default-language text (never left empty).
           python3 "$GITHUB_WORKSPACE/.github/scripts/store_notes.py" write --platform play \
             --workspace "$GITHUB_WORKSPACE" --app-root "$PWD" --version "$VERSION_NAME" --version-code "$VERSION_CODE" \
             --default-file "$CHANGELOG_DIR/${VERSION_CODE}.txt" || echo "⚠️ Could not prepare per-language release notes, continuing with the default changelog"
           
-          # Service Account JSON 파일 확인
+          # Check the Service Account JSON file
           GOOGLE_PLAY_JSON_KEY="$HOME/.config/gcloud/service-account.json"
           if [ ! -f "$GOOGLE_PLAY_JSON_KEY" ]; then
             echo "❌ Service account JSON file not found"
             exit 1
           fi
           
-          # 환경변수 설정
+          # Set env vars
           export AAB_PATH="$AAB_PATH"
           export GOOGLE_PLAY_JSON_KEY="$GOOGLE_PLAY_JSON_KEY"
           export VERSION_NAME="$VERSION_NAME"
           export VERSION_CODE="$VERSION_CODE"
           
-          # 배포 실행
+          # Deploy
           echo "=========================================="
           echo "🚀 Running the Play Store deploy"
           echo "🎯 Version: $VERSION_NAME (code: $VERSION_CODE)"
@@ -929,7 +929,7 @@ jobs:
           cd android
           bundle exec fastlane deploy_internal
 
-      # 성공 알림
+      # Success notice
       - name: Notify Play Store Upload Success
         if: success()
         run: |
@@ -940,7 +940,7 @@ jobs:
           echo "📱 How testers get it:"
           echo "1. Play Console → Test and release → Internal testing"
           echo "2. Share the test link with testers"
-          # Play Console URL은 프로젝트별로 다르므로 별도 설정 필요
+          # The Play Console URL differs per project, so it needs separate setup
 
       - name: Notify on Failure
         if: failure()

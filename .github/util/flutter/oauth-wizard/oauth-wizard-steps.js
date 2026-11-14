@@ -1,15 +1,15 @@
 /**
- * OAuth 마법사 단계 화면 렌더 + Firebase 설정 파일 읽기 (분할 파일 — 함수 선언만)
- * 상태·흐름은 oauth-wizard.js, 산출물 문자열은 oauth-wizard-snippets.js
+ * OAuth wizard step screen rendering + reading Firebase config files (split file — function declarations only)
+ * State and flow in oauth-wizard.js, output strings in oauth-wizard-snippets.js
  */
 
 /* eslint-disable no-unused-vars */
 
 // ============================================
-// 단계별 렌더
+// Per-step rendering
 // ============================================
 
-/** 공통 showStep 이 단계 표시 직후 부른다 */
+/** Called by the shared showStep right after a step is shown */
 function initializeStep(stepNumber) {
     state.currentStepId = getStepIdByNumber(stepNumber);
     renderStepContent(state.currentStepId);
@@ -178,7 +178,7 @@ function renderApplyStep() {
     setPreText('pubAddCommand', buildPubAddCommand());
 }
 
-/** 최종 점검 항목 — 선택에 따라 달라진다 (문구 키는 문자열 그대로) */
+/** Final check items — vary by selection (text keys are literal strings) */
 function buildChecklistItems() {
     const items = [];
     if (state.providers.kakao) {
@@ -229,7 +229,7 @@ function renderSummaryStep() {
 }
 
 // ============================================
-// Firebase 설정 파일 (브라우저 안에서만 읽는다)
+// Firebase config files (read only inside the browser)
 // ============================================
 
 async function handleGoogleServicesFile(file) {
@@ -266,7 +266,7 @@ async function handleGoogleServiceInfoFile(file) {
     }
 }
 
-/** plist 최상위 dict 의 <key> > <string> 값 */
+/** <key> > <string> value of the plist's top-level dict */
 function readPlistStrings(text) {
     const documentNode = new DOMParser().parseFromString(text, 'application/xml');
     if (documentNode.querySelector('parsererror')) throw new Error('not a valid plist');
@@ -281,7 +281,7 @@ function readPlistStrings(text) {
     return values;
 }
 
-/** google-services.json > 웹 클라이언트 ID (client_type 3) */
+/** google-services.json > web client ID (client_type 3) */
 function findWebClientId(googleServices) {
     for (const client of googleServices.client || []) {
         for (const oauthClient of client.oauth_client || []) {
@@ -291,7 +291,7 @@ function findWebClientId(googleServices) {
     return '';
 }
 
-/** google-services.json > {패키지명들, 등록된 SHA-1 해시들(소문자 16진)} */
+/** google-services.json > {package names, registered SHA-1 hashes (lowercase hex)} */
 function readGoogleServicesSummary(googleServices) {
     const packageNames = [];
     const certificateHashes = [];
@@ -306,7 +306,7 @@ function readGoogleServicesSummary(googleServices) {
     return { packageNames, certificateHashes };
 }
 
-/** 올린 파일 <-> 입력값 대조 결과 표시 (패키지명·번들 ID·SHA-1 등록·웹 클라이언트) */
+/** Show the comparison between uploaded files <-> input values (package name, bundle ID, SHA-1 registration, web client) */
 function renderGoogleFileChecks() {
     const lines = [];
     if (state.googleServicesJson) {

@@ -1,13 +1,13 @@
 #!/bin/bash
 # ===================================================================
-# truncate_release_notes.sh — Python 위임 shim (v4.2, 이슈 #448)
+# truncate_release_notes.sh — Python delegating shim (v4.2, issue #448)
 # ===================================================================
 #
-# 로직은 truncate_release_notes.py로 이전되었다. 이 파일은 기존
-# 워크플로우 호출 계약을 보존하는 위임 shim이다:
-#   bash ./.github/scripts/truncate_release_notes.sh <입력> <한도> <모드> [출력]
+# The logic moved to truncate_release_notes.py. This file is a delegating shim that keeps
+# the existing workflow call contract:
+#   bash ./.github/scripts/truncate_release_notes.sh <input> <limit> <mode> [output]
 #
-# 계약: 어떤 경우에도 비정상 종료하지 않는다(exit 0) — 배포 파이프라인 보호.
+# Contract: never exits abnormally (exit 0) — protects the deploy pipeline.
 # ===================================================================
 set -u
 

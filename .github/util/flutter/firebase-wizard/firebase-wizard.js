@@ -1,6 +1,6 @@
 /**
  * Firebase App Distribution Wizard
- * 정적 HTML/JS 마법사 - GitHub API 호출 안 함
+ * Static HTML/JS wizard - makes no GitHub API calls
  */
 
 // ============================================
@@ -76,23 +76,23 @@ function updateProgress() {
         const label = indicator.querySelector('span');
 
         if (stepNum < state.currentStep) {
-            // 완료된 스텝
+            // Completed step
             circle.className = 'step-circle w-8 h-8 rounded-full bg-green-500 text-slate-900 flex items-center justify-center font-bold text-xs z-10 shadow-lg';
             circle.innerHTML = '✓';
             if (label) label.className = 'text-[9px] mt-1 text-green-400 text-center hidden md:block';
         } else if (stepNum === state.currentStep) {
-            // 현재 스텝
+            // Current step
             circle.className = 'step-circle w-8 h-8 rounded-full bg-firebase-primary text-slate-900 flex items-center justify-center font-bold text-xs z-10 shadow-lg';
             circle.innerHTML = stepNum;
             if (label) label.className = 'text-[9px] mt-1 text-firebase-accent text-center hidden md:block';
         } else {
-            // 아직 안 한 스텝
+            // Step not done yet
             circle.className = 'step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10';
             circle.innerHTML = stepNum;
             if (label) label.className = 'text-[9px] mt-1 text-slate-500 text-center hidden md:block';
         }
 
-        // 어느 단계로든 자유롭게 이동 가능 (3종 공통 동작)
+        // Any step can be reached freely (shared behavior across wizards)
         indicator.style.cursor = 'pointer';
         indicator.onclick = () => goToStep(stepNum);
     });
@@ -118,9 +118,9 @@ function prevStep() {
     if (state.currentStep > 1) showStep(state.currentStep - 1);
 }
 
-// 단계 이동에 순서 제약을 두지 않는다.
-// 이미 발급받은 값이 있거나 특정 단계만 다시 확인하려는 경우가 많아,
-// 앞 단계 완료를 강제하면 오히려 진행을 막는다. (testflight/playstore 마법사와 동일 동작)
+// Step navigation has no order constraint.
+// Users often already have issued values or want to recheck only one step,
+// so forcing earlier steps to be done would only block progress. (same behavior as the testflight/playstore wizards)
 function goToStep(step) {
     if (step === state.currentStep) return;
     if (step >= 1 && step <= state.totalSteps) showStep(step);
@@ -183,7 +183,7 @@ function onStep3Next() {
     nextStep();
 }
 
-// Step 진입 시 초기화 — showStep 함수 wrap
+// Initialize on entering a step — wraps the showStep function
 const _origShowStep = showStep;
 showStep = function (step) {
     _origShowStep(step);
@@ -245,7 +245,7 @@ async function handleGoogleServicesUpload(event) {
     }
     try {
         const text = await fileToText(file);
-        JSON.parse(text); // 형식 검증
+        JSON.parse(text); // format check
         state.googleServicesJson = text;
         state.googleServicesFileName = file.name;
         document.getElementById('gsUploadText').textContent = `✅ ${file.name} (${(file.size/1024).toFixed(1)}KB)`;
@@ -267,7 +267,7 @@ function onStep4Next() {
     nextStep();
 }
 
-// Step 4 진입 시 setup — showStep 함수 wrap (Step 3 wrap 위에 다시 wrap)
+// Setup on entering Step 4 — wraps the showStep function (wrapped again on top of the Step 3 wrap)
 const _showStepStep4 = showStep;
 showStep = function (step) {
     _showStepStep4(step);
@@ -290,7 +290,7 @@ showStep = function (step) {
     }
 };
 
-/** 아직 안 올린 업로드 칸의 안내 문구 (올린 칸은 파일명 표시 유지) */
+/** Notice text for upload slots not yet filled (filled slots keep showing the file name) */
 function renderUploadDropHints() {
     if (!state.serviceAccountFileName) setElementText('saUploadText', translate('upload.dropHint'));
     if (!state.googleServicesFileName) setElementText('gsUploadText', translate('upload.dropHint'));
@@ -387,7 +387,7 @@ function renderCustomSecrets() {
     }).join('');
 }
 
-// Step 4 진입 시 custom secrets도 렌더 (Task 10 wrap)
+// Render custom secrets too on entering Step 4 (Task 10 wrap)
 const _showStepCustom = showStep;
 showStep = function (step) {
     _showStepCustom(step);
@@ -495,7 +495,7 @@ async function downloadAsZip() {
     const folder = zip.folder('github-secrets');
     list.forEach(s => folder.file(`${s.key}.txt`, s.value));
 
-    // setup 스크립트 — GitHub raw에서 fetch 시도, 실패 시 README 안내만
+    // setup script — try fetching from GitHub raw; on failure only the README notice
     const wizardBaseUrl = 'https://raw.githubusercontent.com/Cassiiopeia/projectops/main/.github/util/flutter/firebase-wizard';
     try {
         const pyResp = await fetch(`${wizardBaseUrl}/firebase-wizard.py`).then(r => r.ok ? r.text() : null).catch(() => null);
@@ -553,7 +553,7 @@ ${translate('zip.optionNoBackup')}
     showToast(translate('toast.zipDownloaded'));
 }
 
-// Step 5 진입 시 렌더 (Task 11 wrap)
+// Render on entering Step 5 (Task 11 wrap)
 const _showStepStep5 = showStep;
 showStep = function (step) {
     _showStepStep5(step);
@@ -566,7 +566,7 @@ showStep = function (step) {
 };
 
 // ============================================
-// 언어 전환 (#769) — JS 가 그리는 영역만 다시 그린다 (정적 문구는 엔진이 처리)
+// Language switch (#769) — redraw only JS-drawn areas (the engine handles static text)
 // ============================================
 document.addEventListener('wizardlanguagechange', () => {
     renderUploadDropHints();
@@ -584,7 +584,7 @@ window.addEventListener('DOMContentLoaded', () => {
     detectedOS = state.detectedOS;
     loadState();
     showStep(state.currentStep);
-    // 3종 공통 초기화 (../_shared/wizard-common.js)
+    // Shared initialization (../_shared/wizard-common.js)
     syncVersionBadge();
     showSecurityWarning();
 });

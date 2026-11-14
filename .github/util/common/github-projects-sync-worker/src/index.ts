@@ -2,28 +2,28 @@
 // GitHub Projects Sync Worker
 // ===================================================================
 //
-// GitHub Projects의 Status 변경을 감지하여 Issue Label을 자동 동기화합니다.
+// Detects GitHub Projects Status changes and syncs issue labels automatically.
 //
-// 동작 방식:
-// 1. GitHub Webhook (projects_v2_item) 이벤트 수신
-// 2. Webhook Secret 검증
-// 3. Status 필드 변경인지 확인 (다른 필드 변경은 무시)
-// 4. GraphQL API로 현재 Status 조회
-// 5. Issue Label 동기화 (기존 Status Label 제거 → 새 Label 추가)
+// How it works:
+// 1. Receive the GitHub webhook (projects_v2_item) event
+// 2. Verify the webhook secret
+// 3. Check it is a Status field change (other field changes are ignored)
+// 4. Look up the current Status with the GraphQL API
+// 5. Sync issue labels (remove the old Status label → add the new one)
 //
 // ===================================================================
 
-// Status 필드 ID 인메모리 캐시
+// In-memory cache of the Status field ID
 let cachedStatusFieldId: string | null = null;
 let cacheTimestamp = 0;
-const CACHE_TTL = 3600000; // 1시간
+const CACHE_TTL = 3600000; // 1 hour
 
 export interface Env {
-  // Secrets (wrangler secret put으로 설정)
+  // Secrets (set with wrangler secret put)
   GITHUB_TOKEN: string;
   WEBHOOK_SECRET: string;
 
-  // Variables (wrangler.toml에서 설정)
+  // Variables (set in wrangler.toml)
   PROJECT_NUMBER: string;
   STATUS_FIELD: string;
   STATUS_LABELS: string;
@@ -91,7 +91,7 @@ interface GraphQLResponse {
 }
 
 // ===================================================================
-// Webhook Secret 검증 (HMAC-SHA256)
+// Verify the webhook secret (HMAC-SHA256)
 // ===================================================================
 async function verifySignature(
   body: string,
@@ -131,7 +131,7 @@ async function verifySignature(
 }
 
 // ===================================================================
-// GraphQL API 호출
+// GraphQL API call
 // ===================================================================
 async function graphqlQuery(
   query: string,
@@ -156,20 +156,20 @@ async function graphqlQuery(
 }
 
 // ===================================================================
-// Status 필드 ID 조회 (인메모리 캐시)
+// Look up the Status field ID (in-memory cache)
 // ===================================================================
 async function getStatusFieldId(env: Env): Promise<string | null> {
   const now = Date.now();
 
-  // 캐시 유효하면 재사용
+  // Reuse while the cache is valid
   if (cachedStatusFieldId && now - cacheTimestamp < CACHE_TTL) {
-    console.log(`📌 Status 필드 ID (캐시): ${cachedStatusFieldId}`);
+    console.log(`📌 Status field ID (cached): ${cachedStatusFieldId}`);
     return cachedStatusFieldId;
   }
 
-  console.log('📌 Status 필드 ID 조회 중...');
+  console.log('📌 Looking up the Status field ID...');
 
-  // Organization 프로젝트 쿼리
+  // Organization project query
   const orgQuery = `
     query($org: String!, $number: Int!, $fieldName: String!) {
       organization(login: $org) {
@@ -184,7 +184,7 @@ async function getStatusFieldId(env: Env): Promise<string | null> {
     }
   `;
 
-  // User 프로젝트 쿼리
+  // User project query
   const userQuery = `
     query($user: String!, $number: Int!, $fieldName: String!) {
       user(login: $user) {
@@ -201,7 +201,7 @@ async function getStatusFieldId(env: Env): Promise<string | null> {
 
   const projectNumber = parseInt(env.PROJECT_NUMBER);
 
-  // Organization 프로젝트 먼저 시도
+  // Try the Organization project first
   try {
     const orgResult = await graphqlQuery(
       orgQuery,
@@ -217,14 +217,14 @@ async function getStatusFieldId(env: Env): Promise<string | null> {
     if (orgFieldId) {
       cachedStatusFieldId = orgFieldId;
       cacheTimestamp = now;
-      console.log(`✅ Status 필드 ID 조회 성공 (Organization): ${orgFieldId}`);
+      console.log(`✅ Status field ID found (Organization): ${orgFieldId}`);
       return orgFieldId;
     }
   } catch {
-    console.log('ℹ️ Organization 프로젝트가 아님, User 프로젝트로 시도...');
+    console.log('ℹ️ Not an Organization project, trying as a User project...');
   }
 
-  // User 프로젝트로 시도
+  // Try as a User project
   try {
     const userResult = await graphqlQuery(
       userQuery,
@@ -240,19 +240,19 @@ async function getStatusFieldId(env: Env): Promise<string | null> {
     if (userFieldId) {
       cachedStatusFieldId = userFieldId;
       cacheTimestamp = now;
-      console.log(`✅ Status 필드 ID 조회 성공 (User): ${userFieldId}`);
+      console.log(`✅ Status field ID found (User): ${userFieldId}`);
       return userFieldId;
     }
   } catch (error) {
-    console.warn(`⚠️ User 프로젝트 조회 실패: ${error}`);
+    console.warn(`⚠️ User project lookup failed: ${error}`);
   }
 
-  console.warn('⚠️ Status 필드 ID를 찾을 수 없습니다');
+  console.warn('⚠️ Status field ID not found');
   return null;
 }
 
 // ===================================================================
-// Issue Label 업데이트 (REST API)
+// Update issue labels (REST API)
 // ===================================================================
 async function removeLabel(
   owner: string,
@@ -273,9 +273,9 @@ async function removeLabel(
   });
 
   if (response.ok || response.status === 404) {
-    console.log(`  ✅ Label "${label}" 제거됨 (또는 이미 없음)`);
+    console.log(`  ✅ Label "${label}" removed (or already absent)`);
   } else {
-    console.warn(`  ⚠️ Label "${label}" 제거 실패: ${response.status}`);
+    console.warn(`  ⚠️ Failed to remove label "${label}": ${response.status}`);
   }
 }
 
@@ -300,16 +300,16 @@ async function addLabel(
   });
 
   if (response.ok) {
-    console.log(`  ✅ Label "${label}" 추가됨`);
+    console.log(`  ✅ Label "${label}" added`);
   } else {
     const errorText = await response.text();
-    console.error(`  ❌ Label "${label}" 추가 실패: ${response.status} - ${errorText}`);
+    console.error(`  ❌ Failed to add label "${label}": ${response.status} - ${errorText}`);
     throw new Error(`Failed to add label: ${response.status}`);
   }
 }
 
 // ===================================================================
-// 메인 동기화 로직
+// Main sync logic
 // ===================================================================
 async function syncLabelFromStatus(payload: WebhookPayload, env: Env): Promise<void> {
   const itemNodeId = payload.projects_v2_item?.node_id;
@@ -321,7 +321,7 @@ async function syncLabelFromStatus(payload: WebhookPayload, env: Env): Promise<v
 
   console.log(`📌 Processing item: ${itemNodeId}`);
 
-  // 1. GraphQL로 Item 정보 조회
+  // 1. Look up item info with GraphQL
   const query = `
     query($itemId: ID!, $statusField: String!) {
       node(id: $itemId) {
@@ -372,7 +372,7 @@ async function syncLabelFromStatus(payload: WebhookPayload, env: Env): Promise<v
   const content = result.data?.node?.content;
   const newStatus = result.data?.node?.fieldValueByName?.name;
 
-  // 2. Issue가 아니면 스킵
+  // 2. Skip if not an issue
   if (!content || content.__typename !== 'Issue') {
     console.log(`ℹ️ Skipping: Not an Issue (type: ${content?.__typename || 'unknown'})`);
     return;
@@ -397,7 +397,7 @@ async function syncLabelFromStatus(payload: WebhookPayload, env: Env): Promise<v
     return;
   }
 
-  // 3. Status Labels 파싱
+  // 3. Parse Status Labels
   let statusLabels: string[];
   try {
     statusLabels = JSON.parse(env.STATUS_LABELS);
@@ -406,19 +406,19 @@ async function syncLabelFromStatus(payload: WebhookPayload, env: Env): Promise<v
     statusLabels = ['작업전', '작업중', '담당자확인', '피드백', '작업완료', '보류', '취소'];
   }
 
-  // 4. 새 Status가 관리 대상인지 확인
+  // 4. Check the new Status is managed
   if (!statusLabels.includes(newStatus)) {
     console.log(`⚠️ "${newStatus}" is not a managed status label`);
     return;
   }
 
-  // 5. 이미 동일한 Label이 있는지 확인 (무한 루프 방지)
+  // 5. Check whether the same label already exists (prevents infinite loops)
   if (currentLabels.includes(newStatus)) {
     console.log(`✅ Label "${newStatus}" already exists. No sync needed.`);
     return;
   }
 
-  // 6. 기존 Status Label 제거
+  // 6. Remove the old Status label
   const labelsToRemove = currentLabels.filter(
     (label) => statusLabels.includes(label) && label !== newStatus
   );
@@ -429,7 +429,7 @@ async function syncLabelFromStatus(payload: WebhookPayload, env: Env): Promise<v
     await removeLabel(owner, repo, issueNumber, label, env.GITHUB_TOKEN);
   }
 
-  // 7. 새 Status Label 추가
+  // 7. Add the new Status label
   console.log(`➕ Adding label: "${newStatus}"`);
   await addLabel(owner, repo, issueNumber, newStatus, env.GITHUB_TOKEN);
 
@@ -445,16 +445,16 @@ export default {
     console.log('🔄 GitHub Projects Sync Worker');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // 1. POST 요청만 처리
+    // 1. Handle POST requests only
     if (request.method !== 'POST') {
       console.log(`⚠️ Method not allowed: ${request.method}`);
       return new Response('Method not allowed', { status: 405 });
     }
 
-    // 2. Body 읽기
+    // 2. Read the body
     const body = await request.text();
 
-    // 3. Webhook Secret 검증
+    // 3. Verify the webhook secret
     const signature = request.headers.get('X-Hub-Signature-256');
 
     if (!(await verifySignature(body, signature, env.WEBHOOK_SECRET))) {
@@ -464,7 +464,7 @@ export default {
 
     console.log('✅ Webhook signature verified');
 
-    // 4. 이벤트 타입 확인
+    // 4. Check the event type
     const event = request.headers.get('X-GitHub-Event');
     console.log(`📌 Event type: ${event}`);
 
@@ -478,7 +478,7 @@ export default {
       return new Response('Ignored event', { status: 200 });
     }
 
-    // 5. Payload 파싱
+    // 5. Parse the payload
     let payload: WebhookPayload;
     try {
       payload = JSON.parse(body);
@@ -489,30 +489,30 @@ export default {
 
     console.log(`📌 Action: ${payload.action}`);
 
-    // 6. edited 액션만 처리 (Status 변경)
+    // 6. Handle only the edited action (Status change)
     if (payload.action !== 'edited') {
       console.log(`ℹ️ Ignoring action: ${payload.action}`);
       return new Response('Ignored action', { status: 200 });
     }
 
-    // 7. Status 필드 변경인지 확인
+    // 7. Check it is a Status field change
     if (payload.changes?.field_value) {
       const changedFieldId = payload.changes.field_value.field_node_id;
       const statusFieldId = await getStatusFieldId(env);
 
       if (statusFieldId && changedFieldId !== statusFieldId) {
-        console.log(`ℹ️ Status 필드 변경이 아님. 건너뜀`);
-        console.log(`   변경된 필드: ${changedFieldId}`);
-        console.log(`   Status 필드: ${statusFieldId}`);
+        console.log(`ℹ️ Not a Status field change. Skipping`);
+        console.log(`   Changed field: ${changedFieldId}`);
+        console.log(`   Status field: ${statusFieldId}`);
         return new Response('Ignored: not status field change', { status: 200 });
       }
 
-      console.log(`✅ Status 필드 변경 확인됨`);
+      console.log(`✅ Status field change confirmed`);
     } else {
-      console.log(`ℹ️ field_value 변경 정보 없음, 동기화 진행`);
+      console.log(`ℹ️ No field_value change info, syncing anyway`);
     }
 
-    // 8. Label 동기화 실행
+    // 8. Run the label sync
     try {
       await syncLabelFromStatus(payload, env);
       console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

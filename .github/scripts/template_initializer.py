@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # ===================================================================
-# template_initializer.py — GitHub 템플릿 초기화 (.sh의 Python 포팅, #448)
+# template_initializer.py — GitHub template initialization (Python port of the .sh, #448)
 # ===================================================================
 #
-# GitHub "Use this template"로 새 프로젝트가 생성될 때 실행해 프로젝트를
-# 초기 상태로 설정한다. 크로스 플랫폼(Windows/macOS/Linux) 표준 라이브러리 전용.
-# 기존 template_initializer.sh는 이 파일로 위임하는 shim이다.
+# Runs when a new project is created with GitHub "Use this template" and sets the project
+# to its initial state. Cross-platform (Windows/macOS/Linux), standard library only.
+# The old template_initializer.sh is a shim that delegates here.
 #
-# 사용법:
+# Usage:
 #   python template_initializer.py [-v VERSION] [-t TYPE]
-#     -v/--version : 초기 버전 (기본 0.0.0)
-#     -t/--type    : 프로젝트 타입 (기본 basic)
+#     -v/--version : initial version (default 0.0.0)
+#     -t/--type    : project type (default basic)
 # ===================================================================
 
 import argparse
@@ -34,7 +34,7 @@ def print_error(msg): print(f"✗ {msg}", file=sys.stderr)
 
 
 def run(cmd):
-    """git/gh 명령 실행 — 실패 시 빈 문자열 반환 (배포 파이프라인 보호)."""
+    """Run a git/gh command — returns an empty string on failure (protects the deploy pipeline)."""
     try:
         out = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", timeout=30)
         return (out.stdout or "").strip()
@@ -99,44 +99,44 @@ def create_version_yml(version, ptype, branch, user, template_version):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     content = f"""# ===================================================================
-# 프로젝트 버전 관리 파일
+# Project version management file
 # ===================================================================
 #
-# 이 파일은 다양한 프로젝트 타입에서 버전 정보를 중앙 관리하기 위한 파일
-# GitHub Actions 워크플로우가 이 파일을 읽어 자동으로 버전을 관리
+# This file centrally manages version info across project types
+# GitHub Actions workflows read this file to manage versions automatically
 #
-# 사용법:
-# 1. version: "1.0.0" - 사용자에게 표시되는 버전
-# 2. version_code: 1 - Play Store/App Store 빌드 번호 (1부터 자동 증가)
-# 3. project_types: 프로젝트 타입 배열 — 첫 항목이 primary
+# Usage:
+# 1. version: "1.0.0" - the version shown to users
+# 2. version_code: 1 - Play Store/App Store build number (auto-increments from 1)
+# 3. project_types: array of project types — the first item is primary
 #
-# 자동 버전 업데이트:
-# - version_code: 매 빌드마다 자동으로 1씩 증가 (아래 판정과 무관)
-# - 버전 승격 폭은 metadata.template.options.semver_auto 가 정합니다
-#   semver_auto: true  -> 릴리스 구간 커밋 제목으로 판정
-#                         "제목 : feat! : 내용" 또는 "feat!:" -> major (x+1.0.0)
-#                         "제목 : feat : 내용"  또는 "feat:"  -> minor (x.y+1.0)
-#                         그 외(fix/docs/chore/refactor/test) -> patch (x.y.z+1)
-#   키 없음 / false     -> 항상 patch +1
-# - 위 판정과 무관하게 version 값을 직접 수정해도 됩니다
+# Automatic version updates:
+# - version_code: increases by 1 on every build (independent of the rule below)
+# - metadata.template.options.semver_auto decides the bump size
+#   semver_auto: true  -> decided from commit subjects in the release range
+#                         "title : feat! : text" or "feat!:" -> major (x+1.0.0)
+#                         "title : feat : text"  or "feat:"  -> minor (x.y+1.0)
+#                         anything else (fix/docs/chore/refactor/test) -> patch (x.y.z+1)
+#   key missing / false -> always patch +1
+# - You may also edit the version value directly, regardless of the rule above
 #
-# 프로젝트 타입별 동기화 파일:
+# Files synced per project type:
 # - spring: build.gradle (version = "x.y.z")
-# - flutter: pubspec.yaml (version: x.y.z+i, buildNumber 포함)
+# - flutter: pubspec.yaml (version: x.y.z+i, includes buildNumber)
 # - react/node: package.json ("version": "x.y.z")
-# - react-native: iOS Info.plist 또는 Android build.gradle
+# - react-native: iOS Info.plist or Android build.gradle
 # - react-native-expo: app.json (expo.version)
 # - python: pyproject.toml (version = "x.y.z")
-# - basic/기타: version.yml 파일만 사용
+# - basic/other: only version.yml
 #
-# 주의사항:
-# - project_types는 최초 설정 후 변경하지 마세요
-# - 버전은 항상 높은 버전으로 자동 동기화됩니다
+# Notes:
+# - Do not change project_types after the initial setup
+# - Versions always sync automatically to the higher version
 # ===================================================================
 
 version: "{version}"
 version_code: 1  # app build number
-project_types: ["{ptype}"]   # 멀티타입 배열 — 첫 항목이 primary, 직접 편집 가능
+project_types: ["{ptype}"]   # multi-type array — first item is primary, editable by hand
 metadata:
   last_updated: "{now}"
   last_updated_by: "{user}"
@@ -146,11 +146,11 @@ metadata:
     version: "{template_version}"
     initialized_date: "{today}"
     options:
-      # semver 자동 승격 (#546) — 릴리스 구간 커밋 제목으로 major/minor/patch 결정.
-      # npx projectops로 신규 통합할 때와 동일한 기본값이다 (생성 경로에 따라 갈리지 않게).
+      # semver auto bump (#546) — major/minor/patch decided from commit subjects in the release range.
+      # Same default as a fresh integration with npx projectops (so it does not differ by creation path).
       semver_auto: true
-      # 이슈/PR 템플릿 언어와 상태 라벨 표기 (#769, #776) — 이 레포는 영문 원본으로 만들어졌다.
-      # 키를 비워 두면 npx projectops 가 "기존 통합 레포"로 보고 한국어로 되돌린다.
+      # Issue/PR template language and status label style (#769, #776) — this repo was created from the English source.
+      # If the keys are left empty, npx projectops treats it as an "existing integrated repo" and reverts to Korean.
       language: en
       label_style: en
 """
@@ -188,8 +188,8 @@ def update_workflow_triggers(branch):
         print_warning("No workflow files to update")
 
 
-# 삭제 대상 — (경로, 사람이 읽는 라벨). 파일/폴더 자동 판별.
-# ⚠️ 루트에 마켓플레이스/템플릿 전용 파일을 추가하면 여기에도 등록해야 한다 (docs/architecture/agent/scripts.md 규칙).
+# Deletion targets — (path, human-readable label). File/folder detected automatically.
+# ⚠️ When adding a marketplace/template-only file at the root, register it here too (docs/architecture/agent/scripts.md rule).
 CLEANUP_TARGETS = [
     ("CHANGELOG.md", "Remove CHANGELOG.md"),
     ("CHANGELOG.json", "Remove CHANGELOG.json"),
@@ -230,14 +230,14 @@ CLEANUP_TARGETS = [
     ("src", "Remove src folder (projectops CLI)"),
     ("harness", "Remove harness folder (pi Persona Harness)"),
     (".suh-template.example", "Remove .suh-template.example folder (template only)"),
-    # 릴리스마다 changelog-deploy가 재생성하는 템플릿 레포 전용 산출물
+    # Template-repo-only artifacts regenerated by changelog-deploy on every release
     ("pr_body.md", "Remove pr_body.md (template repo release artifact)"),
 ]
 
 
 def cleanup_template_files():
     print_step("Removing template-only files...")
-    # 주의: PROJECTOPS-SETUP-GUIDE.md는 보존한다.
+    # Note: PROJECTOPS-SETUP-GUIDE.md is kept.
     for rel, label in CLEANUP_TARGETS:
         p = Path(rel)
         if p.is_dir():
@@ -283,7 +283,7 @@ def ensure_gitignore():
 
 def initialize_readme(project_name, version):
     print_step("Initializing README.md...")
-    # KST(=UTC+9) 타임스탬프 — tzdata 의존 없이 고정 오프셋
+    # KST (=UTC+9) timestamp — fixed offset without tzdata
     from datetime import timedelta
     kst = datetime.now(timezone.utc) + timedelta(hours=9)
     stamp = kst.strftime("%Y-%m-%d %H:%M:%S KST")

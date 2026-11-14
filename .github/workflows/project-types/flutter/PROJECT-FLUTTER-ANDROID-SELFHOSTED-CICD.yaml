@@ -1,29 +1,29 @@
 # ===================================================================
-# Flutter Android 자체 서버(SMB) 배포 워크플로우
+# Flutter Android self-hosted server (SMB) deploy workflow
 # ===================================================================
 #
-# main 브랜치 푸시 시 Android APK를 빌드하고
-# 자체 서버(예: Synology NAS·NAS·Linux)의 SMB 공유에 APK를 배포합니다.
+# On a push to main, builds the Android APK and
+# deploys it to an SMB share on your own server (e.g. Synology NAS, NAS, Linux).
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# ENV_FILE 또는 ENV: .env 파일 내용 (둘 중 하나, ENV_FILE 우선)
-# RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD (선택, 4개 모두):
-#   저장소 변수 ANDROID_SELFHOSTED_RELEASE_SIGNING=true 일 때만 사용한다 (옵트인).
-#   변수가 없으면 시크릿이 있어도 기존처럼 디버그 키로 서명하고 경고를 남긴다.
-#   옵트인했는데 시크릿이 비어 있으면 빌드가 실패한다.
-# GOOGLE_SERVICES_JSON (선택): Firebase google-services.json
-# SERVER_HOST: 서버 호스트(SMB 접속 주소)
-# SERVER_USER: SMB 사용자명
-# SERVER_PASSWORD: SMB 비밀번호
+# ENV_FILE or ENV: contents of the .env file (either; ENV_FILE first)
+# RELEASE_KEYSTORE_BASE64 / RELEASE_KEYSTORE_PASSWORD / RELEASE_KEY_ALIAS / RELEASE_KEY_PASSWORD (optional, all 4):
+#   used only when the repo variable ANDROID_SELFHOSTED_RELEASE_SIGNING=true (opt-in).
+#   Without the variable it signs with the debug key as before and warns, even if the secrets exist.
+#   If opted in but the secrets are empty, the build fails.
+# GOOGLE_SERVICES_JSON (optional): Firebase google-services.json
+# SERVER_HOST: server host (SMB address)
+# SERVER_USER: SMB user name
+# SERVER_PASSWORD: SMB password
 # ===================================================================
-# 🔀 저장소 변수 SELFHOSTED_DEPLOY_ENABLED (선택, #988)
+# 🔀 Repo variable SELFHOSTED_DEPLOY_ENABLED (optional, #988)
 # ===================================================================
-# false: push 자동 실행 건너뜀 (모노레포에서 Spring 배포가 SERVER_* Secret 을 이미 쓰는 경우)
-# true : Secret 유무 추정 없이 push 마다 실행
-# 없음 : Secret 3개가 모두 없을 때만 건너뜀 (기존 동작)
-# 수동 실행(workflow_dispatch)은 값과 무관하게 진행
+# false: skip automatic push runs (monorepos where a Spring deploy already uses the SERVER_* Secrets)
+# true : run on every push without guessing from Secrets
+# unset: skip only when all 3 Secrets are missing (existing behavior)
+# Manual runs (workflow_dispatch) proceed regardless of the value
 # ===================================================================
 
 name: PROJECT-Android-SelfHosted-CICD
@@ -31,39 +31,39 @@ name: PROJECT-Android-SelfHosted-CICD
 on:
   push:
     branches: ["main"]
-  workflow_dispatch: # 수동 실행 옵션 추가
+  workflow_dispatch: # manual run option
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
 
 # ============================================
-# 🔧 프로젝트별 설정 (아래 값들을 수정하세요)
+# 🔧 Per-project settings (edit the values below)
 # ============================================
 env:
-  # 프로젝트 이름 (APK 파일명, 아티팩트명, 히스토리 파일명에 사용)
+  # Project name (used for the APK file name, artifact name, history file name)
   APP_ARTIFACT_NAME: "__APP_ARTIFACT_NAME__"  # @wizard ask:@repo
-  # 레포 변수 FLUTTER_VERSION·JAVA_VERSION 이 있으면 아래 값보다 먼저 쓴다 (템플릿 업데이트에도 유지, #758)
+  # Repo variables FLUTTER_VERSION/JAVA_VERSION take precedence over the values below (kept across template updates, #758)
   FLUTTER_VERSION: "3.38.9"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:17
-  # SMB 서버 설정 (자체 서버 — Synology NAS·Linux 등)
-  SMB_PORT: "44445" # 기본 445
+  # SMB server settings (self-hosted — Synology NAS, Linux, etc.)
+  SMB_PORT: "44445" # default 445
   SMB_SHARE: "web"
-  # Android 업로드 하위 경로. 빈 값이면 /{APP_ARTIFACT_NAME} 바로 아래에 올린다 (기존 동작).
-  # 필요하면 "/android" 처럼 하위 경로를 넣는다. 값을 바꾸면 업로드 위치가 바뀌니 주의.
+  # Android upload subpath. Empty uploads directly under /{APP_ARTIFACT_NAME} (existing behavior).
+  # Add a subpath like "/android" if needed. Changing the value changes the upload location, so be careful.
   SMB_PATH_ANDROID: ""
-  # Flutter 루트 경로(레포 루트 기준). 단일레포면 ".", 모노레포면 "app" 등.
-  # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
-  # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
+  # Flutter root path (relative to repo root). "." for a single repo, "app" etc. for a monorepo.
+  # At integration, the integrator's flutter-root resolver substitutes it once with project_paths.flutter.
+  # FLUTTER_ROOT is the official Flutter SDK path variable and would clash — hence APP_ROOT
   APP_ROOT: "."  # @wizard auto:flutter-root
 jobs:
-  # 미설정 감지 (#662)
-  # Flutter 레포에는 이 파일이 항상 설치된다. 자체 서버를 쓰지 않는 레포에서 main 푸시마다
-  # 실패 런이 쌓이지 않도록, 자동 실행(push)일 때만 미설정이면 성공으로 건너뛴다.
-  # 미설정 조건 2개: 마법사 치환 토큰이 남은 값, SMB Secret 3개가 모두 없음
-  # 저장소 변수 SELFHOSTED_DEPLOY_ENABLED: false 면 건너뜀, true 면 Secret 추정 생략 (#988)
-  # 수동 실행은 그대로 진행 (main 이면 아래 사전 점검이 누락 항목을 오류로 알림)
+  # Detect missing setup (#662)
+  # Flutter repos always get this file. So that repos not using a self-hosted server do not pile up
+  # failed runs on every main push, automatic (push) runs without setup are skipped as success.
+  # 2 missing-setup conditions: a value still holding the wizard placeholder token, all 3 SMB Secrets missing
+  # Repo variable SELFHOSTED_DEPLOY_ENABLED: false skips, true skips the Secret guess (#988)
+  # Manual runs proceed (on main, the preflight below reports missing items as errors)
   check-config:
     name: Check self-hosted deploy settings
     runs-on: ubuntu-latest
@@ -83,7 +83,7 @@ jobs:
             echo "configured=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # 스위치 값: true/false (대소문자 무관), 그 외 값은 경고 후 없는 것으로 처리
+          # Switch value: true/false (case-insensitive); any other value warns and counts as unset
           switch=$(printf '%s' "$DEPLOY_SWITCH" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')
           case "$switch" in
             true|false|"") ;;
@@ -108,8 +108,8 @@ jobs:
               __*__) reasons="$reasons env.$name is still a template value (${!name});" ;;
             esac
           done
-          # 3개 중 일부만 있으면 설정 중인 레포로 보고 진행 (사전 점검이 누락을 오류로 알림)
-          # 스위치 true 면 생략 — 다른 배포와 같은 Secret 을 쓰는 모노레포도 의도대로 실행
+          # If only some of the 3 exist, treat the repo as being set up and proceed (the preflight reports what is missing as errors)
+          # Skipped when the switch is true — monorepos sharing Secrets with another deploy run as intended
           if [ "$switch" != "true" ] && [ -z "$SERVER_HOST" ] && [ -z "$SERVER_USER" ] && [ -z "$SERVER_PASSWORD" ]; then
             reasons="$reasons secrets SERVER_HOST, SERVER_USER and SERVER_PASSWORD are not set;"
           fi
@@ -130,21 +130,21 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
     needs: check-config
-    # 설정된 레포에서만, CHANGELOG 워크플로우가 성공한 경우에만 실행
+    # Run only in configured repos and only when the CHANGELOG workflow succeeded
     if: ${{ needs.check-config.outputs.configured == 'true' && (github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run') }}
 
     defaults:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      # Repository 체크아웃 및 목록 출력
-      # 사전 점검 (#666)
-      # 신규 설치 직후에는 배포용 Secret 이 없는 것이 정상이다. 그대로 두면 빌드를 끝까지 돌린 뒤
-      # 서명, 업로드 단계에서 원인을 짚기 어려운 에러로 실패하므로, 빌드 전에 무엇이 없는지 알린다.
-      # Secret 이 모두 있으면 이 step 은 그대로 통과하며 이후 동작은 달라지지 않는다.
+      # Check out the repository and list files
+      # Preflight (#666)
+      # Right after a fresh install, missing deploy Secrets are normal. Left alone, the build runs to the end and then
+      # fails at signing or upload with an error whose cause is hard to see, so report what is missing before the build.
+      # With every Secret present this step passes unchanged and later behavior does not change.
       - name: Preflight check of deploy secrets
         if: github.ref == 'refs/heads/main'
-        working-directory: ${{ github.workspace }}   # 체크아웃 전이라 APP_ROOT 가 아직 없을 수 있다
+        working-directory: ${{ github.workspace }}   # before checkout APP_ROOT may not exist yet
         env:
           SERVER_HOST: ${{ secrets.SERVER_HOST }}
           SERVER_USER: ${{ secrets.SERVER_USER }}
@@ -170,7 +170,7 @@ jobs:
           echo "Repository checked out"
           ls -la
 
-      # Debug Keystore 설정 (디버깅 용도 유지)
+      # Debug keystore setup (kept for debugging)
       - name: Setup Debug Keystore
         env:
           DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
@@ -181,7 +181,7 @@ jobs:
           ls -la ~/.android/
           keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android || echo "Keytool failed"
 
-      # .env 파일 생성
+      # Create the .env file
       - name: Create .env file from GitHub Secret
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -190,9 +190,9 @@ jobs:
           echo ".env file created"
           ls -la
 
-      # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
-      # 배포 빌드라 개발 키가 켜진 채 나가지 않는지 양쪽 층을 함께 확인한다.
-      # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
+      # Build profile — runtime (.env) and compile time (dart-define) decided in one place (#603)
+      # A release build, so check both layers together to make sure dev keys are not on.
+      # Repos without the config (.github/config/build-profile.json) are left untouched.
       - name: Apply build profile (release)
         id: build_profile
         run: |
@@ -200,13 +200,13 @@ jobs:
             release .env \
             --config "${{ github.workspace }}/.github/config/build-profile.json"
 
-      # Keystore와 key.properties 설정
-      # 기본은 지금까지와 같이 디버그 키로 서명한다 (경고만 남긴다).
-      # 저장소 변수 ANDROID_SELFHOSTED_RELEASE_SIGNING=true 로 명시해야만 릴리스 키로 서명한다.
-      # RELEASE_* 시크릿은 다른 워크플로(Play Store 등)용으로 이미 있을 수 있어, 있다고 자동 전환하면
-      # 서명 키가 바뀌어 기기에 설치된 이전 APK 위에 업데이트 설치가 안 되는 사고가 난다.
-      # 옵트인했는데 시크릿이 비어 있으면 몰래 폴백하지 않고 실패시킨다.
-      # 시크릿과 변수는 스크립트에 직접 넣지 않고 env 로만 받는다 (값은 출력하지 않는다).
+      # Keystore and key.properties setup
+      # By default it signs with the debug key as before (warning only).
+      # It signs with the release key only when the repo variable ANDROID_SELFHOSTED_RELEASE_SIGNING=true is set explicitly.
+      # RELEASE_* secrets may already exist for other workflows (Play Store, etc.); switching automatically because they exist
+      # would change the signing key, and updates would fail to install over the previous APK on devices.
+      # If opted in but the secrets are empty, fail instead of silently falling back.
+      # Secrets and variables come only via env, never inlined in the script (values are never printed).
       - name: Setup Keystore and key.properties
         env:
           ANDROID_SELFHOSTED_RELEASE_SIGNING: ${{ vars.ANDROID_SELFHOSTED_RELEASE_SIGNING }}
@@ -241,13 +241,13 @@ jobs:
           fi
           ls -la android/app/keystore android/
 
-      # Secret 이 있을 때만 쓴다 — 없으면 커밋된 파일을 그대로 두고, 필요한데 없으면 원인을 ::error 로 (#785)
+      # Written only when the Secret exists — otherwise the committed file stays, and if needed but missing the cause goes to ::error (#785)
       - name: Create Google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform android --app-root .
 
-      # Flutter 설정 및 버전 확인
+      # Set up Flutter and check the version
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -260,7 +260,7 @@ jobs:
           echo "Flutter setup completed"
           flutter --version
 
-      # Flutter 및 Gradle 캐시
+      # Flutter and Gradle cache
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -278,19 +278,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 프로젝트 의존성 설치
+      # Install project dependencies
       - name: Install dependencies
         run: |
           flutter pub get
           echo "Dependencies installed"
           ls -la
 
-      # Gradle 셋업
+      # Set up Gradle
       - name: Setup Gradle
         working-directory: ${{ env.APP_ROOT }}/android
         run: |
-          # Flutter 기본 .gitignore가 gradlew를 제외하므로 CI 체크아웃 시 없을 수 있다.
-          # flutter build가 자체 Gradle을 쓰므로 없어도 빌드는 진행된다.
+          # Flutter's default .gitignore excludes gradlew, so it may be missing in a CI checkout.
+          # flutter build uses its own Gradle, so the build proceeds without it.
           if [ -f gradlew ]; then
             chmod +x gradlew
             echo "Gradle wrapper permissions set"
@@ -298,7 +298,7 @@ jobs:
             echo "No gradlew - using the Gradle bundled with Flutter"
           fi
 
-      # Java 설정 및 버전 확인
+      # Set up Java and check the version
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -310,7 +310,7 @@ jobs:
           echo "Java setup completed"
           java -version
 
-      # Ruby 설정 및 확인
+      # Set up and check Ruby
       - name: Set up Ruby
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -321,17 +321,17 @@ jobs:
           echo "Ruby setup completed"
           ruby -v
 
-      # Fastlane 설치 (Bundler 방식 - gem 충돌 방지)
+      # Install Fastlane (with Bundler - avoids gem conflicts)
       - name: Install Fastlane
         working-directory: ${{ env.APP_ROOT }}/android
         run: |
-          # multi_json: google-apis transitive 의존성이 선언 누락한 upstream 버그 회피 (gemspec 미선언 → Gem::LoadError)
+          # multi_json: works around an upstream bug where a google-apis transitive dependency is undeclared (missing in gemspec → Gem::LoadError)
           printf 'source "https://rubygems.org"\ngem "fastlane"\ngem "multi_json"\n' > Gemfile
           bundle install
           echo "Fastlane installed (Bundler)"
           bundle exec fastlane --version
 
-      # 현재 버전 정보 및 짧은 커밋 해시 계산
+      # Compute the current version info and short commit hash
       - name: Get version info and calculate short commit hash
         id: version_info
         run: |
@@ -348,35 +348,35 @@ jobs:
           echo "Current version: $CURRENT_VERSION"
           echo "Short commit hash: $SHORT_COMMIT_HASH"
 
-      # APK 빌드 (릴리스 빌드 유지)
+      # APK build (stays a release build)
       - name: Build APK
         run: |
-          # 마법사가 까는 Fastfile 에는 `build` lane 이 없다 (#601).
-          # 있는 것: build_aab, deploy_internal, promote_internal_to_production, validate
-          # 그래서 무턱대고 부르면 "Could not find lane" 으로 죽는다.
-          # 직접 만든 Fastfile 에 build 가 있으면 그것을 쓰고, 없으면 flutter 로 빌드한다.
+          # The Fastfile installed by the wizard has no `build` lane (#601).
+          # What exists: build_aab, deploy_internal, promote_internal_to_production, validate
+          # So calling it blindly dies with "Could not find lane".
+          # Use build if a hand-made Fastfile has it, otherwise build with flutter.
           BUILD_FLAGS="${{ steps.build_profile.outputs.build_flags }}"
           if [ -f "android/fastlane/Fastfile" ] \
              && grep -qE '^[[:space:]]*lane[[:space:]]*:build([[:space:]]|$)' android/fastlane/Fastfile; then
-            # fastlane lane 은 빌드 명령을 자기가 만든다 — 여기서 dart-define 을 넘길 자리가 없다.
-            # 조용히 빠뜨리면 이 스텝이 고치려던 바로 그 사고("한쪽만 적용")가 다시 난다.
+            # A fastlane lane builds its own build command — there is no place to pass dart-defines here.
+            # Dropping them silently would bring back the exact incident this step fixes ("only one side applied").
             if [ -n "$BUILD_FLAGS" ]; then
               echo "::error::The build profile sets compile-time flags, but the build is about to run through the fastlane build lane."
               echo "::error::Change the Fastfile so the lane passes \$BUILD_FLAGS to flutter build, or remove the build lane to build with Flutter directly."
               exit 1
             fi
             echo "📦 Building with the fastlane build lane..."
-            # 서브셸로 감싼다 — cd 가 새어 나가면 뒤 명령이 엉뚱한 곳에서 돈다
+            # Wrap in a subshell — a leaking cd would run later commands in the wrong place
             ( cd android && bundle exec fastlane build --verbose )
           else
             echo "📦 Building with Flutter directly... ${BUILD_FLAGS:+(flags: $BUILD_FLAGS)}"
-            # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
+            # shellcheck disable=SC2086  # flags must split on spaces
             flutter build apk --release $BUILD_FLAGS
           fi
           ls -la ./build/app/outputs/flutter-apk/ || true
           echo "APK built"
 
-      # APK 파일 이름 변경 및 준비
+      # Rename and prepare the APK file
       - name: Rename and Prepare APK
         run: |
           mkdir -p ./android/app/build/outputs/apk/release/
@@ -384,12 +384,12 @@ jobs:
           echo "APK renamed to ${{ env.APP_ARTIFACT_NAME }}-v${{ env.VERSION }}-${{ env.SHORT_COMMIT_HASH }}.apk"
           ls -la ./android/app/build/outputs/apk/release/
 
-      # APK를 아티팩트로 업로드
+      # Upload the APK as an artifact
       - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP_ARTIFACT_NAME }}-apk
-          # 아티팩트 액션은 defaults를 따르지 않고 항상 레포 루트 기준이라 APP_ROOT prefix가 필요
+          # Artifact actions ignore defaults and always use the repo root, so the APP_ROOT prefix is needed
           path: ${{ env.APP_ROOT }}/android/app/build/outputs/apk/release/${{ env.APP_ARTIFACT_NAME }}-v${{ env.VERSION }}-${{ env.SHORT_COMMIT_HASH }}.apk
           retention-days: 1
 
@@ -421,8 +421,8 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: ${{ env.APP_ARTIFACT_NAME }}-apk
-          # ⚠️ 업로드 path가 '단일 파일'이면 upload-artifact가 경로를 평탄화한다.
-          #    레포 루트에 풀면 원위치가 복원되지 않으므로 원래 디렉터리를 명시한다.
+          # ⚠️ When the upload path is a single file, upload-artifact flattens the path.
+          #    Extracting at the repo root would not restore the original location, so name the original directory.
           path: ${{ env.APP_ROOT }}/android/app/build/outputs/apk/release/
 
       - name: List downloaded structure (Debug)

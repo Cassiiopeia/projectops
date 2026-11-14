@@ -1,39 +1,39 @@
 /* ===================================================================
- * projectops Flutter 마법사 공통 유틸 (정본)
+ * projectops Flutter wizard shared utils (source of truth)
  * ===================================================================
  *
- * testflight / playstore / firebase 마법사가 공유한다.
- * 각 마법사 JS보다 **먼저** 로드된다:
+ * Shared by the testflight / playstore / firebase wizards.
+ * Loaded **before** each wizard's JS:
  *
  *   <script src="../_shared/wizard-common.js"></script>
  *   <script src="testflight-wizard.js"></script>
  *
- * ⚠️ 규칙
+ * ⚠️ Rules
  * -------------------------------------------------------------------
- * 1. 순수 유틸 + testflight·playstore에 글자 단위로 같던 흐름 기본 구현
- *    (showStep/prevStep/saveState/clearState·커스텀 Secret)을 둔다.
- *    갈라진 흐름(goToStep/nextStep/loadState/initializeStep)과
- *    산출물 생성(generateXxx)은 각자 파일에 둔다.
- * 2. 마법사 JS에서 같은 이름을 다시 정의하면 이 정본이 덮어써진다.
- *    의도적 오버라이드는 check-consistency.py INTENTIONAL_OVERRIDES 에 등록한다.
- *    (그 외 중복 정의는 검증기가 잡아낸다)
- * 3. 함수 시그니처를 바꾸면 3종 전부 영향을 받는다. 반드시 3종을 함께 확인한다.
- * 4. 화면 문구는 translate(키) 로 (wizard-i18n.js — 이 파일보다 먼저 로드, #769)
+ * 1. Pure utils + the flow base implementations that were character-identical in testflight/playstore
+ *    (showStep/prevStep/saveState/clearState, custom Secrets) live here.
+ *    Diverging flows (goToStep/nextStep/loadState/initializeStep) and
+ *    output generation (generateXxx) stay in each wizard's file.
+ * 2. Redefining the same name in wizard JS overrides this source of truth.
+ *    Register intentional overrides in check-consistency.py INTENTIONAL_OVERRIDES.
+ *    (other duplicate definitions are caught by the checker)
+ * 3. Changing a function signature affects all wizards. Always check them together.
+ * 4. Screen text goes through translate(key) (wizard-i18n.js — loaded before this file, #769)
  *
- * 구현 선택 근거 — 3종에 갈라져 있던 구현 중 가장 안전한 것을 채택했다:
- *   escapeHtml   : firebase판 (null 안전 + 따옴표까지 이스케이프)
- *   getInputValue: testflight/playstore판 (trim 수행)
- *   showToast    : testflight/playstore판 (DOM에 #toast가 없어도 동작)
- *   getDateString: YYYY-MM-DD 로 통일하고, 파일명용 YYYYMMDD는 getDateStamp로 분리
+ * Why these implementations — the safest of the diverging versions was adopted:
+ *   escapeHtml   : firebase version (null-safe + escapes quotes too)
+ *   getInputValue: testflight/playstore version (trims)
+ *   showToast    : testflight/playstore version (works without #toast in the DOM)
+ *   getDateString: unified to YYYY-MM-DD; YYYYMMDD for file names split out as getDateStamp
  * =================================================================== */
 
 /* eslint-disable no-unused-vars */
 
 // ============================================
-// 문자열 / 이스케이프
+// Strings / escaping
 // ============================================
 
-/** innerHTML 보간용 이스케이프. null/undefined도 빈 문자열로 안전 처리한다. */
+/** Escaping for innerHTML interpolation. null/undefined are safely treated as empty strings. */
 function escapeHtml(value) {
     return String(value == null ? '' : value)
         .replace(/&/g, '&amp;')
@@ -43,7 +43,7 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-/** onclick="fn('...')" 처럼 JS 문자열 리터럴 안에 넣을 값 이스케이프 */
+/** Escape values placed inside JS string literals such as onclick="fn('...')" */
 function escapeJsString(value) {
     return String(value == null ? '' : value)
         .replace(/\\/g, '\\\\')
@@ -53,32 +53,32 @@ function escapeJsString(value) {
         .replace(/\r/g, '');
 }
 
-/** 셸 명령에 값을 끼워 넣을 때 사용 (작은따옴표 감싸기) */
+/** For inserting values into shell commands (wraps in single quotes) */
 function shellEscape(value) {
     const s = String(value == null ? '' : value);
     return `'${s.replace(/'/g, `'\\''`)}'`;
 }
 
 // ============================================
-// 날짜
+// Dates
 // ============================================
 
-/** 화면 표시용 날짜 (2026-07-27) */
+/** Date for display (2026-07-27) */
 function getDateString() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 }
 
-/** 파일명용 날짜 (20260727) — 공백·하이픈 없이 정렬 가능한 형태 */
+/** Date for file names (20260727) — sortable, without spaces or hyphens */
 function getDateStamp() {
     return getDateString().replace(/-/g, '');
 }
 
 // ============================================
-// DOM 접근
+// DOM access
 // ============================================
 
-/** input/textarea 값을 trim해서 반환. 요소가 없으면 빈 문자열. */
+/** Return the trimmed input/textarea value. Empty string if the element is missing. */
 function getInputValue(id) {
     const element = document.getElementById(id);
     return element?.value?.trim() || '';
@@ -95,12 +95,12 @@ function setElementHtml(id, html) {
 }
 
 // ============================================
-// 알림 / 클립보드
+// Notifications / clipboard
 // ============================================
 
 /**
- * 우하단 토스트. DOM에 미리 #toast가 없어도 동작하도록 매번 생성한다.
- * (firebase가 쓰던 "고정 #toast 참조" 방식은 요소 누락 시 예외로 죽었다)
+ * Bottom-right toast. Created every time so it works without a #toast in the DOM.
+ * (the "fixed #toast reference" approach firebase used threw when the element was missing)
  */
 function showToast(message) {
     const existing = document.querySelector('.toast');
@@ -119,8 +119,8 @@ function showToast(message) {
 }
 
 /**
- * 클립보드 복사. navigator.clipboard가 없거나(구형 브라우저·비보안 컨텍스트)
- * 실패하면 execCommand로 폴백한다. file://로 열어도 동작해야 하므로 폴백이 필수다.
+ * Clipboard copy. Falls back to execCommand when navigator.clipboard is missing (old browsers, insecure contexts)
+ * or fails. The fallback is required because it must work when opened via file://.
  */
 async function copyToClipboard(text, successMessage = translate('common.copied')) {
     const value = String(text == null ? '' : text);
@@ -150,7 +150,7 @@ async function copyToClipboard(text, successMessage = translate('common.copied')
     }
 }
 
-/** 코드 블록 복사 — 버튼에 일시적으로 완료 표시를 남긴다 */
+/** Copy a code block — leaves a temporary done mark on the button */
 async function copyCode(elementId, buttonEl) {
     const el = document.getElementById(elementId);
     if (!el) return false;
@@ -168,10 +168,10 @@ async function copyCode(elementId, buttonEl) {
 }
 
 // ============================================
-// 파일 처리
+// File handling
 // ============================================
 
-/** 확장자·MIME으로 텍스트/바이너리 판정. Secret 값 변환 방식을 가른다. */
+/** Text/binary decision by extension and MIME. Decides how the Secret value is converted. */
 function getFileType(file) {
     const textExtensions = ['.json', '.txt', '.yml', '.yaml', '.xml', '.plist', '.env', '.properties', '.pem', '.cer', '.crt', '.key', '.md', '.conf', '.config', '.xcconfig'];
     const name = (file.name || '').toLowerCase();
@@ -181,7 +181,7 @@ function getFileType(file) {
     return 'binary';
 }
 
-/** 파일 → base64 문자열 (data URL 접두사 제거) */
+/** File → base64 string (data URL prefix removed) */
 function fileToBase64(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -194,7 +194,7 @@ function fileToBase64(file) {
     });
 }
 
-/** 파일 → 원문 텍스트 */
+/** File → raw text */
 function fileToText(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -204,7 +204,7 @@ function fileToText(file) {
     });
 }
 
-/** 파일명 → GitHub Secret 키 후보 (바이너리는 _BASE64 접미사) */
+/** File name → GitHub Secret key candidate (_BASE64 suffix for binaries) */
 function generateKeyName(fileName, fileType) {
     const base = fileName
         .replace(/\.[^.]+$/, '')
@@ -215,7 +215,7 @@ function generateKeyName(fileName, fileType) {
     return fileType === 'binary' ? `${base}_BASE64` : base;
 }
 
-/** 드래그&드롭 영역 배선 — 3종이 동일하게 쓰던 패턴 */
+/** Drag & drop area wiring — the pattern all wizards used identically */
 function setupDragAndDrop(dropZoneId, onFile) {
     const zone = document.getElementById(dropZoneId);
     if (!zone) return;
@@ -240,10 +240,10 @@ function setupDragAndDrop(dropZoneId, onFile) {
 }
 
 // ============================================
-// OS 감지
+// OS detection
 // ============================================
 
-/** 'windows' | 'mac' | 'linux' — 판별 불가 시 mac (마법사 주 사용 환경) */
+/** 'windows' | 'mac' | 'linux' — mac when undecidable (the wizards' main environment) */
 function detectOS() {
     const ua = navigator.userAgent || navigator.appVersion || navigator.platform || '';
     if (/Win/i.test(ua)) return 'windows';
@@ -252,24 +252,24 @@ function detectOS() {
     return 'mac';
 }
 
-/** POSIX 경로 → Windows 경로 (명령어 생성용) */
+/** POSIX path → Windows path (for command generation) */
 function toWinPath(p) {
     return String(p || '').replace(/\//g, '\\');
 }
 
-/** POSIX(/...)와 Windows(C:\...) 절대경로를 모두 허용한다 */
+/** Accepts both POSIX (/...) and Windows (C:\...) absolute paths */
 function isAbsolutePath(p) {
     const v = String(p || '').trim();
     return v.startsWith('/') || /^[A-Za-z]:[\\/]/.test(v);
 }
 
 // ============================================
-// 진행 상태 저장 (localStorage)
+// Progress saving (localStorage)
 // ============================================
 
 /**
- * 상태 읽기. legacyKeys를 함께 넘기면 구 키에 저장된 진행 상황을 자동 이관한다.
- * (키 이름을 통일하면서 기존 사용자의 저장 데이터가 날아가지 않게 하기 위함)
+ * Read state. Passing legacyKeys migrates progress saved under old keys automatically.
+ * (so existing users' saved data is not lost when key names are unified)
  */
 function readWizardState(key, legacyKeys = []) {
     try {
@@ -297,7 +297,7 @@ function writeWizardState(key, state) {
         localStorage.setItem(key, JSON.stringify(state));
         return true;
     } catch (err) {
-        // 용량 초과(대용량 인증서를 여러 개 올린 경우)에도 마법사가 죽지 않게 한다
+        // Keep the wizard alive even on quota exceeded (several large certificates uploaded)
         console.warn('[wizard state] save failed:', err);
         showToast(translate('common.stateSaveFailed'));
         return false;
@@ -314,10 +314,10 @@ function clearWizardState(key, legacyKeys = []) {
 }
 
 // ============================================
-// 버전 / 변경 이력
+// Version / changelog
 // ============================================
 
-/** HTML에 인라인된 versionJson 블록을 파싱 (version-sync.sh가 주입한다) */
+/** Parse the versionJson block inlined in the HTML (injected by version-sync.sh) */
 function getVersionData() {
     try {
         const el = document.getElementById('versionJson');
@@ -329,9 +329,9 @@ function getVersionData() {
 }
 
 /**
- * 변경 이력 모달 — 3종 공통.
+ * Changelog modal — shared by all wizards.
  *
- * ⚠️ 마크업 계약 (마법사 HTML이 반드시 갖춰야 하는 구조):
+ * ⚠️ Markup contract (structure every wizard HTML must have):
  *   <div id="changelogModal" class="modal-backdrop hidden" onclick="closeChangelogModal(event)">
  *     <div class="modal-content" onclick="event.stopPropagation()">
  *       ... <div id="changelogContent"></div>
@@ -339,8 +339,8 @@ function getVersionData() {
  *     </div>
  *   </div>
  *
- * 껍데기(닫기 버튼·배경 클릭 영역)는 HTML이 소유하고, 이 함수는 내용만 채운다.
- * 모달 전체를 innerHTML로 갈아끼우면 배경 클릭 닫기가 사라지므로 하지 않는다.
+ * The HTML owns the shell (close button, backdrop click area); this function only fills the content.
+ * Replacing the whole modal via innerHTML would lose backdrop-click closing, so it does not.
  */
 function openChangelogModal() {
     const modal = document.getElementById('changelogModal');
@@ -382,7 +382,7 @@ function openChangelogModal() {
     document.body.style.overflow = 'hidden';
 }
 
-/** 배경(backdrop)을 눌렀을 때만 닫는다 — 내용 영역 클릭으로 닫히면 안 된다 */
+/** Close only when the backdrop is clicked — clicks in the content area must not close it */
 function closeChangelogModal(event) {
     if (event && event.target !== event.currentTarget) return;
     const modal = document.getElementById('changelogModal');
@@ -390,7 +390,7 @@ function closeChangelogModal(event) {
     document.body.style.overflow = '';
 }
 
-/** 헤더의 버전 배지를 version.json 값으로 채운다 (HTML 하드코딩 방지) */
+/** Fill the header version badge from version.json (avoids hard-coding in HTML) */
 function syncVersionBadge() {
     const badge = document.getElementById('versionBadge');
     const data = getVersionData();
@@ -398,10 +398,10 @@ function syncVersionBadge() {
 }
 
 // ============================================
-// 보안 경고 배너
+// Security warning banner
 // ============================================
 
-/** 입력값이 브라우저에만 남는다는 점을 알린다. 닫으면 세션 동안 다시 뜨지 않는다. */
+/** Tells users their input stays only in the browser. Once closed it does not show again this session. */
 function showSecurityWarning() {
     if (sessionStorage.getItem('wizardSecurityWarningClosed') === '1') return;
     const el = document.getElementById('securityWarning');
@@ -414,15 +414,15 @@ function closeSecurityWarning() {
     try {
         sessionStorage.setItem('wizardSecurityWarningClosed', '1');
     } catch (err) {
-        /* 세션 저장 실패는 무시 — 배너만 닫히면 된다 */
+        /* Ignore session storage failures — closing the banner is enough */
     }
 }
 
 // ============================================
-// 다운로드
+// Download
 // ============================================
 
-/** Blob을 파일로 저장 (3종 공통 다운로드 진입점) */
+/** Save a Blob as a file (shared download entry point) */
 function triggerDownload(blob, fileName) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -435,7 +435,7 @@ function triggerDownload(blob, fileName) {
 }
 
 // ============================================
-// DOM 선택자
+// DOM selectors
 // ============================================
 
 function $(selector) {
@@ -447,11 +447,11 @@ function $$(selector) {
 }
 
 // ============================================
-// 단계 이동·상태 저장 기본 구현
+// Base implementation of step navigation and state saving
 // ============================================
-// 마법사 JS가 제공해야 하는 전역: state(currentStep·customSecrets), STORAGE_KEY,
+// Globals wizard JS must provide: state (currentStep, customSecrets), STORAGE_KEY,
 // updateProgress, initializeStep, saveCurrentStepData
-// firebase는 흐름이 달라 일부를 자체 구현으로 덮어쓴다 (check-consistency.py INTENTIONAL_OVERRIDES)
+// firebase has a different flow and overrides some with its own implementation (check-consistency.py INTENTIONAL_OVERRIDES)
 
 function saveState() {
     try {
@@ -469,7 +469,7 @@ function clearState() {
     }
 }
 
-/** 해당 단계 화면만 표시 > 단계별 초기화 */
+/** Show only that step's screen > per-step initialization */
 function showStep(stepNumber) {
     $$('.step-content').forEach(step => {
         step.classList.add('hidden');
@@ -485,7 +485,7 @@ function showStep(stepNumber) {
     initializeStep(stepNumber);
 }
 
-/** 현재 단계 입력 저장 > 이전 단계 표시 > 진행률·상태 저장 */
+/** Save the current step's input > show the previous step > save progress and state */
 function prevStep() {
     if (state.currentStep > 1) {
         saveCurrentStepData();
@@ -498,10 +498,10 @@ function prevStep() {
 }
 
 // ============================================
-// 커스텀 Secret (파일 타입별 자동 처리)
+// Custom Secrets (automatic handling per file type)
 // ============================================
 
-/** 파일 > Secret 값 (텍스트는 원문, 바이너리는 Base64) */
+/** File > Secret value (text as is, binary as Base64) */
 async function processFile(file) {
     if (getFileType(file) === 'text') {
         return { value: await fileToText(file), type: 'text', hint: translate('common.textHint') };
@@ -527,7 +527,7 @@ function removeCustomSecret(index) {
     saveState();
 }
 
-/** Secret 이름 규칙(대문자·숫자·_)으로 정리 후 저장 */
+/** Normalize to the Secret naming rule (uppercase, digits, _) and save */
 function updateCustomSecretKey(index, key) {
     if (state.customSecrets[index]) {
         state.customSecrets[index].key = key.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
@@ -535,7 +535,7 @@ function updateCustomSecretKey(index, key) {
     }
 }
 
-/** 파일 업로드 > 값 변환 > 키 비어 있으면 파일명으로 자동 생성 */
+/** File upload > value conversion > key generated from the file name if empty */
 async function handleCustomFileUpload(index, file) {
     if (!file) return;
 
@@ -625,7 +625,7 @@ function renderCustomSecrets() {
     }).join('');
 }
 
-/** 값이 채워진 커스텀 Secret만 내보내기 형식으로 */
+/** Only filled custom Secrets, in export format */
 function getCustomSecretsForExport() {
     return state.customSecrets
         .filter(cs => cs.key && cs.value)

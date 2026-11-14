@@ -1,16 +1,16 @@
 /**
  * GitHub Projects Sync Wizard v3.0.0
  *
- * 단일 페이지 버전:
- * - 모든 설정을 한 페이지에서 완료
- * - 스크립트 실행 결과에 모든 안내가 포함됨
+ * Single-page version:
+ * - every setting is completed on one page
+ * - the script output contains all the guidance
  */
 
 // ============================================
-// 상태 관리
+// State management
 // ============================================
 
-// issue-labels.yml 기본 Status Labels
+// Default Status Labels from issue-labels.yml
 const DEFAULT_STATUS_LABELS = [
     '작업전',
     '작업중',
@@ -23,43 +23,43 @@ const DEFAULT_STATUS_LABELS = [
 
 let state = {
     projectUrl: '',
-    projectType: 'org',    // Organization 전용 (User Projects 미지원)
-    ownerName: '',         // Organization 이름
-    orgName: '',           // 하위 호환성 유지
+    projectType: 'org',    // Organization only (User Projects not supported)
+    ownerName: '',         // Organization name
+    orgName: '',           // kept for backward compatibility
     projectNumber: '',
     workerName: 'github-projects-sync-worker',
     statusLabels: [...DEFAULT_STATUS_LABELS],
     webhookSecret: '',
-    skipProjectsGuide: false,  // Projects 생성 가이드 건너뛰기
-    githubToken: ''        // GitHub PAT (repo, project 권한)
+    skipProjectsGuide: false,  // skip the Projects creation guide
+    githubToken: ''        // GitHub PAT (repo, project scopes)
 };
 
 // ============================================
-// 초기화
+// Initialization
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 버전 정보 표시
+    // Show version info
     displayVersion();
 
-    // 다크 모드 초기화
+    // Initialize dark mode
     initDarkMode();
 
-    // 저장된 상태 복원
+    // Restore saved state
     loadState();
 
-    // Webhook Secret 자동 생성 (없는 경우)
+    // Generate the Webhook Secret automatically (if missing)
     if (!state.webhookSecret) {
         generateWebhookSecret();
     }
 
-    // Labels 렌더링
+    // Render labels
     renderLabels();
     renderDefaultLabelNames();
 
-    // Worker 이름 입력 이벤트 - 자동 소문자 변환 + 명령어 업데이트
+    // Worker name input event - auto-lowercase + update commands
     document.getElementById('workerName').addEventListener('input', (e) => {
-        // Cloudflare 이름 규칙: 소문자, 숫자, 하이픈만 허용
+        // Cloudflare naming rule: only lowercase letters, digits and hyphens
         const sanitized = sanitizeWorkerName(e.target.value);
         e.target.value = sanitized;
         state.workerName = sanitized || 'github-projects-sync-worker';
@@ -67,26 +67,26 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleCommandUpdate();
     });
 
-    // Webhook Secret 변경 이벤트 - 명령어 자동 업데이트
+    // Webhook Secret change event - update commands automatically
     document.getElementById('webhookSecret').addEventListener('input', (e) => {
         state.webhookSecret = e.target.value;
         saveState();
         scheduleCommandUpdate();
     });
 
-    // GitHub Token 입력 이벤트 - 명령어 자동 업데이트
+    // GitHub Token input event - update commands automatically
     document.getElementById('githubToken').addEventListener('input', (e) => {
         state.githubToken = e.target.value;
         saveState();
         scheduleCommandUpdate();
     });
 
-    // 초기 명령어 표시
+    // Show the initial commands
     updateInstallCommands();
 });
 
 // ============================================
-// 버전 정보
+// Version info
 // ============================================
 
 function displayVersion() {
@@ -102,7 +102,7 @@ function displayVersion() {
 }
 
 // ============================================
-// 버전 데이터 조회
+// Look up version data
 // ============================================
 
 function getVersionData() {
@@ -118,7 +118,7 @@ function getVersionData() {
 }
 
 // ============================================
-// Changelog 모달
+// Changelog modal
 // ============================================
 
 function openChangelogModal() {
@@ -172,7 +172,7 @@ function closeChangelogModal(event) {
     document.body.style.overflow = '';
 }
 
-// ESC 키로 changelog 모달 닫기
+// Close the changelog modal with ESC
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         const changelogModal = document.getElementById('changelogModal');
@@ -183,7 +183,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ============================================
-// 다크 모드
+// Dark mode
 // ============================================
 
 function initDarkMode() {
@@ -199,7 +199,7 @@ function toggleDarkMode() {
 }
 
 // ============================================
-// 상태 저장/복원
+// Save/restore state
 // ============================================
 
 function saveState() {
@@ -213,7 +213,7 @@ function loadState() {
             const parsed = JSON.parse(saved);
             state = { ...state, ...parsed };
 
-            // UI에 상태 반영
+            // Reflect state in the UI
             document.getElementById('projectUrl').value = state.projectUrl || '';
             document.getElementById('ownerName').value = state.ownerName || state.orgName || '';
             document.getElementById('orgName').value = state.orgName || '';
@@ -221,24 +221,24 @@ function loadState() {
             document.getElementById('workerName').value = state.workerName || 'github-projects-sync-worker';
             document.getElementById('webhookSecret').value = state.webhookSecret || '';
 
-            // Projects 가이드 건너뛰기 체크박스
+            // Skip-Projects-guide checkbox
             const skipGuideCheckbox = document.getElementById('skipProjectsGuide');
             if (skipGuideCheckbox) {
                 skipGuideCheckbox.checked = state.skipProjectsGuide || false;
                 toggleProjectsGuide();
             }
 
-            // GitHub Token (보안상 저장하지 않음 - 페이지 새로고침 시 재입력 필요)
-            // state.githubToken은 세션 중에만 유지
+            // GitHub Token (not saved for security - must be re-entered after a page refresh)
+            // state.githubToken lives only for the session
             const githubTokenInput = document.getElementById('githubToken');
             if (githubTokenInput && state.githubToken) {
                 githubTokenInput.value = state.githubToken;
             }
 
-            // 타입에 따른 UI 업데이트
+            // Update the UI by type
             updateUIForProjectType();
 
-            // 명령어가 이미 생성되어 있으면 표시
+            // Show commands if already generated
             updateInstallCommands();
         }
     } catch (e) {
@@ -264,32 +264,32 @@ function resetWizard() {
         generateWebhookSecret();
         renderLabels();
 
-        // 입력 필드 초기화
+        // Reset input fields
         document.getElementById('projectUrl').value = '';
         document.getElementById('ownerName').value = '';
         document.getElementById('orgName').value = '';
         document.getElementById('projectNumber').value = '';
         document.getElementById('workerName').value = 'github-projects-sync-worker';
 
-        // User Projects 경고 숨기기
+        // Hide the User Projects warning
         const userWarning = document.getElementById('userProjectsWarning');
         if (userWarning) {
             userWarning.classList.add('hidden');
         }
 
-        // Projects 가이드 체크박스 초기화
+        // Reset the Projects guide checkbox
         const skipGuideCheckbox = document.getElementById('skipProjectsGuide');
         if (skipGuideCheckbox) {
             skipGuideCheckbox.checked = false;
         }
 
-        // GitHub Token 초기화
+        // Reset the GitHub Token
         const githubTokenInput = document.getElementById('githubToken');
         if (githubTokenInput) {
             githubTokenInput.value = '';
         }
 
-        // UI 초기화
+        // Reset the UI
         updateUIForProjectType();
         toggleProjectsGuide();
         updateInstallCommands();
@@ -299,37 +299,37 @@ function resetWizard() {
 }
 
 // ============================================
-// Worker 이름 유틸리티
+// Worker name utilities
 // ============================================
 
-// Worker 이름 Cloudflare 규칙 준수 (소문자, 숫자, 하이픈만)
+// Make the Worker name follow Cloudflare rules (lowercase letters, digits, hyphens only)
 function sanitizeWorkerName(name) {
     if (!name) return '';
     return name
         .toLowerCase()
-        .replace(/[^a-z0-9-]/g, '-')  // 허용되지 않는 문자 → 하이픈
-        .replace(/-+/g, '-')           // 연속 하이픈 제거
-        .replace(/^-|-$/g, '');        // 시작/끝 하이픈 제거
+        .replace(/[^a-z0-9-]/g, '-')  // disallowed characters → hyphen
+        .replace(/-+/g, '-')           // collapse repeated hyphens
+        .replace(/^-|-$/g, '');        // remove leading/trailing hyphens
 }
 
-// 기본 Worker 이름 생성 (Organization 이름 기반)
+// Build the default Worker name (from the Organization name)
 function generateDefaultWorkerName() {
-    // Organization 이름 사용
+    // Use the Organization name
     if (!state.ownerName) {
         return 'github-projects-sync-worker';
     }
 
-    // github-projects-{org}-sync-worker 형식
+    // github-projects-{org}-sync-worker format
     const sanitized = sanitizeWorkerName(state.ownerName);
     return `github-projects-${sanitized}-sync-worker`;
 }
 
-// Worker 이름 자동 설정 (URL 파싱 후 호출)
+// Set the Worker name automatically (called after URL parsing)
 function autoSetWorkerName() {
     const workerInput = document.getElementById('workerName');
     if (!workerInput) return;
 
-    // 사용자가 직접 수정한 적 없거나 기본값인 경우에만 자동 설정
+    // Set it automatically only if the user never edited it or it is the default
     const currentValue = workerInput.value.trim();
     const isDefault = currentValue === 'github-projects-sync-worker' || currentValue === '';
 
@@ -342,26 +342,26 @@ function autoSetWorkerName() {
 }
 
 // ============================================
-// Project URL 파싱
+// Parse the Project URL
 // ============================================
 
 function parseProjectUrl() {
     const url = document.getElementById('projectUrl').value.trim();
     state.projectUrl = url;
 
-    // User Projects 경고 요소
+    // User Projects warning element
     const userWarning = document.getElementById('userProjectsWarning');
 
-    // User Projects URL 감지 → 경고 표시 및 차단
+    // Detect a User Projects URL → show a warning and block
     // https://github.com/users/USERNAME/projects/NUMBER[/views/VIEW_ID]
     const userMatch = url.match(/github\.com\/users\/([^\/]+)\/projects\/(\d+)(?:\/views\/\d+)?/);
 
     if (userMatch) {
-        // User Projects 감지 - 경고 표시
+        // User Projects detected - show the warning
         if (userWarning) {
             userWarning.classList.remove('hidden');
         }
-        // 파싱 결과 초기화 (User Projects 미지원)
+        // Reset the parse result (User Projects not supported)
         state.projectType = 'org';
         state.ownerName = '';
         state.orgName = '';
@@ -372,19 +372,19 @@ function parseProjectUrl() {
         return;
     }
 
-    // User Projects 경고 숨기기 (다른 URL 입력 시)
+    // Hide the User Projects warning (when another URL is entered)
     if (userWarning) {
         userWarning.classList.add('hidden');
     }
 
-    // Organization Projects URL 파싱
+    // Parse an Organization Projects URL
     // https://github.com/orgs/ORG-NAME/projects/NUMBER[/views/VIEW_ID]
     const orgMatch = url.match(/github\.com\/orgs\/([^\/]+)\/projects\/(\d+)(?:\/views\/\d+)?/);
 
     if (orgMatch) {
         state.projectType = 'org';
         state.ownerName = orgMatch[1];
-        state.orgName = orgMatch[1]; // 하위 호환성
+        state.orgName = orgMatch[1]; // backward compatibility
         state.projectNumber = orgMatch[2];
         updateUIForProjectType();
         autoSetWorkerName();
@@ -393,7 +393,7 @@ function parseProjectUrl() {
         return;
     }
 
-    // 매칭 실패 - 초기화
+    // No match - reset
     state.projectType = 'org';
     state.ownerName = '';
     state.orgName = '';
@@ -403,14 +403,14 @@ function parseProjectUrl() {
     scheduleCommandUpdate();
 }
 
-// 프로젝트 타입에 따른 UI 업데이트 (Organization 전용)
+// Update the UI by project type (Organization only)
 function updateUIForProjectType() {
     const ownerNameInput = document.getElementById('ownerName');
     const projectNumberInput = document.getElementById('projectNumber');
     const projectTypeBadge = document.getElementById('projectTypeBadge');
     const parseResultSection = document.getElementById('parseResult');
 
-    // 파싱 결과 입력란 업데이트
+    // Update the parse result fields
     if (ownerNameInput) {
         ownerNameInput.value = state.ownerName || '';
     }
@@ -418,7 +418,7 @@ function updateUIForProjectType() {
         projectNumberInput.value = state.projectNumber || '';
     }
 
-    // 파싱 결과 섹션 표시/숨김
+    // Show/hide the parse result section
     if (parseResultSection) {
         if (state.ownerName && state.projectNumber) {
             parseResultSection.classList.remove('hidden');
@@ -427,7 +427,7 @@ function updateUIForProjectType() {
         }
     }
 
-    // 프로젝트 타입 뱃지 업데이트 (Organization 전용)
+    // Update the project type badge (Organization only)
     if (projectTypeBadge) {
         if (state.ownerName && state.projectNumber) {
             projectTypeBadge.textContent = 'Organization';
@@ -438,14 +438,14 @@ function updateUIForProjectType() {
         }
     }
 
-    // 하위 호환성을 위해 orgName 필드도 업데이트
+    // Also update the orgName field for backward compatibility
     const orgNameInput = document.getElementById('orgName');
     if (orgNameInput) {
         orgNameInput.value = state.orgName || '';
     }
 }
 
-// Projects 가이드 토글
+// Projects guide toggle
 function toggleProjectsGuide() {
     const checkbox = document.getElementById('skipProjectsGuide');
     const guideContent = document.getElementById('projectsGuideContent');
@@ -463,10 +463,10 @@ function toggleProjectsGuide() {
 
 
 // ============================================
-// Labels 관리
+// Label management
 // ============================================
 
-/** 매핑 가이드 표의 Label 이름 = DEFAULT_STATUS_LABELS (HTML 에 사본을 두지 않음) */
+/** Label names in the mapping guide table = DEFAULT_STATUS_LABELS (no copy kept in the HTML) */
 function renderDefaultLabelNames() {
     document.querySelectorAll('[data-default-label-index]').forEach((element) => {
         element.textContent = DEFAULT_STATUS_LABELS[Number(element.dataset.defaultLabelIndex)] || '';
@@ -522,7 +522,7 @@ function resetLabels() {
 }
 
 // ============================================
-// Webhook Secret 생성
+// Generate the Webhook Secret
 // ============================================
 
 function generateWebhookSecret() {
@@ -535,7 +535,7 @@ function generateWebhookSecret() {
 }
 
 // ============================================
-// 파일 생성 템플릿
+// Generated file templates
 // ============================================
 
 function generateWranglerToml() {
@@ -1152,11 +1152,11 @@ Write-Host "━━━━━━━━━━━━━━━━━━━━━━�
 }
 
 // ============================================
-// ZIP 다운로드
+// ZIP download
 // ============================================
 
 async function downloadAllAsZip() {
-    // 유효성 검사
+    // Validation
     const orgName = document.getElementById('orgName').value.trim();
     const projectNumber = document.getElementById('projectNumber').value.trim();
 
@@ -1165,7 +1165,7 @@ async function downloadAllAsZip() {
         return;
     }
 
-    // 상태 업데이트
+    // Update state
     state.orgName = orgName;
     state.projectNumber = projectNumber;
     state.workerName = document.getElementById('workerName').value.trim() || 'github-projects-sync-worker';
@@ -1175,7 +1175,7 @@ async function downloadAllAsZip() {
         const zip = new JSZip();
         const folderName = 'github-projects-sync-worker';
 
-        // 파일 추가
+        // Add files
         zip.file(`${folderName}/wrangler.toml`, generateWranglerToml());
         zip.file(`${folderName}/package.json`, generatePackageJson());
         zip.file(`${folderName}/tsconfig.json`, generateTsconfig());
@@ -1185,7 +1185,7 @@ async function downloadAllAsZip() {
         zip.file(`${folderName}/projects-sync-worker-setup.sh`, generateSetupScriptSh());
         zip.file(`${folderName}/projects-sync-worker-setup.ps1`, generateSetupScriptPs1());
 
-        // ZIP 생성 및 다운로드
+        // Build and download the ZIP
         const content = await zip.generateAsync({ type: 'blob' });
         const url = URL.createObjectURL(content);
         const a = document.createElement('a');
@@ -1204,7 +1204,7 @@ async function downloadAllAsZip() {
 }
 
 // ============================================
-// 유틸리티 함수
+// Utility functions
 // ============================================
 
 function escapeHtml(text) {
@@ -1245,10 +1245,10 @@ function showToast(message, type = 'success') {
 }
 
 // ============================================
-// 설치 명령어 자동 생성 (OS별)
+// Generate install commands automatically (per OS)
 // ============================================
 
-// 명령어 자동 업데이트 (debounce 적용)
+// Update commands automatically (debounced)
 let commandUpdateTimer = null;
 
 function scheduleCommandUpdate() {
@@ -1268,20 +1268,20 @@ function updateInstallCommands() {
 
     if (!commandSection || !waitingMessage) return;
 
-    // 필수 필드 확인
+    // Check required fields
     const ownerName = state.ownerName || '';
     const projectNumber = state.projectNumber || '';
     const webhookSecret = state.webhookSecret || '';
     const githubToken = state.githubToken || '';
 
     if (!ownerName || !projectNumber || !webhookSecret || !githubToken) {
-        // 입력 대기 메시지 표시
+        // Show the waiting-for-input message
         waitingMessage.classList.remove('hidden');
         commandSection.classList.add('hidden');
         return;
     }
 
-    // 명령어 생성 및 표시
+    // Generate and show the commands
     waitingMessage.classList.add('hidden');
     commandSection.classList.remove('hidden');
 
@@ -1294,10 +1294,10 @@ function updateInstallCommands() {
 }
 
 function buildBashCommand() {
-    // Mac/Linux bash 스크립트 URL
+    // Mac/Linux bash script URL
     const scriptUrl = 'https://raw.githubusercontent.com/Cassiiopeia/projectops/main/.github/util/common/projects-sync-wizard/projects-sync-wizard-setup.sh';
 
-    // 인자 구성 (Organization 전용)
+    // Build arguments (Organization only)
     const args = [];
     args.push(`--owner "${state.ownerName}"`);
     args.push(`--project "${state.projectNumber}"`);
@@ -1306,13 +1306,13 @@ function buildBashCommand() {
     args.push(`--github-token "${state.githubToken}"`);
     args.push(`--labels "${state.statusLabels.join(',')}"`);
 
-    // curl 명령어 생성
+    // Build the curl command
     return `curl -fsSL ${scriptUrl} | bash -s -- \\
   ${args.join(' \\\n  ')}`;
 }
 
 function buildPowerShellCommand() {
-    // 환경변수 설정 (Organization 전용)
+    // Env var settings (Organization only)
     const envVars = [];
     envVars.push(`$env:WIZARD_OWNER='${state.ownerName}'`);
     envVars.push(`$env:WIZARD_PROJECT='${state.projectNumber}'`);
@@ -1321,10 +1321,10 @@ function buildPowerShellCommand() {
     envVars.push(`$env:WIZARD_GITHUB_TOKEN='${state.githubToken}'`);
     envVars.push(`$env:WIZARD_LABELS='${state.statusLabels.join(',')}'`);
 
-    // PowerShell 스크립트 URL
+    // PowerShell script URL
     const scriptUrl = 'https://raw.githubusercontent.com/Cassiiopeia/projectops/main/.github/util/common/projects-sync-wizard/projects-sync-wizard-setup.ps1';
 
-    // PowerShell 명령어 생성
+    // Build the PowerShell command
     return `${envVars.join('; ')}; irm '${scriptUrl}' | iex`;
 }
 

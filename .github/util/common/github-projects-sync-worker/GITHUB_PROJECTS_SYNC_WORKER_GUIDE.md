@@ -226,7 +226,7 @@ Check for a `200 OK` response under Recent Deliveries.
 
 ### Expected log
 
-The two label lines come from the Worker as they are: `제거됨` means "removed" and `추가됨` means "added".
+The label names are the Korean status labels configured in STATUS_LABELS.
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -240,9 +240,9 @@ The two label lines come from the Worker as they are: `제거됨` means "removed
 📌 Current Labels: enhancement, 작업전
 📌 New Status: "작업중"
 🗑️ Labels to remove: 작업전
-  ✅ Label "작업전" 제거됨
+  ✅ Label "작업전" removed (or already absent)
 ➕ Adding label: "작업중"
-  ✅ Label "작업중" 추가됨
+  ✅ Label "작업중" added
 🎉 Label sync completed!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```

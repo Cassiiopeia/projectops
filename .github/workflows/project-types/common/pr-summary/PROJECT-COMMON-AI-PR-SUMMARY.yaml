@@ -1,26 +1,26 @@
 # ===================================================================
 # PROJECT-COMMON-AI-PR-SUMMARY.yaml
-# 일반 작업 PR에 변경 요약 댓글 자동 작성 (#553)
+# Automatically comment a change summary on regular work PRs (#553)
 # ===================================================================
 #
-# 기본 브랜치를 향하는 작업 PR이 열리거나 갱신되면 커밋을 요약해 댓글로 답니다.
-# 릴리스 노트와 **같은 provider 사다리**(.github/scripts/changelog_providers/ladder.py)를
-# 재사용합니다 — 별도 생성기를 두면 두 경로가 갈라져 드리프트가 나기 때문입니다.
+# When a work PR targeting the default branch is opened or updated, it summarizes the commits as a comment.
+# It reuses **the same provider ladder** as release notes (.github/scripts/changelog_providers/ladder.py)
+# — a separate generator would split the two paths and cause drift.
 #
-# 🔑 GitHub Secrets — 전부 선택
-#   MODEL_API_KEY: 등록하면 외부 AI로 요약합니다. 없으면 Copilot → 커밋 분석 순입니다.
-#   (permissions의 models: read + 기본 토큰만으로 GitHub Models가 동작합니다)
+# 🔑 GitHub Secrets — all optional
+#   MODEL_API_KEY: if registered, summarizes with external AI. Otherwise Copilot -> commit analysis.
+#   (GitHub Models works with permissions models: read + the default token alone)
 #
-# 달지 않는 경우:
-#   - 릴리스 PR(head가 개발 브랜치): 체인지로그가 이미 그 일을 합니다
-#   - fork에서 온 PR: 외부 코드로 이 워크플로우를 돌리지 않습니다
-#   - **CodeRabbit을 쓰는 저장소**(.coderabbit.yaml 존재): 그 봇이 이미 요약을 답니다.
-#     여기서 또 달면 요약 댓글이 둘이 됩니다 — 둘 중 하나만 돌게 합니다.
+# When it does not comment:
+#   - Release PRs (head is the development branch): the changelog already does that
+#   - PRs from forks: this workflow does not run external code
+#   - **Repos using CodeRabbit** (.coderabbit.yaml exists): that bot already posts a summary.
+#     Commenting here too would mean two summaries — only one of them runs.
 #
-# 댓글은 쌓지 않고 갱신합니다. 표식(<!-- PROJECTOPS-AI-SUMMARY -->)으로 기존 댓글을 찾아
-# 내용만 교체하므로, 커밋을 여러 번 올려도 요약 댓글은 하나로 유지됩니다.
+# Comments are updated, not stacked. It finds the existing comment by its marker (<!-- PROJECTOPS-AI-SUMMARY -->)
+# and replaces only the content, so pushing commits many times keeps a single summary comment.
 #
-# 이 워크플로우는 어떤 경우에도 PR을 막지 않습니다 (요약 생성 실패 = 조용히 종료).
+# This workflow never blocks a PR (failed summary = exit quietly).
 # ===================================================================
 
 name: AI PR SUMMARY
@@ -28,29 +28,29 @@ name: AI PR SUMMARY
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    # branches는 **base**(PR이 향하는 곳) 필터다. 일반 작업 PR은 개발 브랜치를 향하므로
-    # 여기에 main을 걸면 작업 PR이 잡히지 않는다. 실제로 base=main + head!=develop 조합은
-    # 존재할 수 없어 이 워크플로우가 한 번도 실행되지 못했다 (#565).
-    # 릴리스 PR(develop→main)은 base가 main이라 자연히 제외되고, 그 덕에 머지 타이밍에
-    # run이 잘려 실패로 남던 문제도 사라진다.
+    # branches filters by **base** (where the PR points). Regular work PRs target the development branch, so
+    # putting main here misses work PRs. In fact base=main + head!=develop could not
+    # exist, so this workflow never ran once (#565).
+    # Release PRs (develop->main) have base main and are naturally excluded, which also removes
+    # runs cut off at merge time and left as failures.
     branches: ["develop"]
 
 permissions:
   contents: read
   pull-requests: write
-  # Copilot CLI 인증용 — GitHub Models가 종료되어 models:read는 쓸모가 없어졌다 (#566)
+  # For Copilot CLI auth — GitHub Models shut down, so models:read became useless (#566)
   copilot-requests: write
 
 concurrency:
-  # 같은 PR에 커밋이 연달아 올라오면 마지막 것만 요약한다
+  # When commits land on the same PR in a row, summarize only the last
   group: ai-pr-summary-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
   ai-pr-summary:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
     name: PR 변경 요약 댓글
-    # fork PR 제외 + 릴리스 PR(head=develop) 제외
+    # Exclude fork PRs + release PRs (head=develop)
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.head.ref != 'develop'
@@ -65,32 +65,32 @@ jobs:
       - name: Read options
         id: options
         run: |
-          # 설정 파일 존재로 CodeRabbit 사용 여부를 추측하지 않는다 (#566).
-          # 파일만 있고 앱이 실제로는 붙어 있지 않으면 CodeRabbit도 요약을 안 달고 여기서도
-          # 스스로 빠져 "아무도 요약하지 않는" 상태가 된다 — 실제로 그런 저장소가 있었다.
-          # 이제 이 워크플로우의 존재 자체가 사용자의 선택이다(마법사가 복사 여부를 결정).
+          # Do not guess CodeRabbit usage from the config file's existence (#566).
+          # If the file exists but the app is not actually installed, CodeRabbit posts no summary and this one
+          # drops out too, leaving "nobody summarizes" — such repos really existed.
+          # Now the existence of this workflow is itself the user's choice (the wizard decides whether to copy it).
           echo "skip=false" >> $GITHUB_OUTPUT
 
           if [ -f ".github/scripts/version_manager.py" ]; then
             PROVIDER=$(python3 .github/scripts/version_manager.py get-option changelog.provider 2>/dev/null || true)
-            # #851 — 블록 리스트·중첩 키·주석을 version_manager 가 한 곳에서 해석한다
+            # #851 — version_manager interprets block lists, nested keys and comments in one place
           else
             PROVIDER=$(grep -A5 "changelog:" version.yml 2>/dev/null | grep "provider:" | head -1 | sed -E 's/.*provider: *"?([a-z-]+)"?.*/\1/' || true)
           fi
-          # coderabbit은 이 워크플로우에서 재현할 수 없는 외부 봇이고, github-ai는 서비스가
-          # 종료됐다. 둘 다 기본 경로(commit)로 대체한다 — 등록된 AI 키가 있으면 사다리가
-          # 알아서 집어 쓰고, 없으면 커밋 분석으로 간다. 과금 요소는 기본에 두지 않는다 (#569).
+          # coderabbit is an external bot this workflow cannot reproduce, and github-ai's service
+          # shut down. Both are replaced with the default path (commit) — the ladder picks up a registered AI key
+          # by itself, else goes to commit analysis. No billed step on the default path (#569).
           case "$PROVIDER" in
             ""|coderabbit|github-ai) PROVIDER="commit" ;;
           esac
           echo "provider=$PROVIDER" >> $GITHUB_OUTPUT
 
-          # 프로젝트 성격(#553) — 앱 심사로 이어지는 레포면 요약에 안내를 덧붙인다.
+          # Project kind (#553) — repos that lead to app review get a notice appended to the summary.
           APP_RELEASE=$(python3 -c 'import re; t=open("version.yml",encoding="utf-8").read(); m=re.search(r"metadata:.*?template:.*?options:.*?app_release:\s*\"?(true|false)", t, re.S); print(m.group(1) if m else "false")' 2>/dev/null || echo "false")
           echo "app_release=$APP_RELEASE" >> $GITHUB_OUTPUT
           echo "ℹ️ provider=$PROVIDER / app_release=$APP_RELEASE"
 
-      # copilot provider가 쓰는 CLI. 설치 실패해도 사다리가 다음 단으로 내려가므로 막지 않는다.
+      # CLI used by the copilot provider. Not blocking if install fails, since the ladder drops to the next step.
       - name: Install Copilot CLI
         continue-on-error: true
         run: npm install -g @github/copilot
@@ -101,18 +101,18 @@ jobs:
         continue-on-error: true
         env:
           CHANGELOG_PROVIDER: ${{ steps.options.outputs.provider }}
-          # 서비스별 전용 이름 — 등록된 것만 값이 들어온다. 사다리가 알아서 고른다 (#569).
+          # Dedicated per-service names — only registered ones get values. The ladder picks (#569).
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
-          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}   # 구 이름 — 하위호환
+          MODEL_API_KEY: ${{ secrets.MODEL_API_KEY }}   # old name — backward compatible
           GITHUB_TOKEN: ${{ github.token }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           git fetch origin "$BASE_REF"
-          # 세 점(...)은 공통 조상 기준 — base에 새로 들어온 커밋을 요약에 섞지 않는다
+          # Three dots (...) use the common ancestor — commits newly landed on base are not mixed into the summary
           export COMMIT_RANGE="origin/${BASE_REF}...HEAD"
           echo "ℹ️ Summary range: $COMMIT_RANGE"
 

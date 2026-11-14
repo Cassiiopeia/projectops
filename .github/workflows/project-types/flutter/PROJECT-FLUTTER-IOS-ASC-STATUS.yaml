@@ -1,23 +1,23 @@
 # ===================================================================
-# Flutter iOS App Store Connect 상태 조회 (수동 실행, 조회 전용)
+# Flutter iOS App Store Connect status lookup (manual run, read-only)
 # ===================================================================
 #
-# 저장된 App Store Connect 시크릿으로 앱의 버전 목록(상태와 닫힘 여부)과
-# 최근 올라간 빌드 번호를 읽어 실행 요약(Summary)에 표로 보여줍니다.
+# Uses the stored App Store Connect secrets to read the app's version list (state and whether closed)
+# and the latest uploaded build numbers, shown as a table in the run Summary.
 #
-# 언제 쓰나:
-# - "이 버전이 이미 출시되어 닫혔나?"를 로컬에서 확인할 방법이 없을 때
-#   (발급자 ID가 GitHub 시크릿에만 있고 브라우저 세션이 만료되는 경우)
-# - iOS 테스트 빌드가 다음 패치 버전으로 바뀐 이유를 확인할 때
+# When to use:
+# - when you cannot check locally "is this version already released and closed?"
+#   (the issuer ID is only in GitHub secrets and the browser session has expired)
+# - to see why an iOS test build switched to the next patch version
 #
-# 하는 일은 조회뿐입니다. 아무것도 올리거나 바꾸지 않고, 시크릿 값은 출력하지 않습니다.
-# 리눅스 러너에서 몇 초면 끝납니다 (macOS 러너를 쓰지 않음).
+# It only looks things up. It uploads or changes nothing and never prints secret values.
+# Finishes in a few seconds on a Linux runner (no macOS runner).
 #
-# 필요한 Secrets: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
-#                 APP_STORE_CONNECT_API_KEY_BASE64, IOS_BUNDLE_ID (또는 Variables)
-# API 키 역할은 App Manager 이상을 권장합니다 (Developer는 읽기 권한이 확인되지 않음).
+# Required Secrets: APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_ISSUER_ID,
+#                   APP_STORE_CONNECT_API_KEY_BASE64, IOS_BUNDLE_ID (or Variables)
+# App Manager or higher is recommended for the API key role (read access is unconfirmed for Developer).
 #
-# 조회 로직은 .github/scripts/ios_release.py 의 asc-status 서브커맨드 (#651)
+# Lookup logic: the asc-status subcommand of .github/scripts/ios_release.py (#651)
 
 name: PROJECT-FLUTTER-IOS-ASC-STATUS
 
@@ -29,7 +29,7 @@ on:
         required: false
         default: ""
 
-# 조회만 하므로 저장소 읽기 권한이면 충분하다
+# Read-only, so repo read permission is enough
 permissions:
   contents: read
 
@@ -50,7 +50,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # 키가 없거나 깨지면 조회 스크립트가 원인을 알려 주므로 여기서는 파일만 만든다
+      # If the key is missing or broken the lookup script explains why, so only create the file here
       - name: Setup App Store Connect API Key
         env:
           API_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_API_KEY_BASE64 }}
@@ -69,7 +69,7 @@ jobs:
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          # 입력값과 시크릿은 스크립트 소스에 직접 넣지 않고 env로 받는다
+          # Inputs and secrets come via env, never inlined in the script source
           INPUT_BUNDLE_ID: ${{ github.event.inputs.bundle_id }}
           SECRET_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID || vars.IOS_BUNDLE_ID }}
         run: |

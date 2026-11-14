@@ -1,21 +1,21 @@
 # ===================================================================
 # PROJECT-COMMON-README-VERSION-UPDATE.yaml
-# README 파일 버전 자동 업데이트 워크플로우
+# README version auto-update workflow
 # ===================================================================
 #
-# 이 워크플로우는 main 브랜치로 푸시가 발생할 때 README.md 파일의
-# 버전 정보를 version_manager.sh를 통해 가져와 자동으로 업데이트합니다.
+# On a push to main, this workflow gets the version info via version_manager.sh
+# and updates it in README.md automatically.
 #
 # ===================================================================
-# 작동 방식:
-# 1. main 브랜치 푸시 시 트리거
-# 2. version_manager.sh를 통해 최신 버전 정보 추출
-# 3. README.md 파일의 버전 정보 업데이트
-# 4. 변경사항 커밋 및 푸시
+# How it works:
+# 1. Triggered on a push to main
+# 2. Extracts the latest version info via version_manager.sh
+# 3. Updates the version info in README.md
+# 4. Commits and pushes the change
 #
-# ⚠️ README.md 파일 버전 표기 가이드라인:
+# ⚠️ Guidelines for the version line in README.md:
 #
-# ✅ 지원되는 버전 표기 형식들:
+# ✅ Supported version line formats:
 # - ## 최신 버전 : v1.0.0 (2025-08-15)
 # - ## 최신버전 : v1.0.0 (2025-08-15)
 # - ## Current Version : v1.0.0 (2025-08-15)
@@ -23,33 +23,33 @@
 # - ## Version : v1.0.0 (2025-08-15)
 # - ## 버전 : v1.0.0 (2025-08-15)
 #
-# - 대소문자 구분 없음
-# - 콜론(:) 앞뒤 공백 자유롭게 허용
-# - "version", "버전", "최신", "current", "recent" 등의 키워드 포함 시 자동 인식
-# - 주석 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->가 자동으로 추가됩니다.
+# - Case-insensitive
+# - Any spacing around the colon (:)
+# - Recognized automatically when it contains keywords such as "version", "버전", "최신", "current", "recent"
+# - The comment <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY --> is added automatically.
 #
-# ❌ 지원되지 않는 형식 (에러 발생):
-# - ## 최신 버전: v1.0.0** (마크다운 볼드 문자 사용 금지)
-# - ## 최신 버전 v1.0.0 (콜론 누락)
-# - 정규표현식 특수문자(*, [, ], ^, $) 포함된 버전 표기
+# ❌ Unsupported formats (error):
+# - ## 최신 버전: v1.0.0** (no Markdown bold)
+# - ## 최신 버전 v1.0.0 (missing colon)
+# - Version lines containing regex special characters (*, [, ], ^, $)
 #
-# 🔧 환경변수 설정:
-# - SHOW_DATE: 버전에 날짜 표시 여부 (true/false, 기본값: true)
-#   * true: v1.0.0 (2025-08-16) 형식
-#   * false: v1.0.0 형식
+# 🔧 Environment settings:
+# - SHOW_DATE: whether to show the date with the version (true/false, default: true)
+#   * true: v1.0.0 (2025-08-16) format
+#   * false: v1.0.0 format
 # ===================================================================
 
 name: README VERSION UPDATE
 
-# 환경변수 설정 - 사용자 맞춤 설정
+# Environment settings — user customization
 env:
-  # 버전에 날짜 표시 여부 (true/false)
-  SHOW_DATE: true  # 🔧 이 값을 false로 변경하면 날짜가 표시되지 않습니다
+  # Whether to show the date with the version (true/false)
+  SHOW_DATE: true  # 🔧 set to false to hide the date
 
 on:
   push:
     branches: ["main"]
-  # PAT 없이 릴리스한 경우 push 트리거가 발생하지 않으므로(#551) 릴리스 워크플로우가 직접 깨운다.
+  # A release without a PAT fires no push trigger (#551), so the release workflow wakes this directly.
   workflow_dispatch:
 
 permissions:
@@ -76,16 +76,16 @@ jobs:
       - name: Read latest version with version_manager.sh
         id: version_info
         run: |
-          # 버전 관리 스크립트에 실행 권한 부여
+          # Make the version script executable
           chmod +x .github/scripts/version_manager.sh
           
-          # version_manager.sh를 통해 최신 버전 가져오기
+          # Get the latest version via version_manager.sh
           LATEST_VERSION=$(.github/scripts/version_manager.sh get | tail -n 1)
           
-          # 현재 날짜를 릴리즈 날짜로 사용
+          # Use today's date as the release date
           RELEASE_DATE=$(date '+%Y-%m-%d')
           
-          # 버전 정보 저장
+          # Save version info
           echo "latest_version=$LATEST_VERSION" >> $GITHUB_OUTPUT
           echo "release_date=$RELEASE_DATE" >> $GITHUB_OUTPUT
 
@@ -95,14 +95,14 @@ jobs:
           RELEASE_DATE="${{ steps.version_info.outputs.release_date }}"
           SHOW_DATE="${{ env.SHOW_DATE }}"
 
-          # README.md 가 없는 프로젝트도 많다 — 없으면 실패시키지 않고 건너뛴다 (#726)
+          # Many projects have no README.md — skip instead of failing when missing (#726)
           if [ ! -f README.md ]; then
             echo "::notice::No README.md, skipping the version line (it is added on the next push once README.md exists)"
             exit 0
           fi
 
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-          # 에러 메시지 출력 함수
+          # Error message printer
           # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
           print_error_message() {
             local error_type="$1"
@@ -139,7 +139,7 @@ jobs:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           }
 
-          # 날짜 표시 여부에 따라 버전 형식 결정
+          # Pick the version format based on SHOW_DATE
           if [ "$SHOW_DATE" = "true" ]; then
             VERSION_TEXT="v${LATEST_VERSION} (${RELEASE_DATE})"
             echo "🗓️ Version with date: $VERSION_TEXT"
@@ -148,8 +148,8 @@ jobs:
             echo "📋 Version only: $VERSION_TEXT"
           fi
 
-          # 다양한 버전 표기 패턴을 찾기 위한 정규표현식
-          # 대소문자 무시, 공백 유연하게 처리
+          # Regexes to find the various version line patterns
+          # Case-insensitive, flexible spacing
           VERSION_PATTERNS=(
             "^##[[:space:]]*최신[[:space:]]*버전[[:space:]]*:"
             "^##[[:space:]]*최신버전[[:space:]]*:"
@@ -160,7 +160,7 @@ jobs:
             "^##[[:space:]]*[Ll]atest[[:space:]]*[Vv]ersion[[:space:]]*:"
           )
 
-          # 버전 라인 찾기
+          # Find the version line
           VERSION_LINE=""
           PATTERN_FOUND=""
 
@@ -173,29 +173,29 @@ jobs:
             fi
           done
 
-          # 버전 라인이 없으면 기본 형식으로 추가
+          # No version line: add one in the default format
           if [ -z "$VERSION_LINE" ]; then
             echo "📝 No version line found, adding one"
 
-            # 새 제목은 version.yml 의 언어(options.language)를 따른다 (#769). 두 제목 모두 위 패턴이 다시 찾는다.
-            # 카탈로그가 없는 오래된 설치는 기존 한국어 제목으로 대체한다.
+            # The new heading follows the version.yml language (options.language) (#769). The patterns above find either heading again.
+            # Old installs without the catalog fall back to the old Korean heading.
             VERSION_HEADING=$(python3 .github/scripts/i18n/messages.py get readme.version_heading 2>/dev/null) \
               || VERSION_HEADING="최신 버전"
 
-            # 파일 맨 앞에 제목이 있는지 확인 후 그 다음에 추가
+            # Check whether the file starts with a heading and add after it
             if grep -q "^# " README.md; then
-              # 첫 번째 제목 다음에 추가
+              # Add after the first heading
               sed -i '/^# /a\\n<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->\n## '"$VERSION_HEADING"' : '"$VERSION_TEXT" README.md
             else
-              # 파일 맨 앞에 추가
+              # Add at the top of the file
               sed -i '1i\<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->\n## '"$VERSION_HEADING"' : '"$VERSION_TEXT"'\n' README.md
             fi
             echo "✅ Added version line: $VERSION_TEXT"
           else
-            # 기존 버전 라인 업데이트
+            # Update the existing version line
 
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 버전 라인 형식 검증 및 경고
+            # Validate the version line format and warn
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             if [[ "$VERSION_LINE" =~ \*\* ]]; then
               echo ""
@@ -205,40 +205,40 @@ jobs:
               echo ""
             fi
 
-            # HTML 주석이 해당 라인 위에 있는지 확인
+            # Check whether the HTML comment is above that line
             LINE_NUMBER=$(grep -n -i "$PATTERN_FOUND" README.md | head -n 1 | cut -d: -f1)
             PREV_LINE_NUMBER=$((LINE_NUMBER - 1))
 
             if [ $PREV_LINE_NUMBER -gt 0 ]; then
               PREV_LINE=$(sed -n "${PREV_LINE_NUMBER}p" README.md)
               if [[ "$PREV_LINE" != *"AUTO-VERSION-SECTION"* ]]; then
-                # 주석이 없으면 버전 라인 위에 추가
+                # No comment: add it above the version line
                 sed -i "${PREV_LINE_NUMBER}a\\<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->" README.md
                 echo "✅ Added auto-update marker comment"
-                # 주석 추가로 라인 번호가 변경됨
+                # Adding the comment shifts the line number
                 LINE_NUMBER=$((LINE_NUMBER + 1))
               fi
             else
-              # 첫 번째 라인이면 그 위에 추가
+              # First line: add it above
               sed -i '1i\<!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->' README.md
               echo "✅ Added auto-update marker comment"
-              # 주석 추가로 라인 번호가 변경됨
+              # Adding the comment shifts the line number
               LINE_NUMBER=$((LINE_NUMBER + 1))
             fi
 
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 헤더 부분 추출 (콜론까지만 추출하여 안전하게 처리)
+            # Extract the header part (only up to the colon, for safety)
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             HEADER_PART=$(echo "$VERSION_LINE" | sed 's/\(.*:\).*/\1 /')
 
-            # 헤더 추출 실패 검증
+            # Validate header extraction
             if [ -z "$HEADER_PART" ] || [[ "$HEADER_PART" == "$VERSION_LINE" ]]; then
               print_error_message "Header extraction failed - no colon (:) found" "$VERSION_LINE" "$HEADER_PART" "$VERSION_TEXT"
               exit 1
             fi
 
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # 라인 번호 기반으로 직접 교체 (정규표현식 특수문자 문제 회피)
+            # Replace directly by line number (avoids regex special character issues)
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             NEW_LINE="${HEADER_PART}${VERSION_TEXT}"
 
@@ -248,7 +248,7 @@ jobs:
               exit 1
             fi
 
-            # 변경 결과 검증
+            # Verify the result
             UPDATED_LINE=$(sed -n "${LINE_NUMBER}p" README.md)
             if [[ "$UPDATED_LINE" != *"$VERSION_TEXT"* ]]; then
               print_error_message "Version replacement check failed" "$VERSION_LINE" "$HEADER_PART" "$VERSION_TEXT"
@@ -262,7 +262,7 @@ jobs:
       - name: Commit and push changes
         run: |
           DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'main' }}"
-          # README.md 가 없으면 git add 가 pathspec 오류(128)로 죽는다 (#726)
+          # Without README.md, git add dies with a pathspec error (128) (#726)
           if [ -f README.md ]; then git add README.md; fi
 
           if git diff --staged --quiet; then
@@ -271,13 +271,13 @@ jobs:
             REPO_NAME=$(basename "${{ github.repository }}")
             VERSION="${{ steps.version_info.outputs.latest_version }}"
 
-            # 커밋 메시지는 version.yml 의 언어(options.language)로 만든다 (#787).
-            # 카탈로그가 없는 오래된 설치는 기존 한국어 문구로 대체한다 — 메시지 때문에 릴리스가 막히면 안 된다.
+            # The commit message uses the version.yml language (options.language) (#787).
+            # Old installs without the catalog fall back to the old Korean text — a message must never block the release.
             COMMIT_TITLE=$(python3 .github/scripts/i18n/messages.py get release.commit.readme --var repo="$REPO_NAME" --var version="$VERSION" 2>/dev/null) \
               || COMMIT_TITLE="$REPO_NAME 버전 관리 : docs : v$VERSION README 버전 정보 업데이트"
             git commit -m "$COMMIT_TITLE [skip ci]"
 
-            # Race Condition 방지: pull-rebase 후 push (최대 3회 재시도)
+            # Prevent race conditions: pull-rebase, then push (up to 3 retries)
             MAX_RETRIES=3
             RETRY_COUNT=0
             PUSH_SUCCESS=false
@@ -293,8 +293,8 @@ jobs:
               else
                 echo "⚠️ Push failed, syncing remote changes..."
 
-                # --autostash: 앞 단계의 chmod +x 같은 스테이징 안 된 변경이 있으면
-                # 일반 rebase 는 "You have unstaged changes" 로 거부해 재시도가 한 번도 못 돈다 (#807).
+                # --autostash: with unstaged changes such as chmod +x from an earlier step,
+                # a plain rebase refuses with "You have unstaged changes" and the retry never runs (#807).
                 if git pull --rebase --autostash origin $DEFAULT_BRANCH; then
                   echo "✅ Rebase succeeded, retrying push..."
                 else

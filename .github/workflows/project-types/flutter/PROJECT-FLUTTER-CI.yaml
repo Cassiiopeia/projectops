@@ -1,46 +1,46 @@
 # ==========================================================================================
-# Flutter CI (코드 분석 및 빌드 검증) 워크플로우
+# Flutter CI (code analysis and build verification) workflow
 # ==========================================================================================
 #
-# 이 워크플로우는 PR 생성 또는 main 브랜치 푸시 시
-# 코드 정적 분석(flutter analyze)과 Android/iOS 앱 빌드를 검증합니다.
+# On PR creation or a push to main, this workflow
+# verifies static analysis (flutter analyze) and the Android/iOS app builds.
 #
-# 주요 특징:
-# - PR 생성/업데이트 시 자동 실행
-# - main 브랜치 푸시 시 자동 실행
-# - flutter analyze로 코드 품질 검사
-# - Android/iOS 빌드 개별 활성화/비활성화 가능
-# - Analyze Only 모드: 빌드 없이 코드 분석만 실행 가능
-# - PR인 경우 진행 상황을 댓글로 실시간 업데이트
-# - 빌드 실패 시 상세 에러 정보 제공
-# - Analyze와 빌드 병렬 실행으로 시간 단축
+# Key points:
+# - Runs automatically on PR creation/update
+# - Runs automatically on a push to main
+# - Checks code quality with flutter analyze
+# - Android/iOS builds can be enabled/disabled individually
+# - Analyze Only mode: run code analysis only, without builds
+# - For PRs, progress is updated live in a comment
+# - Detailed error info on build failure
+# - Analyze and builds run in parallel to save time
 #
-# 사용 방법:
-# 1. 프로젝트에 맞게 상단 env 섹션의 값들을 수정하세요
-# 2. ANALYZE_ONLY를 true로 설정하면 빌드 없이 코드 분석만 실행
-# 3. ENABLE_ANDROID, ENABLE_IOS로 빌드 대상 플랫폼 선택
-# 4. ENV_FILE_PATH로 환경변수 파일 경로 커스터마이징
-#
-# ==========================================================================================
-# 🔧 프로젝트별 설정
-# ==========================================================================================
-#
-# ANALYZE_ONLY    : true면 analyze만 실행, 빌드 스킵 (기본: false)
-# ENABLE_ANDROID  : Android 빌드 활성화 여부 (ANALYZE_ONLY=false일 때)
-# ENABLE_IOS      : iOS 빌드 활성화 여부 (ANALYZE_ONLY=false일 때)
-# FLUTTER_VERSION : Flutter SDK 버전
-# JAVA_VERSION    : Java 버전 (Android 빌드용)
-# XCODE_VERSION   : Xcode 버전 (iOS 빌드용, 빈 값 = 러너에 설치된 최신 버전)
-# ENV_FILE_PATH   : .env 파일 경로 (기본값: 루트의 .env)
+# How to use:
+# 1. Edit the values in the env section at the top for your project
+# 2. Set ANALYZE_ONLY to true to run code analysis only, without builds
+# 3. Choose target platforms with ENABLE_ANDROID and ENABLE_IOS
+# 4. Customize the env file path with ENV_FILE_PATH
 #
 # ==========================================================================================
-# 🔑 필수 GitHub Secrets
+# 🔧 Per-project settings
 # ==========================================================================================
-# ENV_FILE (선택): .env 파일 내용
-# GOOGLE_SERVICES_JSON (선택): android/app/google-services.json 내용 (Firebase 사용 시)
-# GOOGLE_SERVICE_INFO_PLIST (선택): ios/Runner/GoogleService-Info.plist 내용 (원문 또는 base64)
 #
-# ※ CI는 빌드 검증 목적이므로 서명/배포 관련 Secrets 불필요
+# ANALYZE_ONLY    : true runs analyze only and skips builds (default: false)
+# ENABLE_ANDROID  : whether to build Android (when ANALYZE_ONLY=false)
+# ENABLE_IOS      : whether to build iOS (when ANALYZE_ONLY=false)
+# FLUTTER_VERSION : Flutter SDK version
+# JAVA_VERSION    : Java version (for Android builds)
+# XCODE_VERSION   : Xcode version (for iOS builds; empty = latest installed on the runner)
+# ENV_FILE_PATH   : .env file path (default: .env at the root)
+#
+# ==========================================================================================
+# 🔑 Required GitHub Secrets
+# ==========================================================================================
+# ENV_FILE (optional): contents of the .env file
+# GOOGLE_SERVICES_JSON (optional): contents of android/app/google-services.json (when using Firebase)
+# GOOGLE_SERVICE_INFO_PLIST (optional): contents of ios/Runner/GoogleService-Info.plist (raw or base64)
+#
+# * CI only verifies builds, so no signing/deploy Secrets are needed
 # ==========================================================================================
 
 name: PROJECT-Flutter-CI
@@ -71,26 +71,26 @@ permissions:
   pull-requests: write
 
 # ==========================================================================================
-# 🔧 프로젝트별 설정 (아래 값들을 수정하세요)
+# 🔧 Per-project settings (edit the values below)
 # ==========================================================================================
 env:
-  # 🎯 CI 모드 설정
-  ANALYZE_ONLY: "false"     # true: analyze만 실행 (빌드 스킵), false: analyze + 빌드
+  # 🎯 CI mode
+  ANALYZE_ONLY: "false"     # true: analyze only (skip builds), false: analyze + builds
 
-  # 🎯 빌드 대상 플랫폼 설정 (ANALYZE_ONLY=false일 때만 적용)
-  ENABLE_ANDROID: "true"    # Android 빌드 활성화 (true/false)
-  ENABLE_IOS: "true"        # iOS 빌드 활성화 (true/false)
+  # 🎯 Build target platforms (applies only when ANALYZE_ONLY=false)
+  ENABLE_ANDROID: "true"    # enable the Android build (true/false)
+  ENABLE_IOS: "true"        # enable the iOS build (true/false)
 
-  # 🔧 프로젝트별 설정
-  # 레포 변수 FLUTTER_VERSION·JAVA_VERSION 이 있으면 아래 값보다 먼저 쓴다 (템플릿 업데이트에도 유지, #758)
+  # 🔧 Per-project settings
+  # Repo variables FLUTTER_VERSION/JAVA_VERSION take precedence over the values below (kept across template updates, #758)
   FLUTTER_VERSION: "3.38.9"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:17
-  XCODE_VERSION: ""  # 빈 값 = 러너 최신 Xcode 자동 선택, 고정할 때만 "26.6" 처럼 입력 (#758)
-  ENV_FILE_PATH: ".env"     # 환경변수 파일 경로 (커스터마이징 가능)
+  XCODE_VERSION: ""  # empty = auto-select the runner's latest Xcode; enter something like "26.6" only to pin (#758)
+  ENV_FILE_PATH: ".env"     # env file path (customizable)
 
-  # Flutter 루트 경로(레포 루트 기준). 단일레포면 ".", 모노레포면 "app" 등.
-  # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
-  # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
+  # Flutter root path (relative to repo root). "." for a single repo, "app" etc. for a monorepo.
+  # At integration, the integrator's flutter-root resolver substitutes it once with project_paths.flutter.
+  # FLUTTER_ROOT is the official Flutter SDK path variable and would clash — hence APP_ROOT
   APP_ROOT: "."  # @wizard auto:flutter-root
 concurrency:
   group: flutter-ci-${{ github.ref }}
@@ -98,10 +98,10 @@ concurrency:
 
 jobs:
   # ===================================================================
-  # Job 1: 준비 단계
+  # Job 1: preparation
   # ===================================================================
   prepare:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
     name: CI 준비
     runs-on: ubuntu-latest
 
@@ -115,9 +115,9 @@ jobs:
       enable_ios: ${{ steps.config.outputs.enable_ios }}
 
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -138,12 +138,12 @@ jobs:
                  echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"; }
           rm -rf .projectops-messages
 
-      # 설정 값 outputs으로 전달
-      # workflow_dispatch 입력값이 있으면 우선 사용, 없으면 env 값 사용
+      # Pass settings via outputs
+      # workflow_dispatch inputs win if present, else env values
       - name: Pass settings to outputs
         id: config
         run: |
-          # workflow_dispatch 입력값 확인
+          # Check workflow_dispatch inputs
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             ANALYZE_ONLY="${{ github.event.inputs.analyze_only }}"
             ENABLE_ANDROID="${{ github.event.inputs.enable_android }}"
@@ -163,7 +163,7 @@ jobs:
           echo "  iOS: $ENABLE_IOS"
           echo "  Trigger: ${{ github.event_name }}"
 
-      # 빌드 정보 수집
+      # Collect build info
       - name: Collect build info
         id: info
         env:
@@ -184,7 +184,7 @@ jobs:
           echo "  Branch: $BRANCH_NAME"
           echo "  Commit: $COMMIT_HASH"
 
-      # PR인 경우 진행 상황 댓글 생성
+      # For PRs, create the progress comment
       - name: Create progress comment
         id: comment
         if: github.event_name == 'pull_request'
@@ -205,12 +205,12 @@ jobs:
             const startTime = Date.now();
             const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
 
-            // 헤더 결정
+            // Decide the header
             const header = analyzeOnly
               ? t('flutter_ci.progress.heading_analyze_only')
               : t('flutter_ci.progress.heading');
 
-            // 플랫폼 상태 결정
+            // Decide platform states
             let androidStatus, iosStatus;
             if (analyzeOnly) {
               androidStatus = t('flutter_ci.status.skipped');
@@ -260,10 +260,10 @@ jobs:
             core.setOutput('start_time', startTime);
 
   # ===================================================================
-  # Job 2: 코드 분석 (병렬)
+  # Job 2: code analysis (parallel)
   # ===================================================================
   analyze:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
     name: 코드 분석
     runs-on: ubuntu-latest
     needs: prepare
@@ -276,9 +276,9 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -309,7 +309,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # 템플릿 고정 Flutter·Java 버전 <-> 레포(pubspec·.fvmrc·Gradle) 대조 — 어긋나면 경고만 (#758)
+      # Compare the template's pinned Flutter/Java versions <-> the repo (pubspec, .fvmrc, Gradle) — warn only on mismatch (#758)
       - name: Check toolchain versions
         continue-on-error: true
         env:
@@ -317,7 +317,7 @@ jobs:
           JAVA_VERSION: ${{ vars.JAVA_VERSION || env.JAVA_VERSION }}
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/toolchain_versions.py" check --app-root .
 
-      # .env 파일 생성
+      # Create the .env file
       - name: Create .env file
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -325,7 +325,7 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
-      # Flutter 설정
+      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -337,7 +337,7 @@ jobs:
           echo "✅ Flutter setup completed"
           flutter --version
 
-      # Flutter 캐시
+      # Flutter cache
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -345,13 +345,13 @@ jobs:
           key: ${{ runner.os }}-flutter-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-flutter-pub-
 
-      # 프로젝트 의존성 설치
+      # Install project dependencies
       - name: Install dependencies
         run: |
           flutter pub get
           echo "✅ Dependencies installed"
 
-      # Flutter Analyze 실행
+      # Run Flutter Analyze
       - name: Run Flutter Analyze
         id: analyze
         run: |
@@ -359,7 +359,7 @@ jobs:
           flutter analyze --no-fatal-infos
           echo "✅ Code analysis done"
 
-      # 분석 결과 기록
+      # Record the analysis result
       - name: Record analyze result
         id: result
         if: always()
@@ -381,10 +381,10 @@ jobs:
             console.log(`📋 Code analysis result: ${status} (${duration})`);
 
   # ===================================================================
-  # Job 3: Android 빌드 (조건부, 병렬)
+  # Job 3: Android build (conditional, parallel)
   # ===================================================================
   build-android:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
     name: Android 빌드
     if: |
       needs.prepare.outputs.analyze_only != 'true' &&
@@ -400,9 +400,9 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -433,7 +433,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # .env 파일 생성
+      # Create the .env file
       - name: Create .env file
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -441,13 +441,13 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
-      # Secret 이 있을 때만 쓴다 — 없으면 커밋된 파일을 그대로 두고, 필요한데 없으면 원인을 ::error 로 (#785)
+      # Written only when the Secret exists — otherwise the committed file stays, and if needed but missing the cause goes to ::error (#785)
       - name: Create google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform android --app-root .
 
-      # Flutter 설정
+      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -459,7 +459,7 @@ jobs:
           echo "✅ Flutter setup completed"
           flutter --version
 
-      # Flutter 캐시
+      # Flutter cache
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -467,7 +467,7 @@ jobs:
           key: ${{ runner.os }}-flutter-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-flutter-pub-
 
-      # Gradle 캐시
+      # Gradle cache
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
         with:
@@ -478,13 +478,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 프로젝트 의존성 설치
+      # Install project dependencies
       - name: Install dependencies
         run: |
           flutter pub get
           echo "✅ Dependencies installed"
 
-      # Java 설정
+      # Set up Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -496,12 +496,12 @@ jobs:
           echo "✅ Java setup completed"
           java -version
 
-      # Gradle 셋업
+      # Set up Gradle
       - name: Setup Gradle
         working-directory: ${{ env.APP_ROOT }}/android
         run: |
-          # Flutter 기본 .gitignore가 gradlew를 제외하므로 CI 체크아웃 시 없을 수 있다.
-          # flutter build가 자체 Gradle을 쓰므로 없어도 빌드는 진행된다.
+          # Flutter's default .gitignore excludes gradlew, so it may be missing in a CI checkout.
+          # flutter build uses its own Gradle, so the build proceeds without it.
           if [ -f gradlew ]; then
             chmod +x gradlew
             echo "✅ Gradle wrapper permissions set"
@@ -509,20 +509,20 @@ jobs:
             echo "ℹ️ No gradlew - using the Gradle bundled with Flutter"
           fi
 
-      # APK 빌드
+      # APK build
       - name: Build APK
         id: build
         run: |
           echo "📦 Starting the Flutter APK build..."
-          # CI는 컴파일 검증이 목적이라 서명이 필요 없다.
-          # --release는 signingConfig(keystore)를 요구하는데 CI에는 keystore가 없어
-          # 'SigningConfig release is missing storeFile'로 실패한다.
-          # iOS의 --no-codesign에 해당하는 옵션이 Android에는 없으므로 --debug를 쓴다.
+          # CI only verifies compilation, so no signing is needed.
+          # --release requires signingConfig (keystore), but CI has no keystore,
+          # so it fails with 'SigningConfig release is missing storeFile'.
+          # Android has no equivalent of iOS --no-codesign, so --debug is used.
           flutter build apk --debug
           echo "✅ APK build done"
           ls -la ./build/app/outputs/flutter-apk/ || true
 
-      # 빌드 결과 기록
+      # Record the build result
       - name: Record build result
         id: result
         if: always()
@@ -544,10 +544,10 @@ jobs:
             console.log(`📋 Android build result: ${status} (${duration})`);
 
   # ===================================================================
-  # Job 4: iOS 빌드 (조건부, 병렬)
+  # Job 4: iOS build (conditional, parallel)
   # ===================================================================
   build-ios:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
     name: iOS 빌드
     if: |
       needs.prepare.outputs.analyze_only != 'true' &&
@@ -563,9 +563,9 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -596,29 +596,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      # 빈 값이면 러너에 설치된 최신 정식 Xcode, 고정한 버전이 러너에 없으면 설치 목록을 찍고 실패 (#758)
-      # 레포 변수 XCODE_VERSION 으로도 고정 가능 (템플릿 업데이트에도 유지)
+      # Empty = latest stable Xcode on the runner; if the pinned version is missing on the runner, print the installed list and fail (#758)
+      # Can also be pinned with the repo variable XCODE_VERSION (kept across template updates)
       - name: Select Xcode version
         working-directory: ${{ github.workspace }}
         env:
           XCODE_VERSION: ${{ env.XCODE_VERSION || vars.XCODE_VERSION }}
         run: python3 .github/scripts/select_xcode.py select --apply
 
-      # Xcode 26부터 iOS 플랫폼 SDK가 기본 포함되지 않아 별도 설치가 필요하다.
-      # 없으면 'iOS 26.0 Platform Not Installed'로 빌드가 실패한다.
+      # Since Xcode 26 the iOS platform SDK is not included by default and must be installed separately.
+      # Without it the build fails with 'iOS 26.0 Platform Not Installed'.
       - name: Install iOS device platform
         env:
-          # xcode-select만으로는 서브프로세스에 전파되지 않아 명시적으로 지정
+          # xcode-select alone does not propagate to subprocesses, so set it explicitly
           DEVELOPER_DIR: ${{ env.XCODE_DEVELOPER_DIR }}
         run: |
           sudo installer -pkg "$XCODE_APP_PATH/Contents/Resources/Packages/MobileDevice.pkg" -target / || true
           sudo installer -pkg "$XCODE_APP_PATH/Contents/Resources/Packages/MobileDeviceDevelopment.pkg" -target / || true
           sudo xcodebuild -license accept || true
 
-          # ⚠️ 설치 여부를 미리 판정해 건너뛰면 안 된다.
-          #    xcodebuild -showsdks가 잡는 SDK와 기기 빌드에 필요한 '디바이스 플랫폼'은
-          #    별개다. SDK가 보여도 'iOS 26.0 is not installed'로 빌드가 실패한다.
-          #    따라서 조건 없이 항상 다운로드한다 (이미 있으면 즉시 반환된다).
+          # ⚠️ Do not decide in advance whether it is installed and skip.
+          #    The SDK xcodebuild -showsdks reports and the 'device platform' needed for device builds
+          #    are separate. Even if the SDK shows, the build fails with 'iOS 26.0 is not installed'.
+          #    So always download, unconditionally (returns at once if already present).
           xcrun simctl list >/dev/null 2>&1 || true
           for i in 1 2 3; do
             xcodebuild -downloadPlatform iOS && break
@@ -627,7 +627,7 @@ jobs:
           done
           xcodebuild -showsdks | grep iphoneos || true
 
-      # .env 파일 생성
+      # Create the .env file
       - name: Create .env file
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -635,13 +635,13 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
-      # Firebase iOS 설정: Secret 이 있을 때만 복원, 필요한데 없으면 원인을 ::error 로 (#785)
+      # Firebase iOS config: restore only when the Secret exists; if needed but missing, cause goes to ::error (#785)
       - name: Create GoogleService-Info.plist
         env:
           GOOGLE_SERVICE_INFO_PLIST: ${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform ios --app-root .
 
-      # Flutter 설정
+      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -653,7 +653,7 @@ jobs:
           echo "✅ Flutter setup completed"
           flutter --version
 
-      # Flutter 캐시
+      # Flutter cache
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -661,13 +661,13 @@ jobs:
           key: ${{ runner.os }}-flutter-pub-${{ hashFiles('**/pubspec.lock') }}
           restore-keys: ${{ runner.os }}-flutter-pub-
 
-      # 프로젝트 의존성 설치
+      # Install project dependencies
       - name: Install dependencies
         run: |
           flutter pub get
           echo "✅ Dependencies installed"
 
-      # Ruby 및 CocoaPods 설정
+      # Set up Ruby and CocoaPods
       - name: Set up Ruby
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -677,7 +677,7 @@ jobs:
       - name: Install CocoaPods
         run: |
           gem install cocoapods
-          # 플러그인 의존성이 없으면 Flutter가 Podfile을 만들지 않으므로 건너뛴다
+          # Without plugin dependencies Flutter creates no Podfile, so skip
           if [ -f ios/Podfile ]; then
             cd ios && pod install --repo-update || pod install
             echo "✅ CocoaPods installed"
@@ -685,27 +685,27 @@ jobs:
             echo "ℹ️ No ios/Podfile - the project has no CocoaPods dependencies, skipping"
           fi
 
-      # iOS 빌드 (서명 없이)
+      # iOS build (without signing)
       - name: Build iOS
         id: build
         env:
-          # xcode-select만으로는 Flutter가 만드는 서브프로세스에 전파되지 않아
-          # 다른 Xcode를 보게 된다. 그 결과 SDK가 설치돼 있어도
-          # 'iOS 26.0 Platform Not Installed'가 발생하므로 명시적으로 지정한다.
+          # xcode-select alone does not propagate to the subprocesses Flutter creates,
+          # so they see a different Xcode. As a result, even with the SDK installed
+          # 'iOS 26.0 Platform Not Installed' occurs, so set it explicitly.
           DEVELOPER_DIR: ${{ env.XCODE_DEVELOPER_DIR }}
         run: |
-          set -o pipefail   # tee 뒤에서도 빌드 실패를 그대로 전달
+          set -o pipefail   # pass build failures through even after tee
           echo "📦 Starting the Flutter iOS build..."
           flutter build ios --release --no-codesign 2>&1 | tee "$RUNNER_TEMP/flutter-ios-build.log"
           echo "✅ iOS build done"
 
-      # SDK 심볼 누락 오류면 Xcode 가 낡았을 가능성 안내 (#758)
+      # On a missing SDK symbol error, suggest that Xcode may be stale (#758)
       - name: Diagnose iOS build failure
         if: failure() && steps.build.outcome == 'failure'
         working-directory: ${{ github.workspace }}
         run: python3 .github/scripts/select_xcode.py hint --log "$RUNNER_TEMP/flutter-ios-build.log"
 
-      # 빌드 결과 기록
+      # Record the build result
       - name: Record build result
         id: result
         if: always()
@@ -727,19 +727,19 @@ jobs:
             console.log(`📋 iOS build result: ${status} (${duration})`);
 
   # ===================================================================
-  # Job 5: 결과 보고
+  # Job 5: report results
   # ===================================================================
   report:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
     name: 결과 보고
     if: always() && github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     needs: [prepare, analyze, build-android, build-ios]
 
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -778,7 +778,7 @@ jobs:
             const runId = '${{ github.run_id }}';
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${runId}`;
 
-            // 결과 수집
+            // Collect results
             const analyzeStatus = '${{ needs.analyze.outputs.status }}';
             const analyzeDuration = '${{ needs.analyze.outputs.duration }}' || '-';
             const androidStatus = '${{ needs.build-android.outputs.status }}';
@@ -786,18 +786,18 @@ jobs:
             const iosStatus = '${{ needs.build-ios.outputs.status }}';
             const iosDuration = '${{ needs.build-ios.outputs.duration }}' || '-';
 
-            // 전체 소요 시간 계산
+            // Compute total duration
             const now = Date.now();
             const totalElapsed = now - startTime;
             const totalMin = Math.floor(totalElapsed / 60000);
             const totalSec = Math.floor((totalElapsed % 60000) / 1000);
             const totalDuration = elapsed(totalMin, totalSec);
 
-            // 상태 결정
+            // Decide state
             let overallSuccess = true;
             let analyzeDisplay, androidDisplay, iosDisplay;
 
-            // Analyze 상태
+            // Analyze state
             if (analyzeStatus === 'success') {
               analyzeDisplay = t('flutter_ci.status.success');
             } else {
@@ -805,7 +805,7 @@ jobs:
               overallSuccess = false;
             }
 
-            // Android 상태
+            // Android state
             if (analyzeOnly) {
               androidDisplay = t('flutter_ci.status.skipped');
             } else if (!enableAndroid) {
@@ -817,7 +817,7 @@ jobs:
               overallSuccess = false;
             }
 
-            // iOS 상태
+            // iOS state
             if (analyzeOnly) {
               iosDisplay = t('flutter_ci.status.skipped');
             } else if (!enableIos) {
@@ -829,7 +829,7 @@ jobs:
               overallSuccess = false;
             }
 
-            // 헤더 결정
+            // Decide the header
             let header;
             if (analyzeOnly) {
               header = overallSuccess
@@ -841,7 +841,7 @@ jobs:
                 : t('flutter_ci.result.heading_failure');
             }
 
-            // 댓글 본문 생성
+            // Build the comment body
             const bodyParts = [
               header,
               '',
@@ -859,13 +859,13 @@ jobs:
               ''
             ];
 
-            // Analyze Only 모드 안내
+            // Analyze Only mode notice
             if (analyzeOnly && overallSuccess) {
               bodyParts.push(t('flutter_ci.result.analyze_only_note'));
               bodyParts.push('');
             }
 
-            // 실패 시 추가 안내
+            // Extra guidance on failure
             if (!overallSuccess) {
               bodyParts.push(
                 t('flutter_ci.result.check_heading'),
@@ -892,7 +892,7 @@ jobs:
 
             const body = bodyParts.join('\n');
 
-            // 댓글 업데이트
+            // Update the comment
             if (commentId) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,

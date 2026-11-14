@@ -111,7 +111,7 @@
             }
         }
     </script>
-    <!-- 버전 정보 (version-sync.sh에 의해 자동 동기화) -->
+    <!-- Version info (synced automatically by version-sync.sh) -->
     <script type="application/json" id="versionJson">
 {
   "name": "GitHub Projects Sync Wizard",
@@ -245,9 +245,9 @@
 </head>
 <body class="bg-gray-50 dark:bg-slate-900 min-h-screen">
     <div class="max-w-4xl mx-auto p-4 md:p-6">
-        <!-- 헤더 -->
+        <!-- Header -->
         <header class="text-center mb-10 relative">
-            <!-- 우측 상단 버튼 -->
+            <!-- Top-right buttons -->
             <div class="absolute right-0 top-0 flex items-center gap-2">
                 <button type="button" class="hidden px-3 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" data-lang-toggle onclick="toggleWizardLanguage()">한국어</button>
                 <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors" title="Toggle dark mode" data-i18n-title="header.darkModeTitle">
@@ -281,15 +281,15 @@
             </p>
         </header>
 
-    <!-- 메인 컨텐츠 -->
+    <!-- Main content -->
     <main>
-        <!-- 메인 컨텐츠 섹션 -->
+        <!-- Main content section -->
         <section id="mainContent" class="main-content">
             <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2" data-i18n="main.title">Project details</h2>
                 <p class="text-gray-600 dark:text-gray-400 mb-6" data-i18n="main.subtitle">Enter your GitHub Projects and Worker settings.</p>
 
-                <!-- 사전 요구사항 -->
+                <!-- Prerequisites -->
                 <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 mb-6">
                     <div class="flex items-start gap-3">
                         <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,7 +306,7 @@
                     </div>
                 </div>
 
-                <!-- 전체 프로세스 흐름 -->
+                <!-- Overall process flow -->
                 <div class="info-box-blue rounded-lg p-4 mb-6">
                     <p class="text-sm text-blue-700 dark:text-blue-300 mb-3 font-medium" data-i18n="flow.title">Setup at a glance</p>
                     <div class="dependency-flow">
@@ -323,14 +323,14 @@
                     </p>
                 </div>
 
-                <!-- 섹션 A: GitHub Projects 생성 가이드 -->
+                <!-- Section A: GitHub Projects creation guide -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-green-600">A</span>
                         <span data-i18n="sectionA.title">Creating GitHub Projects</span>
                     </h3>
 
-                    <!-- 건너뛰기 체크박스 -->
+                    <!-- Skip checkbox -->
                     <div class="bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg p-4 mb-4">
                         <label class="flex items-center gap-3 cursor-pointer">
                             <input type="checkbox" id="skipProjectsGuide" onchange="toggleProjectsGuide()"
@@ -339,7 +339,7 @@
                         </label>
                     </div>
 
-                    <!-- 가이드 내용 -->
+                    <!-- Guide content -->
                     <div id="projectsGuideContent">
                         <div class="info-box-amber rounded-lg p-4 mb-4">
                             <p class="text-sm text-amber-700 dark:text-amber-300 mb-3 font-medium" data-i18n="sectionA.howTo">How to create GitHub Projects</p>
@@ -358,7 +358,7 @@
                             </ol>
                         </div>
 
-                        <!-- Status 컬럼 기본값 안내 -->
+                        <!-- Status column defaults -->
                         <div class="info-box-green rounded-lg p-4">
                             <p class="text-sm text-green-700 dark:text-green-300 mb-2 font-medium" data-i18n="sectionA.defaultColumns">✓ Default Status columns of the Board/Kanban template</p>
                             <div class="flex flex-wrap gap-2 mt-3">
@@ -376,7 +376,7 @@
                     </div>
                 </div>
 
-                <!-- 섹션 B: GitHub Projects URL 입력 -->
+                <!-- Section B: GitHub Projects URL input -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-blue-600">B</span>
@@ -387,7 +387,7 @@
                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         oninput="parseProjectUrl()">
 
-                    <!-- User Projects 경고 (User URL 입력 시 표시) -->
+                    <!-- User Projects warning (shown when a user URL is entered) -->
                     <div id="userProjectsWarning" class="mt-4 hidden">
                         <div class="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg p-4">
                             <div class="flex items-start gap-3">
@@ -414,7 +414,7 @@
                         </div>
                     </div>
 
-                    <!-- 지원 형식 안내 -->
+                    <!-- Supported formats -->
                     <div class="mt-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                         <p class="text-sm text-gray-600 dark:text-gray-400 mb-2" data-i18n="urlFormat.title">Supported formats:</p>
                         <ul class="text-xs text-gray-500 dark:text-gray-400 space-y-1 ml-2">
@@ -424,7 +424,7 @@
                         </ul>
                     </div>
 
-                    <!-- 파싱 결과 -->
+                    <!-- Parse result -->
                     <div id="parseResult" class="mt-4 hidden">
                         <div class="grid grid-cols-3 gap-4">
                             <div>
@@ -444,11 +444,11 @@
                         </div>
                     </div>
 
-                    <!-- 하위 호환성용 숨겨진 필드 -->
+                    <!-- Hidden field for backward compatibility -->
                     <input type="hidden" id="orgName">
                 </div>
 
-                <!-- 섹션 C: Label-Status 매핑 가이드 -->
+                <!-- Section C: Label-Status mapping guide -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-purple-600">C</span>
@@ -461,7 +461,7 @@
                             When you move a card on the Projects board, the <strong>label with the same name</strong> as its Status is applied to the issue automatically.
                         </p>
 
-                        <!-- 매핑 테이블 -->
+                        <!-- Mapping table -->
                         <div class="overflow-x-auto bg-white dark:bg-gray-800 rounded-lg">
                             <table class="w-full text-xs">
                                 <thead>
@@ -528,7 +528,7 @@
                     </div>
                 </div>
 
-                <!-- 섹션 D: Status Labels 설정 -->
+                <!-- Section D: Status Labels setup -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-yellow-500">D</span>
@@ -536,7 +536,7 @@
                         <span class="text-gray-500 font-normal text-sm" data-i18n="sectionD.defaultsFrom">(defaults from issue-label.yml)</span>
                     </h3>
                     <div id="labelsContainer" class="space-y-2 mb-4">
-                        <!-- JavaScript로 동적 생성 -->
+                        <!-- Generated dynamically by JavaScript -->
                     </div>
                     <div class="flex gap-2">
                         <button onclick="addLabel()" class="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
@@ -551,14 +551,14 @@
                     </div>
                 </div>
 
-                <!-- 섹션 E: Worker 설정 -->
+                <!-- Section E: Worker setup -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-orange-500">E</span>
                         <span data-i18n="sectionE.title">Worker settings</span>
                     </h3>
 
-                    <!-- Worker 이름 -->
+                    <!-- Worker name -->
                     <div class="mb-4">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             <span data-i18n="sectionE.workerName">Worker name</span>
@@ -566,7 +566,7 @@
                         </label>
                         <input type="text" id="workerName" placeholder="github-projects-sync-worker" value="github-projects-sync-worker"
                             class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                        <!-- Cloudflare 이름 규칙 가이드 -->
+                        <!-- Cloudflare naming rules -->
                         <div class="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <p class="text-xs text-blue-700 dark:text-blue-300" data-i18n="sectionE.nameRule">
                                 <strong>📌 Cloudflare naming rule:</strong> lowercase letters, digits and hyphens (-) only
@@ -586,7 +586,7 @@
                             Webhook Secret
                             <span class="text-gray-500 font-normal" data-i18n="sectionE.autoGenerated">(auto-generated)</span>
                         </label>
-                        <!-- Webhook Secret 용도 설명 -->
+                        <!-- What the Webhook Secret is for -->
                         <div class="mb-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
                             <p class="text-xs text-amber-700 dark:text-amber-300" data-i18n="sectionE.secretPurpose">
                                 <strong>🔐 Purpose:</strong> secret key that authenticates GitHub webhook → Cloudflare Worker requests
@@ -613,7 +613,7 @@
                             GitHub Token (PAT)
                             <span class="text-red-500">*</span>
                         </label>
-                        <!-- 권한 가이드 -->
+                        <!-- Permissions guide -->
                         <div class="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                             <p class="text-xs text-blue-700 dark:text-blue-300 mb-2" data-i18n="sectionE.scopesTitle">
                                 <strong>🔑 Required scopes:</strong>
@@ -641,7 +641,7 @@
                     </div>
                 </div>
 
-                <!-- 설치 명령어 (자동 생성) -->
+                <!-- Install command (generated automatically) -->
                 <div class="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-900 dark:text-white">
                         <span class="section-badge bg-indigo-600">F</span>
@@ -663,7 +663,7 @@
                         </div>
                     </div>
 
-                    <!-- 입력 대기 메시지 -->
+                    <!-- Waiting-for-input message -->
                     <div id="commandWaitingMessage" class="p-4 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-center">
                         <p class="text-gray-500 dark:text-gray-400" data-i18n="sectionF.waiting">
                             <span class="text-lg">⏳</span> Fill in the details above and the install command is generated automatically.
@@ -671,7 +671,7 @@
                         <p class="text-xs text-gray-400 dark:text-gray-500 mt-2" data-i18n="sectionF.required">Required: Projects URL, Webhook Secret, GitHub Token</p>
                     </div>
 
-                    <!-- 생성된 명령어 (Mac/Linux + Windows) -->
+                    <!-- Generated commands (Mac/Linux + Windows) -->
                     <div id="installCommandSection" class="hidden space-y-4">
                         <!-- Mac/Linux (bash) -->
                         <div>
@@ -718,7 +718,7 @@
     </main>
     </div><!-- /max-w-4xl wrapper -->
 
-    <!-- Toast 알림 -->
+    <!-- Toast notification -->
     <div id="toast" class="fixed bottom-4 right-4 bg-gray-800 dark:bg-gray-700 text-white px-4 py-3 rounded-lg shadow-lg transform translate-y-full opacity-0 transition-all duration-300">
         <span id="toastMessage"></span>
     </div>

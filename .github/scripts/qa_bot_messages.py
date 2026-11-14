@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""QA 이슈 생성 봇이 게시하는 문구를 만든다 (#787) — stdlib 전용.
+"""Builds the text the QA issue creation bot posts (#787) — stdlib only.
 
-문구 조립을 워크플로우 JS 안에 두면 테스트할 수 없고 YAML 이 두꺼워진다. JS 는 숫자와 제목만 정하고,
-이 모듈이 언어에 맞는 제목·본문·댓글·오류 문구를 돌려준다. 문구 자체는 i18n/*.json (qa_bot.*) 이다.
+Assembling text inside the workflow JS is untestable and bloats the YAML. JS decides only numbers and titles;
+this module returns title, body, comment and error text in the right language. The text itself lives in i18n/*.json (qa_bot.*).
 
   qa_bot_messages.py issue   --title T --original N [--pr N] --requester U [--lang L]   → {"title","body"}
   qa_bot_messages.py comment --qa N [--original N] [--lang L]                           → {"comment"}
@@ -20,7 +20,7 @@ from i18n.messages import resolve_language, t
 
 def build_issue(lang: str | None, title: str, original: int, pr: int | None, requester: str) -> dict:
     lang = lang or resolve_language()
-    # 키워드 태그 제거는 JS 쪽 책임이다. 여기서는 남은 앞쪽 [태그]만 한 번 더 걷어 "시험 대상" 문구에 쓴다.
+    # Removing keyword tags is the JS side's job. Here only remaining leading [tags] are stripped once more for the "test target" text.
     target = re.sub(r"^\[.*?\]\s*", "", title)
     body = t("qa_bot.body", lang,
              issue_number=original,
@@ -32,7 +32,7 @@ def build_issue(lang: str | None, title: str, original: int, pr: int | None, req
 
 
 def build_comment(lang: str | None, qa_number: int, original: int | None) -> str:
-    """원본 이슈/PR 에 다는 댓글. original 이 있으면(PR 에서 시작) 이슈 정보를 함께 적는다."""
+    """Comment on the original issue/PR. With original (started from a PR), issue info is included."""
     lang = lang or resolve_language()
     lines = [t("qa_bot.comment.created", lang), "", t("qa_bot.comment.qa_heading", lang), f"- #{qa_number}", ""]
     if original:
@@ -68,7 +68,7 @@ def main(argv=None) -> int:
         out = {"comment": build_comment(a.lang, a.qa, a.original)}
     else:
         out = {"error": build_error(a.lang, a.message)}
-    # Windows 콘솔 기본 인코딩(cp1252 등)은 이모지·한글을 못 써서 죽는다 — 출력은 항상 UTF-8 로 낸다
+    # Windows console default encodings (cp1252, etc.) cannot write emoji or Korean and crash — always output UTF-8
     sys.stdout.buffer.write((json.dumps(out, ensure_ascii=False) + "\n").encode("utf-8"))
     return 0
 

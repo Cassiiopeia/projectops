@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # ===================================================================
-# OAuth Login Wizard - CLI (Python, stdlib 전용)
+# OAuth Login Wizard - CLI (Python, stdlib only)
 # ===================================================================
-# Kakao·Google 로그인 네이티브 설정을 Flutter 프로젝트에 적용한다 (#156).
+# Applies Kakao/Google login native setup to a Flutter project (#156).
 #
-# 서브커맨드 4개
-#   detect       : applicationId·bundle ID·설정 파일 위치·기존 항목 감지 (JSON, 읽기 전용)
-#   fingerprints : keytool 로 키스토어 SHA-1·SHA-256·Kakao 키 해시 출력 (JSON, 읽기 전용)
-#   key-hash     : SHA-1(16진) > Kakao 키 해시(base64) (JSON)
-#   setup        : AndroidManifest.xml·Info.plist·.gitignore 패치 (멱등)
+# 4 subcommands
+#   detect       : detect applicationId, bundle ID, config file locations, existing entries (JSON, read-only)
+#   fingerprints : print keystore SHA-1, SHA-256 and Kakao key hash with keytool (JSON, read-only)
+#   key-hash     : SHA-1 (hex) > Kakao key hash (base64) (JSON)
+#   setup        : patch AndroidManifest.xml, Info.plist, .gitignore (idempotent)
 #
-# 사용법:
+# Usage:
 #   python3 oauth-wizard.py setup --project-path . \
 #     --kakao-native-app-key 0123456789abcdef0123456789abcdef \
 #     --google-ios-client-id 1234-abc.apps.googleusercontent.com \
@@ -18,8 +18,8 @@
 #     [--update-gitignore] [--firebase-files] \
 #     [--dry-run] [--non-interactive] [--no-backup]
 #
-# 순서: 입력 검증 > 새 내용 전부 계산 > (확인) > 백업 > 쓰기
-#   계산을 먼저 끝내므로 파일 하나라도 문제가 있으면 아무것도 바꾸지 않는다.
+# Order: validate input > compute all new content > (confirm) > back up > write
+#   Computation finishes first, so if any one file has a problem nothing is changed.
 # ===================================================================
 import argparse
 import base64
@@ -32,7 +32,7 @@ import shutil
 import subprocess
 import sys
 
-# ---- stdout/stderr UTF-8 (cp949 콘솔 대응) ----
+# ---- stdout/stderr UTF-8 (cp949 console support) ----
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         try:
@@ -42,7 +42,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 
 def _ansi_enabled():
-    """색상 출력 여부 — 파이프·NO_COLOR 면 끈다"""
+    """Whether to print colors — off for pipes and NO_COLOR"""
     if os.environ.get("NO_COLOR"):
         return False
     return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
@@ -53,22 +53,22 @@ if _ansi_enabled():
 else:
     RED = GREEN = YELLOW = BLUE = NC = ""
 
-# 개행 보존 (CRLF 파일을 LF 로 바꾸지 않는다)
+# Preserve newlines (CRLF files are not converted to LF)
 _READ_KWARGS = _WRITE_KWARGS = dict(encoding="utf-8", errors="surrogateescape", newline="")
 
-# >>> 공통 블록: 쓰기 게이트 (testflight·playstore 동일 — _shared/check-consistency.py 가 비교)
-# 파일을 변경하는 원시 동작(쓰기·복사·이동·삭제·디렉터리 생성)은 전부 아래 게이트를 거친다.
-# DRY_RUN이면 디스크를 건드리지 않고 "무엇을 할지"만 출력한다.
+# >>> 공통 블록: 쓰기 게이트 (identical in testflight/playstore — compared by _shared/check-consistency.py)
+# Every primitive that changes files (write, copy, move, delete, mkdir) goes through the gates below.
+# With DRY_RUN the disk is untouched and only "what would happen" is printed.
 #
-# ⚠️ 오버레이가 필요한 이유
-#   "쓰고 → 다시 읽어 검증"하는 단계가 있어, 쓰기만 건너뛰면 뒷 단계가 낡은 내용을
-#   읽어 실제 실행과 다른 경로를 타고 거짓 실패를 낸다. 그래서 dry-run에서는
-#   쓰였을 내용을 메모리에 두고 read_text가 그것을 먼저 본다.
-# 인코딩·개행 처리는 마법사마다 다르므로 블록 밖의 _READ_KWARGS·_WRITE_KWARGS 를 쓴다.
+# ⚠️ Why the overlay is needed
+#   Some steps "write → read back to verify"; skipping only the write makes later steps read stale content,
+#   take a different path than a real run and fail falsely. So in dry-run the content that
+#   would have been written is kept in memory and read_text checks it first.
+# Encoding/newline handling differs per wizard, so _READ_KWARGS/_WRITE_KWARGS outside the block are used.
 DRY_RUN = False
 NO_BACKUP = False
-_DRY_FS = {}          # path -> content (dry-run 가상 파일 내용)
-_DRY_DELETED = set()  # dry-run에서 삭제된 것으로 간주하는 경로
+_DRY_FS = {}          # path -> content (virtual file content in dry-run)
+_DRY_DELETED = set()  # paths treated as deleted in dry-run
 
 
 def _dry(msg):
@@ -76,7 +76,7 @@ def _dry(msg):
 
 
 def copy_file(src, dst):
-    """shutil.copyfile 대체 — dry-run이면 계획만 출력하고 오버레이에 반영한다."""
+    """Replacement for shutil.copyfile — in dry-run, only prints the plan and updates the overlay."""
     if DRY_RUN:
         _dry(f"copy: {src} → {dst}")
         try:
@@ -89,14 +89,14 @@ def copy_file(src, dst):
 
 
 def backup_file(path, suffix=".bak"):
-    """백업 생성. --no-backup이면 건너뛴다."""
+    """Create a backup. Skipped with --no-backup."""
     if NO_BACKUP:
         return
     copy_file(path, f"{path}{suffix}")
 
 
 def remove_file(path):
-    """삭제 — dry-run이면 계획만. 없으면 조용히 통과."""
+    """Delete — plan only in dry-run. Passes quietly if missing."""
     if DRY_RUN:
         _dry(f"delete: {path}")
         _DRY_FS.pop(path, None)
@@ -107,7 +107,7 @@ def remove_file(path):
 
 
 def move_file(src, dst):
-    """이동(주로 백업 복원) — dry-run이면 계획만."""
+    """Move (mainly backup restore) — plan only in dry-run."""
     if DRY_RUN:
         _dry(f"move: {src} → {dst}")
         try:
@@ -129,7 +129,7 @@ def make_dirs(path):
 
 
 def path_exists(path):
-    """존재 확인 — dry-run 오버레이를 반영한다."""
+    """Existence check — honors the dry-run overlay."""
     if DRY_RUN:
         if path in _DRY_FS:
             return True
@@ -171,7 +171,7 @@ def append_text(path, content):
 
 
 # ============================================
-# 상수
+# Constants
 # ============================================
 MANIFEST_RELATIVE_PATH = "android/app/src/main/AndroidManifest.xml"
 INFO_PLIST_RELATIVE_PATH = "ios/Runner/Info.plist"
@@ -180,19 +180,19 @@ GRADLE_RELATIVE_PATHS = ("android/app/build.gradle.kts", "android/app/build.grad
 PBXPROJ_RELATIVE_PATH = "ios/Runner.xcodeproj/project.pbxproj"
 
 KAKAO_ACTIVITY_NAME = "com.kakao.sdk.flutter.auth.AuthCodeHandlerActivity"
-# Kakao 네이티브 앱 키: 32자리 16진
+# Kakao native app key: 32 hex characters
 KAKAO_NATIVE_APP_KEY_RE = re.compile(r"^[0-9a-fA-F]{32}$")
 KAKAO_URL_SCHEME_RE = re.compile(r"^kakao[0-9a-fA-F]{32}$")
-# 카카오톡 로그인(kakaokompassauth)·공유(kakaolink) — developers.kakao.com iOS 시작하기 기준
+# KakaoTalk login (kakaokompassauth) and sharing (kakaolink) — per developers.kakao.com iOS getting started
 KAKAO_QUERIES_SCHEMES = ("kakaokompassauth", "kakaolink")
-# Google OAuth 클라이언트 ID: {번호}-{식별자}.apps.googleusercontent.com
+# Google OAuth client ID: {number}-{identifier}.apps.googleusercontent.com
 GOOGLE_CLIENT_ID_RE = re.compile(r"^([0-9]+-[0-9a-z]+)\.apps\.googleusercontent\.com$")
 GOOGLE_REVERSED_PREFIX = "com.googleusercontent.apps."
 
 GITIGNORE_HEADER = "# OAuth wizard (projectops)"
-# 마법사 내보내기 파일 — Secret 값이 그대로 들어 있다
+# Wizard export file — contains Secret values as is
 GITIGNORE_EXPORT_PATTERNS = ("oauth-secrets-*.json", "oauth-secrets-*.txt", "oauth-setup-*.zip")
-# Firebase 설정 파일 — CI 가 GitHub Secret 에서 다시 만든다
+# Firebase config files — CI recreates them from GitHub Secrets
 GITIGNORE_FIREBASE_PATTERNS = ("android/app/google-services.json", "ios/Runner/GoogleService-Info.plist")
 
 
@@ -213,11 +213,11 @@ def detect_newline(content):
 
 
 # ============================================
-# 감지 (읽기 전용)
+# Detection (read-only)
 # ============================================
 
 def detect_application_id(project_path):
-    """build.gradle(.kts) applicationId > 값 (없으면 None)"""
+    """build.gradle(.kts) applicationId > value (None if missing)"""
     for relative_path in GRADLE_RELATIVE_PATHS:
         gradle_path = os.path.join(project_path, relative_path)
         if not os.path.exists(gradle_path):
@@ -229,7 +229,7 @@ def detect_application_id(project_path):
 
 
 def detect_bundle_id(project_path):
-    """project.pbxproj PRODUCT_BUNDLE_IDENTIFIER > 앱 본체 값 (테스트 타깃 제외, 최빈값)"""
+    """project.pbxproj PRODUCT_BUNDLE_IDENTIFIER > app value (test targets excluded, most frequent value)"""
     pbxproj_path = os.path.join(project_path, PBXPROJ_RELATIVE_PATH)
     if not os.path.exists(pbxproj_path):
         return None
@@ -242,7 +242,7 @@ def detect_bundle_id(project_path):
 
 
 def load_info_plist(content):
-    """Info.plist 문자열 > dict (plistlib)"""
+    """Info.plist string > dict (plistlib)"""
     return plistlib.loads(content.encode("utf-8"))
 
 
@@ -254,7 +254,7 @@ def collect_url_schemes(plist_data):
 
 
 def cmd_detect(args):
-    """앱 ID·설정 파일·기존 OAuth 항목 감지 > JSON"""
+    """Detect app IDs, config files and existing OAuth entries > JSON"""
     project_path = os.path.abspath(args.project_path)
     manifest_path = os.path.join(project_path, MANIFEST_RELATIVE_PATH)
     plist_path = os.path.join(project_path, INFO_PLIST_RELATIVE_PATH)
@@ -275,7 +275,7 @@ def cmd_detect(args):
             schemes = collect_url_schemes(plist_data)
             result["infoPlist"]["urlSchemes"] = schemes
             result["infoPlist"]["hasGIDClientID"] = "GIDClientID" in plist_data
-        except Exception as error:  # noqa: BLE001 — 깨진 plist 도 감지 결과로 돌려준다
+        except Exception as error:  # noqa: BLE001 — a broken plist is returned as a detection result too
             result["infoPlist"]["parseError"] = str(error)
     result["next"] = "setup --project-path <path> --kakao-native-app-key <key> / --google-ios-client-id <id>"
     emit_json(result)
@@ -283,11 +283,11 @@ def cmd_detect(args):
 
 
 # ============================================
-# 키 지문 / Kakao 키 해시
+# Key fingerprints / Kakao key hash
 # ============================================
 
 def sha1_hex_to_key_hash(sha1_hex):
-    """SHA-1 16진(콜론 허용) > Kakao 키 해시 base64 (xxd -r -p | openssl base64 와 같음)"""
+    """SHA-1 hex (colons allowed) > Kakao key hash base64 (same as xxd -r -p | openssl base64)"""
     cleaned = re.sub(r"[^0-9a-fA-F]", "", sha1_hex or "")
     if len(cleaned) != 40:
         raise ValueError("SHA-1 must be 40 hex characters (20 bytes), e.g. AA:BB:...:FF")
@@ -306,7 +306,7 @@ def cmd_key_hash(args):
 
 
 def parse_keytool_fingerprints(output):
-    """keytool -list -v 출력 > {"sha1": ..., "sha256": ...}"""
+    """keytool -list -v output > {"sha1": ..., "sha256": ...}"""
     fingerprints = {}
     for label, key in (("SHA1", "sha1"), ("SHA256", "sha256")):
         match = re.search(rf"^\s*{label}:\s*([0-9A-Fa-f:]+)\s*$", output, re.M)
@@ -316,12 +316,12 @@ def parse_keytool_fingerprints(output):
 
 
 def cmd_fingerprints(args):
-    """keytool 실행(읽기 전용) > SHA-1·SHA-256·Kakao 키 해시"""
+    """Run keytool (read-only) > SHA-1, SHA-256, Kakao key hash"""
     keytool_path = shutil.which("keytool")
     if not keytool_path:
         emit_json({"ok": False, "error": "keytool not found. Install a JDK (Android Studio ships one) and add it to PATH."})
         return 1
-    # 비밀번호: 인자 > 환경변수 KEYSTORE_PASSWORD > 디버그 키 기본값
+    # Password: argument > env KEYSTORE_PASSWORD > debug key default
     store_password = args.storepass or os.environ.get("KEYSTORE_PASSWORD")
     if not store_password and args.alias == "androiddebugkey":
         store_password = "android"
@@ -344,17 +344,17 @@ def cmd_fingerprints(args):
 
 
 # ============================================
-# setup: 패치 계산 (메모리) — 쓰기는 apply_changes 에서만
+# setup: compute patches (in memory) — writes happen only in apply_changes
 # ============================================
 
 def to_reversed_client_id(ios_client_id):
-    """iOS 클라이언트 ID > REVERSED_CLIENT_ID (com.googleusercontent.apps.{번호}-{식별자})"""
+    """iOS client ID > REVERSED_CLIENT_ID (com.googleusercontent.apps.{number}-{identifier})"""
     match = GOOGLE_CLIENT_ID_RE.match(ios_client_id)
     return GOOGLE_REVERSED_PREFIX + match.group(1)
 
 
 def validate_setup_args(args):
-    """입력 검증 > 실패 사유 목록 (빈 목록이면 통과)"""
+    """Validate input > list of failure reasons (empty list passes)"""
     problems = []
     if not (args.kakao_native_app_key or args.google_ios_client_id or args.update_gitignore):
         problems.append("Nothing to do: pass --kakao-native-app-key and/or --google-ios-client-id (or --update-gitignore).")
@@ -370,7 +370,7 @@ def validate_setup_args(args):
 
 
 def build_kakao_activity_block(native_app_key, indent, newline):
-    """AuthCodeHandlerActivity 블록 (developers.kakao.com Flutter 시작하기와 같은 마크업)"""
+    """AuthCodeHandlerActivity block (same markup as developers.kakao.com Flutter getting started)"""
     inner = indent + "    "
     lines = [
         f'{indent}<activity',
@@ -388,7 +388,7 @@ def build_kakao_activity_block(native_app_key, indent, newline):
 
 
 def patch_manifest(content, native_app_key):
-    """AndroidManifest.xml > (새 내용, 변경 설명 목록). 이미 같으면 내용 그대로"""
+    """AndroidManifest.xml > (new content, change descriptions). Content unchanged if already the same"""
     newline = detect_newline(content)
     scheme = f"kakao{native_app_key}"
     activity_match = re.search(
@@ -402,7 +402,7 @@ def patch_manifest(content, native_app_key):
             new_block = block.replace(scheme_match.group(0), f'android:scheme="{scheme}"')
             note = f"updated Kakao URL scheme {scheme_match.group(1)} -> {scheme}"
         else:
-            # 액티비티는 있는데 scheme 이 없으면 사람이 고친 블록 — 덮어쓰지 않고 실패
+            # An activity without a scheme is a block someone edited by hand — fail instead of overwriting
             raise ValueError(f"{KAKAO_ACTIVITY_NAME} exists but has no kakao scheme; fix it by hand")
         start, end = activity_match.span()
         return content[:start] + new_block + content[end:], [note]
@@ -420,7 +420,7 @@ def patch_manifest(content, native_app_key):
 
 
 def upsert_url_scheme(plist_data, scheme, is_same_provider):
-    """CFBundleURLTypes 에 scheme 보장. 같은 제공자 scheme 이 다르면 교체 > 변경 설명"""
+    """Ensure the scheme in CFBundleURLTypes. Replace if the same provider's scheme differs > change description"""
     url_types = plist_data.setdefault("CFBundleURLTypes", [])
     for url_type in url_types:
         schemes = url_type.get("CFBundleURLSchemes", []) or []
@@ -435,11 +435,11 @@ def upsert_url_scheme(plist_data, scheme, is_same_provider):
 
 
 def patch_info_plist(content, args):
-    """Info.plist > (새 내용, 변경 설명 목록)"""
+    """Info.plist > (new content, change descriptions)"""
     plist_data = load_info_plist(content)
     notes = []
 
-    # Kakao: URL scheme kakao{키} + 카카오톡 앱 확인 허용 목록
+    # Kakao: URL scheme kakao{key} + KakaoTalk app query allow list
     if args.kakao_native_app_key:
         notes.append(upsert_url_scheme(plist_data, f"kakao{args.kakao_native_app_key}",
                                        lambda existing: bool(KAKAO_URL_SCHEME_RE.match(existing))))
@@ -462,7 +462,7 @@ def patch_info_plist(content, args):
     notes = [note for note in notes if note]
     if not notes:
         return content, []
-    # plistlib 로 다시 쓰면 XML 주석이 사라진다 — 조용히 지우지 않게 변경 내역에 남긴다
+    # Rewriting with plistlib drops XML comments — record it in the changes instead of deleting silently
     if "<!--" in content:
         notes.append("XML comments in Info.plist are not kept (the file is rewritten) — check the diff")
     new_content = plistlib.dumps(plist_data, sort_keys=False).decode("utf-8")
@@ -473,7 +473,7 @@ def patch_info_plist(content, args):
 
 
 def patch_gitignore(content, include_firebase_files):
-    """.gitignore > (새 내용, 변경 설명 목록). 이미 있는 줄은 다시 넣지 않는다"""
+    """.gitignore > (new content, change descriptions). Existing lines are not added again"""
     patterns = list(GITIGNORE_EXPORT_PATTERNS)
     if include_firebase_files:
         patterns.extend(GITIGNORE_FIREBASE_PATTERNS)
@@ -489,7 +489,7 @@ def patch_gitignore(content, include_firebase_files):
 
 
 def plan_changes(args, project_path):
-    """대상 파일별 새 내용 계산 > [{path, relative, content, notes}] (디스크 무변경)"""
+    """Compute new content per target file > [{path, relative, content, notes}] (disk untouched)"""
     plans = []
     targets = []
     if args.kakao_native_app_key:
@@ -503,7 +503,7 @@ def plan_changes(args, project_path):
         original = read_text(absolute_path)
         try:
             new_content, notes = patcher(original)
-        except Exception as error:  # noqa: BLE001 — 파일 이름을 붙여 다시 던진다
+        except Exception as error:  # noqa: BLE001 — rethrow with the file name attached
             raise ValueError(f"{relative_path}: {error}") from error
         plans.append({"path": absolute_path, "relative": relative_path, "content": new_content,
                       "notes": notes, "exists": True})
@@ -518,7 +518,7 @@ def plan_changes(args, project_path):
 
 
 def apply_changes(plans):
-    """변경된 파일만: 백업 > 쓰기 (게이트 경유 — dry-run 이면 계획만)"""
+    """Changed files only: back up > write (through the gate — plan only in dry-run)"""
     for plan in plans:
         if not plan["notes"]:
             continue
@@ -545,7 +545,7 @@ def confirm_apply():
 
 
 def cmd_setup(args):
-    """검증 > 계획 > (확인) > 적용 > 다음 할 일 안내"""
+    """Validate > plan > (confirm) > apply > next steps guidance"""
     global DRY_RUN, NO_BACKUP
     DRY_RUN = args.dry_run
     NO_BACKUP = args.no_backup
@@ -573,7 +573,7 @@ def cmd_setup(args):
     if not has_changes:
         print_info("Everything is already configured. Nothing to change.")
         return 0
-    # 대화형 터미널에서만 확인 (CI·파이프·--non-interactive 는 바로 적용)
+    # Confirm only on an interactive terminal (CI, pipes and --non-interactive apply directly)
     if not DRY_RUN and not args.non_interactive and sys.stdin.isatty() and not confirm_apply():
         print_info("Cancelled. No files were changed.")
         return 0

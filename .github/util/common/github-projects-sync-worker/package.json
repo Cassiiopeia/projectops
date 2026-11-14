@@ -1,7 +1,7 @@
 {
   "name": "github-projects-sync-worker",
   "version": "1.0.0",
-  "description": "GitHub Projects Status를 Issue Label로 실시간 동기화하는 Cloudflare Worker",
+  "description": "Cloudflare Worker that syncs GitHub Projects Status to issue labels in real time",
   "main": "src/index.ts",
   "scripts": {
     "dev": "wrangler dev",

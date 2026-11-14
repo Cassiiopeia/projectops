@@ -1,52 +1,52 @@
 # ===================================================================
-# Flutter Android 테스트용 APK 빌드 워크플로우
+# Flutter Android test APK build workflow
 # ===================================================================
 #
-# 이 워크플로우는 기능 브랜치에서 수동으로 실행하여
-# 테스트용 Android APK를 빌드합니다.
+# Run this workflow manually on a feature branch
+# to build a test Android APK.
 #
-# 주요 특징:
-# - workflow_dispatch로 수동 실행 또는 repository_dispatch로 트리거
-# - 버전은 version.yml에서 동적으로 읽어 사용 (운영 버전과 동일, 빌드 번호로 구분)
-# - 빌드 번호는 build_number.py가 정하는 시각 기반 값 (2024-01-01 UTC부터 지난 초)
-# - 브랜치명에서 이슈 번호 자동 추출 (YYYYMMDD_#이슈번호_내용 형식)
-# - GitHub API로 이슈 정보 가져와서 빌드 정보에 포함
-# - APK 파일만 생성 (Play Store 배포 제거)
-# - 아티팩트로 업로드하여 다운로드 가능 (최대 500MB/아티팩트)
-# - 아티팩트 이름에 브랜치명 포함하여 구분 용이
-# - Firebase App Distribution 연동 (FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 시크릿 있을 때)
+# Key points:
+# - manual run via workflow_dispatch or triggered via repository_dispatch
+# - The version is read from version.yml (same as production, told apart by build number)
+# - The build number is the time-based value from build_number.py (seconds since 2024-01-01 UTC)
+# - extracts the issue number from the branch name automatically (YYYYMMDD_#issueNumber_text format)
+# - Fetches issue info via the GitHub API and includes it in the build info
+# - Builds the APK only (Play Store deploy removed)
+# - Uploads as an artifact for download (up to 500MB per artifact)
+# - The artifact name includes the branch name for easy identification
+# - Firebase App Distribution integration (when the FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 secret exists)
 #
-# ⚠️ 브랜치 규칙 의존:
-# 이 워크플로우는 브랜치명 `YYYYMMDD_#이슈번호_제목` 형식에서 이슈 번호를 추출합니다.
-# 이슈 생성 시 SUH-ISSUE-HELPER 댓글이 제안하는 브랜치명을 그대로 사용하세요.
-# 형식이 다르면: 이슈 연동 빌드 정보가 누락됩니다 (빌드 자체는 진행).
-# 상세: docs/BRANCH-CONVENTION.md (템플릿 레포)
+# ⚠️ Depends on the branch rule:
+# This workflow extracts the issue number from the branch name format `YYYYMMDD_#issueNumber_title`.
+# Use the branch name suggested by the SUH-ISSUE-HELPER comment when the issue is created.
+# With a different format, issue-linked build info is missing (the build itself still runs).
+# Details: docs/BRANCH-CONVENTION.md (template repo)
 #
-# 사용 방법:
-# 1. 기능 브랜치로 체크아웃
-# 2. GitHub Actions에서 이 워크플로우 선택
-# 3. "Run workflow" 버튼 클릭
-# 4. 빌드 완료 후 아티팩트에서 APK 다운로드
+# How to use:
+# 1. Check out the feature branch
+# 2. Choose this workflow in GitHub Actions
+# 3. Click the "Run workflow" button
+# 4. Download the APK from the artifacts when the build finishes
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
 #
-# 🔐 Release Keystore (Play Store 배포와 동일):
-# RELEASE_KEYSTORE_BASE64: 릴리즈 키스토어 파일 (base64)
-# RELEASE_KEYSTORE_PASSWORD: 키스토어 비밀번호
-# RELEASE_KEY_ALIAS: 키 별칭
-# RELEASE_KEY_PASSWORD: 키 비밀번호
+# 🔐 Release Keystore (same as the Play Store deploy):
+# RELEASE_KEYSTORE_BASE64: release keystore file (base64)
+# RELEASE_KEYSTORE_PASSWORD: keystore password
+# RELEASE_KEY_ALIAS: key alias
+# RELEASE_KEY_PASSWORD: key password
 #
-# 📝 환경 설정 (선택):
-# ENV_FILE (선택): .env 파일 내용
-# GOOGLE_SERVICES_JSON (선택): google-services.json 내용 (Firebase 사용 시)
+# 📝 Environment (optional):
+# ENV_FILE (optional): contents of the .env file
+# GOOGLE_SERVICES_JSON (optional): contents of google-services.json (when using Firebase)
 #
-# 🔥 Firebase App Distribution (선택):
-# FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: Firebase 서비스 계정 JSON (base64)
+# 🔥 Firebase App Distribution (optional):
+# FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: Firebase service account JSON (base64)
 #
-# 🪄 빠른 설정: .github/util/flutter/firebase-wizard/firebase-wizard.html을
-#    브라우저에서 열어 5단계 마법사로 Firebase 배포를 자동 설정할 수 있습니다.
+# 🪄 Quick setup: open .github/util/flutter/firebase-wizard/firebase-wizard.html
+#    in a browser to set up Firebase distribution with the 5-step wizard.
 #
 # ===================================================================
 
@@ -61,33 +61,33 @@ on:
   repository_dispatch:
     types: [build-android-app]
 
-# ⚠️ repository_dispatch 는 **기본 브랜치(main)의 워크플로 정의**로 실행된다 (#595).
-#    이 파일을 develop 에서 고치고 테스트 빌드를 다시 걸면 **여전히 옛 정의가 돈다** —
-#    고친 게 안 먹은 것처럼 보여 원인을 엉뚱한 데서 찾게 된다.
-#    반드시 기본 브랜치에 반영된 뒤에 확인할 것. (build 대상 브랜치와는 별개다)
+# ⚠️ repository_dispatch runs with **the workflow definition on the default branch (main)** (#595).
+#    If you edit this file on develop and trigger a test build again, **the old definition still runs** —
+#    the fix looks ineffective and you end up hunting the cause in the wrong place.
+#    Always check after it lands on the default branch. (Separate from the branch being built)
 
 permissions:
-  # 이슈·PR에 진행 상황 댓글을 단다. 명시하지 않으면 레포 기본값을 따르는데,
-  # GitHub 신규 레포 기본값은 read 라서 **댓글 다는 순간 실패**한다 (#595).
+  # Posts progress comments on issues/PRs. Without an explicit declaration it follows the repo default,
+  # and the default for new GitHub repos is read, so it **fails the moment it comments** (#595).
   #   RequestError [HttpError]: Resource not accessible by integration
   contents: read
   issues: write
   pull-requests: write
 
 # ===================================================================
-# 🔧 프로젝트별 설정 (아래 값들을 수정하세요)
+# 🔧 Per-project settings (edit the values below)
 # ===================================================================
 env:
-  # 레포 변수 FLUTTER_VERSION·JAVA_VERSION 이 있으면 아래 값보다 먼저 쓴다 (템플릿 업데이트에도 유지, #758)
+  # Repo variables FLUTTER_VERSION/JAVA_VERSION take precedence over the values below (kept across template updates, #758)
   FLUTTER_VERSION: "3.38.9"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:17
   ENV_FILE_PATH: ".env"
   FIREBASE_APP_ID: "{FIREBASE_APP_ID}"
   FIREBASE_TESTER_GROUP: "{TESTER_GROUP}"
 
-  # Flutter 루트 경로(레포 루트 기준). 단일레포면 ".", 모노레포면 "app" 등.
-  # 통합 시점에 integrator의 flutter-root resolver가 project_paths.flutter 값으로 1회 치환.
-  # FLUTTER_ROOT는 Flutter SDK 경로용 공식 변수라 충돌 — APP_ROOT로 분리
+  # Flutter root path (relative to repo root). "." for a single repo, "app" etc. for a monorepo.
+  # At integration, the integrator's flutter-root resolver substitutes it once with project_paths.flutter.
+  # FLUTTER_ROOT is the official Flutter SDK path variable and would clash — hence APP_ROOT
   APP_ROOT: "."  # @wizard auto:flutter-root
 jobs:
   prepare-test-build:
@@ -116,9 +116,9 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -144,7 +144,7 @@ jobs:
         if: github.event_name == 'repository_dispatch'
         uses: actions/github-script@v7
         env:
-          # 외부에서 온 브랜치명은 스크립트 소스에 넣지 않고 env 로 전달 (#646)
+          # A branch name from outside goes via env, never into script source (#646)
           BRANCH_NAME: ${{ github.event.client_payload.branch_name }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -168,8 +168,8 @@ jobs:
               if (error.status === 404) {
                 console.log(`❌ Branch not found: ${branchName}`);
 
-                // 에러 댓글 작성
-                // 서명은 구버전 소비자가 읽는 계약 문자열이라 값으로 넣는다 (contracts.py)
+                // Post the error comment
+                // The signature is a contract string old consumers read, so it is passed as a value (contracts.py)
                 const body = t('test_apk.branch_missing.body', {
                   branch: branchName, number: prNumber, signature: 'Guide by ProjectOps', url: runUrl
                 });
@@ -189,8 +189,8 @@ jobs:
 
       - name: Check Firebase credentials
         id: firebase_check
-        # checkout 전에 실행되므로 APP_ROOT 디렉터리가 아직 없다.
-        # Secret 유무만 확인하는 스텝이라 레포 루트에서 실행한다.
+        # Runs before checkout, so the APP_ROOT directory does not exist yet.
+        # This step only checks for Secrets, so it runs at the repo root.
         working-directory: ${{ github.workspace }}
         env:
           FIREBASE_SECRET: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
@@ -204,7 +204,7 @@ jobs:
           fi
 
       # ===================================================================
-      # 진행 상황 댓글 시스템
+      # Progress comment system
       # ===================================================================
       - name: Create the progress comment
         id: progress_comment
@@ -263,22 +263,22 @@ jobs:
           echo "🌿 Branch: $BRANCH_NAME"
           git pull origin "$BRANCH_NAME" || echo "⚠️ Pull failed (the branch may already be up to date)"
 
-      # 브랜치명에서 이슈 번호 추출 및 GitHub API로 이슈 정보 가져오기
+      # Extract the issue number from the branch name and fetch issue info via the GitHub API
       - name: Read issue information from the branch name
         id: issue_info
         env:
-          # 브랜치명은 스크립트 소스에 직접 넣지 않고 env 로 받는다 (#646)
+          # The branch name comes via env, never inlined in the script source (#646)
           DISPATCH_BRANCH: ${{ github.event.client_payload.branch_name }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          # repository_dispatch인 경우 client_payload에서 브랜치명 가져오기
+          # For repository_dispatch, take the branch name from client_payload
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             BRANCH_NAME="$DISPATCH_BRANCH"
             ISSUE_NUMBER="${{ github.event.client_payload.issue_number }}"
           else
             BRANCH_NAME="$REF_NAME"
-            # 브랜치명에서 이슈 번호 추출 (#387 형식)
-            # 브랜치 이름의 **첫** `#번호` 를 쓴다. 탐욕 매칭(`.*#`)은 제목에 `#` 이 또 있으면 마지막 번호를 잡았다.
+            # Extract the issue number from the branch name (#387 format)
+            # Use the **first** `#number` in the branch name. A greedy match (`.*#`) caught the last number when the title had another `#`.
             ISSUE_NUMBER=$(echo "$BRANCH_NAME" | sed -n 's/^[^#]*#\([0-9][0-9]*\).*/\1/p')
           fi
 
@@ -296,7 +296,7 @@ jobs:
             echo "issue_url=$ISSUE_URL" >> $GITHUB_OUTPUT
             echo "issue_number=$ISSUE_NUMBER" >> $GITHUB_OUTPUT
 
-            # GitHub API로 이슈 정보 가져오기
+            # Fetch issue info via the GitHub API
             echo "🔍 Reading the issue through the GitHub API..."
             ISSUE_RESPONSE=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               "https://api.github.com/repos/${{ github.repository }}/issues/$ISSUE_NUMBER")
@@ -314,15 +314,15 @@ jobs:
             fi
           fi
 
-      # 버전 관리 스크립트 권한 설정
+      # Make the version script executable
       - name: Make the version script executable
-        working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
+        working-directory: ${{ github.workspace }}   # repo-root assets (.github/scripts, version.yml) are relative to the repo root, not APP_ROOT
         run: chmod +x ./.github/scripts/version_manager.sh
 
-      # 빌드 번호는 build_number.py 한 곳에서만 정한다 (시각 기반, 1초 단위 단조 증가)
+      # The build number is decided only in build_number.py (time-based, increases monotonically by the second)
       - name: Decide the build number
         id: build_no
-        working-directory: ${{ github.workspace }}   # build_number.py는 레포 루트 자산
+        working-directory: ${{ github.workspace }}   # build_number.py is a repo-root asset
         run: python3 .github/scripts/build_number.py next
 
       # Decision scripts come from the default branch (#1006): a branch that has not merged it yet carries
@@ -342,11 +342,11 @@ jobs:
             | sed -n 's/^version:[[:space:]]*"\{0,1\}\([0-9][0-9.]*\)"\{0,1\}.*/\1/p' | head -n 1) || true
           echo "BASE_VERSION=$BASE_VERSION" >> "$GITHUB_ENV"
 
-      # 닫힌 버전·오래된 브랜치 판정은 iOS 테스트 빌드와 같은 ios_release.py 한 곳에서 한다 (같은 커밋이면 두 플랫폼 버전이 같다, #1006)
-      # App Store Connect 조회가 안 되면(키·번들 ID 없음 등) version.yml 버전으로 진행한다
+      # Closed-version and stale-branch checks happen in one place, ios_release.py, as for iOS test builds (the same commit gives both platforms the same version, #1006)
+      # If App Store Connect lookup fails (no key, bundle ID, etc.), proceed with the version.yml version
       - name: Decide the test build version
         id: test_version
-        # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
+        # repo-root assets (.github/scripts, version.yml) are relative to the repo root, not APP_ROOT
         working-directory: ${{ github.workspace }}
         env:
           ASC_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
@@ -364,23 +364,23 @@ jobs:
             echo "::warning::Version precheck failed, continuing with the version.yml version"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"; }
 
-      # 빌드 정보 생성
+      # Build the build info
       - name: Collect build information
-        working-directory: ${{ github.workspace }}   # 레포 루트 자산(.github/scripts·version.yml)은 APP_ROOT가 아닌 레포 루트 기준
+        working-directory: ${{ github.workspace }}   # repo-root assets (.github/scripts, version.yml) are relative to the repo root, not APP_ROOT
         id: build_info
         run: |
-          # 앞 스텝(test_version)이 정한 버전 — 비면 version_manager.sh 값 (프로덕션 워크플로우와 동일한 방식)
+          # Version decided by the previous step (test_version) — empty means the version_manager.sh value (same as the production workflow)
           VERSION="${{ steps.test_version.outputs.version }}"
           [ -z "$VERSION" ] && VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-          # repository_dispatch 컨텍스트 커밋은 기본 브랜치 것이라 실제 빌드한 HEAD를 직접 읽는다
+          # The repository_dispatch context commit is from the default branch, so read the HEAD actually built
           COMMIT_SHA=$(git rev-parse HEAD)
           COMMIT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-7)
           BUILD_NUMBER="${{ steps.build_no.outputs.build_number }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
 
-          # repository_dispatch 이벤트인 경우 진행 댓글을 달 PR 번호를 받는다 (빌드 번호와 무관)
+          # For repository_dispatch events, receive the PR number for progress comments (unrelated to the build number)
           if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
             PR_NUMBER="${{ github.event.client_payload.pr_number }}"
             echo "📋 repository_dispatch event"
@@ -404,7 +404,7 @@ jobs:
           echo "  Commit: $COMMIT_SHORT"
           echo "  Build date: $BUILD_DATE"
 
-      # 취소 처리 (#648): 댓글을 만든 준비 job 이 실행 중일 때 취소된 경우. 준비 job 은 needs 가 없어 같은 job 의 스텝 출력으로 ID 를 읽는다. 이 스텝이 뒤의 스텝들 끝에 있어야 어느 시점에 취소돼도 잡힌다.
+      # Cancellation (#648): cancelled while the prep job that created the comment was running. The prep job has no needs, so it reads the ID from its own step output. This step must be after the later steps so a cancel at any point is caught.
       - name: Update progress - cancelled (prepare job)
         if: cancelled() && github.event_name == 'repository_dispatch' && steps.progress_comment.outputs.comment_id != ''
         continue-on-error: true
@@ -424,7 +424,7 @@ jobs:
             const branchName = process.env.BRANCH_NAME;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
             const firebaseAvailable = process.env.FIREBASE_AVAILABLE === 'true';
-            // 성공/실패 스텝이 이미 최종 상태를 쓴 댓글은 덮어쓰지 않는다
+            // Do not overwrite a comment whose final state was already written by the success/failure step
             const { data: current } = await github.rest.issues.getComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -474,9 +474,9 @@ jobs:
       run:
         working-directory: ${{ env.APP_ROOT }}
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -501,8 +501,8 @@ jobs:
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          # 준비 job이 고정한 SHA로 받는다. 브랜치명으로 받으면 그 사이 push된 커밋이 섞여
-          # 댓글과 build-info에 표시한 커밋과 실제 빌드한 코드가 달라지므로 pull도 하지 않는다.
+          # Check out the SHA pinned by the prep job. Checking out by branch name would mix in commits pushed meanwhile,
+          # and the commit shown in the comment and build-info would differ from the code built, so no pull either.
           ref: ${{ needs.prepare-test-build.outputs.commit_sha }}
 
       - name: Create .env file
@@ -512,13 +512,13 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > ${{ env.ENV_FILE_PATH }}
           echo "✅ ${{ env.ENV_FILE_PATH }} file created"
 
-      # 빌드 프로파일 — 런타임(.env)과 컴파일타임(dart-define)을 한 곳에서 정한다 (#603)
+      # Build profile — runtime (.env) and compile time (dart-define) decided in one place (#603)
       #
-      # 예전에는 .env 만 고치고 dart-define 은 빌드 명령에 따로 적었다. 그래서
-      # **한쪽만 적용돼도 빌드가 통과했다** — .env 에 개발 플래그가 찍혔는데 설치해 보면
-      # 디버깅 도구가 없었다. 로그만 봐서는 알 수 없었다.
+      # Previously only .env was edited and dart-defines were written separately in the build command. So
+      # **the build passed with only one side applied** — .env had the dev flag, but the installed app
+      # had no debugging tools. The log alone could not show it.
       #
-      # 설정(.github/config/build-profile.json)이 없는 저장소에서는 아무 일도 하지 않는다.
+      # Repos without the config (.github/config/build-profile.json) are left untouched.
       - name: Apply build profile (test)
         id: build_profile
         run: |
@@ -549,13 +549,13 @@ jobs:
           EOF
           echo "✅ key.properties created"
 
-      # Secret 이 있을 때만 쓴다 — 없으면 커밋된 파일을 그대로 두고, 필요한데 없으면 원인을 ::error 로 (#785)
+      # Written only when the Secret exists — otherwise the committed file stays, and if needed but missing the cause goes to ::error (#785)
       - name: Create google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: python3 "$GITHUB_WORKSPACE/.github/scripts/firebase_config_files.py" restore --platform android --app-root .
 
-      # Flutter 설정
+      # Set up Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2
         with:
@@ -567,7 +567,7 @@ jobs:
           echo "✅ Flutter setup completed"
           flutter --version
 
-      # Flutter 및 Gradle 캐시
+      # Flutter and Gradle cache
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -585,18 +585,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-gradle-
 
-      # 프로젝트 의존성 설치
+      # Install project dependencies
       - name: Install dependencies
         run: |
           flutter pub get
           echo "✅ Dependencies installed"
 
-      # Gradle 셋업
+      # Set up Gradle
       - name: Setup Gradle
         working-directory: ${{ env.APP_ROOT }}/android
         run: |
-          # Flutter 기본 .gitignore가 gradlew를 제외하므로 CI 체크아웃 시 없을 수 있다.
-          # flutter build가 자체 Gradle을 쓰므로 없어도 빌드는 진행된다.
+          # Flutter's default .gitignore excludes gradlew, so it may be missing in a CI checkout.
+          # flutter build uses its own Gradle, so the build proceeds without it.
           if [ -f gradlew ]; then
             chmod +x gradlew
             echo "✅ Gradle wrapper permissions set"
@@ -604,7 +604,7 @@ jobs:
             echo "ℹ️ No gradlew - using the Gradle bundled with Flutter"
           fi
 
-      # Java 설정
+      # Set up Java
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -616,7 +616,7 @@ jobs:
           echo "✅ Java setup completed"
           java -version
 
-      # Ruby 설정
+      # Set up Ruby
       - name: Set up Ruby
         uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
@@ -628,17 +628,17 @@ jobs:
           echo "✅ Ruby setup completed"
           ruby -v
 
-      # Fastlane 설치 (Bundler 방식 - gem 충돌 방지)
+      # Install Fastlane (with Bundler - avoids gem conflicts)
       - name: Install Fastlane
         working-directory: ${{ env.APP_ROOT }}/android
         run: |
-          # multi_json: google-apis transitive 의존성이 선언 누락한 upstream 버그 회피 (gemspec 미선언 → Gem::LoadError)
+          # multi_json: works around an upstream bug where a google-apis transitive dependency is undeclared (missing in gemspec → Gem::LoadError)
           printf 'source "https://rubygems.org"\ngem "fastlane"\ngem "multi_json"\n' > Gemfile
           bundle install
           echo "✅ Fastlane installed (Bundler)"
           bundle exec fastlane --version
 
-      # 진행상황 - 준비 완료
+      # Progress - preparation done
       - name: Progress - prepare done
         id: progress_step1
         if: github.event_name == 'repository_dispatch' && needs.prepare-test-build.outputs.progress_comment_id != ''
@@ -692,7 +692,7 @@ jobs:
       - name: Generate APK filename
         id: apk_filename
         env:
-          # 이슈 제목은 따옴표나 $(...) 가 들어올 수 있어 env 로 전달 (#646)
+          # Issue titles can contain quotes or $(...), so pass via env (#646)
           ISSUE_TITLE: ${{ needs.prepare-test-build.outputs.issue_title }}
         run: |
           REPO_NAME="${{ github.event.repository.name }}"
@@ -700,29 +700,29 @@ jobs:
           BUILD_NUMBER="${{ needs.prepare-test-build.outputs.build_number }}"
           ISSUE_NUMBER="${{ needs.prepare-test-build.outputs.issue_number }}"
 
-          # 이슈 제목 정제
+          # Clean up the issue title
           CLEAN_TITLE=""
           if [ -n "$ISSUE_TITLE" ]; then
             CLEAN_TITLE="$ISSUE_TITLE"
-            # 1. 이모지 제거 (유니코드 이모지 범위)
+            # 1. Remove emoji (Unicode emoji ranges)
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/[\xF0\x9F][\x80-\xBF][\x80-\xBF][\x80-\xBF]//g; s/[\xE2\x9C\xE2\x9A\xE2\xAD\xE2\x9D\xE2\x99\xE2\x98\xE2\x9E\xE2\xAC\xE2\xAB\xE2\xAC][\x80-\xBF][\x80-\xBF]//g; s/[\xE2\x80\x8D]//g; s/\xEF\xB8\x8F//g; s/\xE2\x83\xA3//g')
-            # 2. 대괄호 태그 제거 [xxx]
+            # 2. Remove bracket tags [xxx]
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/\[[^]]*\]//g')
-            # 3. 앞뒤 공백 trim
+            # 3. Trim leading/trailing spaces
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-            # 4. 공백 → _
+            # 4. Spaces → _
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/[[:space:]]/_/g')
-            # 5. 파일시스템 비호환 문자 제거
+            # 5. Remove characters unsafe for file systems
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/[#\/\\:*?"<>|]//g')
-            # 6. 연속 밑줄 정리
+            # 6. Collapse repeated underscores
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/__*/_/g; s/^_//; s/_$//')
-            # 7. 30자 제한
+            # 7. Limit to 30 characters
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | cut -c1-30)
-            # 8. 끝 밑줄 제거
+            # 8. Remove trailing underscores
             CLEAN_TITLE=$(echo "$CLEAN_TITLE" | sed 's/_$//')
           fi
 
-          # 파일명 조립
+          # Assemble the file name
           if [ -n "$ISSUE_NUMBER" ] && [ -n "$CLEAN_TITLE" ]; then
             APK_NAME="${REPO_NAME}-${ISSUE_NUMBER}-${BUILD_NUMBER}-${CLEAN_TITLE}-${COMMIT_SHORT}.apk"
           elif [ -n "$ISSUE_NUMBER" ]; then
@@ -731,7 +731,7 @@ jobs:
             APK_NAME="${REPO_NAME}-${BUILD_NUMBER}-${COMMIT_SHORT}.apk"
           fi
 
-          # 아티팩트 이름 (확장자 제거)
+          # Artifact name (without extension)
           ARTIFACT_NAME="${APK_NAME%.apk}"
           echo "artifact_name=$ARTIFACT_NAME" >> $GITHUB_OUTPUT
           echo "apk_name=$APK_NAME" >> $GITHUB_OUTPUT
@@ -746,35 +746,35 @@ jobs:
           echo "✅ pubspec.yaml version updated:"
           grep "^version:" pubspec.yaml
 
-      # APK 빌드 (Fastlane 또는 직접 빌드)
+      # APK build (Fastlane or direct build)
       - name: Build APK
         run: |
-          # 마법사가 까는 Fastfile 에는 `build` lane 이 없다 (#601).
-          # 있는 것: build_aab · deploy_internal · promote_internal_to_production · validate
-          # 그래서 무턱대고 부르면 "Could not find lane" 으로 죽는다.
-          # 직접 만든 Fastfile 에 build 가 있으면 그것을 쓰고, 없으면 flutter 로 빌드한다.
+          # The Fastfile installed by the wizard has no `build` lane (#601).
+          # What exists: build_aab, deploy_internal, promote_internal_to_production, validate
+          # So calling it blindly dies with "Could not find lane".
+          # Use build if a hand-made Fastfile has it, otherwise build with flutter.
           BUILD_FLAGS="${{ steps.build_profile.outputs.build_flags }}"
           if [ -f "android/fastlane/Fastfile" ] \
              && grep -qE '^[[:space:]]*lane[[:space:]]*:build([[:space:]]|$)' android/fastlane/Fastfile; then
-            # fastlane lane 은 빌드 명령을 자기가 만든다 — 여기서 dart-define 을 넘길 자리가 없다.
-            # 조용히 빠뜨리면 이 스텝이 고치려던 바로 그 사고("한쪽만 적용")가 다시 난다.
+            # A fastlane lane builds its own build command — there is no place to pass dart-defines here.
+            # Dropping them silently would bring back the exact incident this step fixes ("only one side applied").
             if [ -n "$BUILD_FLAGS" ]; then
               echo "::error::The build profile sets compile-time flags, but the build would run through the fastlane build lane."
               echo "::error::Change the Fastfile so the lane passes \$BUILD_FLAGS to flutter build, or remove the build lane to build with Flutter directly."
               exit 1
             fi
             echo "📦 Building with the fastlane build lane..."
-            # 서브셸로 감싼다 — cd 가 새어 나가면 뒤 명령이 엉뚱한 곳에서 돈다
+            # Wrap in a subshell — a leaking cd would run later commands in the wrong place
             ( cd android && bundle exec fastlane build --verbose )
           else
             echo "📦 Building with Flutter directly... ${BUILD_FLAGS:+(flags: $BUILD_FLAGS)}"
-            # shellcheck disable=SC2086  # 플래그는 공백으로 갈라져야 한다
+            # shellcheck disable=SC2086  # flags must split on spaces
             flutter build apk --release $BUILD_FLAGS
           fi
           ls -la ./build/app/outputs/flutter-apk/ || true
           echo "✅ APK built"
 
-      # APK 파일 이름 변경 및 준비
+      # Rename and prepare the APK file
       - name: Rename and Prepare APK
         run: |
           mkdir -p ./android/app/build/outputs/apk/release/
@@ -783,19 +783,19 @@ jobs:
           echo "✅ APK renamed to ${APK_NAME}"
           ls -la ./android/app/build/outputs/apk/release/
 
-          # APK 파일 크기 확인
+          # Check the APK file size
           APK_SIZE=$(stat -c%s "./android/app/build/outputs/apk/release/${APK_NAME}" 2>/dev/null || stat -f%z "./android/app/build/outputs/apk/release/${APK_NAME}" 2>/dev/null || echo "0")
           APK_SIZE_MB=$(echo "scale=2; $APK_SIZE / 1024 / 1024" | bc)
           echo "📦 APK size: ${APK_SIZE_MB}MB"
 
-          # 아티팩트 용량 제한 확인 (500MB)
+          # Check the artifact size limit (500MB)
           if [ "$APK_SIZE" -gt 524288000 ]; then
             echo "⚠️ Warning: the APK is larger than 500MB (${APK_SIZE_MB}MB)"
           else
             echo "✅ The APK fits the artifact limit (${APK_SIZE_MB}MB / 500MB)"
           fi
 
-      # 진행상황 - APK 빌드 완료
+      # Progress - APK build done
       - name: Progress - APK build done
         id: progress_step2
         if: github.event_name == 'repository_dispatch' && needs.prepare-test-build.outputs.progress_comment_id != ''
@@ -847,17 +847,17 @@ jobs:
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
-      # 빌드 정보 파일 생성
+      # Create the build info file
       - name: Create build info file
-        # ⚠️ heredoc 을 쓰지 않는다 (#597).
-        #    `<< EOF` 의 종료자는 **컬럼 0** 이어야 하는데, if 블록 안에 두면 들여쓰게 된다.
-        #    그러면 셸이 종료자를 못 찾고 스크립트 끝까지 읽어 `syntax error: unexpected
-        #    end of file` 로 죽는다. `<<-` 로 바꿔도 탭만 허용해 해결되지 않는다.
-        #    (딸려 있던 `sed -E 's/^ {10}//'` 도 실은 아무 일도 안 했다 — YAML의 `run: |`
-        #     이 공통 들여쓰기를 이미 걷어내기 때문이다.)
+        # ⚠️ No heredoc here (#597).
+        #    The terminator of `<< EOF` must be at **column 0**, but inside an if block it gets indented.
+        #    Then the shell cannot find it, reads to the end of the script and dies with `syntax error: unexpected
+        #    end of file`. Switching to `<<-` allows only tabs, so it does not help.
+        #    (The accompanying `sed -E 's/^ {10}//'` did nothing either — YAML's `run: |`
+        #     already strips the common indentation.)
         env:
-          # 이슈 제목을 셸 소스에 직접 박으면 큰따옴표나 $(...) 가 들어왔을 때
-          # 문자열이 깨지거나 명령이 실행된다. 값으로 넘겨 "$VAR" 로 받는다.
+          # Inlining the issue title in shell source breaks the string or runs commands
+          # when it contains double quotes or $(...). Pass it as a value and read "$VAR".
           BUILD_NUMBER: ${{ needs.prepare-test-build.outputs.build_number }}
           PR_NUMBER: ${{ needs.prepare-test-build.outputs.pr_number }}
           COMMIT_SHORT: ${{ needs.prepare-test-build.outputs.commit_hash }}
@@ -869,7 +869,7 @@ jobs:
           BRANCH_NAME="$BUILD_BRANCH"
           COMMIT_SHA="${{ needs.prepare-test-build.outputs.commit_sha }}"
           BUILD_DATE=$(date '+%Y-%m-%d %H:%M:%S')
-          # 문구는 레포 언어를 따른다 (#769). 카탈로그는 레포 루트 기준이라 거기서 조회
+          # The text follows the repo language (#769). The catalog is relative to the repo root, so look it up there
           msg() { (cd "$GITHUB_WORKSPACE" && python3 .github/scripts/i18n/messages.py get "$@" 2>/dev/null); }
 
           {
@@ -890,7 +890,7 @@ jobs:
             echo ""
           } >> build-info.txt
 
-          # 이슈 정보가 있으면 추가
+          # Add issue info if present
           if [ -n "$ISSUE_NUMBER" ]; then
             {
               msg test_apk.build_info.related_issue; echo
@@ -903,7 +903,7 @@ jobs:
           echo "📋 Build info file created:"
           cat build-info.txt
 
-      # 빌드 메타데이터 파일 생성 (댓글 작성 워크플로우용)
+      # Create the build metadata file (for the comment workflow)
       - name: Create build metadata file
         env:
           BUILD_BRANCH: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || github.ref_name }}
@@ -918,13 +918,13 @@ jobs:
           EOF
           cat build-metadata.json
 
-      # APK와 빌드 정보를 아티팩트로 업로드 (브랜치명 포함)
+      # Upload the APK and build info as artifacts (with the branch name)
       - name: Upload APK and build info as Artifact
         id: upload_artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.apk_filename.outputs.artifact_name }}
-          # 아티팩트 액션은 defaults를 따르지 않고 항상 레포 루트 기준이라 APP_ROOT prefix가 필요
+          # Artifact actions ignore defaults and always use the repo root, so the APP_ROOT prefix is needed
           path: |
             ${{ env.APP_ROOT }}/android/app/build/outputs/apk/release/*.apk
             ${{ env.APP_ROOT }}/build-info.txt
@@ -948,7 +948,7 @@ jobs:
             core.setOutput('elapsed', elapsedStr);
             core.setOutput('end_time', now.toString());
 
-      # Firebase App Distribution 업로드 (시크릿 존재 시에만)
+      # Firebase App Distribution upload (only when the secret exists)
       - name: Setup Firebase credentials file
         if: needs.prepare-test-build.outputs.firebase_available == 'true'
         env:
@@ -957,7 +957,7 @@ jobs:
           echo "$FIREBASE_SA_BASE64" | base64 --decode > firebase-service-account.json
           echo "✅ Firebase service account JSON file created"
 
-      # 테스터가 보는 릴리스 노트도 레포 언어를 따른다 (#769). 조회 실패 시 영문
+      # The release notes testers see also follow the repo language (#769). English if the lookup fails
       - name: Compose Firebase release notes
         id: firebase_notes
         if: needs.prepare-test-build.outputs.firebase_available == 'true'
@@ -987,9 +987,9 @@ jobs:
         uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1
         with:
           appId: ${{ env.FIREBASE_APP_ID }}
-          # ⚠️ uses: 액션은 job의 defaults.working-directory를 따르지 않고
-          #    항상 레포 루트 기준으로 경로를 해석한다.
-          #    자격증명·APK는 APP_ROOT에서 생성되므로 prefix가 필요하다.
+          # ⚠️ uses: actions ignore the job's defaults.working-directory
+          #    and always resolve paths from the repo root.
+          #    Credentials and the APK are created in APP_ROOT, so the prefix is needed.
           serviceCredentialsFile: ${{ env.APP_ROOT }}/firebase-service-account.json
           groups: ${{ env.FIREBASE_TESTER_GROUP }}
           file: ${{ env.APP_ROOT }}/android/app/build/outputs/apk/release/${{ steps.apk_filename.outputs.apk_name }}
@@ -1026,7 +1026,7 @@ jobs:
             const elapsedStr = formatElapsed(minutes, seconds);
             core.setOutput('elapsed', elapsedStr);
 
-      # 진행 상황 최종 업데이트 - 성공
+      # Final progress update - success
       - name: Final progress update - success
         if: success() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
@@ -1121,7 +1121,7 @@ jobs:
 
             console.log(`✅ Progress updated: build succeeded (total ${totalElapsed})`);
 
-            // PR과 연결된 이슈가 있고, PR 번호와 다른 경우 이슈에도 댓글
+            // If the PR has a linked issue different from the PR number, comment on the issue too
             if (issueNumber && issueNumber !== '' && parseInt(issueNumber) !== prNumber) {
               const issueLines = [
                 t('test_apk.issue_success.heading'),
@@ -1149,7 +1149,7 @@ jobs:
               console.log(`✅ Posted the build success comment on issue #${issueNumber} too`);
             }
 
-      # 진행 상황 최종 업데이트 - 실패
+      # Final progress update - failure
       - name: Final progress update - failure
         if: failure() && github.event_name == 'repository_dispatch' && github.event.client_payload.pr_number != '' && needs.prepare-test-build.outputs.progress_comment_id != ''
         uses: actions/github-script@v7
@@ -1240,7 +1240,7 @@ jobs:
               console.log(`❌ Posted the build failure comment on issue #${issueNumber} too`);
             }
 
-      # 콘솔 알림
+      # Console notice
       - name: Notify Build Success
         if: success()
         env:
@@ -1265,7 +1265,7 @@ jobs:
           echo "❌ Android test APK build failed!"
           echo "Check the log."
 
-      # 취소 처리 (#648): 빌드 job 이 실행 중일 때 취소된 경우. success()/failure() 스텝은 취소 시 돌지 않아 이 스텝이 유일한 정리 경로다. 준비 job 은 이미 끝났으므로 준비는 완료로 표시한다.
+      # Cancellation (#648): cancelled while the build job runs. success()/failure() steps do not run on cancel, so this step is the only cleanup path. The prep job already finished, so prep is marked done.
       - name: Update progress - cancelled (build job)
         if: cancelled() && github.event_name == 'repository_dispatch' && needs.prepare-test-build.outputs.progress_comment_id != ''
         continue-on-error: true
@@ -1287,7 +1287,7 @@ jobs:
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${process.env.RUN_ID}`;
             const step1Elapsed = process.env.STEP1_ELAPSED;
             const firebaseAvailable = process.env.FIREBASE_AVAILABLE === 'true';
-            // 성공/실패 스텝이 이미 최종 상태를 쓴 댓글은 덮어쓰지 않는다
+            // Do not overwrite a comment whose final state was already written by the success/failure step
             const { data: current } = await github.rest.issues.getComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

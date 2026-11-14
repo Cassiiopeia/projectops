@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""commit provider — 커밋 분석으로 pr_body.md 생성 (안전망, AI 무의존) (#455).
+"""commit provider — builds pr_body.md from commit analysis (safety net, no AI) (#455).
 
-입력: COMMIT_RANGE (기본 origin/<PR base>..HEAD, _common.release_commit_range)
-출력: pr_body.md + stdout `PROVIDER=commit` + exit 0 (항상 완주하는 최후 보루)
+Input: COMMIT_RANGE (default origin/<PR base>..HEAD, _common.release_commit_range)
+Output: pr_body.md + stdout `PROVIDER=commit` + exit 0 (the last resort that always finishes)
 """
 import os
 import sys

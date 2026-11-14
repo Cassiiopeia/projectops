@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""메시지 카탈로그 조회 (#787) — stdlib 전용.
+"""Message catalog lookup (#787) — stdlib only.
 
-사용자 레포에 게시되는 문구를 `options.language` 에 따라 바꾼다. 영문이 정본(en.json)이고 다른 언어는
-JSON 한 파일씩이다. 번역가는 코드를 건드리지 않고 파일만 추가한다.
+Switches text posted to user repos by `options.language`. English is the source (en.json), and each other language
+is one JSON file. Translators add only a file, without touching code.
 
-  - 없는 키는 영문으로, 영문에도 없으면 키 문자열을 돌려준다 (문구 하나 때문에 워크플로우가 죽으면 안 된다)
-  - 치환은 {name} 만 쓴다 (파이썬과 JS 가 같은 문법). 값이 없으면 자리표시자를 그대로 둔다
-  - 계약 문자열(구버전 소비자가 읽는 것)은 contracts.py 에 있고 카탈로그에 넣지 않는다
+  - Missing keys fall back to English, and to the key string if English lacks it too (one text must never kill a workflow)
+  - Substitution uses only {name} (same syntax in Python and JS). Missing values leave the placeholder as is
+  - Contract strings (read by old consumers) live in contracts.py, not in the catalogs
 
-CLI (bash 와 JS 단계가 파이썬을 한 번 부르면 된다)
-  messages.py lang                         현재 언어
-  messages.py get KEY [--var k=v ...]      한 문구
-  messages.py bundle PREFIX                PREFIX 로 시작하는 키를 JSON 으로 (JS 단계용, 자리표시자는 그대로)
-  messages.py js PREFIX... [--version-yml P] github-script 가 require 할 모듈 (comment_runtime.cjs + 문구)
+CLI (bash and JS steps call Python once)
+  messages.py lang                         current language
+  messages.py get KEY [--var k=v ...]      one text
+  messages.py bundle PREFIX                keys starting with PREFIX as JSON (for JS steps, placeholders kept)
+  messages.py js PREFIX... [--version-yml P] module for github-script to require (comment_runtime.cjs + texts)
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ _LANG_KEY = re.compile(r"^\s+language:\s*[\"']?([A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{
 
 @functools.lru_cache(maxsize=None)
 def load_catalog(lang: str) -> dict:
-    """언어 카탈로그. 파일이 없거나 깨져 있으면 빈 사전 (영문으로 대체된다)."""
+    """Language catalog. Empty dict if the file is missing or broken (falls back to English)."""
     try:
         data = json.loads((CATALOG_DIR / f"{lang}.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -45,7 +45,7 @@ def supported() -> list[str]:
 
 
 def normalize(value) -> str:
-    """ko-KR, ko_KR.UTF-8, zh-cn 같은 값을 지원하는 코드로 맞춘다. 모르면 영문."""
+    """Normalize values like ko-KR, ko_KR.UTF-8, zh-cn to a supported code. Unknown means English."""
     v = str(value or "").strip().split(".")[0].replace("_", "-")
     if not v:
         return FALLBACK
@@ -57,10 +57,10 @@ def normalize(value) -> str:
 
 
 def resolve_language(version_yml="version.yml", env=None) -> str:
-    """REPO_LANG > version.yml options.language > (version.yml 이 있는데 키가 없으면 ko, 파일이 없으면 en).
+    """REPO_LANG > version.yml options.language > (ko if version.yml exists without the key, en if there is no file).
 
-    키가 없는 기존 레포를 ko 로 두는 이유: 업데이트만으로 사용자 레포의 문구가 바뀌면 안 된다
-    (템플릿 언어와 같은 원칙, #769).
+    Why existing repos without the key stay ko: an update alone must not change the text in user repos
+    (same principle as the template language, #769).
     """
     env = os.environ if env is None else env
     if env.get("REPO_LANG"):
@@ -88,7 +88,7 @@ def t(key: str, lang: str | None = None, **values) -> str:
 
 
 def has(key: str) -> bool:
-    """어느 카탈로그(영문 포함)에도 키가 있는가. CLI 가 없는 키를 구분하는 데 쓴다."""
+    """Whether any catalog (English included) has the key. The CLI uses it to tell missing keys apart."""
     return key in load_catalog(FALLBACK)
 
 
@@ -103,7 +103,7 @@ RUNTIME_JS = CATALOG_DIR / "comment_runtime.cjs"
 
 
 def render_js(prefixes, lang: str) -> str:
-    """접두사 여러 개 문구 + 런타임 > CommonJS 모듈 문자열 (타입 워크플로우 댓글용, #769)."""
+    """Texts for several prefixes + runtime > CommonJS module string (for type workflow comments, #769)."""
     merged = {}
     for prefix in prefixes:
         merged.update(bundle(prefix, lang))
@@ -130,8 +130,8 @@ def main(argv=None) -> int:
     if a.cmd == "lang":
         print(resolve_language())
     elif a.cmd == "get":
-        # 없는 키는 아무것도 쓰지 않고 비정상 종료한다. t() 처럼 키 문자열을 돌려주면 bash 단계가
-        # 그것을 커밋 메시지로 쓰게 된다 — 호출자가 `|| 대체 문구`로 이어 갈 수 있어야 한다.
+        # A missing key writes nothing and exits abnormally. Returning the key string like t() would make the bash step
+        # use it as a commit message — the caller must be able to continue with `|| fallback text`.
         if not has(a.key):
             print(f"unknown message key: {a.key}", file=sys.stderr)
             return 3

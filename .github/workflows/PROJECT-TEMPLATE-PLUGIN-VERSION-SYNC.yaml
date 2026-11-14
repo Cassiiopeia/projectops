@@ -1,23 +1,23 @@
 # ===================================================================
 # PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC.yaml
-# 플러그인 매니페스트 버전 동기화 워크플로우 v1.0
+# Plugin manifest version sync workflow v1.0
 # ===================================================================
 #
-# 이 워크플로우는 projectops 저장소 전용입니다.
-# template_integrator로 복사되지 않습니다.
+# This workflow is for the projectops repo only.
+# template_integrator does not copy it.
 #
-# version.yml의 버전이 변경되면 다음 파일들을 자동 동기화합니다:
+# When the version in version.yml changes, these files are synced automatically:
 # - .claude-plugin/plugin.json
 # - .claude-plugin/marketplace.json
 # - .codex-plugin/plugin.json
 # - .agents/plugins/marketplace.json (Codex marketplace source metadata, no version field)
 # - plugins/projectops-extras/.claude-plugin/plugin.json, .codex-plugin/plugin.json
 # - gemini-extension.json
-# - package.json (pi 패키지 매니페스트)
+# - package.json (pi package manifest)
 #
-# 트리거: main 브랜치 push 시
-# (VERSION-CONTROL이 GITHUB_TOKEN으로 version.yml을 변경하면
-#  후속 워크플로우가 트리거되지 않으므로 main push를 트리거로 사용)
+# Triggers: push to main
+# (When VERSION-CONTROL changes version.yml with GITHUB_TOKEN,
+#  follow-up workflows are not triggered, so main push is used as the trigger)
 # ===================================================================
 
 name: PROJECT-TEMPLATE-PLUGIN-VERSION-SYNC
@@ -70,7 +70,7 @@ jobs:
             exit 0
           fi
 
-          # jq가 있으면 사용, 없으면 sed로 대체
+          # Use jq if available, else fall back to sed
           if command -v jq &> /dev/null; then
             jq --arg v "$VERSION" '.version = $v' "$PLUGIN_FILE" > tmp.json && mv tmp.json "$PLUGIN_FILE"
           else
@@ -89,11 +89,11 @@ jobs:
             exit 0
           fi
 
-          # jq가 있으면 사용, 없으면 sed로 대체
+          # Use jq if available, else fall back to sed
           if command -v jq &> /dev/null; then
             jq --arg v "$VERSION" '.plugins[].version = $v' "$MARKETPLACE_FILE" > tmp.json && mv tmp.json "$MARKETPLACE_FILE"
           else
-            # "plugins" 줄 이후의 version만 변경 (metadata.version 보존, 모든 플러그인 항목 대상)
+            # Change only the version after the "plugins" line (metadata.version kept, all plugin entries)
             sed -i.bak "/\"plugins\"/,\$ s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$MARKETPLACE_FILE" && rm -f "$MARKETPLACE_FILE.bak"
           fi
 
@@ -185,9 +185,9 @@ jobs:
             VERSION="${{ steps.version.outputs.version }}"
             git commit -m "Sync plugin manifest versions: $VERSION [skip ci]"
 
-            # Race Condition 방지: 다른 버전 워크플로우가 동시에 main을 push하면
-            # 단순 git push가 ! [rejected] (fetch first)로 거부된다.
-            # pull-rebase 후 재시도 (VERSION-CONTROL v2.1과 동일 패턴, 최대 3회).
+            # Prevent race conditions: if another version workflow pushes main at the same time,
+            # a plain git push is rejected with ! [rejected] (fetch first).
+            # Retry after pull-rebase (same pattern as VERSION-CONTROL v2.1, up to 3 times).
             MAX_RETRIES=3
             RETRY_COUNT=0
             PUSH_SUCCESS=false

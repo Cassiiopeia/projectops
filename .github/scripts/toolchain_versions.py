@@ -2,17 +2,17 @@
 """
 toolchain_versions.py
 
-워크플로우 고정 FLUTTER_VERSION·JAVA_VERSION <-> 레포가 요구하는 버전 대조 (#758). 대조 규칙의 유일한 위치다.
+Compare the workflow's pinned FLUTTER_VERSION/JAVA_VERSION <-> the versions the repo requires (#758). The only place for comparison rules.
 
-  Flutter 근거 3개: .fvmrc(.fvm/fvm_config.json), .flutter-version, pubspec.yaml environment.flutter 제약
-  Java 근거 3개: .java-version, .tool-versions 의 java, Gradle jvmToolchain(N)·JavaLanguageVersion.of(N)
-  어긋나면 경고만 (빌드는 계속) — 템플릿 고정값이 낡아도 레포 변수(FLUTTER_VERSION·JAVA_VERSION)로 고칠 수 있게 안내
+  3 Flutter sources: .fvmrc (.fvm/fvm_config.json), .flutter-version, pubspec.yaml environment.flutter constraint
+  3 Java sources: .java-version, java in .tool-versions, Gradle jvmToolchain(N) / JavaLanguageVersion.of(N)
+  Mismatch only warns (the build continues) — even if the template pin is stale, guides fixing it with repo variables (FLUTTER_VERSION, JAVA_VERSION)
 
-  - 커맨드: check
-  - 출력: ::warning 줄 + 마지막 줄 JSON, GITHUB_STEP_SUMMARY 에 경고 목록
-  - 종료 코드: 항상 0 (진단 전용)
+  - Command: check
+  - Output: ::warning lines + JSON on the last line, warning list in GITHUB_STEP_SUMMARY
+  - Exit code: always 0 (diagnosis only)
 
-사용 예:
+Usage:
   FLUTTER_VERSION=3.38.9 JAVA_VERSION=17 python3 toolchain_versions.py check --app-root .
 """
 
@@ -27,7 +27,7 @@ from pathlib import Path
 
 VARIABLES_HINT = ("Set the repository variable {name} (Settings > Secrets and variables > Actions > Variables) "
                   "to override the workflow value, or update {name} in the workflow.")
-# 치환 전 자리표시자(__JAVA_VERSION__ 등)는 대조하지 않는다
+# Placeholders not yet substituted (__JAVA_VERSION__, etc.) are not compared
 _PLACEHOLDER_RE = re.compile(r"^__[A-Z_]+__$")
 _VERSION_RE = re.compile(r"^\d+(\.\d+){0,2}$")
 _PUBSPEC_FLUTTER_RE = re.compile(r"^environment:\s*\n((?:[ \t]+.*\n?)*)", re.M)
@@ -40,7 +40,7 @@ GRADLE_FILES = ("android/app/build.gradle", "android/app/build.gradle.kts",
 
 
 def parse_version(text: str) -> tuple[int, int, int] | None:
-    """'3.38.9' · '3.38' · 'v3.38.9-0.1.pre' > (3, 38, 9) (pre-release 꼬리는 버림)"""
+    """'3.38.9' / '3.38' / 'v3.38.9-0.1.pre' > (3, 38, 9) (pre-release tail dropped)"""
     core = str(text).strip().lstrip("vV").split("-")[0].split("+")[0]
     if not _VERSION_RE.match(core):
         return None
@@ -49,12 +49,12 @@ def parse_version(text: str) -> tuple[int, int, int] | None:
 
 
 def satisfies(version: tuple[int, int, int], constraint: str) -> bool | None:
-    """버전이 pub 제약(>=, >, <=, <, ^, 정확한 값, any)을 만족하는가. 해석 못 하면 None"""
+    """Does the version satisfy the pub constraint (>=, >, <=, <, ^, exact, any)? None if unparsable"""
     constraint = constraint.strip().strip("'\"")
     if not constraint or constraint == "any":
         return True
     token_re = r"(>=|<=|>|<|\^|=)?\s*([0-9][0-9A-Za-z.+-]*)"
-    # 토큰으로 못 읽는 부분이 남으면 판정하지 않는다 (잘못 경고하느니 침묵)
+    # If any part cannot be read as a token, do not decide (silence beats a wrong warning)
     if re.sub(token_re, "", constraint).strip():
         return None
     for operator, raw in re.findall(token_re, constraint):
@@ -86,7 +86,7 @@ def _read(path: Path) -> str:
 
 
 def flutter_requirements(app_root: Path) -> list[dict]:
-    """레포의 Flutter 요구 > [{source, kind: exact|constraint, value}]"""
+    """Repo's Flutter requirements > [{source, kind: exact|constraint, value}]"""
     found = []
     for name, keys in ((".fvmrc", ("flutter", "flutterSdkVersion")),
                        (".fvm/fvm_config.json", ("flutterSdkVersion", "flutter"))):
@@ -98,7 +98,7 @@ def flutter_requirements(app_root: Path) -> list[dict]:
         except ValueError:
             continue
         value = next((str(data[k]) for k in keys if isinstance(data, dict) and data.get(k)), "")
-        # 채널 이름(stable 등)은 버전이 아니라 대조하지 않는다
+        # Channel names (stable, etc.) are not versions, so they are not compared
         if parse_version(value):
             found.append({"source": name, "kind": "exact", "value": value})
     pinned = _read(app_root / ".flutter-version").strip()
@@ -114,7 +114,7 @@ def flutter_requirements(app_root: Path) -> list[dict]:
 
 
 def java_requirements(app_root: Path) -> list[dict]:
-    """레포의 Java 요구 > [{source, value: 주 버전}]"""
+    """Repo's Java requirements > [{source, value: major version}]"""
     found = []
     major = re.match(r"^\s*(?:1\.)?(\d+)", _read(app_root / ".java-version"))
     if major:
@@ -133,7 +133,7 @@ def java_requirements(app_root: Path) -> list[dict]:
 
 
 def check(app_root: Path, flutter_version: str, java_version: str) -> dict:
-    """대조 > {ok, findings: [{tool, source, message}], checked: [...]}"""
+    """Compare > {ok, findings: [{tool, source, message}], checked: [...]}"""
     findings, checked = [], []
     flutter = parse_version(flutter_version) if flutter_version and not _PLACEHOLDER_RE.match(flutter_version) else None
     if flutter:

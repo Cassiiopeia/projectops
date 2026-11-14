@@ -1,9 +1,9 @@
 // ============================================
 // GitHub Secrets Converter
-// 파일을 업로드하면 자동으로 최적의 형식으로 변환
+// Uploading a file converts it to the best format automatically
 // ============================================
 
-// 상태 관리
+// State management
 const STORAGE_KEY = 'secrets-converter-state';
 let state = {
     files: []
@@ -12,21 +12,21 @@ let state = {
     //   value: '...',
     //   fileName: 'original.p12',
     //   type: 'text' | 'binary',
-    //   hint: '사용법'
+    //   hint: 'usage'
     // }]
 };
 
 // ============================================
-// 파일 타입 감지 및 처리
+// File type detection and handling
 // ============================================
 
-// 텍스트 파일 확장자 (원본 그대로 저장)
+// Text file extensions (stored as is)
 const TEXT_EXTENSIONS = [
     '.json', '.yml', '.yaml', '.env', '.txt', '.xml',
     '.plist', '.properties', '.toml', '.ini', '.cfg', '.conf'
 ];
 
-// 바이너리 파일 확장자 (Base64 인코딩)
+// Binary file extensions (Base64 encoded)
 const BINARY_EXTENSIONS = [
     '.jks', '.keystore', '.p12', '.mobileprovision', '.p8',
     '.cer', '.pfx', '.pem', '.der', '.key', '.crt'
@@ -34,26 +34,26 @@ const BINARY_EXTENSIONS = [
 
 function getFileType(fileName) {
     const lowerName = fileName.toLowerCase();
-    // .env로 시작하는 파일은 텍스트로 처리 (.env.production, .env.local 등)
+    // Files starting with .env are treated as text (.env.production, .env.local, etc.)
     if (lowerName === '.env' || lowerName.startsWith('.env.')) return 'text';
 
     const ext = '.' + fileName.split('.').pop().toLowerCase();
     if (TEXT_EXTENSIONS.includes(ext)) return 'text';
     if (BINARY_EXTENSIONS.includes(ext)) return 'binary';
-    // 알 수 없는 확장자는 바이너리로 처리 (안전)
+    // Unknown extensions are treated as binary (safe)
     return 'binary';
 }
 
 function generateKeyName(fileName, fileType) {
-    // 파일명에서 확장자 제거 후 대문자+언더스코어로 변환
+    // Strip the extension from the file name, then convert to uppercase + underscores
     const baseName = fileName
-        .replace(/\.[^/.]+$/, '')  // 확장자 제거
+        .replace(/\.[^/.]+$/, '')  // strip the extension
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, '_')
         .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '');  // 시작/끝 언더스코어 제거
+        .replace(/^_|_$/g, '');  // strip leading/trailing underscores
 
-    // 바이너리 파일만 _BASE64 접미사 추가
+    // Add the _BASE64 suffix only for binary files
     if (fileType === 'binary') {
         return baseName + '_BASE64';
     }
@@ -64,7 +64,7 @@ async function processFile(file) {
     const fileType = getFileType(file.name);
 
     if (fileType === 'text') {
-        // 텍스트 파일: 원본 내용 그대로
+        // Text files: content as is
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve({
@@ -76,11 +76,11 @@ async function processFile(file) {
             reader.readAsText(file);
         });
     } else {
-        // 바이너리 파일: Base64 인코딩
+        // Binary files: Base64 encoded
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve({
-                value: reader.result.split(',')[1],  // data URL에서 base64만 추출
+                value: reader.result.split(',')[1],  // take only the base64 part of the data URL
                 type: 'binary',
                 hint: 'echo $SECRET | base64 -d > file'
             });
@@ -91,7 +91,7 @@ async function processFile(file) {
 }
 
 // ============================================
-// UI 렌더링
+// UI rendering
 // ============================================
 
 function renderFileList() {
@@ -160,7 +160,7 @@ function formatSize(length) {
 }
 
 // ============================================
-// 파일 슬롯 관리
+// File slot management
 // ============================================
 
 function addFileSlot() {
@@ -174,7 +174,7 @@ function addFileSlot() {
     renderFileList();
     saveState();
 
-    // 새로 추가된 슬롯의 파일 선택 다이얼로그 열기
+    // Open the file picker for the newly added slot
     setTimeout(() => {
         const slots = document.querySelectorAll('.file-slot');
         const lastSlot = slots[slots.length - 1];
@@ -228,7 +228,7 @@ async function handleFileSelect(index, file) {
     }
 }
 
-// 여러 파일 한번에 처리
+// Process several files at once
 async function handleMultipleFiles(files) {
     for (const file of files) {
         try {
@@ -251,7 +251,7 @@ async function handleMultipleFiles(files) {
     if (files.length > 0) {
         showToast(translate('toast.filesProcessed', { count: files.length }));
     }
-    // input 초기화
+    // Reset the input
     document.getElementById('fileInput').value = '';
 }
 
@@ -309,7 +309,7 @@ function setupDragAndDrop() {
 }
 
 // ============================================
-// 복사 및 내보내기
+// Copy and export
 // ============================================
 
 function copyValue(index) {
@@ -412,7 +412,7 @@ function getDateString() {
 }
 
 // ============================================
-// 상태 저장/복원
+// Save/restore state
 // ============================================
 
 function saveState() {
@@ -445,11 +445,11 @@ function clearAll() {
 }
 
 // ============================================
-// 토스트 메시지
+// Toast message
 // ============================================
 
 function showToast(message) {
-    // 기존 토스트 제거
+    // Remove the existing toast
     const existingToast = document.querySelector('.toast');
     if (existingToast) {
         existingToast.remove();
@@ -471,7 +471,7 @@ function showToast(message) {
 }
 
 // ============================================
-// 초기화
+// Initialization
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -480,5 +480,5 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDragAndDrop();
 });
 
-// 언어 전환 시 파일 목록 다시 그리기 (빈 상태 안내·버튼 문구)
+// Redraw the file list on language switch (empty-state notice, button text)
 document.addEventListener('wizardlanguagechange', () => renderFileList());

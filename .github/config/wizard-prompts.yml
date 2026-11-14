@@ -1,10 +1,10 @@
-# @wizard ask 마커의 사용자 질문 문구.
-# 형식 1 (구형, 지원 유지): KEY: "라벨"
-# 형식 2 (신규 블록): KEY 아래 label/help/example 들여쓰기 2칸
-# 형식 3 (타입 오버라이드): "{type}.KEY" 키로 타입별 문구 분리
-# 조회 우선순위: {type}.KEY -> KEY -> 구형 -> 폴백(KEY명)
-# 언어 (#976): label/help/example = 영어 원문, label_ko/help_ko/example_ko = 한국어 (CLI --lang 따라 선택)
-# 기본값/resolver는 여기 두지 않는다(@wizard 마커 소관).
+# User question text for @wizard ask markers.
+# Form 1 (old, still supported): KEY: "label"
+# Form 2 (new block): label/help/example indented 2 spaces under KEY
+# Form 3 (type override): "{type}.KEY" keys split text per type
+# Lookup priority: {type}.KEY -> KEY -> old form -> fallback (KEY name)
+# Language (#976): label/help/example = English source, label_ko/help_ko/example_ko = Korean (chosen by CLI --lang)
+# Defaults/resolvers do not live here (they belong to the @wizard markers).
 
 PROJECT_NAME:
   label: "Service identifier (lowercase slug)"
@@ -79,7 +79,7 @@ _workflow_names:
   FLUTTER-ANDROID-PLAYSTORE: "Play Store deploy"
   FLUTTER-ANDROID-FIREBASE: "Firebase deploy"
 
-# 한국어 표시 이름 (키는 위와 동일)
+# Korean display names (same keys as above)
 _workflow_names_ko:
   NONSTOP-NGINX: "무중단배포(Nginx)"
   NONSTOP-TRAEFIK: "무중단배포(Traefik)"

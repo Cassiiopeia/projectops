@@ -1,29 +1,29 @@
 /**
- * Flutter Android Play Store 통합 마법사
- * 파일 업로드, Base64 변환, localStorage 진행률 저장 포함
+ * Flutter Android Play Store all-in-one wizard
+ * Includes file upload, Base64 conversion and localStorage progress saving
  */
 
 // ============================================
 // OS Detection
 // ============================================
 
-let detectedOS = 'mac'; // 기본값: Mac
+let detectedOS = 'mac'; // default: Mac
 
 // ============================================
 // State Management
 // ============================================
 
 /**
- * 마법사 스크립트(.github/util/...)는 레포 루트 기준인데
- * pubspec.yaml은 Flutter 루트 기준이다. 모노레포(repo/client 등)에서는
- * 두 위치가 달라 cd 대상과 인자를 분리해야 한다.
+ * Wizard scripts (.github/util/...) are relative to the repo root,
+ * but pubspec.yaml is relative to the Flutter root. In monorepos (repo/client, etc.)
+ * the two differ, so the cd target and arguments must be separated.
  */
 function getRepoRoot() {
     return state.repoRoot || state.projectPath || '/path/to/your/project';
 }
 
 
-/** 레포 루트 입력 시 state 반영 + 명령어 갱신 (모노레포에서만 채운다) */
+/** Apply the repo root input to state + refresh commands (filled only for monorepos) */
 function onRepoRootInput(el) {
     const v = (el.value || '').trim();
     state.repoRoot = v;
@@ -33,11 +33,11 @@ function onRepoRootInput(el) {
 
 const state = {
     currentStep: 1,
-    maxReachedStep: 1, // 도달한 최대 단계 (이전 단계로 돌아가도 유지)
-    totalSteps: 7, // Step 1~7 (프로젝트, Keystore, AAB 빌드, 앱 생성, AAB 업로드, Service Account, 완료)
+    maxReachedStep: 1, // highest step reached (kept when going back)
+    totalSteps: 7, // Step 1~7 (project, Keystore, AAB build, app creation, AAB upload, Service Account, done)
     projectPath: '',
-    repoRoot: '',      // 모노레포: .github가 있는 레포 루트 (비면 projectPath와 동일)
-    detectedOS: 'mac', // OS 감지 결과
+    repoRoot: '',      // monorepo: the repo root containing .github (empty = same as projectPath)
+    detectedOS: 'mac', // OS detection result
     // Project Info
     applicationId: '',
     versionName: '',
@@ -48,7 +48,7 @@ const state = {
     storePassword: '',
     keyPassword: '',
     keystoreBase64: '',
-    validityDays: '99999', // 기본값: 무제한
+    validityDays: '99999', // default: unlimited
     // Certificate Info
     certCN: '',
     certO: '',
@@ -59,14 +59,14 @@ const state = {
     // Optional
     googleServicesJson: '',
     envFileContent: '',
-    // Custom Secrets (사용자 추가)
+    // Custom Secrets (added by the user)
     customSecrets: []
     // [{
     //   key: 'SECRET_NAME',
     //   value: '...',
     //   fileName: 'file.json',
     //   type: 'text' | 'binary',
-    //   hint: '사용법 힌트'
+    //   hint: 'usage hint'
     // }]
 };
 
@@ -82,20 +82,20 @@ function loadState() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const savedState = JSON.parse(saved);
-            // 현재 코드의 totalSteps 보존 (버전 업그레이드 시 캐시된 값 무시)
+            // Keep the code's totalSteps (ignore cached values after a version upgrade)
             const currentTotalSteps = state.totalSteps;
             Object.assign(state, savedState);
             state.totalSteps = currentTotalSteps;
             
-            // OS는 항상 최신 값 사용 (저장된 값 무시)
+            // Always use the latest OS value (ignore the saved one)
             state.detectedOS = detectOS();
 
-            // currentStep이 totalSteps를 초과하면 보정
+            // Correct currentStep if it exceeds totalSteps
             if (state.currentStep > state.totalSteps) {
                 state.currentStep = state.totalSteps;
             }
 
-            // maxReachedStep이 없거나 잘못된 경우 보정 (이전 버전 호환)
+            // Correct maxReachedStep if missing or invalid (compatibility with older versions)
             if (!state.maxReachedStep || state.maxReachedStep < state.currentStep) {
                 state.maxReachedStep = state.currentStep;
             }
@@ -113,7 +113,7 @@ function loadState() {
 }
 
 function restoreUIFromState() {
-    // 입력 필드 복원
+    // Restore input fields
     const inputs = {
         'projectPath': state.projectPath,
         'repoRoot': state.repoRoot,
@@ -132,14 +132,14 @@ function restoreUIFromState() {
         const el = document.getElementById(id);
         if (el && value) {
             el.value = value;
-            // projectPath인 경우 검증 UI 업데이트
+            // For projectPath, update the validation UI
             if (id === 'projectPath') {
                 updatePathValidation(value);
             }
         }
     });
     
-    // Application ID 복원 (감지된 값 표시)
+    // Restore the Application ID (show the detected value)
     if (state.applicationId) {
         const detectedContainer = document.getElementById('detectedApplicationIdContainer');
         const detectedValue = document.getElementById('detectedAppIdValue');
@@ -149,17 +149,17 @@ function restoreUIFromState() {
         }
     }
     
-    // 유효기간 복원
+    // Restore the validity period
     if (state.validityDays) {
         const validitySelect = document.getElementById('validityDays');
         const validityCustom = document.getElementById('validityDaysCustom');
         if (validitySelect) {
-            // 저장된 값이 옵션에 있는지 확인
+            // Check whether the saved value is among the options
             const optionExists = Array.from(validitySelect.options).some(opt => opt.value === state.validityDays);
             if (optionExists) {
                 validitySelect.value = state.validityDays;
             } else {
-                // 사용자 지정 값인 경우
+                // Custom value
                 validitySelect.value = 'custom';
                 if (validityCustom) {
                     validityCustom.classList.remove('hidden');
@@ -169,7 +169,7 @@ function restoreUIFromState() {
         }
     }
 
-    // 파일 업로드 상태 복원
+    // Restore file upload state
     if (state.keystoreBase64) {
         const upload = document.getElementById('keystoreUpload');
         if (upload) {
@@ -194,7 +194,7 @@ function restoreUIFromState() {
         }
     }
 
-    // Project Info 복원
+    // Restore Project Info
     if (state.applicationId) {
         const detected = document.getElementById('detectedInfo');
         if (detected) detected.classList.remove('hidden');
@@ -204,7 +204,7 @@ function restoreUIFromState() {
         setElementText('detectedGradleType', state.gradleType);
     }
 
-    // 커스텀 Secrets 복원 (배열이 아닌 경우 초기화)
+    // Restore custom Secrets (reset if not an array)
     if (!Array.isArray(state.customSecrets)) {
         state.customSecrets = [];
     }
@@ -219,7 +219,7 @@ function restoreUIFromState() {
 // File Upload & Base64 Conversion
 // ============================================
 
-// Keystore 파일 업로드
+// Keystore file upload
 async function handleKeystoreUpload(input) {
     const file = input.files[0];
     if (!file) return;
@@ -243,7 +243,7 @@ async function handleKeystoreUpload(input) {
     }
 }
 
-// Service Account JSON 업로드
+// Service Account JSON upload
 async function handleServiceAccountUpload(input) {
     const file = input.files[0];
     if (!file) return;
@@ -270,7 +270,7 @@ async function handleServiceAccountUpload(input) {
     }
 }
 
-// 서비스 계정 이메일 복사
+// Copy the service account email
 function copyServiceAccountEmail() {
     const emailInput = document.getElementById('serviceAccountEmail');
     const email = emailInput ? emailInput.value : '';
@@ -289,7 +289,7 @@ function copyServiceAccountEmail() {
     }
 }
 
-// Step 3 이메일 입력 → Step 6 확인 팝업에 자동 반영
+// Step 3 email input → reflected in the Step 6 confirm popup automatically
 function updateStep6Email() {
     const emailInput = document.getElementById('serviceAccountEmail');
     const step6Display = document.getElementById('step6EmailDisplay');
@@ -297,7 +297,7 @@ function updateStep6Email() {
     if (emailInput && step6Display) {
         const email = emailInput.value;
         if (email && email.length > 0) {
-            // 이메일이 너무 길면 축약
+            // Shorten an email that is too long
             const displayEmail = email.length > 25 ? email.substring(0, 22) + '...' : email;
             step6Display.textContent = displayEmail;
         } else {
@@ -306,7 +306,7 @@ function updateStep6Email() {
     }
 }
 
-// Google Services JSON 업로드
+// Google Services JSON upload
 function handleGoogleServicesUpload(input) {
     const file = input.files[0];
     if (!file) return;
@@ -354,12 +354,12 @@ function validateProjectPath(path) {
         return { valid: false, message: '' };
     }
     
-    // "선택된 폴더:"로 시작하는 경우 무시
+    // Ignore values starting with "선택된 폴더:" (folder picker placeholder)
     if (path.startsWith('선택된 폴더:')) {
         return { valid: false, message: translate('step1.enterRealAbsolutePath') };
     }
     
-    // 경로 형식 검증
+    // Validate the path format
     const isWindowsPath = /^[A-Za-z]:[\\/]/.test(path) || (path.includes('\\') && !path.startsWith('/'));
     const isUnixPath = path.startsWith('/');
     
@@ -395,41 +395,41 @@ function updatePathValidation(path) {
 }
 
 function updateProjectCommands(path) {
-    // 경로 저장 (유효한 경로만 저장)
+    // Save the path (valid paths only)
     if (path && !path.startsWith('선택된 폴더:')) {
         const validation = validateProjectPath(path);
         if (validation.valid) {
             state.projectPath = path;
 
-            // ✅ Application ID 자동 감지 명령어 생성
+            // ✅ Generate the Application ID auto-detect command
             generateApplicationIdDetectionCommand(path);
         }
     }
 
-    // 경로 검증 UI 업데이트
+    // Update the path validation UI
     updatePathValidation(path);
 
-    // OS에 맞는 명령어 업데이트
+    // Update commands for the OS
     updateCommandsForOS();
 }
 
 // ============================================
-// OS별 명령어 업데이트
+// Update OS-specific commands
 // ============================================
 
 function updateCommandsForOS() {
     const os = state.detectedOS;
     let projectPath = state.projectPath || '/path/to/your/project';
     
-    // 경로 정규화 (유효하지 않은 경로는 기본값 사용)
+    // Normalize the path (invalid paths use the default)
     if (!projectPath || projectPath.startsWith('선택된 폴더:')) {
         projectPath = '/path/to/your/project';
     }
     
-    // 경로 검증
+    // Validate the path
     const validation = validateProjectPath(projectPath);
     if (!validation.valid && projectPath !== '/path/to/your/project') {
-        // 유효하지 않은 경로는 기본값 사용
+        // Invalid paths use the default
         projectPath = '/path/to/your/project';
     }
     
@@ -439,21 +439,21 @@ function updateCommandsForOS() {
     const windowsSection = windowsCommandEl?.closest('div:not(.mb-4)');
     
     if (os === 'windows') {
-        // Windows만 표시
+        // Windows only
         if (macSection) macSection.style.display = 'none';
         if (windowsSection) windowsSection.style.display = 'block';
         
-        // Windows 경로 변환
+        // Convert to a Windows path
         let winPath = projectPath;
         if (!winPath.includes('\\') && !/^[A-Za-z]:/.test(winPath)) {
-            // Unix 경로를 Windows 경로로 변환
+            // Convert a Unix path to a Windows path
             winPath = winPath.replace(/\//g, '\\');
             if (winPath.startsWith('\\')) {
                 // /Users/... -> C:\Users\...
                 winPath = 'C:' + winPath;
             }
         } else {
-            // 이미 Windows 경로인 경우 정규화
+            // Normalize an existing Windows path
             winPath = winPath.replace(/\//g, '\\');
         }
         
@@ -461,25 +461,25 @@ function updateCommandsForOS() {
             windowsCommandEl.textContent = `cd "${toWinPath(getRepoRoot())}"; python .github\\util\\flutter\\playstore-wizard\\playstore-wizard.py setup`;
         }
         
-        // Windows 사용자에게 관리자 권한 안내 표시
+        // Show the admin rights notice to Windows users
         const adminWarningEl = document.getElementById('adminWarningWindows');
         if (adminWarningEl) {
             adminWarningEl.classList.remove('hidden');
         }
     } else {
-        // Mac/Linux에서는 관리자 권한 안내 숨김
+        // Hide the admin rights notice on Mac/Linux
         const adminWarningEl = document.getElementById('adminWarningWindows');
         if (adminWarningEl) {
             adminWarningEl.classList.add('hidden');
         }
-        // Mac/Linux 표시
+        // Show for Mac/Linux
         if (macSection) macSection.style.display = 'block';
         if (windowsSection) windowsSection.style.display = 'none';
         
-        // Unix 경로 변환 (Windows 경로가 입력된 경우)
+        // Convert to a Unix path (when a Windows path was entered)
         let unixPath = projectPath;
         if (unixPath.includes('\\') || /^[A-Za-z]:/.test(unixPath)) {
-            // Windows 경로를 Unix 경로로 변환
+            // Convert a Windows path to a Unix path
             unixPath = unixPath.replace(/\\/g, '/').replace(/^([A-Za-z]):/, (_, drive) => '/' + drive.toLowerCase());
         }
         
@@ -537,23 +537,23 @@ function updateProgress() {
         const label = indicator.querySelector('span:last-child');
 
         if (stepNum === state.currentStep) {
-            // 현재 보고 있는 스텝 - 파랑-보라 그라데이션
+            // Current step - blue-purple gradient
             circle.className = 'step-circle w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs z-10 shadow-lg shadow-blue-500/30';
             circle.innerHTML = stepNum;
             if (label) label.className = 'text-[9px] mt-1 text-blue-400 text-center hidden md:block';
         } else if (stepNum <= state.maxReachedStep) {
-            // 방문한 적 있는 스텝 - 초록 체크
+            // Visited step - green check
             circle.className = 'step-circle w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-xs z-10 shadow-lg';
             circle.innerHTML = '✓';
             if (label) label.className = 'text-[9px] mt-1 text-green-400 text-center hidden md:block';
         } else {
-            // 아직 방문 안한 스텝 - 회색
+            // Not yet visited step - gray
             circle.className = 'step-circle w-8 h-8 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-xs z-10';
             circle.innerHTML = stepNum;
             if (label) label.className = 'text-[9px] mt-1 text-slate-500 text-center hidden md:block';
         }
 
-        // 클릭하여 해당 스텝으로 이동 가능
+        // Click to jump to that step
         indicator.style.cursor = 'pointer';
         indicator.onclick = () => goToStep(stepNum);
     });
@@ -562,15 +562,15 @@ function updateProgress() {
 function initializeStep(stepNumber) {
     switch (stepNumber) {
         case 1:
-            // Step 1: 프로젝트 설정 (경로 + Application ID)
-            // 프로젝트 경로 검증 UI 업데이트
+            // Step 1: project setup (path + Application ID)
+            // Update the project path validation UI
             if (state.projectPath) {
                 updatePathValidation(state.projectPath);
-                // 프로젝트 경로가 있으면 자동으로 Application ID 감지 명령어 생성
+                // With a project path, generate the Application ID detect command automatically
                 autoDetectApplicationIdOnPathInput();
             }
 
-            // Application ID 복원
+            // Restore the Application ID
             if (state.applicationId) {
                 const detectedContainer = document.getElementById('detectedApplicationIdContainer');
                 const detectedValue = document.getElementById('detectedAppIdValue');
@@ -578,7 +578,7 @@ function initializeStep(stepNumber) {
                     detectedValue.textContent = state.applicationId;
                     detectedContainer.classList.remove('hidden');
                 }
-                // 수동 입력 필드에도 채우기 (있는 경우)
+                // Fill the manual input field too (if present)
                 const applicationIdInput = document.getElementById('applicationId');
                 if (applicationIdInput) {
                     applicationIdInput.value = state.applicationId;
@@ -586,9 +586,9 @@ function initializeStep(stepNumber) {
             }
             break;
         case 2:
-            // Step 2: Keystore 생성
+            // Step 2: Keystore creation
             restoreInputValues();
-            // Application ID 기반으로 Key Alias 자동 생성
+            // Generate the Key Alias automatically from the Application ID
             if (state.applicationId && !state.keyAlias) {
                 const suggestedAlias = state.applicationId.split('.').pop() + '-release-key';
                 const aliasInput = document.getElementById('keyAlias');
@@ -597,23 +597,23 @@ function initializeStep(stepNumber) {
                     state.keyAlias = suggestedAlias;
                 }
             }
-            // 유효기간 드롭다운 초기화 확인
+            // Make sure the validity dropdown is initialized
             const validitySelect = document.getElementById('validityDays');
             const validityCustom = document.getElementById('validityDaysCustom');
             if (validitySelect && !validitySelect.value) {
-                validitySelect.value = '99999'; // 기본값: 무제한
+                validitySelect.value = '99999'; // default: unlimited
             }
             if (validityCustom && validitySelect.value !== 'custom') {
                 validityCustom.classList.add('hidden');
             }
-            // Keystore 생성 명령어 자동 생성 (항상 실행)
+            // Generate the Keystore creation command automatically (always runs)
             setTimeout(() => {
                 generateKeystoreCreationCommand();
             }, 100);
             break;
         case 3:
-            // Step 3: AAB 빌드
-            // Windows 사용자에게 파일 잠금 안내 표시
+            // Step 3: AAB build
+            // Show the file lock notice to Windows users
             if (state.detectedOS === 'windows') {
                 const fileLockErrorEl = document.getElementById('fileLockErrorWindows');
                 if (fileLockErrorEl) {
@@ -626,7 +626,7 @@ function initializeStep(stepNumber) {
                 }
             }
             
-            // 프로젝트 경로 기반 AAB 빌드 명령어 생성
+            // Generate the AAB build command from the project path
             if (state.projectPath) {
                 const aabBuildCommand = document.getElementById('aabBuildCommandStep3');
                 const aabOutputPath = document.getElementById('aabOutputPathStep3');
@@ -637,9 +637,9 @@ function initializeStep(stepNumber) {
                 if (aabBuildCommand) {
                     if (os === 'windows') {
                         const winPath = projectPath.replace(/\//g, '\\');
-                        // 각 명령어를 개별 라인으로 분리하여 순차 실행
-                        // PowerShell에서 여러 줄 선택 후 실행 가능 (Shift+Enter 또는 선택 후 Enter)
-                        // 각 명령어 전에 cd로 디렉토리 재설정하여 작업 디렉토리 보장
+                        // Split each command onto its own line for sequential execution
+                        // Multiple lines can be selected and run in PowerShell (Shift+Enter, or select and Enter)
+                        // cd before each command to guarantee the working directory
                         aabBuildCommand.textContent = `cd "${winPath}"
 cd "${winPath}"; flutter clean
 cd "${winPath}"; flutter pub get
@@ -667,11 +667,11 @@ cd "${winPath}"; flutter build appbundle --release`;
             }
             break;
         case 4:
-            // Step 4: Play Console 앱 생성
-            // Application ID에서 앱 이름 추출하여 표시
+            // Step 4: create the app in Play Console
+            // Extract the app name from the Application ID and show it
             if (state.applicationId) {
                 const appName = state.applicationId.split('.').pop() || state.applicationId;
-                // camelCase/snake_case를 읽기 좋게 변환 (suh_devops_template -> SuhDevopsTemplate)
+                // Convert camelCase/snake_case to a readable form (suh_devops_template -> SuhDevopsTemplate)
                 const formattedName = appName
                     .split(/[_-]/)
                     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -683,8 +683,8 @@ cd "${winPath}"; flutter build appbundle --release`;
             }
             break;
         case 5:
-            // Step 5: AAB 수동 업로드
-            // AAB 파일 경로 표시
+            // Step 5: manual AAB upload
+            // Show the AAB file path
             if (state.projectPath) {
                 const aabUploadPath = document.getElementById('aabUploadPath');
                 const projectPath = state.projectPath;
@@ -704,7 +704,7 @@ cd "${winPath}"; flutter build appbundle --release`;
             restoreInputValues();
             break;
         case 7:
-            // Step 7: 완료
+            // Step 7: done
             generateFinalResult();
             break;
     }
@@ -729,12 +729,12 @@ function restoreInputValues() {
         if (el && value) el.value = value;
     });
     
-    // 유효기간 복원
+    // Restore the validity period
     if (state.validityDays) {
         const validitySelect = document.getElementById('validityDays');
         const validityCustom = document.getElementById('validityDaysCustom');
         if (validitySelect) {
-            // 저장된 값이 옵션에 있는지 확인
+            // Check whether the saved value is among the options
             const optionExists = Array.from(validitySelect.options).some(opt => opt.value === state.validityDays);
             if (optionExists) {
                 validitySelect.value = state.validityDays;
@@ -742,7 +742,7 @@ function restoreInputValues() {
                     validityCustom.classList.add('hidden');
                 }
             } else {
-                // 사용자 지정 값인 경우
+                // Custom value
                 validitySelect.value = 'custom';
                 if (validityCustom) {
                     validityCustom.classList.remove('hidden');
@@ -756,7 +756,7 @@ function restoreInputValues() {
 function nextStep() {
     saveCurrentStepData();
 
-    // Step 1에서 Step 2로 진행 시 Application ID 검증
+    // Validate the Application ID when moving from Step 1 to Step 2
     if (state.currentStep === 1) {
         const applicationId = state.applicationId;
         if (!applicationId || applicationId.trim() === '') {
@@ -764,7 +764,7 @@ function nextStep() {
             return;
         }
 
-        // 프로젝트 경로 검증
+        // Validate the project path
         const projectPath = state.projectPath;
         if (!projectPath || projectPath.trim() === '') {
             showToast(translate('step1.enterProjectPathFirst'));
@@ -774,7 +774,7 @@ function nextStep() {
 
     if (state.currentStep < state.totalSteps) {
         state.currentStep++;
-        // 최대 도달 단계 갱신
+        // Update the highest step reached
         if (state.currentStep > state.maxReachedStep) {
             state.maxReachedStep = state.currentStep;
         }
@@ -786,10 +786,10 @@ function nextStep() {
 }
 
 function goToStep(stepNumber) {
-    // 현재 단계와 같으면 무시
+    // Ignore if it is the current step
     if (stepNumber === state.currentStep) return;
 
-    // 유효 범위 체크
+    // Range check
     if (stepNumber >= 1 && stepNumber <= state.totalSteps) {
         saveCurrentStepData();
         state.currentStep = stepNumber;
@@ -802,23 +802,23 @@ function goToStep(stepNumber) {
 
 function resetWizard() {
     if (confirm(translate('reset.confirm'))) {
-        // State 초기화
+        // Reset state
         Object.keys(state).forEach(key => {
             if (key === 'currentStep') state[key] = 1;
             else if (key === 'maxReachedStep') state[key] = 1;
             else if (key === 'totalSteps') state[key] = 7;
             else if (key === 'certC') state[key] = 'KR';
             else if (key === 'gradleType') state[key] = 'kts';
-            else if (key === 'validityDays') state[key] = '99999'; // 무제한 기본값
-            else if (key === 'detectedOS') state[key] = detectOS(); // OS는 다시 감지
+            else if (key === 'validityDays') state[key] = '99999'; // unlimited by default
+            else if (key === 'detectedOS') state[key] = detectOS(); // detect the OS again
             else state[key] = '';
         });
 
-        // localStorage 완전 삭제
+        // Clear localStorage completely
         try {
             localStorage.removeItem(STORAGE_KEY);
             localStorage.removeItem(STORAGE_WARNING_KEY);
-            // 모든 관련 키 삭제 (혹시 모를 경우 대비)
+            // Delete all related keys (just in case)
             Object.keys(localStorage).forEach(key => {
                 if (key.startsWith('flutter_playstore_wizard')) {
                     localStorage.removeItem(key);
@@ -828,7 +828,7 @@ function resetWizard() {
             console.warn('[playstore wizard] localStorage clear failed:', e);
         }
 
-        // UI 초기화
+        // Reset the UI
         const inputs = ['projectPath', 'repoRoot', 'applicationId', 'keyAlias', 'storePassword', 'keyPassword', 'certCN', 'certO', 'certL', 'certC', 'envFileContent', 'scriptOutput'];
         inputs.forEach(id => {
             const input = document.getElementById(id);
@@ -841,46 +841,46 @@ function resetWizard() {
             }
         });
         
-        // Application ID 입력 필드 placeholder 복원
+        // Restore the Application ID input placeholder
         const applicationIdInput = document.getElementById('applicationId');
         if (applicationIdInput) {
             applicationIdInput.placeholder = translate('step1.applicationIdPlaceholder');
         }
         
-        // 유효기간 초기화
+        // Reset the validity period
         const validitySelect = document.getElementById('validityDays');
         const validityCustom = document.getElementById('validityDaysCustom');
         if (validitySelect) {
-            validitySelect.value = '99999'; // 무제한 기본값
+            validitySelect.value = '99999'; // unlimited by default
         }
         if (validityCustom) {
             validityCustom.classList.add('hidden');
             validityCustom.value = '';
         }
 
-        // 체크박스 초기화
+        // Reset checkboxes
         document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
             checkbox.checked = false;
         });
 
-        // 파일 업로드 상태 초기화
+        // Reset file upload state
         document.querySelectorAll('.file-upload').forEach(el => {
             el.classList.remove('has-file');
         });
         renderUploadLabels();
 
-        // 결과 영역 숨기기
+        // Hide result areas
         document.querySelectorAll('[id$="Result"]').forEach(el => {
             el.classList.add('hidden');
         });
         
-        // 감지된 정보 숨기기
+        // Hide detected info
         const detectedInfo = document.getElementById('detectedInfo');
         if (detectedInfo) {
             detectedInfo.classList.add('hidden');
         }
 
-        // OS 배지 업데이트
+        // Update the OS badge
         updateOSBadge();
         updateCommandsForOS();
 
@@ -905,7 +905,7 @@ function saveCurrentStepData() {
             } else {
                 state.projectPath = '';
             }
-            // Application ID 저장 (감지된 값 또는 수동 입력 값)
+            // Save the Application ID (detected or manually entered)
             const detectedAppId = document.getElementById('detectedAppIdValue')?.textContent?.trim();
             const manualAppId = getInputValue('applicationId');
             if (detectedAppId) {
@@ -922,7 +922,7 @@ function saveCurrentStepData() {
             state.certO = getInputValue('certO');
             state.certL = getInputValue('certL');
             state.certC = getInputValue('certC') || 'KR';
-            // 유효기간 저장
+            // Save the validity period
             const validitySelect = document.getElementById('validityDays');
             if (validitySelect) {
                 const validityValue = validitySelect.value;
@@ -962,9 +962,9 @@ function generateSetupCommand() {
     let cmd = '';
 
     if (os === 'windows') {
-        // Windows PowerShell 명령어
+        // Windows PowerShell command
         let winPath = projectPath;
-        // Unix 경로를 Windows 경로로 변환
+        // Convert a Unix path to a Windows path
         if (!winPath.includes('\\') && !/^[A-Za-z]:/.test(winPath)) {
             winPath = winPath.replace(/\//g, '\\');
             if (winPath.startsWith('\\')) {
@@ -974,15 +974,15 @@ function generateSetupCommand() {
             winPath = winPath.replace(/\//g, '\\');
         }
         
-        // PowerShell에서 특수문자 이스케이프 처리
+        // Escape special characters for PowerShell
         const escapePowerShell = (str) => {
             return str.replace(/"/g, '`"').replace(/\$/g, '`$');
         };
         
         cmd = `cd "${toWinPath(getRepoRoot())}"; python .github\\util\\flutter\\playstore-wizard\\playstore-wizard.py setup "${escapePowerShell(winPath)}" "${escapePowerShell(applicationId)}" "${escapePowerShell(keyAlias)}" "${escapePowerShell(storePassword)}" "${escapePowerShell(keyPassword)}" "${validityDays}" "${escapePowerShell(certCN)}" "${escapePowerShell(certO)}" "${escapePowerShell(certL)}" "${certC}"`;
     } else {
-        // Mac/Linux Bash 명령어
-        // 특수문자 이스케이프 처리
+        // Mac/Linux Bash command
+        // Escape special characters
         const escapeBash = (str) => {
             return str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\$/g, '\\$');
         };
@@ -997,14 +997,14 @@ function generateSetupCommand() {
 }
 
 // ============================================
-// Step 1: Application ID 자동 감지 (프로젝트 경로 입력 시 자동 실행)
+// Step 1: Application ID auto-detection (runs automatically on project path input)
 // ============================================
 
 function autoDetectApplicationIdOnPathInput() {
     const projectPath = getInputValue('projectPath');
     
     if (!projectPath || projectPath.trim() === '') {
-        // 경로가 비어있으면 명령어 영역 숨기기
+        // Hide the command area when the path is empty
         const commandContainer = document.getElementById('detectAppIdCommandContainer');
         if (commandContainer) {
             const cmdEl = document.getElementById('detectAppIdCommand');
@@ -1015,22 +1015,22 @@ function autoDetectApplicationIdOnPathInput() {
         return;
     }
     
-    // 경로 검증
+    // Validate the path
     const validation = validateProjectPath(projectPath);
     if (!validation.valid) {
         return;
     }
     
-    // 자동으로 명령어 생성 및 표시
+    // Generate and show the command automatically
     generateApplicationIdDetectionCommand(projectPath);
 }
 
 function generateApplicationIdDetectionCommand(projectPath) {
-    // OS 감지
+    // Detect the OS
     const os = state.detectedOS || detectOS();
     const isWindows = os === 'windows';
     
-    // 명령어 생성
+    // Generate the command
     let cmd = '';
     if (isWindows) {
         const winPath = projectPath.replace(/\//g, '\\');
@@ -1045,20 +1045,20 @@ function generateApplicationIdDetectionCommand(projectPath) {
         cmd = `cd "${getRepoRoot()}" && python3 .github/util/flutter/playstore-wizard/playstore-wizard.py detect-app-id "${escapeBash(projectPath)}"`;
     }
     
-    // 명령어 표시
+    // Show the command
     const commandDisplay = document.getElementById('detectAppIdCommand');
     if (commandDisplay) {
         commandDisplay.textContent = cmd;
     }
     
-    // 명령어 컨테이너 표시
+    // Show the command container
     const commandContainer = document.getElementById('detectAppIdCommandContainer');
     if (commandContainer) {
         commandContainer.classList.remove('hidden');
     }
 }
 
-// 레거시 함수 (호환성 유지)
+// Legacy function (kept for compatibility)
 function detectApplicationId() {
     const projectPath = state.projectPath || getInputValue('projectPath');
     
@@ -1067,14 +1067,14 @@ function detectApplicationId() {
         return;
     }
     
-    // 경로 검증
+    // Validate the path
     const validation = validateProjectPath(projectPath);
     if (!validation.valid) {
         showToast(translate('step1.enterValidProjectPath'));
         return;
     }
     
-    // 명령어 생성 및 표시
+    // Generate and show the command
     generateApplicationIdDetectionCommand(projectPath);
     showToast(translate('step1.copyAndRunCommand'));
 }
@@ -1088,12 +1088,12 @@ function parseDetectedApplicationId() {
     }
     
     try {
-        // JSON 파싱 시도
+        // Try parsing JSON
         let jsonData;
         try {
             jsonData = JSON.parse(resultText.trim());
         } catch (e) {
-            // JSON이 아닌 경우, applicationId만 추출 시도
+            // Not JSON: try extracting only applicationId
             const match = resultText.match(/["']?applicationId["']?\s*:\s*["']([^"']+)["']/i);
             if (match) {
                 jsonData = { applicationId: match[1] };
@@ -1103,11 +1103,11 @@ function parseDetectedApplicationId() {
         }
         
         if (jsonData.applicationId) {
-            // 상태에 저장
+            // Save to state
             state.applicationId = jsonData.applicationId;
             saveCurrentStepData();
             
-            // 감지된 Application ID 표시
+            // Show the detected Application ID
             const detectedContainer = document.getElementById('detectedApplicationIdContainer');
             const detectedValue = document.getElementById('detectedAppIdValue');
             if (detectedContainer && detectedValue) {
@@ -1115,13 +1115,13 @@ function parseDetectedApplicationId() {
                 detectedContainer.classList.remove('hidden');
             }
             
-            // 수동 입력 필드에도 채우기 (있는 경우)
+            // Fill the manual input field too (if present)
             const applicationIdInput = document.getElementById('applicationId');
             if (applicationIdInput) {
                 applicationIdInput.value = jsonData.applicationId;
             }
             
-            // 결과 입력 영역 초기화
+            // Reset the result input area
             const resultArea = document.getElementById('detectAppIdResult');
             if (resultArea) {
                 resultArea.value = '';
@@ -1130,7 +1130,7 @@ function parseDetectedApplicationId() {
             showToast(translate('step1.applicationIdDetectedToast', { applicationId: jsonData.applicationId }));
         } else {
             showToast(translate('step1.applicationIdNotFound'));
-            // 수동 입력 옵션 표시
+            // Show the manual input option
             const manualContainer = document.getElementById('manualApplicationIdContainer');
             if (manualContainer) {
                 manualContainer.classList.remove('hidden');
@@ -1139,7 +1139,7 @@ function parseDetectedApplicationId() {
     } catch (e) {
         showToast(translate('step1.parseFailed'));
         console.error('Parse error:', e);
-        // 수동 입력 옵션 표시
+        // Show the manual input option
         const manualContainer = document.getElementById('manualApplicationIdContainer');
         if (manualContainer) {
             manualContainer.classList.remove('hidden');
@@ -1148,7 +1148,7 @@ function parseDetectedApplicationId() {
 }
 
 // ============================================
-// Step 1: Parse Project Info (레거시 - 호환성 유지)
+// Step 1: Parse Project Info (legacy - kept for compatibility)
 // ============================================
 
 function parseProjectInfo() {
@@ -1194,7 +1194,7 @@ function parseProjectInfo() {
 }
 
 // ============================================
-// Step 2: Keystore 생성 명령어 생성 (완전 자동화)
+// Step 2: generate the Keystore creation command (fully automatic)
 // ============================================
 
 function generateKeystoreCreationCommand() {
@@ -1202,7 +1202,7 @@ function generateKeystoreCreationCommand() {
     const applicationId = state.applicationId || getInputValue('applicationId');
     const commandTextEl = document.getElementById('keystoreCreationCommandText');
 
-    // 프로젝트 경로나 Application ID가 없으면 placeholder 표시
+    // Show a placeholder without a project path or Application ID
     if (!projectPath || projectPath.trim() === '') {
         if (commandTextEl) {
             commandTextEl.textContent = translate('step2.enterPathInStep1');
@@ -1217,13 +1217,13 @@ function generateKeystoreCreationCommand() {
         return;
     }
     
-    // Keystore 정보 가져오기
+    // Get Keystore info
     let keyAlias = getInputValue('keyAlias') || applicationId.split('.').pop() + '-release-key';
     let storePassword = getInputValue('storePassword') || 'changeit';
     let keyPassword = getInputValue('keyPassword') || storePassword;
     let validityDays = getInputValue('validityDays') || '99999';
     
-    // 유효기간 커스텀 처리
+    // Handle a custom validity period
     if (validityDays === 'custom') {
         const customValidity = getInputValue('validityDaysCustom');
         if (customValidity && parseInt(customValidity) > 0) {
@@ -1238,11 +1238,11 @@ function generateKeystoreCreationCommand() {
     const certL = getInputValue('certL') || 'Unknown';
     const certC = getInputValue('certC') || 'KR';
     
-    // OS 감지
+    // Detect the OS
     const os = state.detectedOS || detectOS();
     const isWindows = os === 'windows';
     
-    // 명령어 생성
+    // Generate the command
     let cmd = '';
     if (isWindows) {
         let winPath = projectPath.replace(/\//g, '\\');
@@ -1263,19 +1263,19 @@ function generateKeystoreCreationCommand() {
         cmd = `cd "${getRepoRoot()}" && python3 .github/util/flutter/playstore-wizard/playstore-wizard.py setup "${escapeBash(projectPath)}" "${escapeBash(applicationId)}" "${escapeBash(keyAlias)}" "${escapeBash(storePassword)}" "${escapeBash(keyPassword)}" "${validityDays}" "${escapeBash(certCN)}" "${escapeBash(certO)}" "${escapeBash(certL)}" "${certC}"`;
     }
     
-    // 명령어 표시 (항상 보이므로 hidden 처리 불필요)
+    // Show the command (always visible, so no need to toggle hidden)
     if (commandTextEl) {
         commandTextEl.textContent = cmd;
     }
     
-    // Key Alias 자동 채우기
+    // Fill the Key Alias automatically
     const keyAliasInput = document.getElementById('keyAlias');
     if (keyAliasInput && !keyAliasInput.value) {
         keyAliasInput.value = keyAlias;
         state.keyAlias = keyAlias;
     }
     
-    // 입력값 저장
+    // Save input values
     state.storePassword = storePassword;
     state.keyPassword = keyPassword;
     state.validityDays = validityDays;
@@ -1285,34 +1285,34 @@ function generateKeystoreCreationCommand() {
     state.certC = certC;
     saveCurrentStepData();
     
-    // 토스트 없이 명령어만 표시
+    // Show only the command, without a toast
 }
 
 // ============================================
-// Step 2: Keytool Command Generation (레거시 - 호환성 유지)
+// Step 2: Keytool Command Generation (legacy - kept for compatibility)
 // ============================================
 
 function generateKeytoolCommand() {
-    // 레거시 함수 - 더 이상 사용하지 않지만 호환성을 위해 유지
-    // 실제로는 generateKeystoreCreationCommand()를 사용
+    // Legacy function - no longer used but kept for compatibility
+    // generateKeystoreCreationCommand() is what is actually used
     showToast(translate('step2.useGenerateButton'));
     generateKeystoreCreationCommand();
     return;
     
-    // 아래 코드는 사용되지 않음 (호환성 유지)
+    // The code below is unused (kept for compatibility)
     const alias = getInputValue('keyAlias') || 'release-key';
     const storePass = getInputValue('storePassword') || 'changeit';
     const keyPass = getInputValue('keyPassword') || storePass;
     
-    // 유효기간 처리 (state에서 가져오거나 입력 필드에서 가져오기)
+    // Handle the validity period (from state or from the input field)
     let validity = state.validityDays || getInputValue('validityDays') || '99999';
     if (validity === 'custom') {
-        // 사용자 지정 값 사용
+        // Use the custom value
         const customValidity = getInputValue('validityDaysCustom');
         if (customValidity && parseInt(customValidity) > 0) {
             validity = customValidity;
         } else {
-            validity = '99999'; // 기본값으로 폴백
+            validity = '99999'; // fall back to the default
         }
     }
 
@@ -1415,7 +1415,7 @@ end`;
 }
 
 // ============================================
-// Step 7: 완료 및 GitHub Secrets 목록 생성
+// Step 7: done and generate the GitHub Secrets list
 // ============================================
 
 function generateFinalResult() {
@@ -1523,14 +1523,14 @@ function copySecretValue(key) {
 // ============================================
 
 function setupInputHandlers() {
-    // ESC 키로 모달 닫기
+    // Close the modal with the ESC key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeChangelogModal();
         }
     });
 
-    // 입력 필드 변경 시 저장
+    // Save on input field change
     const inputIds = ['projectPath', 'repoRoot', 'keyAlias', 'storePassword', 'keyPassword', 'certCN', 'certO', 'certL', 'certC', 'envFileContent', 'scriptOutput'];
     inputIds.forEach(id => {
         const input = document.getElementById(id);
@@ -1540,7 +1540,7 @@ function setupInputHandlers() {
         }
     });
     
-    // 유효기간 드롭다운 처리
+    // Validity dropdown handling
     const validitySelect = document.getElementById('validityDays');
     const validityCustom = document.getElementById('validityDaysCustom');
     if (validitySelect && validityCustom) {
@@ -1558,13 +1558,13 @@ function setupInputHandlers() {
         validityCustom.addEventListener('blur', saveCurrentStepData);
     }
 
-    // projectPath 입력 시 실시간 검증 및 Application ID 감지 명령어 자동 생성
+    // Live validation on projectPath input and automatic Application ID detect command generation
     const projectPathInput = document.getElementById('projectPath');
     if (projectPathInput) {
         projectPathInput.addEventListener('input', function() {
             const path = this.value.trim();
             updateProjectCommands(path);
-            // Application ID 자동 감지 명령어 생성
+            // Generate the Application ID auto-detect command
             autoDetectApplicationIdOnPathInput();
             saveCurrentStepData();
         });
@@ -1572,29 +1572,29 @@ function setupInputHandlers() {
         projectPathInput.addEventListener('blur', function() {
             const path = this.value.trim();
             updateProjectCommands(path);
-            // Application ID 자동 감지 명령어 생성
+            // Generate the Application ID auto-detect command
             autoDetectApplicationIdOnPathInput();
             saveCurrentStepData();
         });
 
         projectPathInput.addEventListener('paste', function(e) {
-            // 붙여넣기 후 검증
+            // Validate after paste
             setTimeout(() => {
                 const path = this.value.trim();
                 updateProjectCommands(path);
-                // Application ID 자동 감지 명령어 생성
+                // Generate the Application ID auto-detect command
                 autoDetectApplicationIdOnPathInput();
                 saveCurrentStepData();
             }, 10);
         });
     }
     
-    // applicationId 입력 시 저장 및 자동 감지 명령어 업데이트
+    // Save on applicationId input and update the auto-detect command
     const applicationIdInput = document.getElementById('applicationId');
     if (applicationIdInput) {
         applicationIdInput.addEventListener('input', () => {
             saveCurrentStepData();
-            // 자동 감지 명령어 컨테이너가 보이면 명령어 업데이트
+            // Update the command if the auto-detect command container is visible
             const detectContainer = document.getElementById('detectAppIdCommandContainer');
             if (detectContainer && !detectContainer.classList.contains('hidden')) {
                 detectApplicationId();
@@ -1603,14 +1603,14 @@ function setupInputHandlers() {
         applicationIdInput.addEventListener('blur', saveCurrentStepData);
     }
     
-    // Step 2: Keystore 정보 입력 시 자동으로 명령어 생성
+    // Step 2: generate the command automatically when Keystore info is entered
     const keystoreInputs = ['keyAlias', 'storePassword', 'keyPassword', 'validityDays', 'certCN', 'certO', 'certL', 'certC'];
     keystoreInputs.forEach(inputId => {
         const input = document.getElementById(inputId);
         if (input) {
             input.addEventListener('input', () => {
                 saveCurrentStepData();
-                // Step 2에 있을 때 명령어 자동 업데이트
+                // Update the command automatically while on Step 2
                 if (state.currentStep === 2) {
                     generateKeystoreCreationCommand();
                 }
@@ -1624,7 +1624,7 @@ function setupInputHandlers() {
         }
     });
     
-    // 유효기간 커스텀 입력 필드
+    // Custom validity input field
     const validityCustomInput = document.getElementById('validityDaysCustom');
     if (validityCustomInput) {
         validityCustomInput.addEventListener('input', () => {
@@ -1641,13 +1641,13 @@ function setupInputHandlers() {
 // ============================================
 
 function initialize() {
-    // OS 감지
+    // Detect the OS
     state.detectedOS = detectOS();
     
-    // 저장된 상태 로드
+    // Load saved state
     const hasState = loadState();
     
-    // OS는 항상 최신 값 사용
+    // Always use the latest OS value
     state.detectedOS = detectOS();
 
     if (hasState) {
@@ -1659,11 +1659,11 @@ function initialize() {
         updateProgress();
     }
 
-    // OS 배지 및 명령어 업데이트
+    // Update the OS badge and commands
     updateOSBadge();
     updateCommandsForOS();
     
-    // 저장된 경로가 있으면 검증 UI 업데이트
+    // Update the validation UI if a path is saved
     if (state.projectPath) {
         updatePathValidation(state.projectPath);
     }
@@ -1673,7 +1673,7 @@ function initialize() {
     showSecurityWarning();
     renderLanguageDependentText();
 
-    // 버전 배지 업데이트
+    // Update the version badge
     const data = getVersionData();
     if (data && data.version) {
         const versionBadge = document.getElementById('versionBadge');
@@ -1683,14 +1683,14 @@ function initialize() {
     }
 }
 
-// DOM 로드 완료 시 초기화
+// Initialize when the DOM is loaded
 document.addEventListener('DOMContentLoaded', initialize);
 
 // ============================================
-// 언어 전환 (#769)
+// Language switch (#769)
 // ============================================
 
-/** 업로드 영역 안내 문구: 파일 있으면 로드됨, 없으면 선택 안내 */
+/** Upload area text: loaded if a file exists, otherwise a prompt to select */
 function renderUploadLabels() {
     const keystoreLabel = document.getElementById('keystoreUpload')?.querySelector('p');
     if (keystoreLabel) {
@@ -1704,10 +1704,10 @@ function renderUploadLabels() {
     }
 }
 
-/** JS가 채우는 문구 (업로드 안내, 경로 입력 전 명령어 자리) */
+/** Text filled by JS (upload prompt, command placeholder before a path is entered) */
 function renderLanguageDependentText() {
     renderUploadLabels();
-    // 경로가 있으면 단계 초기화가 실제 명령어로 채운다
+    // With a path, step initialization fills it with the real command
     if (!state.projectPath) {
         setElementText('detectAppIdCommand', translate('step1.commandPlaceholder'));
         setElementText('aabBuildCommandStep3', translate('step3.commandPlaceholder'));
@@ -1717,7 +1717,7 @@ function renderLanguageDependentText() {
     }
 }
 
-// 정적 문구는 엔진이 바꾸고, 동적 영역(현재 단계·커스텀 Secret·경로 검증)은 여기서 다시 그린다
+// The engine swaps static text; dynamic areas (current step, custom Secrets, path validation) are redrawn here
 document.addEventListener('wizardlanguagechange', () => {
     renderLanguageDependentText();
     showStep(state.currentStep);
@@ -1726,7 +1726,7 @@ document.addEventListener('wizardlanguagechange', () => {
     if (state.projectPath) updatePathValidation(state.projectPath);
 });
 
-// 페이지 언로드 시 경고 (데이터 손실 방지)
+// Warn on page unload (prevents data loss)
 window.addEventListener('beforeunload', (e) => {
     if (state.currentStep > 1 || state.keystoreBase64 || state.serviceAccountBase64) {
         e.preventDefault();

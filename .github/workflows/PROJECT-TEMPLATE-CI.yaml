@@ -1,18 +1,18 @@
 # ===================================================================
 # PROJECT-TEMPLATE-CI.yaml
-# projectops 저장소 감시 검사 워크플로우 v2.0
+# projectops repo watch-check workflow v2.0
 # ===================================================================
 #
-# 이 워크플로우는 projectops 저장소 전용입니다.
-# template_integrator로 복사되지 않으며, template_initializer가 삭제합니다.
+# This workflow is for the projectops repo only.
+# template_integrator does not copy it, and template_initializer deletes it.
 #
-# 감시용 검사 5개 + 마법사 정합성 + CLI 스모크만 돈다.
-# 여러 파일에 흩어진 약속이 서로 맞는지만 본다 (스킬 개수·설명, 한글 줄 장부, 워크플로 권한, 옵션 정본).
+# Runs only the 5 watch checks + wizard consistency + CLI smoke.
+# Checks only that promises scattered across files agree (skill count/descriptions, Korean line ledger, workflow permissions, options source).
 #
-#   빠른 길  develop push·PR 마다   ubuntu 1대
-#   넓은 길  main push·수동 실행    3 OS CLI 스모크 (macOS bash 3.2·Windows .cmd 차이 #415·#418)
+#   fast path  every develop push/PR    1 ubuntu runner
+#   wide path  main push / manual run   3-OS CLI smoke (macOS bash 3.2 / Windows .cmd differences #415 #418)
 #
-# 트리거: develop·main 브랜치 push / develop 대상 PR (+ 수동 실행)
+# Triggers: push to develop/main / PRs targeting develop (+ manual run)
 # ===================================================================
 
 name: PROJECT-TEMPLATE-CI
@@ -30,14 +30,14 @@ on:
       - "bin/**"
       - "package.json"
       - ".github/util/flutter/**"
-      # 파이썬 쪽이 빠져 있어 스킬만 고친 커밋은 CI를 아예 안 탔다 (#587)
+      # The Python side was missing, so commits touching only skills never ran CI (#587)
       - ".github/scripts/**"
       - "skills/**"
       - "scripts/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
   pull_request:
-    # 릴리스 PR(develop→main)은 제외한다 — 그 내용은 develop push에서 이미 검증됐고,
-    # automerge가 곧바로 머지해 run이 잘리면서 실패로 남았다 (#565).
+    # Release PRs (develop->main) are excluded — their content was already verified on the develop push,
+    # and automerge merges right away, cutting the run and leaving it as failed (#565).
     branches: ["develop"]
     paths:
       - "src/**"
@@ -45,7 +45,7 @@ on:
       - "bin/**"
       - "package.json"
       - ".github/util/flutter/**"
-      # 파이썬 쪽이 빠져 있어 스킬만 고친 커밋은 CI를 아예 안 탔다 (#587)
+      # The Python side was missing, so commits touching only skills never ran CI (#587)
       - ".github/scripts/**"
       - "skills/**"
       - "scripts/**"
@@ -57,11 +57,11 @@ permissions:
 
 jobs:
   # ===================================================================
-  # 빠른 길 — 모든 커밋
+  # Fast path — every commit
   # ===================================================================
   quick:
     name: Guard checks (ubuntu · Node 20)
-    # 릴리스 버전 확정 커밋([skip ci])에서는 실행하지 않음
+    # Do not run on the release version finalize commit ([skip ci])
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     steps:
@@ -69,7 +69,7 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Set up Node.js
-        # engines의 하한(20.12)에 맞춘다
+        # Match the engines floor (20.12)
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -80,13 +80,13 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        # package-lock.json은 .gitignore 대상(레포에 커밋 안 됨)이라 npm install 사용
+        # package-lock.json is gitignored (not committed), so use npm install
         run: |
           npm install --no-audit --no-fund
           python3 -m pip install --quiet pytest pyyaml
 
       - name: node --test (skill count and list match, options schema)
-        # 인자 없는 node --test 는 cwd 기준 test 파일을 자동 탐색한다(Node 20+)
+        # node --test without arguments finds test files from cwd (Node 20+)
         run: npm test
 
       - name: CLI smoke test (--help exits 0)
@@ -96,17 +96,17 @@ jobs:
         run: python3 -m pytest scripts/tests/ .github/scripts/test/ -q
 
       - name: Wizard consistency check
-        # CSS/JS 공통 자산 로드, 공통 유틸 재정의, version.json ↔ HTML 동기화, i18n 사전
+        # Shared CSS/JS asset loading, shared util overrides, version.json <-> HTML sync, i18n dictionaries
         run: python3 .github/util/flutter/_shared/check-consistency.py
 
       - name: Architecture rules (frozen lists)
-        # ledger check 는 위반이 있어도 exit 0 이라 verdict 를 직접 본다
+        # ledger check exits 0 even with violations, so check the verdict directly
         run: |
           python3 skills/pro-code-consult/scripts/arch_cli.py ledger . check > ledger.json
           python3 -c "import json,sys; d=json.load(open('ledger.json')); print(d['summary']); sys.exit(d['verdict']!='pass')"
 
   # ===================================================================
-  # Windows 파이썬 감시 검사 — main push·수동 실행에서만 (#1018: Windows 는 CLI 스모크만 돌던 빈틈)
+  # Windows Python watch checks — only on main push / manual run (#1018: closes the gap where Windows ran only the CLI smoke)
   # ===================================================================
   python-windows:
     name: Guard checks pytest (windows)
@@ -128,11 +128,11 @@ jobs:
         run: python -m pip install --quiet pytest pyyaml
 
       - name: pytest (skill docs, Korean line budget, workflow permissions)
-        # 일반 사용자 PC 와 같게 UTF-8 모드를 켜지 않는다
+        # Do not enable UTF-8 mode, same as a regular user's PC
         run: python -m pytest scripts/tests/ .github/scripts/test/ -q
 
   # ===================================================================
-  # 넓은 길 — main push·수동 실행에서만. OS 차이는 CLI 실행으로 본다.
+  # Wide path — only on main push / manual run. OS differences are checked by running the CLI.
   # ===================================================================
   matrix-smoke:
     name: CLI smoke test (${{ matrix.os }}, Node ${{ matrix.node }})
@@ -144,7 +144,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        # engines 하한과 현행 LTS. fs.cpSync 처럼 Node 버전과 OS 가 겹쳐야 드러나는 결함이 있다
+        # engines floor and current LTS. Some defects (like fs.cpSync) appear only with a specific Node version and OS
         node: [20, 24]
     steps:
       - name: Check out repository
@@ -167,7 +167,7 @@ jobs:
         run: node bin/projectops.js --help
 
       - name: Install into a non-ASCII path with spaces
-        # 사용자 폴더 이름에 한글과 공백이 흔하다. 영문 경로만 보면 복사 단계 크래시를 놓친다
+        # User folder names often contain Korean and spaces. English-only paths miss crashes in the copy step
         shell: bash
         run: |
           target="$RUNNER_TEMP/"$'\xed\x95\x9c\xea\xb8\x80'" smoke"
@@ -181,7 +181,7 @@ jobs:
           test ! -d .template_download_temp
 
       - name: Run skill CLIs from a non-ASCII path
-        # 시스템 기본 코드페이지 그대로 돌린다. git 출력은 UTF-8 이라 인코딩을 안 적으면 stdout 이 None 이 된다
+        # Run with the system default code page. git output is UTF-8, so without an encoding stdout becomes None
         shell: bash
         run: |
           cd "$RUNNER_TEMP/"$'\xed\x95\x9c\xea\xb8\x80'" smoke"

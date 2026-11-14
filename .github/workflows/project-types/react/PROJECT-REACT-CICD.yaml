@@ -1,19 +1,19 @@
 # ===================================================================
-# React CI/CD 배포
+# React CI/CD deploy
 # ===================================================================
 #
-# main 브랜치 푸시 시 Docker 이미지를 빌드하고 배포합니다.
+# Builds and deploys the Docker image on a push to main.
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# ENV_FILE: .env 파일 내용
-# DOCKERHUB_USERNAME: DockerHub 사용자명
-# DOCKERHUB_TOKEN: DockerHub 액세스 토큰
-# SERVER_HOST: 배포 서버 주소
-# SERVER_USER: SSH 사용자명
-# SERVER_PASSWORD: SSH 비밀번호
-# PROJECT_DEPLOY_PORT (선택): 배포 포트 (기본: 3000)
+# ENV_FILE: contents of the .env file
+# DOCKERHUB_USERNAME: DockerHub user name
+# DOCKERHUB_TOKEN: DockerHub access token
+# SERVER_HOST: deploy server address
+# SERVER_USER: SSH user name
+# SERVER_PASSWORD: SSH password
+# PROJECT_DEPLOY_PORT (optional): deploy port (default: 3000)
 # ===================================================================
 
 name: PROJECT-REACT-CICD
@@ -22,12 +22,12 @@ on:
   push:
     branches:
       - main
-    # @wizard paths-anchor (모노레포일 때 integrator가 paths 필터를 여기 주입)
+    # @wizard paths-anchor (for monorepos the integrator injects the paths filter here)
   workflow_dispatch:
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
 
 env:
@@ -42,14 +42,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스코드 체크아웃
+      # 1. Check out the source
       - name: Check out code
         uses: actions/checkout@v5
 
-      # 사전 점검 (#666)
-      # 신규 설치 직후에는 Secret, Dockerfile 이 없는 것이 정상이다. 그대로 두면 빌드가 끝난 뒤
-      # 로그인, docker build, SSH 접속 단계에서 원인을 짚기 어려운 한 줄로 실패하므로 첫 step 에서 알린다.
-      # deploy job 은 build 에 의존하므로 SERVER_* 도 여기서 함께 본다. 전제가 갖춰진 레포는 그대로 통과한다.
+      # Preflight (#666)
+      # Right after a fresh install, a missing Secret or Dockerfile is normal. Left alone, after the build it fails at
+      # login, docker build or SSH with a single line whose cause is hard to see, so the first step reports it.
+      # The deploy job depends on build, so SERVER_* is checked here too. Repos with every prerequisite pass unchanged.
       - name: Preflight check
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -59,12 +59,12 @@ jobs:
           SERVER_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
         run: |
           fail=0
-          # Dockerfile 점검: 없으면 docker build 단계에서 "failed to read dockerfile" 로만 알려준다
+          # Dockerfile check: without it, docker build only says "failed to read dockerfile"
           if [ ! -f "./Dockerfile" ]; then
             echo "::error title=Preflight check::Dockerfile (./Dockerfile) is missing. Add a Dockerfile to the project root and commit it."
             fail=1
           fi
-          # Secret 점검: 빈 값이면 로그인, SSH 접속 단계에서 원인 불명 에러가 난다 (이 워크플로는 비밀번호 방식 SSH 만 쓴다)
+          # Secret check: empty values cause unclear errors at login and SSH (this workflow uses password SSH only)
           for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN SERVER_HOST SERVER_USER SERVER_PASSWORD; do
             if [ -z "${!name}" ]; then
               echo "::error title=Preflight check::Secret ${name} is missing. Add it under Settings > Secrets and variables > Actions > New repository secret"
@@ -74,10 +74,10 @@ jobs:
           [ "$fail" = "0" ] || exit 1
           echo "✅ Preflight check passed"
 
-      # 패키지 매니저 감지 (#669)
-      # setup-node 의 cache 는 lock 파일이 없거나 pnpm 이면 "Dependencies lock file is not found" 로
-      # 첫 step 부터 실패한다. 기존에 동작하던 npm(package-lock.json) 경로가 최우선이고,
-      # 그 다음 pnpm, yarn 순으로 보며 lock 이 전혀 없으면 캐시 없이 npm install 로 폴백한다.
+      # Detect the package manager (#669)
+      # setup-node's cache fails from the first step with "Dependencies lock file is not found" when there is no lock file or with pnpm.
+      # The npm (package-lock.json) path that already worked comes first,
+      # then pnpm, then yarn; with no lock file at all it falls back to npm install without cache.
       - name: Detect package manager
         id: pm
         run: |
@@ -95,19 +95,19 @@ jobs:
           echo "cache=$cache" >> "$GITHUB_OUTPUT"
           echo "📦 Package manager: $manager"
 
-      # pnpm, yarn 은 setup-node 의 캐시 설정보다 먼저 사용 가능해야 한다 (Node 번들 corepack 사용)
+      # pnpm and yarn must be available before setup-node's cache setting (uses Node's bundled corepack)
       - name: Enable Corepack
         if: steps.pm.outputs.manager == 'pnpm' || steps.pm.outputs.manager == 'yarn'
         run: corepack enable
 
-      # 2. Node.js 개발 환경 설정
+      # 2. Set up the Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: ${{ steps.pm.outputs.cache }}
 
-      # 3. 환경변수 파일 생성
+      # 3. Create the env file
       - name: Create environment file (${{ env.ENV_FILE_NAME }})
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -115,7 +115,7 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > ./${{ env.ENV_FILE_NAME }}
           echo "✅ ${{ env.ENV_FILE_NAME }} file created"
 
-      # 4. npm 의존성 캐싱
+      # 4. Cache npm dependencies
       - name: Cache npm dependencies
         if: steps.pm.outputs.manager == 'npm' || steps.pm.outputs.manager == 'none'
         uses: actions/cache@v4
@@ -125,18 +125,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      # 5. node_modules 캐싱
+      # 5. Cache node_modules
       - name: Cache node_modules
         id: node-modules-cache
         uses: actions/cache@v4
         with:
           path: "**/node_modules"
-          # lock 파일이 없으면 해시가 빈 값이라 키가 고정되어 package.json 이 바뀌어도 옛 캐시를 쓴다 — 그 경우만 package.json 해시를 쓴다
+          # Without a lock file the hash is empty, the key is fixed, and old caches are used even if package.json changes — use the package.json hash only then
           key: ${{ runner.os }}-node-modules-${{ steps.pm.outputs.manager == 'none' && hashFiles('**/package.json') || hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-node-modules-
 
-      # 6. 의존성 설치
+      # 6. Install dependencies
       - name: Install dependencies
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
         env:
@@ -147,13 +147,13 @@ jobs:
             npm)  npm ci ;;
             pnpm) pnpm install --frozen-lockfile ;;
             yarn)
-              # Yarn Berry(.yarnrc.yml)는 --immutable, Classic 은 --frozen-lockfile
+              # Yarn Berry (.yarnrc.yml) uses --immutable, Classic uses --frozen-lockfile
               if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
             *)    npm install ;;
           esac
           echo "✅ Dependencies installed"
 
-      # 7. Next.js 빌드 캐싱
+      # 7. Cache the Next.js build
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
@@ -163,22 +163,22 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}-
             ${{ runner.os }}-nextjs-
 
-      # 8. 프로젝트 빌드
+      # 8. Build the project
       - name: Build with npm
         run: npm run build
 
-      # 9. Docker 빌드 환경 설정
+      # 9. Set up the Docker build environment
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      # 10. DockerHub 로그인
+      # 10. Log in to DockerHub
       - name: Log in to DockerHub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 11. Docker 레이어 캐싱
+      # 11. Cache Docker layers
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
@@ -187,7 +187,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      # 12. Docker 이미지 빌드 및 푸시
+      # 12. Build and push the Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -198,7 +198,7 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
-      # 13. Docker 캐시 정리
+      # 13. Clean up the Docker cache
       - name: Move Docker cache
         run: |
           rm -rf /tmp/.buildx-cache
@@ -224,44 +224,44 @@ jobs:
             set -e
 
             # ============================================================
-            # 배포 환경 변수 설정
+            # Deploy environment variables
             # ============================================================
             echo "🔧 Setting environment variables.."
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
             SUDO() { echo "$PW" | sudo -S "$@"; }
 
-            # GitHub에서 전달받은 브랜치명
+            # Branch name passed from GitHub
             BRANCH=${{ github.ref_name }}
 
-            # 프로젝트 설정
+            # Project settings
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
 
             # ============================================================
-            # 브랜치별 포트 및 컨테이너명 설정
+            # Port and container name per branch
             # ============================================================
-            # 기본값 설정
+            # Defaults
             PORT=3000
             CONTAINER_NAME="${PROJECT_NAME}-front"
 
-            # 브랜치에 따른 환경별 설정
+            # Settings per branch
             if [ "$BRANCH" == "main" ]; then
-              # 🚀 배포 환경 (main 브랜치)
-              # GitHub Secrets의 PROJECT_DEPLOY_PORT 환경변수 사용
-              # 설정되어 있지 않으면 기본값 3000 사용
+              # 🚀 Deploy environment (main branch)
+              # Uses the PROJECT_DEPLOY_PORT value from GitHub Secrets
+              # Defaults to 3000 if unset
               PORT=${{ secrets.PROJECT_DEPLOY_PORT || '3000' }}
               CONTAINER_NAME="${PROJECT_NAME}-front-deploy"
               echo "🚀 Deploying to the deploy environment (branch: $BRANCH)"
 
             else
-              # ⚠️ 기타 브랜치 (예상치 못한 브랜치)
+              # ⚠️ Other branches (unexpected branch)
               echo "⚠️ Unsupported branch: $BRANCH"
               echo "This workflow supports the main branch only."
               echo "Set the branches to support in on.push.branches."
               exit 1
             fi
 
-            # 설정 정보 출력
+            # Print settings
             echo "📋 Deploy settings:"
             echo "  - Branch: $BRANCH"
             echo "  - Project: $PROJECT_NAME"
@@ -270,14 +270,14 @@ jobs:
             echo "  - Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
 
             # ============================================================
-            # Docker 이미지 풀 (Pull)
+            # Pull the Docker image
             # ============================================================
             echo "⬇️ Pulling Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}"
             echo $PW | sudo -S docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
 
-            # 컨테이너 시작을 함수로 둬서 배포 실패 시 이전 이미지로 같은 옵션으로 복구할 수 있게 한다 (#730)
+            # Container start lives in a function so a failed deploy can restore the previous image with the same options (#730)
             start_container() {
-              # Next.js SSR 컨테이너도 커버 (next 타입 흡수 — NODE_ENV/restart 정책 포함)
+              # Also covers Next.js SSR containers (next type merged in — includes NODE_ENV/restart policy)
               SUDO docker run -d \
                 -p ${PORT}:3000 \
                 --name $CONTAINER_NAME \
@@ -288,7 +288,7 @@ jobs:
                 "$1"
             }
 
-            # 교체 중 실패하면 실패한 컨테이너를 지우고 이전 이미지로 복구한다 (#730)
+            # If the swap fails, remove the failed container and restore the previous image (#730)
             PREV_IMAGE=""
             REPLACING=false
             DEPLOY_OK=false
@@ -313,12 +313,12 @@ jobs:
             trap rollback_on_failure EXIT
 
             # ============================================================
-            # 기존 컨테이너 정리
+            # Clean up the existing container
             # ============================================================
             echo "🧹 Checking whether container $CONTAINER_NAME exists..."
 
-            # 동일한 이름의 컨테이너가 존재하는지 확인
-            # 이전 이미지 ID 를 기억해 둔다 (태그가 새 이미지로 옮겨가도 ID 로 복구할 수 있다)
+            # Check whether a container with the same name exists
+            # Remember the previous image ID (it can be restored by ID even after the tag moves to the new image)
             PREV_IMAGE=$(SUDO docker inspect --format '{{.Image}}' $CONTAINER_NAME 2>/dev/null || true)
             REPLACING=true
             if sudo docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
@@ -330,13 +330,13 @@ jobs:
             fi
 
             # ============================================================
-            # 새 컨테이너 실행
+            # Run the new container
             # ============================================================
             echo "🚀 Starting new container $CONTAINER_NAME..."
 
             start_container ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}-${{ env.DOCKER_IMAGE_PREFIX }}:${BRANCH}
 
-            # 기동 확인: 컨테이너가 바로 죽거나 재시작을 반복하면 배포를 실패로 처리하고 복구한다 (#730)
+            # Startup check: if the container dies at once or keeps restarting, mark the deploy failed and restore (#730)
             echo "⏳ Checking that the container started... (10s)"
             sleep 10
             if [ "$(SUDO docker inspect -f '{{.State.Running}}' $CONTAINER_NAME 2>/dev/null)" != "true" ] \
@@ -348,7 +348,7 @@ jobs:
             echo "✅ Container is running"
 
             # ============================================================
-            # 배포 완료 확인
+            # Confirm the deploy
             # ============================================================
             DEPLOY_OK=true
             echo "✅ Deploy completed successfully!"
@@ -363,17 +363,17 @@ jobs:
             echo "🔗 URL: http://${{ secrets.SERVER_HOST }}:${PORT}"
 
 # ===================================================================
-# 사용 예시 - main 브랜치 사용
+# Usage example - main branch
 # ===================================================================
 #
-# 현재 설정: main 브랜치에 push할 때 자동 배포
+# Current setting: deploy automatically on a push to main
 #
-# 브랜치별 포트:
-# - main: 3000 (PROJECT_DEPLOY_PORT secret으로 변경 가능)
+# Port per branch:
+# - main: 3000 (changeable with the PROJECT_DEPLOY_PORT secret)
 #
-# 필요한 Secrets:
-# - REACT_ENV_FILE, DOCKERHUB_*, SERVER_* (필수)
-# - PROJECT_DEPLOY_PORT (선택, 기본값: 3000)
+# Required Secrets:
+# - REACT_ENV_FILE, DOCKERHUB_*, SERVER_* (required)
+# - PROJECT_DEPLOY_PORT (optional, default: 3000)
 #
 # ===================================================================
 

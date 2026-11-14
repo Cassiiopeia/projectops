@@ -1,24 +1,24 @@
 /* ===================================================================
- * projectops Flutter 마법사 공통 스타일 (정본)
+ * projectops Flutter wizard shared styles (source of truth)
  * ===================================================================
  *
- * testflight / playstore / firebase 마법사가 공유한다.
- * 이 파일 하나만 고치면 3종에 동시에 반영된다.
+ * Shared by the testflight / playstore / firebase wizards.
+ * Editing this one file applies to all wizards at once.
  *
- * ⚠️ 이 파일을 고치기 전에 읽을 것
+ * ⚠️ Read before editing this file
  * -------------------------------------------------------------------
- * 1. 마법사 고유 색상·레이아웃은 각 마법사 HTML의 <style>에 둔다.
- *    여기에는 3종이 공유하는 "컴포넌트"만 넣는다.
- * 2. .step-indicator 는 "개별 단계 항목의 래퍼"다. 전체 컨테이너가 아니다.
- *    (과거 firebase가 컨테이너 의미로 써서 충돌했다 — 재발 금지)
- * 3. 클래스를 추가/삭제하면 _shared/check-consistency.py 가
- *    3종 HTML의 사용 현황을 대조해 미사용·미정의를 잡아낸다.
+ * 1. Wizard-specific colors and layout go in each wizard HTML's <style>.
+ *    Only "components" shared by all wizards go here.
+ * 2. .step-indicator is "the wrapper of one step item", not the whole container.
+ *    (firebase once used it as the container and clashed — never again)
+ * 3. When classes are added/removed, _shared/check-consistency.py
+ *    compares usage across the wizard HTMLs and catches unused/undefined ones.
  *
- * 로드 방법 (각 마법사 HTML <head>)
+ * How to load (in each wizard HTML <head>)
  *   <link rel="stylesheet" href="../_shared/wizard.css">
  *
- * 폴더만 따로 떼어가면 이 파일이 없어 컴포넌트 마감이 빠지지만,
- * 레이아웃은 Tailwind CDN이 담당하므로 페이지는 그대로 읽힌다.
+ * If the folder is taken alone, this file is missing and component polish is lost,
+ * but Tailwind CDN handles layout, so the page still reads fine.
  * =================================================================== */
 
 /* Tooltip Styles */
@@ -398,20 +398,20 @@
 }
 
 /* ===================================================================
- * 단계 인디케이터 (3종 공통 마크업 계약)
+ * Step indicator (markup contract shared by all wizards)
  * ===================================================================
- * 마크업 구조 — 이 형태를 벗어나지 말 것:
+ * Markup structure — do not deviate from this shape:
  *
- *   <div class="flex items-start justify-between ...">   ← 컨테이너(Tailwind)
+ *   <div class="flex items-start justify-between ...">   ← container (Tailwind)
  *     <div class="step-indicator" data-step="1" onclick="goToStep(1)">
  *       <div class="step-circle">1</div>
- *       <span class="step-label">시작</span>
+ *       <span class="step-label">Start</span>
  *     </div>
  *     ...
  *   </div>
  *
- * .step-indicator = 항목 하나. .step-circle = 원형 번호 배지.
- * 색상은 각 마법사가 Tailwind 유틸리티로 입힌다 (여기선 동작만 정의).
+ * .step-indicator = one item. .step-circle = round number badge.
+ * Each wizard applies colors with Tailwind utilities (only behavior is defined here).
  * =================================================================== */
 .step-indicator {
     cursor: pointer;
@@ -419,7 +419,7 @@
 .step-indicator .step-circle {
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
-/* 어느 단계로든 자유롭게 이동 가능함을 호버로 드러낸다 */
+/* Hover shows that any step can be reached freely */
 .step-indicator:hover .step-circle {
     transform: translateY(-2px);
 }
@@ -431,9 +431,9 @@
 }
 
 /* ===================================================================
- * 첫 사용자 안내 컴포넌트
+ * First-time user guide components
  * =================================================================== */
-/* 소요 시간·준비물 등 단계 상단 요약 배너 */
+/* Summary banner at the top of a step (duration, prerequisites, etc.) */
 .wizard-meta {
     display: flex;
     flex-wrap: wrap;
@@ -452,7 +452,7 @@
     color: #e2e8f0;
     font-weight: 600;
 }
-/* 진행 상황이 자동 저장됨을 알리는 안심 문구 */
+/* Reassurance that progress is saved automatically */
 .resume-hint {
     font-size: 0.7rem;
     color: #64748b;
@@ -460,7 +460,7 @@
     margin-top: 0.5rem;
 }
 
-/* 언어 전환 버튼 (#769) — wizard-i18n.js 가 라벨을 채우고 hidden 을 푼다 */
+/* Language toggle button (#769) — wizard-i18n.js fills the label and removes hidden */
 .lang-toggle {
     display: inline-flex;
     align-items: center;
@@ -477,19 +477,19 @@
     background: rgba(51, 65, 85, 0.8);
     color: #fff;
 }
-/* 엔진이 없으면(폴더만 떼어간 경우) 버튼을 숨긴 채 영문으로 둔다 */
+/* Without the engine (folder taken alone) the button stays hidden and the page stays English */
 .lang-toggle.hidden {
     display: none;
 }
 
 /* ===================================================================
- * JS가 참조하는 동작용 클래스 (스타일은 Tailwind가 담당)
+ * Behavior classes referenced by JS (styling is Tailwind's job)
  * ===================================================================
- * 여기에 정의를 두는 이유: 순수 Tailwind로만 쓰면 "이 클래스가 무슨 역할인지"가
- * 코드 어디에도 남지 않아, 리팩터링 때 조용히 사라진다.
+ * Why defined here: with pure Tailwind, "what role this class plays"
+ * is recorded nowhere in the code and it silently disappears in refactors.
  * =================================================================== */
 
-/* 단계 본문 컨테이너. showStep()이 hidden 토글로 하나만 노출한다. */
+/* Step body container. showStep() toggles hidden to show only one. */
 .step-content {
     display: block;
 }
@@ -497,12 +497,12 @@
     display: none;
 }
 
-/* 원형 단계 번호 배지 — 색상은 마법사별 Tailwind 유틸리티가 입힌다 */
+/* Round step number badge — colors come from per-wizard Tailwind utilities */
 .step-circle {
     flex-shrink: 0;
 }
 
-/* 일반 복사 버튼 (코드블록 우상단 등) */
+/* Generic copy button (top-right of code blocks, etc.) */
 .copy-btn {
     cursor: pointer;
     transition: background 0.2s, color 0.2s;

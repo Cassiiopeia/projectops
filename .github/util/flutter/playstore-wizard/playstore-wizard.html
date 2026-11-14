@@ -4,14 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="page.androidPlayStoreDeployment">Android Play Store Deployment Wizard</title>
-    <!-- 버전 정보 (version.json과 동기화 필요) -->
+    <!-- Version info (must stay in sync with version.json) -->
     <script type="application/json" id="versionJson">
 {
   "name": "Android Play Store Setup Wizard",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Setup wizard for deploying a Flutter Android app to the Play Store",
-  "lastUpdated": "2026-11-13",
+  "lastUpdated": "2026-11-14",
   "changelog": [
+    {
+      "version": "1.8.1",
+      "date": "2026-11-14",
+      "changes": [
+        "Fastfile template log and error messages are in English (projectops#1212)"
+      ]
+    },
     {
       "version": "1.8.0",
       "date": "2026-11-13",
@@ -143,11 +150,11 @@
 }
 
     </script>
-    <!-- Pretendard 폰트 -->
+    <!-- Pretendard font -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
     <!-- JSZip for ZIP export -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- 공통 자산 (3종 마법사 공유) — _shared/check-consistency.py가 정합성을 검증한다 -->
+    <!-- Shared assets (shared by the wizards) — _shared/check-consistency.py verifies consistency -->
     <link rel="stylesheet" href="../_shared/wizard.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -173,7 +180,7 @@
     </script>
 </head>
 <body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
-    <!-- 보안 경고 -->
+    <!-- Security warning -->
     <div id="securityWarning" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/90 border border-yellow-700 text-yellow-200 px-6 py-3 rounded-lg shadow-xl z-50 max-w-2xl hidden">
         <div class="flex items-center gap-3">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -212,7 +219,7 @@
             </p>
         </header>
 
-        <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
+        <!-- First-time user guide — shows scope, prerequisites and outputs before starting -->
         <div class="wizard-meta" data-i18n="page.estimatedTime3045">
             <span>⏱️ Estimated time <strong>30–45 min</strong></span>
             <span class="text-slate-600">·</span>
@@ -227,7 +234,7 @@
         </div>
         <p class="resume-hint" data-i18n="page.yourProgressIsSaved">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
 
-        <!-- Progress Steps (7단계) -->
+        <!-- Progress Steps (7 steps) -->
         <div class="flex justify-between mb-8 px-2 overflow-x-auto">
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="1">
                 <div class="step-circle w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-blue-500 text-white flex items-center justify-center font-bold text-xs z-10 shadow-lg shadow-green-500/30">1</div>
@@ -260,10 +267,10 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 1: 시작하기 -->
+        <!-- Step 1: Get started -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content fade-in relative" data-step="1">
-            <!-- 초기화 버튼 (우측 상단 구석) -->
+            <!-- Reset button (top-right corner) -->
             <button onclick="resetWizard()" class="absolute top-4 right-4 p-2 text-slate-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition" title="Reset all settings" data-i18n-title="step1.resetAllSettings">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -275,7 +282,7 @@
                 Get started
             </h2>
 
-            <!-- 전체 프로세스 흐름 -->
+            <!-- Overall process flow -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <div class="flex items-center justify-between mb-3">
                     <div class="flex-1">
@@ -306,7 +313,7 @@
             </div>
 
 
-            <!-- 1단계: 프로젝트 경로 입력 -->
+            <!-- Step 1: enter the project path -->
             <div class="mb-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2" data-i18n="step1.enterTheFlutterProject">
                     <span class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
@@ -343,7 +350,7 @@
                     <p class="text-xs" id="pathValidationMessage"></p>
                 </div>
 
-                <!-- 모노레포 대응: 레포 루트가 Flutter 루트와 다를 때만 필요 -->
+                <!-- Monorepo support: needed only when the repo root differs from the Flutter root -->
                 <div class="mt-4">
                     <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step1.gitRepoRootPath">
                         Git repo root path <span class="text-xs text-slate-500 font-normal">(optional — leave empty if it is the same as above)</span>
@@ -364,7 +371,7 @@
                 </div>
             </div>
 
-            <!-- 2단계: 환경 검사 + Application ID 자동 감지 (한 번에) -->
+            <!-- Step 2: environment check + Application ID auto-detection (in one go) -->
             <div class="mb-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2" data-i18n="step1.checkTheEnvironmentDetect">
                     <span class="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
@@ -389,7 +396,7 @@
                     </div>
                 </div>
 
-                <!-- 감지된 Application ID 표시 -->
+                <!-- Show the detected Application ID -->
                 <div id="detectedApplicationIdContainer" class="hidden">
                     <div class="bg-green-900/30 border border-green-700 rounded-lg p-4">
                         <div class="flex items-center gap-3">
@@ -413,7 +420,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 2: Keystore 생성 -->
+        <!-- Step 2: Create the Keystore -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="2">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3" data-i18n="step2.createKeystoreDoThis">
@@ -422,13 +429,13 @@
                 <span class="text-xs font-normal text-green-400 bg-green-500/20 px-2 py-1 rounded">Do this first!</span>
             </h2>
 
-            <!-- 1단계: Keystore 정보 입력 -->
+            <!-- Step 1: enter Keystore info -->
             <h3 class="text-lg font-semibold mb-4 flex items-center gap-2" data-i18n="step2.enterKeystoreDetails">
                 <span class="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-xs font-bold">1</span>
                     Enter Keystore details
             </h3>
 
-            <!-- Keystore 설정 입력 -->
+            <!-- Keystore settings input -->
             <div class="grid md:grid-cols-2 gap-4 mb-6">
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">Key Alias</label>
@@ -488,7 +495,7 @@
                 </div>
             </div>
 
-            <!-- 인증서 정보 -->
+            <!-- Certificate info -->
             <h4 class="text-sm font-semibold text-slate-400 mb-4" data-i18n="step2.certificateDetailsOptional">Certificate details (optional)</h4>
             <div class="grid md:grid-cols-2 gap-4 mb-6">
                 <div>
@@ -517,7 +524,7 @@
                 </div>
             </div>
 
-            <!-- Keystore 생성 명령어 -->
+            <!-- Keystore creation command -->
             <div class="mb-6">
                 <h3 class="text-lg font-semibold mb-4 flex items-center gap-2" data-i18n="step2.runTheCommandBelow">
                     <span class="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-xs font-bold">2</span>
@@ -529,7 +536,7 @@
                 </div>
                 <p class="text-xs text-slate-500" data-i18n="step2.keystoreCreationGitignoreSetup">💡 Keystore creation, .gitignore setup, and build.gradle.kts signing config are handled automatically.</p>
                 
-                <!-- Windows 사용자에게만 표시되는 관리자 권한 안내 -->
+                <!-- Admin rights notice shown only to Windows users -->
                 <div id="adminWarningWindows" class="hidden bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mt-4">
                     <div class="flex items-start gap-3">
                         <svg class="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -552,7 +559,7 @@
                 </div>
             </div>
 
-            <!-- 생성 확인 -->
+            <!-- Creation check -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-2" data-i18n="step2.checkAfterRunning">✅ Check after running</p>
                 <p class="text-xs text-slate-400" data-i18n="step2.doneOnceAndroidApp">
@@ -560,7 +567,7 @@
                 </p>
             </div>
 
-            <!-- 3단계: Keystore 파일 업로드 -->
+            <!-- Step 3: upload the Keystore file -->
             <h3 class="text-lg font-semibold mb-4 flex items-center gap-2" data-i18n="step2.uploadTheGeneratedKeystore">
                 <span class="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-xs font-bold">3</span>
                     Upload the generated Keystore file
@@ -581,7 +588,7 @@
                 </div>
             </div>
 
-            <!-- Keystore Base64 결과 (업로드 후 표시) -->
+            <!-- Keystore Base64 result (shown after upload) -->
             <div id="keystoreBase64Result" class="hidden mb-6">
                 <div class="bg-green-900/30 border border-green-700 rounded-lg p-4">
                     <div class="flex gap-3">
@@ -602,7 +609,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 3: AAB 빌드 (새로 추가) -->
+        <!-- Step 3: AAB build (newly added) -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="3">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3" data-i18n="step3.buildAABReleaseRequired">
@@ -611,7 +618,7 @@
                 <span class="text-xs font-normal text-yellow-400 bg-yellow-500/20 px-2 py-1 rounded">Required!</span>
             </h2>
 
-            <!-- 설명 -->
+            <!-- Description -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200" data-i18n="step3.whatIsAnAAB">
                     📦 <strong>What is an AAB (Android App Bundle)?</strong> The app package format you upload to the Google Play Store.
@@ -621,7 +628,7 @@
                 </p>
             </div>
 
-            <!-- 빌드 명령어 -->
+            <!-- Build command -->
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step3.runThisCommandIn">
                     Run this command in a terminal:
@@ -633,7 +640,7 @@
                 <p class="text-xs text-slate-400" data-i18n="step3.runsInThisOrder">💡 Runs in this order: clean cache → install dependencies → build AAB.</p>
             </div>
 
-            <!-- 빌드 결과 확인 -->
+            <!-- Check the build output -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-blue-300 mb-2" data-i18n="step3.fileCreatedWhenThe">✅ File created when the build succeeds:</p>
                 <div class="code-block">
@@ -643,7 +650,7 @@
                 <p class="text-xs text-slate-400 mt-2" data-i18n="step3.youUploadThisFile">You upload this file to Play Console in Step 5.</p>
             </div>
 
-            <!-- 빌드 확인 명령어 -->
+            <!-- Build check command -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-2" data-i18n="step3.commandToCheckThe">🔍 Command to check the build:</p>
                 <div class="code-block">
@@ -653,11 +660,11 @@
                 <p class="text-xs text-slate-400 mt-2" data-i18n="step3.ifAppReleaseAab">If app-release.aab is there, the build succeeded!</p>
             </div>
 
-            <!-- 빌드 오류 시 -->
+            <!-- On build errors -->
             <div class="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-red-300 mb-2" data-i18n="step3.buildError">⚠️ Build error?</p>
                 
-                <!-- Keystore 비밀번호 오류 -->
+                <!-- Keystore password error -->
                 <div class="mb-3 p-2 bg-red-800/50 rounded border-l-4 border-red-500">
                     <p class="text-xs font-semibold text-red-200 mb-1" data-i18n="step3.ifYouGetKeystore">🔑 If you get "keystore password was incorrect":</p>
                     <ul class="text-xs text-slate-300 space-y-1 list-disc list-inside ml-2">
@@ -667,7 +674,7 @@
                     </ul>
                 </div>
                 
-                <!-- 파일 잠금 오류 (Windows) -->
+                <!-- File lock error (Windows) -->
                 <div id="fileLockErrorWindows" class="hidden mb-3 p-2 bg-red-800/50 rounded border-l-4 border-red-500">
                     <p class="text-xs font-semibold text-red-200 mb-1" data-i18n="step3.ifYouGetThe">🔒 If you get "The process cannot access the file because it is being used by another process":</p>
                     <ul class="text-xs text-slate-300 space-y-1 list-disc list-inside ml-2">
@@ -677,7 +684,7 @@
                     </ul>
                 </div>
                 
-                <!-- 일반 빌드 오류 -->
+                <!-- General build errors -->
                 <div class="mb-3">
                     <p class="text-xs font-semibold text-slate-200 mb-1" data-i18n="step3.otherBuildErrors">📋 Other build errors:</p>
                     <ul class="text-xs text-slate-300 space-y-1 list-disc list-inside ml-2">
@@ -689,7 +696,7 @@
                 </div>
             </div>
 
-            <!-- 체크리스트 -->
+            <!-- Checklist -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-3" data-i18n="step3.step3Checklist">✅ Step 3 checklist</p>
                 <ul class="text-xs text-slate-300 space-y-2">
@@ -711,7 +718,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 4: Play Console 앱 생성 (간소화) -->
+        <!-- Step 4: Create the app in Play Console (simplified) -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="4">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3" data-i18n="step4.createTheAppIn">
@@ -719,7 +726,7 @@
                 Create the app in Play Console
             </h2>
 
-            <!-- 이미 앱이 있는 경우 -->
+            <!-- If the app already exists -->
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
                 <div class="flex gap-3">
                     <svg class="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -737,7 +744,7 @@
                 </div>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4">
                 <a href="https://play.google.com/console" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
@@ -748,7 +755,7 @@
                 </a>
             </div>
 
-            <!-- 앱 생성 단계 -->
+            <!-- App creation steps -->
             <div class="bg-orange-900/30 border border-orange-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-orange-300 mb-3" data-i18n="step4.creatingTheAppIt">📱 Creating the app (it is quick!)</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
@@ -762,7 +769,7 @@
                 </ol>
             </div>
 
-            <!-- 중요 안내 -->
+            <!-- Important notice -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-blue-300 mb-2" data-i18n="step4.goodToKnow">💡 Good to know!</p>
                 <ul class="text-xs text-slate-300 space-y-1 list-disc list-inside">
@@ -773,7 +780,7 @@
                 </ul>
             </div>
 
-            <!-- 체크리스트 -->
+            <!-- Checklist -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-3" data-i18n="step4.step4Checklist">✅ Step 4 checklist</p>
                 <ul class="text-xs text-slate-300 space-y-2">
@@ -795,7 +802,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 5: AAB 수동 업로드 -->
+        <!-- Step 5: Manual AAB upload -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="5">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3" data-i18n="step5.uploadTheAABManually">
@@ -804,7 +811,7 @@
                 <span class="text-xs font-normal text-red-400 bg-red-500/20 px-2 py-1 rounded">Required!</span>
             </h2>
 
-            <!-- 왜 필요한지 설명 -->
+            <!-- Why it is needed -->
             <div class="bg-red-900/30 border border-red-700 rounded-lg p-4 mb-6">
                 <div class="flex gap-3">
                     <svg class="w-6 h-6 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -820,7 +827,7 @@
                 </div>
             </div>
 
-            <!-- 이미 업로드한 경우 -->
+            <!-- If already uploaded -->
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
                 <div class="flex gap-3">
                     <svg class="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -838,11 +845,11 @@
                 </div>
             </div>
 
-            <!-- 업로드 단계 -->
+            <!-- Upload steps -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-blue-300 mb-4" data-i18n="step5.uploadTheAABTo">📤 Upload the AAB to the internal testing track</p>
 
-                <!-- Step 5-1: 앱 선택 -->
+                <!-- Step 5-1: choose the app -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-blue-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step5.selectTheAppIn">
                         <span class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
@@ -851,13 +858,13 @@
                     <p class="text-slate-400 text-xs ml-7" data-i18n="step5.clickTheAppYou">Click the app you created in Step 4</p>
                 </div>
 
-                <!-- Step 5-2: 메뉴 네비게이션 시각화 -->
+                <!-- Step 5-2: menu navigation illustration -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-green-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step5.goToTheInternal">
                         <span class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
                         <span class="text-green-400 font-bold text-sm">Go to the Internal testing menu</span>
                     </div>
-                    <!-- Play Console 사이드바 시각화 -->
+                    <!-- Play Console sidebar illustration -->
                     <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto mt-2">
                         <div class="text-slate-500 text-[10px] mb-2" data-i18n="step5.playConsoleLeftSidebar">📍 Play Console left sidebar</div>
                         <div class="space-y-1 ml-2">
@@ -887,7 +894,7 @@
                     </div>
                 </div>
 
-                <!-- Step 5-3: 새 버전 만들기 -->
+                <!-- Step 5-3: create a new release -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-purple-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step5.clickTheCreateNew">
                         <span class="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
@@ -903,13 +910,13 @@
                     </div>
                 </div>
 
-                <!-- Step 5-4: AAB 업로드 -->
+                <!-- Step 5-4: upload the AAB -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step5.uploadTheAppBundle">
                         <span class="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
                         <span class="text-orange-400 font-bold text-sm">Upload the App Bundle</span>
                     </div>
-                    <!-- 업로드 화면 시각화 -->
+                    <!-- Upload screen illustration -->
                     <div class="bg-slate-900 rounded-lg p-3 mt-2">
                         <div class="text-slate-400 text-[11px] mb-2" data-i18n="step5.createInternalTestingRelease">📍 "Create internal testing release" screen</div>
                         <div class="border border-slate-600 rounded p-3">
@@ -933,17 +940,17 @@
                     <div class="mt-2 text-slate-500 text-[11px]" data-i18n="step5.takes15Minutes">⏱️ Takes 1-5 minutes depending on file size</div>
                 </div>
 
-                <!-- Step 5-5: 출시명 안내 -->
+                <!-- Step 5-5: release name guide -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-yellow-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step5.enterTheReleaseDetails">
                         <span class="w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-[10px] font-bold text-slate-900">5</span>
                         <span class="text-yellow-400 font-bold text-sm">Enter the release details</span>
                     </div>
-                    <!-- 버전 세부정보 화면 시각화 -->
+                    <!-- Release details screen illustration -->
                     <div class="bg-slate-900 rounded-lg p-3 mt-2">
                         <div class="text-slate-300 text-xs font-medium mb-3" data-i18n="step5.releaseDetails">Release details</div>
                         <div class="space-y-3">
-                            <!-- 출시명 필드 -->
+                            <!-- Release name field -->
                             <div class="border-l-4 border-green-500 pl-3 py-2 bg-green-900/20 rounded-r">
                                 <div class="flex items-center gap-2 mb-1" data-i18n="step5.releaseNameFilledIn">
                                     <span class="text-slate-300 text-xs">Release name *</span>
@@ -954,7 +961,7 @@
                                 </div>
                                 <div class="text-slate-500 text-[10px] mt-1" data-i18n="step5.forDevelopersOnlyUsers">💡 For developers only (users do not see it) - leave it as is</div>
                             </div>
-                            <!-- 출시 노트 필드 -->
+                            <!-- Release notes field -->
                             <div>
                                 <div class="text-slate-300 text-xs mb-1" data-i18n="step5.releaseNotes">Release notes</div>
                                 <div class="bg-slate-800 rounded p-2 text-[11px] text-slate-400 font-mono" data-i18n="step5.enUSBugFixes">
@@ -968,14 +975,14 @@
                     </div>
                 </div>
 
-                <!-- Step 5-6: 버전 검토 및 출시 -->
+                <!-- Step 5-6: review and roll out the release -->
                 <div class="mb-2 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step5.reviewReleaseRollOut">
                         <span class="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold">6</span>
                         <span class="text-red-400 font-bold text-sm">Review release → Roll out</span>
                     </div>
                     <div class="bg-slate-900 rounded-lg p-3 mt-2 space-y-3">
-                        <!-- 버튼 클릭 순서 -->
+                        <!-- Button click order -->
                         <div>
                             <div class="text-slate-400 text-[11px] mb-2" data-i18n="step5.buttonOrder">📍 Button order</div>
                             <div class="flex items-center gap-2 flex-wrap">
@@ -984,7 +991,7 @@
                                 <div class="bg-blue-600 px-3 py-1.5 rounded text-white text-xs font-medium" data-i18n="step5.saveAndPublish">Save and publish</div>
                             </div>
                         </div>
-                        <!-- 확인 팝업 -->
+                        <!-- Confirm popup -->
                         <div class="border border-slate-600 rounded p-3 bg-slate-800/50">
                             <div class="text-slate-300 text-xs font-medium mb-2" data-i18n="step5.whenTheConfirmationPopup">When the confirmation popup appears:</div>
                             <div class="bg-slate-700 rounded p-2 text-center">
@@ -997,7 +1004,7 @@
                                 </div>
                             </div>
                         </div>
-                        <!-- 완료 확인 -->
+                        <!-- Completion check -->
                         <div class="border-l-4 border-green-500 pl-3 py-2 bg-green-900/20 rounded-r">
                             <div class="text-green-400 font-bold text-xs mb-1" data-i18n="step5.checkItWorked">✅ Check it worked</div>
                             <div class="text-slate-300 text-[11px]" data-i18n="step5.successWhenYouSee">
@@ -1008,7 +1015,7 @@
                 </div>
             </div>
 
-            <!-- 업로드 후 확인 -->
+            <!-- Check after upload -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-blue-300 mb-2" data-i18n="step5.afterTheUpload">🎉 After the upload</p>
                 <ul class="text-xs text-slate-300 space-y-1 list-disc list-inside">
@@ -1018,7 +1025,7 @@
                 </ul>
             </div>
 
-            <!-- Application ID 확인 방법 (업로드 후) -->
+            <!-- How to check the Application ID (after upload) -->
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-green-300 mb-2" data-i18n="step5.findTheApplicationID">✅ Find the Application ID</p>
                 <p class="text-xs text-slate-300 mb-3" data-i18n="step5.afterTheAABUpload">After the AAB upload, the Application ID is registered in Play Console automatically. You can see it here:</p>
@@ -1035,7 +1042,7 @@
                 </div>
             </div>
 
-            <!-- 체크리스트 -->
+            <!-- Checklist -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-3" data-i18n="step5.step5Checklist">✅ Step 5 checklist</p>
                 <ul class="text-xs text-slate-300 space-y-2">
@@ -1074,7 +1081,7 @@
                 </span>
             </h2>
 
-            <!-- 이미 있는 경우 -->
+            <!-- If it already exists -->
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
                 <div class="flex gap-3">
                     <svg class="w-6 h-6 text-green-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1093,7 +1100,7 @@
                 </div>
             </div>
 
-            <!-- 왜 필요한가 -->
+            <!-- Why it is needed -->
             <div class="bg-purple-900/30 border border-purple-700 rounded-lg p-4 mb-6">
                 <div class="flex gap-3">
                     <svg class="w-6 h-6 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1108,7 +1115,7 @@
                 </div>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4 flex gap-3">
                 <a href="https://console.cloud.google.com" target="_blank" rel="noopener"
                    class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition">
@@ -1126,11 +1133,11 @@
                 </a>
             </div>
 
-            <!-- 단계별 가이드 -->
+            <!-- Step-by-step guide -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-4" data-i18n="step6.stepByStepCreate">📋 Step-by-step: create a Service Account</p>
 
-                <!-- Step 6-1: 프로젝트 선택 -->
+                <!-- Step 6-1: choose the project -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-blue-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step6.selectOrCreateA">
                         <span class="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-[10px] font-bold">1</span>
@@ -1143,7 +1150,7 @@
                     </div>
                 </div>
 
-                <!-- Step 6-2: API 활성화 (중요!) -->
+                <!-- Step 6-2: enable the API (important!) -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-red-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step6.enableTheGooglePlay">
                         <span class="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold">2</span>
@@ -1160,7 +1167,7 @@
                     </div>
                 </div>
 
-                <!-- Step 6-3: 서비스 계정 만들기 -->
+                <!-- Step 6-3: create a service account -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-green-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step6.createAServiceAccount">
                         <span class="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-[10px] font-bold">3</span>
@@ -1180,7 +1187,7 @@
                         </div>
                         <div class="text-slate-400 mt-1" data-i18n="step6.findItInThe">→ Find it in the service account list or on the IAM page</div>
 
-                        <!-- 이메일 입력 필드 -->
+                        <!-- Email input field -->
                         <div class="mt-3 pt-3 border-t border-yellow-700/50">
                             <label class="text-slate-300 text-[11px]" data-i18n="step6.pasteTheCreatedService">Paste the created service account email here:</label>
                             <input type="text" id="serviceAccountEmail"
@@ -1195,7 +1202,7 @@
                     </div>
                 </div>
 
-                <!-- Step 6-4: 권한 건너뛰기 -->
+                <!-- Step 6-4: skip permissions -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-slate-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step6.skipThePermissionsStep">
                         <span class="w-5 h-5 bg-slate-500 rounded-full flex items-center justify-center text-[10px] font-bold">4</span>
@@ -1210,7 +1217,7 @@
                     </div>
                 </div>
 
-                <!-- Step 6-5: JSON 키 생성 -->
+                <!-- Step 6-5: create a JSON key -->
                 <div class="mb-4 p-3 bg-slate-800/50 rounded border-l-4 border-orange-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step6.createAndDownloadA">
                         <span class="w-5 h-5 bg-orange-500 rounded-full flex items-center justify-center text-[10px] font-bold">5</span>
@@ -1236,7 +1243,7 @@
                         <div class="text-red-400 text-[10px] mt-1" data-i18n="step6.keepThisFileSafe">⚠️ Keep this file safe. You cannot download it again!</div>
                     </div>
 
-                    <!-- JSON 파일 업로드 (키 생성 직후!) -->
+                    <!-- Upload the JSON file (right after creating the key!) -->
                     <div class="mt-4 ml-7 p-3 bg-green-900/20 border border-green-700 rounded">
                         <label class="block text-sm font-medium mb-2 text-green-300" data-i18n="step6.uploadTheDownloadedJSON">
                             📤 Upload the downloaded JSON file right away!
@@ -1252,7 +1259,7 @@
                     </div>
                 </div>
 
-                <!-- Step 6-6: Play Console에서 서비스 계정 초대 (새로운 방식!) -->
+                <!-- Step 6-6: invite the service account in Play Console (new way!) -->
                 <div class="mb-2 p-3 bg-slate-800/50 rounded border-l-4 border-pink-500">
                     <div class="flex items-center gap-2 mb-2" data-i18n="step6.inviteTheServiceAccount">
                         <span class="w-5 h-5 bg-pink-500 rounded-full flex items-center justify-center text-[10px] font-bold">6</span>
@@ -1260,7 +1267,7 @@
                         <span class="text-green-300 text-[10px] bg-green-900/50 px-2 py-0.5 rounded">Last step!</span>
                     </div>
 
-                    <!-- Play Console 메뉴 시각화 -->
+                    <!-- Play Console menu illustration -->
                     <div class="mt-3 ml-7 p-3 bg-slate-900 rounded font-mono text-[11px]">
                         <div class="text-slate-500 mb-2" data-i18n="step6.playConsoleLeftMenu">┌─ Play Console left menu ─────────────┐</div>
                         <div class="text-slate-400" data-i18n="step6.home">│ 🏠 Home</div>
@@ -1278,7 +1285,7 @@
                         <div data-i18n="step6.clickTheInviteNew">3️⃣ Click the <span class="text-green-400 font-bold">"Invite new users"</span> button at the top right (blue)</div>
                     </div>
 
-                    <!-- 사용자 초대 화면 시각화 -->
+                    <!-- User invite screen illustration -->
                     <div class="mt-3 ml-7 p-3 bg-slate-900 rounded font-mono text-[11px]">
                         <div class="text-slate-300 mb-2" data-i18n="step6.inviteUserScreen">📋 Invite user screen</div>
                         <div class="text-slate-500">─────────────────────────────────────</div>
@@ -1309,7 +1316,7 @@
                         <div data-i18n="step6.selectTheTargetApp">6️⃣ Select the target app (e.g. Earbud Locator) → click <span class="text-green-400 font-bold">"Apply"</span> at the bottom right</div>
                     </div>
 
-                    <!-- 권한 선택 화면 시각화 -->
+                    <!-- Permission selection screen illustration -->
                     <div class="mt-3 ml-7 p-3 bg-slate-900 rounded text-[11px]">
                         <div class="text-slate-300 mb-2 font-bold" data-i18n="step6.chooseTheAppAccess">📋 Choose the app access permissions (pick one)</div>
                         <div class="grid grid-cols-1 gap-2">
@@ -1332,7 +1339,7 @@
                         <div data-i18n="step6.clickInviteUserAt">8️⃣ Click <span class="text-green-400 font-bold">"Invite user"</span> at the bottom right</div>
                     </div>
 
-                    <!-- 확인 팝업 시각화 -->
+                    <!-- Confirm popup illustration -->
                     <div class="mt-3 ml-7 p-3 bg-slate-900 rounded font-mono text-[11px]">
                         <div class="text-slate-400 mb-2" data-i18n="step6.aConfirmationPopupAppears">📋 A confirmation popup appears:</div>
                         <div class="text-slate-500">┌─────────────────────────────────────────────┐</div>
@@ -1350,7 +1357,7 @@
                         <div data-i18n="step6.clickTheSendInvitation">9️⃣ Click the <span class="text-green-400 font-bold">"Send invitation"</span> button</div>
                     </div>
 
-                    <!-- 완료 화면 시각화 (mock 데이터) -->
+                    <!-- Completion screen illustration (mock data) -->
                     <div class="mt-3 ml-7 p-3 bg-slate-900 rounded font-mono text-[11px]">
                         <div class="text-green-400 mb-2" data-i18n="step6.doneScreen">✅ Done screen:</div>
                         <div class="text-slate-500">┌─────────────────────────────────────────────┐</div>
@@ -1377,7 +1384,7 @@
                 </div>
             </div>
 
-            <!-- 체크리스트 -->
+            <!-- Checklist -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-3" data-i18n="step6.step6Checklist">✅ Step 6 checklist</p>
                 <ul class="text-xs text-slate-300 space-y-2">
@@ -1399,7 +1406,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 7: 완료 + GitHub Secrets -->
+        <!-- Step 7: Done + GitHub Secrets -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="7">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3" data-i18n="step7.setupCompleteRegisterThe">
@@ -1421,7 +1428,7 @@
                 </div>
             </div>
 
-            <!-- GitHub Secrets 등록 방법 -->
+            <!-- How to register GitHub Secrets -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <div class="flex gap-3">
                     <svg class="w-6 h-6 text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1457,11 +1464,11 @@
                 </table>
             </div>
 
-            <!-- 내보내기 / 가져오기 섹션 -->
+            <!-- Export / import section -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-slate-300 mb-4" data-i18n="step7.exportImportSettings">📦 Export / import settings</p>
 
-                <!-- 내보내기 버튼들 -->
+                <!-- Export buttons -->
                 <div class="flex flex-wrap gap-3 mb-4">
                     <button onclick="copyAllSecrets()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1489,7 +1496,7 @@
                     </button>
                 </div>
 
-                <!-- 가져오기 -->
+                <!-- Import -->
                 <div class="border-t border-slate-600 pt-4">
                     <p class="text-xs text-slate-400 mb-3" data-i18n="step7.youCanRestoreYour">You can restore your settings from a JSON file you exported earlier.</p>
                     <label class="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600/20 hover:bg-purple-600/30 border-2 border-dashed border-purple-500 rounded-lg cursor-pointer transition">
@@ -1502,7 +1509,7 @@
                 </div>
             </div>
 
-            <!-- 필수 Secrets 설명 -->
+            <!-- Required Secrets description -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-yellow-300 mb-3" data-i18n="step7.whatEachSecretIs">📝 What each Secret is</p>
                 <div class="space-y-3 text-xs text-slate-300">
@@ -1529,7 +1536,7 @@
                 </div>
             </div>
 
-            <!-- 선택사항 Secrets -->
+            <!-- Optional Secrets -->
             <div class="bg-purple-900/30 border border-purple-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-purple-300 mb-3" data-i18n="step7.optionalIfYouUse">🔧 Optional (if you use Firebase)</p>
                 <div class="space-y-2 text-xs text-slate-300">
@@ -1544,7 +1551,7 @@
                 </div>
             </div>
 
-            <!-- ➕ 추가 Secrets (커스텀) -->
+            <!-- ➕ Additional Secrets (custom) -->
             <div class="custom-secrets-section">
                 <h4 class="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2" data-i18n="step7.extraSecretsOptionalOpen">
                     <span>➕ Extra Secrets (optional)</span>
@@ -1559,7 +1566,7 @@
                 </p>
 
                 <div id="customSecretsList">
-                    <!-- 동적으로 생성됨 -->
+                    <!-- Generated dynamically -->
                 </div>
 
                 <button class="add-secret-btn" onclick="addCustomSecret()" data-i18n="step7.addANewSecret">
@@ -1567,7 +1574,7 @@
                 </button>
             </div>
 
-            <!-- ⚠️ draft 상태 수동 출시 안내 -->
+            <!-- ⚠️ Manual release notice for the draft state -->
             <div class="bg-orange-900/30 border border-orange-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-orange-300 mb-3" data-i18n="step7.afterCICDFinishes">⚠️ After CI/CD finishes, you need to release manually!</p>
                 <p class="text-xs text-slate-300 mb-3" data-i18n="step7.itIsCurrentlySet">
@@ -1588,7 +1595,7 @@
                 </div>
             </div>
 
-            <!-- 다음 단계 -->
+            <!-- Next steps -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-slate-300 mb-3" data-i18n="step7.nextStepsAfterSetup">🚀 Next steps after setup</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
@@ -1619,7 +1626,7 @@
                 <button class="px-6 py-2.5 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 rounded-lg font-medium transition" onclick="resetWizard()" data-i18n="step7.startOver">🔄 Start over</button>
             </div>
 
-            <!-- Star 부탁 -->
+            <!-- Star request -->
             <div class="mt-6 flex items-center justify-center gap-3 text-slate-400 text-sm">
                 <span data-i18n="step7.ifThisHelpedPlease">If this helped, please give it a ⭐️!!</span>
                 <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"

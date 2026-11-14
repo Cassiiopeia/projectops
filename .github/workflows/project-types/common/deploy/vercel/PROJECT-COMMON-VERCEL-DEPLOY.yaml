@@ -1,17 +1,17 @@
 # ===================================================================
 # PROJECT-COMMON-VERCEL-DEPLOY.yaml
-# Vercel 배포 워크플로우 v1.0
+# Vercel deploy workflow v1.0
 # ===================================================================
 #
-# 프론트엔드 프로젝트(React/Next.js/Vite 등)를 Vercel 프로덕션으로 배포합니다.
-# 타입 비종속 배포 타겟 — 마법사에서 배포 방식으로 vercel을 선택하면 설치됩니다.
-# 필요 Secrets:
+# Deploys a frontend project (React/Next.js/Vite, etc.) to Vercel production.
+# A type-independent deploy target — installed when vercel is chosen as the deploy method in the wizard.
+# Required Secrets:
 # - VERCEL_TOKEN      : Vercel Access Token (https://vercel.com/account/tokens)
-# - VERCEL_ORG_ID     : 프로젝트의 .vercel/project.json의 orgId
-# - VERCEL_PROJECT_ID : 프로젝트의 .vercel/project.json의 projectId
-#   (로컬에서 `vercel link` 1회 실행하면 .vercel/project.json이 생성됩니다)
+# - VERCEL_ORG_ID     : orgId in the project's .vercel/project.json
+# - VERCEL_PROJECT_ID : projectId in the project's .vercel/project.json
+#   (running `vercel link` once locally creates .vercel/project.json)
 #
-# PROJECT_PATH: 프론트 프로젝트가 서브폴더에 있으면 그 경로로 수정 (예: "client")
+# PROJECT_PATH: if the frontend project is in a subfolder, set that path (e.g. "client")
 # ===================================================================
 
 name: PROJECT-COMMON-VERCEL-DEPLOY
@@ -24,18 +24,18 @@ on:
   push:
     branches:
       - main
-    # @wizard paths-anchor (모노레포일 때 integrator가 paths 필터를 여기 주입)
+    # @wizard paths-anchor (for monorepos the integrator injects the paths filter here)
   workflow_dispatch:
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-  PROJECT_PATH: "."      # 프론트 프로젝트 경로 (모노레포면 서브폴더, 예: "client")
+  PROJECT_PATH: "."      # frontend project path (subfolder for monorepos, e.g. "client")
   NODE_VERSION: "20"
 
 jobs:

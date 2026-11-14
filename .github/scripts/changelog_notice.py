@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""릴리스 노트 생성 결과 안내 (#566) — stdlib 전용.
+"""Release-notes generation notice (#566) — stdlib only.
 
-두 곳에 나눠 알린다. 목적이 다르기 때문이다.
+Reports in two places because their purposes differ.
 
-  Job Summary : 매번. 어떤 경로로 만들어졌는지 기록. **이메일 알림이 가지 않는다.**
-  PR 댓글     : AI를 하나도 쓰지 못했을 때만. 품질이 실제로 떨어진 경우다.
+  Job Summary : every time. Records which path produced the notes. **No email notification.**
+  PR comment  : only when no AI could be used at all — quality actually dropped.
 
-"잘 돌아갔는데 경로만 바뀐 것"(copilot 소진 → 외부 AI 성공)은 알리지 않는다.
-매 릴리스마다 댓글이 오면 소음이 되고, 소음이 되면 아무도 읽지 않는다.
+"Worked fine, only the path changed" (copilot exhausted -> external AI succeeded) is not reported.
+A comment on every release becomes noise, and noise gets read by nobody.
 
-댓글은 마커로 기존 것을 찾아 **갱신**한다. GitHub은 댓글 수정에 알림을 보내지 않으므로
-이메일은 처음 한 번만 간다.
+The comment is found by its marker and **updated**. GitHub sends no notification for comment edits,
+so email goes out only the first time.
 
-사용:
+Usage:
   changelog_notice.py --repo owner/name --pr 12 --result provider_result.json
-환경: GITHUB_TOKEN(댓글 작성), GITHUB_STEP_SUMMARY(요약 기록 위치)
+Env: GITHUB_TOKEN (comment writing), GITHUB_STEP_SUMMARY (summary location)
 """
 import argparse
 import json
@@ -26,7 +26,7 @@ from i18n.messages import resolve_language, t
 
 MARKER = "<!-- PROJECTOPS-CHANGELOG-NOTICE -->"
 
-# 사람이 읽는 이름 — 내부 라벨을 그대로 보여주지 않는다
+# Human-readable names — internal labels are not shown as is
 LABELS = {
     "copilot": "Copilot",
     "openai:gemini": "Gemini",
@@ -45,7 +45,7 @@ def label(name, lang=None):
 
 
 def build_summary(result, lang=None):
-    """Job Summary용 마크다운 — 어떤 경로를 거쳤는지 한눈에."""
+    """Markdown for the Job Summary — which path it went through at a glance."""
     lang = lang or resolve_language()
     winner = result.get("provider")
     attempted = result.get("attempted") or []
@@ -65,12 +65,12 @@ def build_summary(result, lang=None):
 
 
 def build_comment(result, lang=None):
-    """PR 댓글용 — AI를 하나도 못 썼을 때만. 없으면 None."""
+    """For the PR comment — only when no AI could be used. None otherwise."""
     if result.get("provider") != "commit":
         return None
     failed = result.get("failed") or []
     if not failed:
-        # 처음부터 commit만 시도한 경우(설정대로 동작) — 알릴 것이 없다
+        # Tried only commit from the start (working as configured) — nothing to report
         return None
 
     lang = lang or resolve_language()
@@ -99,22 +99,22 @@ def build_comment(result, lang=None):
     ])
 
 
-# 테스트가 이 이름을 모킹한다 — upsert 가 호출 시점에 이 모듈의 request 를 쓴다
+# Tests mock this name — upsert uses this module's request at call time
 request = github_api.request
 
 
 def upsert_comment(repo, pr, token, body):
-    """마커가 있는 기존 댓글을 찾아 갱신, 없으면 생성. 실패는 경고만 (릴리스를 막지 않음)."""
+    """Find the existing comment with the marker and update it, else create one. Failures only warn (never block the release)."""
     try:
         action, comment_id = github_api.upsert_marker_comment(
             repo, pr, token, body, MARKER, request_function=request)
     except OSError as e:
-        print(f"⚠️ 안내 댓글 처리 실패 ({e}) — 릴리스는 계속됩니다", file=sys.stderr)
+        print(f"⚠️ Notice comment failed ({e}) — the release continues", file=sys.stderr)
         return
     if action == "updated":
-        print(f"📝 안내 댓글 갱신 (#{comment_id}) — 알림은 가지 않습니다")
+        print(f"📝 Notice comment updated (#{comment_id}) — no notification is sent")
     else:
-        print("📣 안내 댓글 작성")
+        print("📣 Notice comment posted")
 
 
 def main():
@@ -128,8 +128,8 @@ def main():
         with open(args.result, encoding="utf-8") as f:
             result = json.load(f)
     except (OSError, ValueError) as e:
-        print(f"⚠️ 결과 파일을 읽지 못했습니다 ({e})", file=sys.stderr)
-        return 0  # 안내 실패가 릴리스를 막아선 안 된다
+        print(f"⚠️ Could not read the result file ({e})", file=sys.stderr)
+        return 0  # a failed notice must not block the release
 
     summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary_path:
@@ -137,7 +137,7 @@ def main():
             with open(summary_path, "a", encoding="utf-8") as f:
                 f.write(build_summary(result) + "\n")
         except OSError as e:
-            print(f"⚠️ Job Summary 기록 실패 ({e})", file=sys.stderr)
+            print(f"⚠️ Job Summary write failed ({e})", file=sys.stderr)
     else:
         print(build_summary(result))
 
@@ -146,7 +146,7 @@ def main():
     if body and token:
         upsert_comment(args.repo, args.pr, token, body)
     elif body:
-        print("ℹ️ GITHUB_TOKEN 없음 — 안내 댓글을 건너뜁니다", file=sys.stderr)
+        print("ℹ️ No GITHUB_TOKEN — skipping the notice comment", file=sys.stderr)
     return 0
 
 

@@ -1,17 +1,17 @@
 # ===================================================================
-# Spring GitHub Packages 라이브러리 배포 워크플로우
+# Spring GitHub Packages library publish workflow
 # ===================================================================
 #
-# Java 라이브러리 모듈을 GitHub Packages(Maven repo)에 자동 배포합니다.
-# Nexus 없이 GitHub만으로 의존성 호스팅이 가능합니다.
+# Publishes a Java library module to GitHub Packages (Maven repo) automatically.
+# Hosts dependencies with GitHub alone, without Nexus.
 #
-# ⚠️ Java 라이브러리 모듈 배포 전용 CICD입니다.
-#    Spring Boot 애플리케이션 배포가 아닙니다.
+# ⚠️ CI/CD only for publishing Java library modules.
+#    Not for deploying Spring Boot applications.
 #
 # ===================================================================
-# 🛠️ build.gradle 요구사항
+# 🛠️ build.gradle requirements
 # ===================================================================
-# publishing.repositories.maven 블록에 GitHub Packages 항목 추가:
+# Add a GitHub Packages entry to the publishing.repositories.maven block:
 #
 #   maven {
 #     name = "GitHubPackages"
@@ -22,9 +22,9 @@
 #     }
 #   }
 #
-# 💡 Free 계정 제한 (Private repo 기준):
-#   - 월 500MB 저장 + 1GB 전송 무료
-#   - Public repo는 무제한 무료
+# 💡 Free account limits (private repos):
+#   - 500MB storage + 1GB transfer free per month
+#   - Public repos are free without limit
 # ===================================================================
 
 name: PROJECT-SPRING-GITHUB-PACKAGES-PUBLISH

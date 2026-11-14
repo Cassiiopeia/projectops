@@ -1,9 +1,16 @@
 {
   "name": "Android Play Store Setup Wizard",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Setup wizard for deploying a Flutter Android app to the Play Store",
-  "lastUpdated": "2026-11-13",
+  "lastUpdated": "2026-11-14",
   "changelog": [
+    {
+      "version": "1.8.1",
+      "date": "2026-11-14",
+      "changes": [
+        "Fastfile template log and error messages are in English (projectops#1212)"
+      ]
+    },
     {
       "version": "1.8.0",
       "date": "2026-11-13",

@@ -2,21 +2,21 @@
 # PROJECT-COMMON-SUH-ISSUE-HELPER
 # ===================================================
 #
-# GitHub Issue 생성/제목 수정 시 브랜치명과 커밋 메시지 템플릿을 자동으로 댓글 생성합니다.
-# 로직: .github/scripts/issue_helper.py (외부 액션 의존 없음 — v4.3.0에서 내재화)
+# Automatically comments the branch name and commit message template when a GitHub issue is created or retitled.
+# Logic: .github/scripts/issue_helper.py (no external action — brought in-house in v4.3.0)
 #
-# ⚙️ 커스터마이징: version.yml → metadata.template.options.issue_helper
+# ⚙️ Customization: version.yml → metadata.template.options.issue_helper
 #   branch_prefix / max_branch_length / timezone / commit_template
 #   / commit_type_map / comment_marker / show_guide
-#   (섹션이 없으면 전부 기본값으로 동작)
+#   (without the section everything uses defaults)
 #
-# 🔑 토큰: Public 레포는 GITHUB_TOKEN 자동 사용.
-#   Private 레포에서 다른 워크플로우 연쇄 트리거가 필요하면 _GITHUB_PAT_TOKEN 시크릿 등록.
+# 🔑 Token: public repos use GITHUB_TOKEN automatically.
+#   Register the _GITHUB_PAT_TOKEN secret if a private repo needs to chain-trigger other workflows.
 #
-# ⚠️ 이 댓글을 기계 파싱하는 소비자가 있습니다 (형식 변경 금지):
+# ⚠️ Some consumers machine-parse this comment (do not change the format):
 #   - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml
-#     : "Guide by ProjectOps" 댓글에서 "### 브랜치" 코드블록을 추출해 빌드 대상 결정
-#   상세: docs/BRANCH-CONVENTION.md (템플릿 레포)
+#     : extracts the "### 브랜치" code block from the "Guide by ProjectOps" comment to pick the build target
+#   Details: docs/BRANCH-CONVENTION.md (template repo)
 #
 # ===================================================
 

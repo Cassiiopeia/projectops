@@ -1,40 +1,40 @@
 # ===================================================================
-# Flutter 테스트 앱 빌드 트리거 워크플로우 (projectops)
+# Flutter test app build trigger workflow (projectops)
 # ===================================================================
 #
-# 이 워크플로우는 PR 또는 이슈에 댓글로 빌드 명령어를 작성하면
-# Android와 iOS 테스트 앱 빌드를 자동으로 트리거합니다.
+# When a build command is written as a comment on a PR or issue, this workflow
+# triggers the Android and iOS test app builds automatically.
 #
-# 주요 특징:
-# - PR/이슈 댓글 감지: "@projectops app build / apk build / ios build" 키워드 감지 (어순 무관: build app 도 동작)
-# - repository_dispatch 이벤트로 빌드 워크플로우 트리거
-# - PR/이슈 번호 + 빌드 횟수로 만든 번호를 payload 의 build_number 로 보낸다 (예: 38700, 38701...)
-#   ⚠️ 옛 빌드 워크플로 호환용이다 (#643). 새 빌드 워크플로는 이 값을 읽지 않고 스스로 번호를 정한다.
-#   마법사는 사용자가 수정한 워크플로를 덮어쓰지 않아 트리거만 새 것이고 빌더는 옛 수정본인
-#   저장소가 생긴다. 옛 빌더는 이 값을 빌드 번호로 그대로 쓰므로 비우거나 지우면 그 저장소의
-#   테스트 빌드가 깨진다. 다음 minor 에서 옛 빌더가 사라진 뒤 제거한다.
-# - 브랜치명에서 이슈 번호 자동 추출 (YYYYMMDD_#이슈번호_내용 형식)
-# - 테스트 버전은 version.yml에서 동적으로 읽어 사용 (빌드 번호로 운영/테스트 구분)
+# Key points:
+# - Detects PR/issue comments: the "@projectops app build / apk build / ios build" keywords (any word order: build app works too)
+# - Triggers the build workflows via repository_dispatch events
+# - Sends a number made from PR/issue number + build count as build_number in the payload (e.g. 38700, 38701...)
+#   ⚠️ For compatibility with old build workflows (#643). New build workflows ignore this value and pick their own number.
+#   The wizard does not overwrite workflows the user edited, so some repos have a new trigger with an old edited builder.
+#   Old builders use this value as the build number as is, so emptying or removing it breaks those repos'
+#   test builds. Remove it in the next minor, once the old builders are gone.
+# - extracts the issue number from the branch name automatically (YYYYMMDD_#issueNumber_text format)
+# - The test version is read from version.yml (production/test told apart by build number)
 #
-# ⚠️ 브랜치 규칙 의존:
-# 이 워크플로우는 브랜치명 `YYYYMMDD_#이슈번호_제목` 형식에서 이슈 번호를 추출합니다.
-# 이슈 생성 시 SUH-ISSUE-HELPER 댓글이 제안하는 브랜치명을 그대로 사용하세요.
-# 형식이 다르면: 이슈 댓글 빌드에서 브랜치를 찾지 못합니다.
-# 또한 이슈의 "Guide by ProjectOps" 댓글(### 브랜치 코드블록)을 파싱하므로
-# SUH-ISSUE-HELPER 워크플로우가 활성화되어 있어야 이슈 댓글 빌드가 동작합니다.
-# 상세: docs/BRANCH-CONVENTION.md (템플릿 레포)
+# ⚠️ Depends on the branch rule:
+# This workflow extracts the issue number from the branch name format `YYYYMMDD_#issueNumber_title`.
+# Use the branch name suggested by the SUH-ISSUE-HELPER comment when the issue is created.
+# With a different format, issue comment builds cannot find the branch.
+# It also parses the issue's "Guide by ProjectOps" comment (### 브랜치 code block),
+# so issue comment builds work only with the SUH-ISSUE-HELPER workflow enabled.
+# Details: docs/BRANCH-CONVENTION.md (template repo)
 #
-# 사용 방법:
-# - PR에 댓글 작성: "@projectops app build" (Android + iOS 모두 빌드)
-# - PR에 댓글 작성: "@projectops apk build" (Android만 빌드)
-# - PR에 댓글 작성: "@projectops ios build" (iOS만 빌드)
-# - 이슈에 댓글 작성: 위 명령어 동일 (Guide by ProjectOps 댓글 필요)
-# - 어순은 무관: "build app" / "build apk" / "build ios"로 적어도 동일하게 동작
-# - 특정 브랜치 지정: "@projectops app build <브랜치명>" (명령어 뒤에 브랜치명을 적으면 해당 브랜치를 빌드)
-#   예: "@projectops apk build 20260609_#349_feature" → 해당 브랜치로 Android 빌드
-#   브랜치명을 생략하면 PR head 또는 이슈의 Guide by ProjectOps 댓글 브랜치를 사용
+# How to use:
+# - Comment on a PR: "@projectops app build" (builds Android + iOS)
+# - Comment on a PR: "@projectops apk build" (Android only)
+# - Comment on a PR: "@projectops ios build" (iOS only)
+# - Comment on an issue: same commands (needs the Guide by ProjectOps comment)
+# - Word order does not matter: "build app" / "build apk" / "build ios" work the same
+# - Pick a branch: "@projectops app build <branch name>" (a branch name after the command builds that branch)
+#   e.g. "@projectops apk build 20260609_#349_feature" → Android build of that branch
+#   Without a branch name, the PR head or the branch in the issue's Guide by ProjectOps comment is used
 #
-# 트리거되는 워크플로우:
+# Triggered workflows:
 # - PROJECT-FLUTTER-ANDROID-TEST-APK.yaml (event_type: build-android-app)
 # - PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml (event_type: build-ios-app)
 #
@@ -46,10 +46,10 @@ on:
   issue_comment:
     types: [created]
 
-# ⚠️ repository_dispatch 는 **기본 브랜치(main)의 워크플로 정의**로 실행된다 (#595).
-#    이 파일을 develop 에서 고치고 테스트 빌드를 다시 걸면 **여전히 옛 정의가 돈다** —
-#    고친 게 안 먹은 것처럼 보여 원인을 엉뚱한 데서 찾게 된다.
-#    반드시 기본 브랜치에 반영된 뒤에 확인할 것. (build 대상 브랜치와는 별개다)
+# ⚠️ repository_dispatch runs with **the workflow definition on the default branch (main)** (#595).
+#    If you edit this file on develop and trigger a test build again, **the old definition still runs** —
+#    the fix looks ineffective and you end up hunting the cause in the wrong place.
+#    Always check after it lands on the default branch. (Separate from the branch being built)
 
 permissions:
   contents: write
@@ -59,26 +59,26 @@ permissions:
 jobs:
   trigger-builds:
     name: Trigger build workflows
-    # @projectops app build / @projectops apk build / @projectops ios build 키워드 감지 (어순 무관)
-    # ⚠️ 봇이 만든 안내 댓글에는 반응하지 않는다 (#576).
-    # SUH-ISSUE-HELPER가 새 이슈에 다는 안내문에 사용법으로 `@projectops app build`가 적혀 있어,
-    # 그 문구가 아래 조건을 그대로 만족했다. 이슈를 만들기만 해도 빌드가 발동하고,
-    # 브랜치가 아직 없으니 "브랜치를 찾을 수 없습니다" 실패 댓글이 달렸다.
-    # 사람이 직접 다는 댓글에는 이 마커가 없으므로 기존 동작에는 영향이 없다.
+    # Detects the @projectops app build / @projectops apk build / @projectops ios build keywords (any word order)
+    # ⚠️ Does not react to guide comments made by bots (#576).
+    # The guide SUH-ISSUE-HELPER posts on new issues shows `@projectops app build` as usage,
+    # and that text satisfied the condition below as is. Merely creating an issue fired a build,
+    # and since the branch did not exist yet, a "branch not found" failure comment was posted.
+    # Comments written by people lack this marker, so existing behavior is unaffected.
     #
-    # ⚠️ 댓글 작성자 권한 검사 (#645).
-    # 공개 저장소에서는 누구나 댓글을 달 수 있고, 이 트리거는 서명 키와 스토어 시크릿이
-    # 들어가는 빌드를 깨운다. 그래서 author_association 이 허용 목록에 있어야 한다.
-    # - 기본 허용: OWNER, MEMBER, COLLABORATOR
-    # - 비공개 저장소는 검사하지 않는다: 댓글을 달 수 있는 사람이 이미 협업자이고,
-    #   비공개 조직 멤버는 MEMBER 가 아닌 값으로 나오는 경우가 있어 기존 사용자가 막힐 수 있다.
-    # - 공개 저장소에서 팀원이 막히면 저장소 변수 PROJECTOPS_TRIGGER_ASSOCIATIONS 로 덮어쓴다.
-    #   예: ["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]
-    #   ⚠️ 값은 반드시 올바른 JSON 배열이어야 한다. 잘못된 JSON 이면 fromJSON 이 실패해
-    #   조건 평가 오류로 이 워크플로가 모든 댓글에서 실패 처리된다. 변수를 지우면 기본값으로 돌아간다.
-    # - 허용되지 않은 작성자의 댓글은 job 이 실행되지 않아 조용히 무시된다.
-    # ⚠️ 위 permissions.contents: write 는 줄이지 않는다. 아래에서 GITHUB_TOKEN 으로
-    #   repos.createDispatchEvent 를 호출하는데 그 API 가 contents: write 를 요구한다.
+    # ⚠️ Comment author permission check (#645).
+    # Anyone can comment on a public repo, and this trigger wakes builds that use
+    # signing keys and store secrets. So author_association must be in the allow list.
+    # - Allowed by default: OWNER, MEMBER, COLLABORATOR
+    # - Private repos are not checked: anyone who can comment is already a collaborator,
+    #   and private org members sometimes show up as something other than MEMBER, which could block existing users.
+    # - If team members are blocked on a public repo, override with the repo variable PROJECTOPS_TRIGGER_ASSOCIATIONS.
+    #   e.g. ["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]
+    #   ⚠️ The value must be a valid JSON array. Invalid JSON makes fromJSON fail, and
+    #   the condition evaluation error fails this workflow on every comment. Deleting the variable restores the default.
+    # - Comments from authors not allowed do not run the job and are silently ignored.
+    # ⚠️ Do not reduce permissions.contents: write above. Below, GITHUB_TOKEN calls
+    #   repos.createDispatchEvent, and that API requires contents: write.
     if: |
       !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') &&
       (
@@ -94,9 +94,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -123,7 +123,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            // 키워드 판별은 소문자로(대소문자 무관 인식), 브랜치명 캡처는 원본 본문에서(대소문자 보존)
+            // Keyword detection is lowercase (case-insensitive); the branch name is captured from the original body (case kept)
             const comment = context.payload.comment.body.toLowerCase();
             const rawComment = context.payload.comment.body;
 
@@ -133,29 +133,29 @@ jobs:
             let customBranch = '';
             let m;
 
-            // 명령어 키워드 뒤의 같은 줄 토큰을 옵셔널 브랜치 인자로 캡처
-            // (줄바꿈 너머 단어가 브랜치로 오인되지 않도록 [^\S\r\n]+ 로 같은 줄 공백만 허용)
-            // 브랜치명은 rawComment에서 i 플래그로 다시 추출 → Feature/MyBranch 같은 대문자 브랜치 보존
+            // Capture a same-line token after the command keyword as the optional branch argument
+            // (only same-line whitespace [^\S\r\n]+ is allowed, so a word past a newline is not taken as the branch)
+            // The branch name is re-extracted from rawComment with the i flag → keeps uppercase branches like Feature/MyBranch
             //
-            // 어순은 양방향 지원: "{타입} build"(app/apk/ios build)와 "build {타입}"(build app 등) 모두 허용.
-            // apk가 app으로 오인되지 않도록 app 토큰은 \b 단어경계로 정확히 끊는다(apk·application 제외).
-            // apk/ios를 app보다 먼저 검사해, "apk build"가 app 분기로 새지 않게 한다.
+            // Both word orders: "{type} build" (app/apk/ios build) and "build {type}" (build app, etc.) are accepted.
+            // The app token is cut exactly at a \b word boundary so apk is not mistaken for app (apk, application excluded).
+            // apk/ios are checked before app so "apk build" does not leak into the app branch.
             if (comment.match(/@projectops[^\S\r\n]+apk[^\S\r\n]+build/) || comment.match(/@projectops[^\S\r\n]+build[^\S\r\n]+apk/)) {
-              // @projectops apk build [브랜치] (또는 build apk) → Android만
+              // @projectops apk build [branch] (or build apk) → Android only
               buildAndroid = true;
               buildType = 'apk';
               m = rawComment.match(/@projectops[^\S\r\n]+apk[^\S\r\n]+build(?:[^\S\r\n]+(\S+))?/i)
                 || rawComment.match(/@projectops[^\S\r\n]+build[^\S\r\n]+apk(?:[^\S\r\n]+(\S+))?/i);
               customBranch = (m && m[1]) || '';
             } else if (comment.match(/@projectops[^\S\r\n]+ios[^\S\r\n]+build/) || comment.match(/@projectops[^\S\r\n]+build[^\S\r\n]+ios/)) {
-              // @projectops ios build [브랜치] (또는 build ios) → iOS만
+              // @projectops ios build [branch] (or build ios) → iOS only
               buildIos = true;
               buildType = 'ios';
               m = rawComment.match(/@projectops[^\S\r\n]+ios[^\S\r\n]+build(?:[^\S\r\n]+(\S+))?/i)
                 || rawComment.match(/@projectops[^\S\r\n]+build[^\S\r\n]+ios(?:[^\S\r\n]+(\S+))?/i);
               customBranch = (m && m[1]) || '';
             } else if (comment.match(/@projectops[^\S\r\n]+app\b[^\S\r\n]+build/) || comment.match(/@projectops[^\S\r\n]+build[^\S\r\n]+app\b/)) {
-              // @projectops app build [브랜치] (또는 build app) → Android + iOS 모두
+              // @projectops app build [branch] (or build app) → Android + iOS
               buildAndroid = true;
               buildIos = true;
               buildType = 'app';
@@ -175,7 +175,7 @@ jobs:
             }
 
       - name: Add 👀 reaction to the comment
-        # 명령이 아닌 댓글에는 반응하지 않는다 (#647)
+        # Do not react to comments that are not commands (#647)
         if: steps.build_type.outputs.buildType != ''
         uses: actions/github-script@v7
         with:
@@ -194,7 +194,7 @@ jobs:
 
       - name: Read PR/issue information
         id: source_info
-        # 부분 문자열만 맞은 댓글(happy, application 등)은 조용히 끝낸다 (#647)
+        # Comments matching only a substring (happy, application, etc.) end quietly (#647)
         if: steps.build_type.outputs.buildType != ''
         uses: actions/github-script@v7
         env:
@@ -211,8 +211,8 @@ jobs:
             let headSha = '';
             let relatedIssueNumber = '';
 
-            // 1. 먼저 PR인지 확인
-            // 404 만 "PR 아님(이슈)"이다. rate limit·5xx 는 재시도하고, 끝내 실패하면 이슈로 단정하지 않고 실패로 남긴다 (#647)
+            // 1. Check whether it is a PR first
+            // Only 404 means "not a PR (an issue)". rate limit and 5xx are retried; if it still fails, it fails instead of assuming an issue (#647)
             let pr = null;
             for (let attempt = 1; attempt <= 3; attempt++) {
               try {
@@ -248,7 +248,7 @@ jobs:
               console.log(`🌿 Branch: ${branchName}`);
               console.log(`📝 Commit: ${headSha}`);
 
-              // 브랜치명에서 이슈 번호 추출 (#280 형식)
+              // Extract the issue number from the branch name (#280 format)
               const issueMatch = branchName.match(/#(\d+)/);
               relatedIssueNumber = issueMatch ? issueMatch[1] : '';
 
@@ -259,12 +259,12 @@ jobs:
             } else {
               console.log('ℹ️ Not a PR. Looking for the branch on the issue...');
 
-              // 2. PR이 아니면 이슈에서 "Guide by ProjectOps" 댓글 찾기
+              // 2. If not a PR, find the "Guide by ProjectOps" comment on the issue
               sourceType = 'ISSUE';
               sourceNumber = issueNumber.toString();
               relatedIssueNumber = issueNumber.toString();
 
-              // 댓글에서 브랜치를 직접 지정한 경우 Guide 댓글 탐색을 건너뛴다
+              // If the comment named a branch directly, skip searching for the Guide comment
               if (customBranch) {
                 branchName = customBranch;
                 console.log(`🌿 Using the branch named in the comment (Guide comment skipped): ${branchName}`);
@@ -287,7 +287,7 @@ jobs:
                   per_page: 100
                 });
 
-                // "Guide by ProjectOps" 댓글 찾기
+                // Find the "Guide by ProjectOps" comment
                 const guideComment = comments.data.find(c =>
                   c.body.includes('Guide by ProjectOps') || c.body.includes('Guide by SUH-LAB')
                 );
@@ -301,7 +301,7 @@ jobs:
 
                 console.log('✅ Found the "Guide by ProjectOps" comment');
 
-                // 브랜치명 추출 (### 브랜치 다음 ``` 블록 내용)
+                // Extract the branch name (the ``` block after ### 브랜치)
                 const branchMatch = guideComment.body.match(/### 브랜치\s*```\s*([\s\S]*?)\s*```/);
 
                 if (!branchMatch) {
@@ -323,7 +323,7 @@ jobs:
               }
             }
 
-            // 결과 출력
+            // Print results
             core.setOutput('found', 'true');
             core.setOutput('sourceType', sourceType);
             core.setOutput('sourceNumber', sourceNumber);
@@ -335,7 +335,7 @@ jobs:
         if: steps.build_type.outputs.buildType != '' && steps.source_info.outputs.found != 'true'
         uses: actions/github-script@v7
         env:
-          # 댓글/브랜치명에서 온 문자열이 섞일 수 있어 스크립트 소스에 넣지 않고 env 로 전달 (#646)
+          # Strings from comments/branch names may be mixed in, so pass via env instead of script source (#646)
           ERROR_MESSAGE: ${{ steps.source_info.outputs.errorMessage }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -344,7 +344,7 @@ jobs:
             const issueNumber = context.payload.issue.number;
             const errorMessage = process.env.ERROR_MESSAGE;
 
-            // 서명·브랜치 제목은 구버전 소비자가 읽는 계약 문자열이라 값으로 넣는다 (contracts.py)
+            // The signature and branch heading are contract strings old consumers read, so they are passed as values (contracts.py)
             const body = t('build_trigger.source_error.body', {
               error: errorMessage, signature: 'Guide by ProjectOps', heading: '### 브랜치'
             });
@@ -439,7 +439,7 @@ jobs:
             console.log(`📊 Counting builds of ${sourceType} #${sourceNumber}...`);
             console.log(`📱 Build type: ${buildType}`);
 
-            // PR/이슈의 모든 댓글 조회
+            // List all comments on the PR/issue
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -447,13 +447,13 @@ jobs:
               per_page: 100
             });
 
-            // 빌드 타입에 따라 해당 플랫폼의 빌드 횟수 카운트
-            // 어순 무관 카운트: includes('build') && includes('{타입}') 로 "ios build"·"build ios" 모두 잡는다.
-            // iOS:  ios 빌드 + app(공용) 빌드 통합 (App Store Connect는 앱 전체에서 빌드 번호 unique)
-            // Android: apk 빌드 + app(공용) 빌드 통합 (Play Store도 동일)
-            // App: 모든 빌드 명령어 통합 카운트
-            // 댓글이 어떤 빌드 명령인지 단어 단위로 판별한다 (#647). 어순 무관.
-            // includes 로 세면 "application" 같은 단어가 섞인 댓글까지 세어 번호가 어긋난다.
+            // Count builds per platform by build type
+            // Word-order-independent count: includes('build') && includes('{type}') catches both "ios build" and "build ios".
+            // iOS:  ios builds + app (shared) builds combined (App Store Connect requires build numbers unique across the app)
+            // Android: apk builds + app (shared) builds combined (same for the Play Store)
+            // App: all build commands counted together
+            // Decide which build command a comment is, word by word (#647). Any word order.
+            // Counting with includes would also count comments containing words like "application" and skew the number.
             const cmdType = (body) => {
               const t = String(body || '').toLowerCase();
               const m = t.match(/@projectops[^\S\r\n]+(apk|ios|app)\b[^\S\r\n]+build\b/)
@@ -462,7 +462,7 @@ jobs:
             };
             const types = comments.data.map(c => cmdType(c.body));
 
-            // iOS: ios + app(공용), Android: apk + app(공용) — 스토어는 앱 전체에서 빌드 번호가 unique
+            // iOS: ios + app (shared), Android: apk + app (shared) — stores require build numbers unique across the app
             let buildCount = 0;
             if (buildType === 'ios') {
               buildCount = types.filter(t => t === 'ios' || t === 'app').length;
@@ -475,7 +475,7 @@ jobs:
               console.log(`📊 App build count: all build commands combined`);
             }
 
-            // 빌드 번호: 소스번호 + 2자리 카운트 (38800, 38801, 38802...)
+            // Build number: source number + 2-digit count (38800, 38801, 38802...)
             const buildNumber = `${sourceNumber}${String(buildCount).padStart(2, '0')}`;
 
             console.log(`📊 ${sourceType} #${sourceNumber}: ${buildType} build #${buildCount}`);
@@ -572,7 +572,7 @@ jobs:
 
             console.log('✅ iOS build workflow triggered');
 
-      # 트리거 완료 댓글은 제거됨 - Android/iOS 각각의 진행상황 댓글이 이 역할을 대체
+      # The trigger-complete comment was removed - each Android/iOS progress comment replaces it
       - name: Log the trigger result
         if: steps.source_info.outputs.found == 'true' && steps.check_branch.outputs.exists == 'true'
         env:

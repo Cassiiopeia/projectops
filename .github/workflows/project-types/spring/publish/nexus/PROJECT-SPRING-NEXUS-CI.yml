@@ -1,10 +1,10 @@
 # ===================================================================
-# Spring Nexus CI 워크플로우
+# Spring Nexus CI workflow
 # ===================================================================
 #
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# GRADLE_PROPERTIES: gradle.properties 파일 내용 (Nexus 인증 정보 포함)
+# GRADLE_PROPERTIES: contents of gradle.properties (includes Nexus credentials)
 # ===================================================================
 
 name: PROJECT-SPRING-NEXUS-CI
@@ -29,9 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-    # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-    # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+    # Comment text follows the repo language (version.yml options.language) (#769).
+    # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+    # Fetched from the default branch — the merge ref of a PR closed event may already be gone
     - name: Check out the message catalog
       continue-on-error: true
       uses: actions/checkout@v5
@@ -112,31 +112,31 @@ jobs:
       id: report
       if: always()
       run: |
-        # 상태 값은 뒤 스텝의 if: 조건이 비교하는 고정 출력값 (댓글에서만 언어별로 바꿔 보여 줌, #769)
-        # 빌드 상태 확인 (exit code 기반)
+        # Status values are fixed outputs compared by later steps' if: conditions (shown per language only in the comment, #769)
+        # Check build status (exit code based)
         COMPILE_STATUS="✅ passed"
         TEST_STATUS="✅ passed"
         BUILD_STATUS="✅ passed"
         
-        # 컴파일 상태 확인
+        # Check compile status
         COMPILE_EXIT_CODE="${{ steps.compile.outputs.compile_exit_code }}"
         if [ "$COMPILE_EXIT_CODE" != "0" ] && [ "$COMPILE_EXIT_CODE" != "" ]; then
           COMPILE_STATUS="❌ failed"
         fi
         
-        # 테스트 상태 확인  
+        # Check test status
         TEST_EXIT_CODE="${{ steps.test.outputs.test_exit_code }}"
         if [ "$TEST_EXIT_CODE" != "0" ] && [ "$TEST_EXIT_CODE" != "" ]; then
           TEST_STATUS="❌ failed"
         fi
         
-        # 빌드 상태 확인
+        # Check build status
         BUILD_EXIT_CODE="${{ steps.build.outputs.build_exit_code }}"
         if [ "$BUILD_EXIT_CODE" != "0" ] && [ "$BUILD_EXIT_CODE" != "" ]; then
           BUILD_STATUS="❌ failed"
         fi
         
-        # 전체 빌드 상태
+        # Overall build status
         OVERALL_STATUS="✅ passed"
         if [ "$COMPILE_EXIT_CODE" != "0" ] || [ "$TEST_EXIT_CODE" != "0" ] || [ "$BUILD_EXIT_CODE" != "0" ]; then
           OVERALL_STATUS="❌ failed"
@@ -151,10 +151,10 @@ jobs:
       id: errors
       if: always()
       run: |
-        # 댓글에 들어가는 제목·안내는 레포 언어를 따른다 (#769). 카탈로그가 없으면 영문
+        # Comment titles and guidance follow the repo language (#769). English without the catalog
         msg() { python3 .github/scripts/i18n/messages.py get "$1" 2>/dev/null || printf '%s' "$2"; }
 
-        # 컴파일 에러 추출
+        # Extract compile errors
         if [ -f compile_output.txt ] && [ "${{ steps.compile.outputs.compile_exit_code }}" != "0" ]; then
           echo "compile_errors<<EOF" >> $GITHUB_OUTPUT
           echo "$(msg nexus_ci.errors.compile_heading '## 🚨 Compile errors')" >> $GITHUB_OUTPUT

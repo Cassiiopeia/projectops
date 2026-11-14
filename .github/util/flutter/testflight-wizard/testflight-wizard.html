@@ -4,14 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-i18n="page.title">iOS TestFlight Deployment Wizard</title>
-    <!-- 버전 정보 (version.json과 동기화 필요) -->
+    <!-- Version info (must stay in sync with version.json) -->
     <script type="application/json" id="versionJson">
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Setup wizard for deploying a Flutter iOS app to TestFlight",
-  "lastUpdated": "2026-11-13",
+  "lastUpdated": "2026-11-14",
   "changelog": [
+    {
+      "version": "1.7.1",
+      "date": "2026-11-14",
+      "changes": [
+        "Fastfile template log and error messages are in English (projectops#1212)"
+      ]
+    },
     {
       "version": "1.7.0",
       "date": "2026-11-13",
@@ -158,9 +165,9 @@
     </script>
     <!-- JSZip for ZIP export -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- Pretendard 폰트 -->
+    <!-- Pretendard font -->
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
-    <!-- 공통 자산 (3종 마법사 공유) — _shared/check-consistency.py가 정합성을 검증한다 -->
+    <!-- Shared assets (shared by the wizards) — _shared/check-consistency.py verifies consistency -->
     <link rel="stylesheet" href="../_shared/wizard.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -186,7 +193,7 @@
     </script>
 </head>
 <body class="bg-slate-900 text-slate-200 min-h-screen font-sans">
-    <!-- 보안 경고 -->
+    <!-- Security warning -->
     <div id="securityWarning" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/90 border border-yellow-700 text-yellow-200 px-6 py-3 rounded-lg shadow-xl z-50 max-w-2xl hidden">
         <div class="flex items-center gap-3">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -225,7 +232,7 @@
             </p>
         </header>
 
-        <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
+        <!-- First-time user guide — shows scope, prerequisites and outputs before starting -->
         <div class="wizard-meta">
             <span data-i18n="meta.duration">⏱️ Estimated time <strong>40–60 min</strong></span>
             <span class="text-slate-600">·</span>
@@ -240,7 +247,7 @@
         </div>
         <p class="resume-hint" data-i18n="meta.resumeHint">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
 
-        <!-- Progress Steps (9단계) -->
+        <!-- Progress Steps (9 steps) -->
         <div class="flex justify-between mb-8 px-2 overflow-x-auto">
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="1">
                 <div class="step-circle w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs z-10 shadow-lg shadow-blue-500/30">1</div>
@@ -281,7 +288,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 1: 시작하기 -->
+        <!-- Step 1: Get started -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content fade-in" data-step="1">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -289,7 +296,7 @@
                 <span data-i18n="step1.title">Getting started</span>
             </h2>
 
-            <!-- 의존성 흐름 설명 -->
+            <!-- Dependency flow description -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-blue-200 mb-3" data-i18n="step1.flowTitle">📋 What iOS deployment needs, in order</p>
                 <div class="dependency-flow">
@@ -308,7 +315,7 @@
                 </p>
             </div>
 
-            <!-- 준비물 체크리스트 -->
+            <!-- Prerequisites checklist -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-slate-300 mb-3" data-i18n="step1.checklistTitle">✅ Before you start</p>
                 <ul class="text-xs text-slate-300 space-y-2">
@@ -354,7 +361,7 @@
                 </ul>
             </div>
 
-            <!-- 프로젝트 경로 -->
+            <!-- Project path -->
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step1.projectPathLabel">
                     Absolute path to the Flutter project root <span class="text-red-400">*</span>
@@ -387,10 +394,10 @@
                         <span data-i18n="step1.folderButton">Folder</span>
                     </button>
                 </div>
-                <!-- 폴더 선택 결과 표시 — 입력칸을 덮어쓰지 않고 여기에만 안내한다 -->
+                <!-- Folder picker result — shown only here without overwriting the input -->
                 <p id="projectPath-hint" class="text-xs mt-2 text-slate-400 hidden"></p>
 
-                <!-- OS별 경로 확인법: 구분자와 명령이 달라 나눠서 안내한다 -->
+                <!-- How to find the path per OS: separators and commands differ, so they are shown separately -->
                 <div class="mt-3 bg-slate-700/50 border border-slate-600 rounded-lg p-3">
                     <p class="text-xs font-medium text-blue-400 mb-2" data-i18n="step1.absolutePathTitle">🔍 How to find the absolute path</p>
                     <p class="text-[11px] text-slate-500 mb-2" data-i18n="step1.absolutePathWhy">
@@ -422,7 +429,7 @@
                 </div>
             </div>
 
-            <!-- 모노레포 대응: 레포 루트가 Flutter 루트와 다를 때만 필요 -->
+            <!-- Monorepo support: needed only when the repo root differs from the Flutter root -->
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step1.repoRootLabel">
                     Absolute path to the Git repo root
@@ -445,7 +452,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 2: Distribution 인증서 (.p12) -->
+        <!-- Step 2: Distribution certificate (.p12) -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="2">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -454,14 +461,14 @@
                 <span class="text-xs font-normal text-purple-400 bg-purple-500/20 px-2 py-1 rounded" data-i18n="step2.titleBadge">Do this first!</span>
             </h2>
 
-            <!-- 왜 먼저인지 설명 -->
+            <!-- Why this comes first -->
             <div class="bg-purple-900/30 border border-purple-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-purple-200" data-i18n="step2.whyFirst">
                     🔑 <strong>Why the certificate comes first:</strong> you need it to create the Provisioning Profile!
                 </p>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4">
                 <a href="https://developer.apple.com/account/resources/certificates/list"
                    target="_blank" rel="noopener"
@@ -474,7 +481,7 @@
                 </a>
             </div>
 
-            <!-- 전체 흐름 안내 -->
+            <!-- Overall flow guide -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step2.flowTitle">🗺️ Overall flow (go in order)</p>
                 <div class="flex flex-wrap items-center gap-2 text-xs">
@@ -489,7 +496,7 @@
                 <p class="text-[11px] text-slate-500 mt-2" data-i18n="step2.flowSkip">If you already have a valid certificate, jump from 2-0 straight to 2-3.</p>
             </div>
 
-            <!-- 2-0. 이미 있는지 확인 -->
+            <!-- 2-0. Check whether it already exists -->
             <div class="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-emerald-300 mb-2" data-i18n="step2.checkTitle">✅ 2-0. Check first: do you already have a certificate?</p>
                 <p class="text-xs text-slate-400 mb-2" data-i18n="step2.checkRunCommand">Run this command in a terminal.</p>
@@ -520,7 +527,7 @@
                 </div>
             </div>
 
-            <!-- 2-1. CSR 파일 만들기 -->
+            <!-- 2-1. Create the CSR file -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-1" data-i18n="step2.csrTitle">📝 2-1. Create a CSR (Certificate Signing Request) file</p>
                 <p class="text-[11px] text-slate-500 mb-3" data-i18n="step2.csrKeyNote">
@@ -578,7 +585,7 @@
                 </div>
             </div>
 
-            <!-- 2-2. 인증서 발급받기 -->
+            <!-- 2-2. Get the certificate issued -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-3" data-i18n="step2.issueTitle">📋 2-2. Get the certificate from Apple</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
@@ -638,7 +645,7 @@
                 </div>
             </div>
 
-            <!-- 2-3. 키체인에서 .p12 내보내기 -->
+            <!-- 2-3. Export the .p12 from Keychain -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-2" data-i18n="step2.exportTitle">📤 2-3. Export the .p12 file from the keychain</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
@@ -711,7 +718,7 @@
                     </li>
                 </ol>
 
-                <!-- 검증 -->
+                <!-- Verification -->
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-[11px] mt-3">
                     <div class="text-slate-500 mb-1" data-i18n="step2.exportVerifyComment"># Check that the private key is really inside (recommended)</div>
                     <div class="text-green-400 break-all" data-i18n="step2.exportVerifyCommand">openssl pkcs12 -in ~/Downloads/apple_distribution.p12 -nodes -passin pass:YOUR_PASSWORD | grep -c "PRIVATE KEY"</div>
@@ -721,7 +728,7 @@
                     <span class="text-slate-400">0</span> or <span class="text-slate-400">Mac verify error</span> means the password is wrong or there's no private key.
                 </p>
 
-                <!-- 백업 경고 -->
+                <!-- Backup warning -->
                 <div class="mt-3 p-3 bg-red-900/30 border border-red-700 rounded">
                     <p class="text-xs text-red-300 font-bold mb-1" data-i18n="step2.p12CautionTitle">🔒 The .p12 holds your private key — handle with care</p>
                     <ul class="text-[11px] text-slate-400 list-disc list-inside space-y-0.5">
@@ -732,11 +739,11 @@
                 </div>
             </div>
 
-            <!-- 키체인 시각화 -->
+            <!-- Keychain illustration -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step2.keychainWhereTitle">📍 Where to look in Keychain Access</p>
 
-                <!-- 공통: 사이드바 + 카테고리 위치 -->
+                <!-- Shared: sidebar + category position -->
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto mb-3">
                     <div class="flex gap-4">
                         <div class="border-r border-slate-700 pr-4">
@@ -761,10 +768,10 @@
                     </div>
                 </div>
 
-                <!-- 두 가지 상태 비교 -->
+                <!-- Comparing the two states -->
                 <p class="text-xs text-slate-400 mb-2" data-i18n="step2.keychainTwoStates">At this point you'll see one of two screens:</p>
                 <div class="grid md:grid-cols-2 gap-3">
-                    <!-- 비어있는 경우 -->
+                    <!-- When empty -->
                     <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs border-l-4 border-orange-500">
                         <div class="text-orange-400 font-bold mb-2 text-[11px]" data-i18n="step2.keychainEmptyTitle">A. The list is empty 😰</div>
                         <div class="border border-slate-700 rounded p-3 text-center text-slate-600 mb-2">
@@ -781,7 +788,7 @@
                         </div>
                     </div>
 
-                    <!-- 있는 경우 -->
+                    <!-- When present -->
                     <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs border-l-4 border-green-500">
                         <div class="text-green-400 font-bold mb-2 text-[11px]" data-i18n="step2.keychainFoundTitle">B. A certificate shows up 🎉</div>
                         <div class="border border-slate-700 rounded mb-2">
@@ -812,7 +819,7 @@
                 </div>
             </div>
 
-            <!-- 완료 체크리스트 -->
+            <!-- Completion checklist -->
             <div class="bg-emerald-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-emerald-300 mb-3" data-i18n="step2.finalCheckTitle">🎯 Made it this far? — final check</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-[11px] mb-3">
@@ -831,7 +838,7 @@
                 </div>
             </div>
 
-            <!-- 파일 업로드 -->
+            <!-- File upload -->
             <div class="file-upload" id="p12-upload" onclick="document.getElementById('p12-input').click()">
                 <div class="icon">📄</div>
                 <div class="text-slate-300" data-i18n="step2.p12Drop">Drag a .p12 file here or click</div>
@@ -858,7 +865,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 3: App ID (Bundle ID) 등록 -->
+        <!-- Step 3: Register the App ID (Bundle ID) -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="3">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -866,14 +873,14 @@
                 <span data-i18n="step3.title">Register the App ID (Bundle ID)</span>
             </h2>
 
-            <!-- 설명 -->
+            <!-- Description -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-blue-200" data-i18n="step3.whatIsAppId">
                     📱 <strong>What's an App ID?</strong> It's your app's unique identifier. It must match your Flutter Bundle ID!
                 </p>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4">
                 <a href="https://developer.apple.com/account/resources/identifiers/list"
                    target="_blank" rel="noopener"
@@ -886,7 +893,7 @@
                 </a>
             </div>
 
-            <!-- 생성 가이드 -->
+            <!-- Creation guide -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-3" data-i18n="step3.howToTitle">📋 How to register the App ID</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
@@ -970,7 +977,7 @@
                 </ol>
             </div>
 
-            <!-- 시각화 -->
+            <!-- Illustration -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step3.previewTitle">📍 Identifiers page preview</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto">
@@ -1002,7 +1009,7 @@
                 </div>
             </div>
 
-            <!-- Bundle ID 네이밍 가이드 -->
+            <!-- Bundle ID naming guide -->
             <div class="bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-emerald-400 mb-3" data-i18n="step3.namingTitle">💡 Bundle ID naming guide</p>
                 <div class="text-xs text-slate-300 space-y-2">
@@ -1035,7 +1042,7 @@
                 </div>
             </div>
 
-            <!-- Bundle ID 입력 -->
+            <!-- Bundle ID input -->
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step3.bundleIdLabel">
                     Enter the registered Bundle ID <span class="text-red-400">*</span>
@@ -1078,7 +1085,7 @@
                 <span data-i18n="step4.title">Create the Provisioning Profile</span>
             </h2>
 
-            <!-- 설명 -->
+            <!-- Description -->
             <div class="bg-green-900/30 border border-green-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-green-200" data-i18n="step4.whatIsProfile">
                     🔗 <strong>What's a Provisioning Profile?</strong> A file that bundles the certificate + App ID to prove "this app is signed with this certificate".
@@ -1088,7 +1095,7 @@
                 </p>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4">
                 <a href="https://developer.apple.com/account/resources/profiles/list"
                    target="_blank" rel="noopener"
@@ -1101,7 +1108,7 @@
                 </a>
             </div>
 
-            <!-- 생성 가이드 -->
+            <!-- Creation guide -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-3" data-i18n="step4.howToTitle">📋 How to create the Provisioning Profile</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
@@ -1177,7 +1184,7 @@
                 </ol>
             </div>
 
-            <!-- Profile 이름 네이밍 가이드 -->
+            <!-- Profile name naming guide -->
             <div class="bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border border-emerald-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-emerald-400 mb-3" data-i18n="step4.namingTitle">💡 Profile naming guide</p>
                 <div class="text-xs text-slate-300 space-y-2">
@@ -1204,7 +1211,7 @@
                 </div>
             </div>
 
-            <!-- 파일 업로드 -->
+            <!-- File upload -->
             <div class="file-upload" id="provision-upload" onclick="document.getElementById('provision-input').click()">
                 <div class="icon">📄</div>
                 <div class="text-slate-300" data-i18n="step4.provisionDrop">Drag a .mobileprovision file here or click</div>
@@ -1212,7 +1219,7 @@
                 <div class="file-info" id="provision-info" style="display:none"></div>
             </div>
 
-            <!-- Profile 이름 입력 -->
+            <!-- Profile name input -->
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step4.profileNameLabel">
                     Provisioning Profile name <span class="text-red-400">*</span>
@@ -1233,7 +1240,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 5: App Store Connect 앱 등록 (신규!) -->
+        <!-- Step 5: Register the app in App Store Connect (new!) -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="5">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -1242,7 +1249,7 @@
                 <span class="text-xs font-normal text-pink-400 bg-pink-500/20 px-2 py-1 rounded" data-i18n="step5.titleBadge">Required for TestFlight!</span>
             </h2>
 
-            <!-- 왜 필요한지 설명 -->
+            <!-- Why it is needed -->
             <div class="bg-pink-900/30 border border-pink-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-pink-200" data-i18n="step5.whyRequired">
                     🎯 <strong>Why this step is required:</strong> the app must be registered in App Store Connect before you can upload to TestFlight!
@@ -1253,7 +1260,7 @@
                 </p>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4">
                 <a href="https://appstoreconnect.apple.com/apps"
                    target="_blank" rel="noopener"
@@ -1266,7 +1273,7 @@
                 </a>
             </div>
 
-            <!-- 생성 가이드 -->
+            <!-- Creation guide -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-3" data-i18n="step5.howToTitle">📋 How to register a new app</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-2">
@@ -1334,7 +1341,7 @@
                 </ol>
             </div>
 
-            <!-- 페이지 시각화 -->
+            <!-- Page illustration -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step5.previewTitle">📍 App Store Connect page preview</p>
                 <div class="bg-slate-900 rounded-lg p-3 font-mono text-xs overflow-x-auto">
@@ -1394,7 +1401,7 @@
                 </ul>
             </div>
 
-            <!-- 확인 체크박스 -->
+            <!-- Confirm checkbox -->
             <div class="p-4 bg-slate-700/50 border border-slate-600 rounded-lg mb-6">
                 <label class="flex items-center gap-3 cursor-pointer">
                     <input type="checkbox" id="asc-app-created" class="w-5 h-5 rounded text-pink-500 bg-slate-900 border-slate-600 focus:ring-pink-500">
@@ -1412,7 +1419,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 6: 앱 정보 확인 -->
+        <!-- Step 6: Check app info -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="6">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -1420,7 +1427,7 @@
                 <span data-i18n="step6.title">Review app info and extra settings</span>
             </h2>
 
-            <!-- 설명 -->
+            <!-- Description -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-blue-200" data-i18n="step6.intro">
                     ✅ Review what you entered in the earlier steps, then fill in the rest.
@@ -1428,7 +1435,7 @@
             </div>
 
             <div class="grid md:grid-cols-2 gap-4 mb-6">
-                <!-- Bundle ID (자동 채워짐) -->
+                <!-- Bundle ID (filled automatically) -->
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">
                         Bundle ID
@@ -1461,11 +1468,11 @@
                         class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-sm uppercase focus:border-blue-500 outline-none"
                         placeholder="ABC1234DEF"
                         oninput="validateTeamId(this)">
-                    <!-- 자리수 미달 경고: 복붙 중 마지막 글자 누락이 잦아 실시간으로 잡는다 -->
+                    <!-- Too-short warning: the last character is often lost in copy-paste, so it is caught live -->
                     <p id="teamId-warning" class="text-xs mt-1 hidden"></p>
                 </div>
 
-                <!-- Profile Name (자동 채워짐) -->
+                <!-- Profile Name (filled automatically) -->
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300">
                         <span data-i18n="step6.profileNameLabel">Provisioning Profile name</span>
@@ -1476,7 +1483,7 @@
                         placeholder="MyApp AppStore Distribution">
                 </div>
 
-                <!-- 앱 이름 -->
+                <!-- App name -->
                 <div>
                     <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step6.appNameLabel">App name (optional)</label>
                     <input type="text" id="appName"
@@ -1485,7 +1492,7 @@
                 </div>
             </div>
 
-            <!-- Team ID 찾기 가이드 -->
+            <!-- How to find the Team ID -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-2" data-i18n="step6.teamIdHowTitle">📍 How to find your Team ID</p>
                 <div class="flex gap-2 items-center mb-2">
@@ -1504,7 +1511,7 @@
                 </div>
             </div>
 
-            <!-- 암호화 설정 -->
+            <!-- Encryption setting -->
             <div class="p-4 bg-slate-700/50 border border-slate-600 rounded-lg mb-6">
                 <label class="block text-sm font-medium mb-3 text-slate-300" data-i18n="step6.encryptionLabel">🔐 App encryption</label>
                 <div class="space-y-2">
@@ -1542,14 +1549,14 @@
                 App Store Connect API Key (.p8)
             </h2>
 
-            <!-- 설명 -->
+            <!-- Description -->
             <div class="bg-blue-900/30 border border-blue-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-blue-200" data-i18n="step7.whatIsApiKey">
                     🔑 <strong>What's an API Key?</strong> The key Fastlane uses to upload to TestFlight automatically.
                 </p>
             </div>
 
-            <!-- 바로가기 버튼 -->
+            <!-- Shortcut button -->
             <div class="mb-4">
                 <a href="https://appstoreconnect.apple.com/access/integrations/api"
                    target="_blank" rel="noopener"
@@ -1562,7 +1569,7 @@
                 </a>
             </div>
 
-            <!-- 생성 가이드 -->
+            <!-- Creation guide -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm text-yellow-200 mb-2" data-i18n="step7.howToTitle">📋 How to create the API Key</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
@@ -1598,13 +1605,13 @@
                 </ol>
             </div>
 
-            <!-- 페이지 구조 시각화 -->
+            <!-- Page structure illustration -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step7.previewTitle">📍 Where to find it on the App Store Connect page</p>
                 <div class="bg-slate-900 rounded-lg p-4 font-mono text-xs overflow-x-auto">
                     <div class="text-slate-500 mb-2">Users and Access → Integrations → App Store Connect API</div>
                     <div class="border border-slate-600 rounded p-3">
-                        <!-- Issuer ID 섹션 -->
+                        <!-- Issuer ID section -->
                         <div class="border-l-4 border-yellow-500 pl-3 mb-4 py-2 bg-yellow-900/20 rounded-r">
                             <div class="text-slate-400 text-[10px] mb-1" data-i18n="step7.previewIssuerSeparate">⬇️ shown separately in the middle of the page</div>
                             <div class="flex items-center gap-2">
@@ -1618,7 +1625,7 @@
                             <div class="text-green-400 text-[10px] mt-1" data-i18n="step7.previewCopyIssuer">↑ click the Copy button here!</div>
                         </div>
 
-                        <!-- Active Keys 테이블 -->
+                        <!-- Active Keys table -->
                         <div class="text-slate-400 mb-2">Active Keys <span class="text-green-500">●</span></div>
                         <div class="border border-slate-700 rounded overflow-hidden">
                             <div class="grid grid-cols-4 gap-2 p-2 bg-slate-800 text-slate-500 text-[10px]">
@@ -1658,7 +1665,7 @@
                 </ul>
             </div>
 
-            <!-- 파일 업로드 -->
+            <!-- File upload -->
             <div class="file-upload" id="p8-upload" onclick="document.getElementById('p8-input').click()">
                 <div class="icon">📄</div>
                 <div class="text-slate-300" data-i18n="step7.p8Drop">Drag a .p8 file here or click</div>
@@ -1719,7 +1726,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 8: Fastlane 설정 -->
+        <!-- Step 8: Fastlane setup -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="8">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -1754,7 +1761,7 @@
 
             <div class="mb-6">
                 <label class="block text-sm font-medium mb-2 text-slate-300" data-i18n="step8.runInTerminal">Run in a terminal:</label>
-                <!-- 경로 미입력 시 cd 실패로 이어지므로 복사 전에 경고 -->
+                <!-- Warn before copying, since a missing path leads to a failed cd -->
                 <div id="initCmd-warning" class="hidden mb-2 p-3 bg-red-900/30 border border-red-700 rounded-lg">
                     <p class="text-xs text-red-300 font-bold" data-i18n="step8.pathEmptyTitle">⚠️ The project path is empty</p>
                     <p class="text-[11px] text-slate-400 mt-1" data-i18n="step8.pathEmptyBody">
@@ -1762,7 +1769,7 @@
                         <code class="text-slate-300">cd: no such file or directory</code>.
                     </p>
                 </div>
-                <!-- 모노레포일 때 cd 대상과 인자가 다른 이유를 설명 -->
+                <!-- Explains why the cd target and arguments differ in a monorepo -->
                 <div id="initCmd-mono" class="hidden mb-2 p-3 bg-blue-900/30 border border-blue-700 rounded-lg">
                     <p class="text-xs text-blue-200 font-bold" data-i18n="step8.twoPathsTitle">📌 Why there are two paths</p>
                     <p class="text-[11px] text-slate-400 mt-1" data-i18n="step8.twoPathsBody">
@@ -1784,7 +1791,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 9: 완료 & GitHub Secrets -->
+        <!-- Step 9: Done & GitHub Secrets -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step="9">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -1796,7 +1803,7 @@
                 <p class="text-sm text-green-200" data-i18n="step9.intro">🎉 All set! Register the values below as GitHub Secrets.</p>
             </div>
 
-            <!-- GitHub Secrets 등록 방법 -->
+            <!-- How to register GitHub Secrets -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-2" data-i18n="step9.howToTitle">📍 How to register GitHub Secrets</p>
                 <ol class="text-xs text-slate-300 list-decimal list-inside space-y-1">
@@ -1810,17 +1817,17 @@
             <h3 class="text-lg font-semibold mb-4 text-slate-200" data-i18n="step9.secretsListTitle">Secrets to register</h3>
             <div id="results-container"></div>
 
-            <!-- 내보내기 / 가져오기 섹션 -->
+            <!-- Export / import section -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-slate-300 mb-4" data-i18n="step9.exportImportTitle">📦 Export / import settings</p>
 
-                <!-- 다운로드 파일 삭제 경고 -->
+                <!-- Warning to delete downloaded files -->
                 <div class="bg-red-900/30 border border-red-700 rounded-lg p-3 mb-4">
                     <p class="text-xs text-red-300 font-semibold" data-i18n="step9.exportDeleteWarning">🗑️ Once the secrets are registered, delete the downloaded github-secrets files. They contain your certificate and keys as is.</p>
                     <p class="text-xs text-red-200/80 mt-1" data-i18n="step9.exportLeftoverRisk">If JSON/TXT/ZIP exports stay in your Downloads folder, anyone can pull out your distribution certificate and App Store Connect key.</p>
                 </div>
 
-                <!-- 내보내기 버튼들 -->
+                <!-- Export buttons -->
                 <div class="flex flex-wrap gap-3 mb-4">
                     <button onclick="copyAllSecrets()" class="px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-sm font-medium transition flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1848,7 +1855,7 @@
                     </button>
                 </div>
 
-                <!-- 가져오기 -->
+                <!-- Import -->
                 <div class="border-t border-slate-600 pt-4">
                     <p class="text-xs text-slate-400 mb-3" data-i18n="step9.importHint">Restore your settings from a JSON file you exported earlier.</p>
                     <label class="flex items-center justify-center gap-2 px-4 py-3 bg-purple-600/20 hover:bg-purple-600/30 border-2 border-dashed border-purple-500 rounded-lg cursor-pointer transition">
@@ -1861,7 +1868,7 @@
                 </div>
             </div>
 
-            <!-- 필수 Secrets 설명 -->
+            <!-- Required Secrets description -->
             <div class="bg-yellow-900/30 border border-yellow-700 rounded-lg p-4 mb-6">
                 <p class="text-sm font-semibold text-yellow-300 mb-3" data-i18n="step9.secretDescriptionsTitle">📝 What each secret is</p>
                 <div class="space-y-3 text-xs text-slate-300">
@@ -1904,7 +1911,7 @@
                 </div>
             </div>
 
-            <!-- ➕ 추가 Secrets (커스텀) -->
+            <!-- ➕ Additional Secrets (custom) -->
             <div class="custom-secrets-section">
                 <h4 class="text-sm font-semibold text-slate-300 mb-2 flex items-center gap-2">
                     <span data-i18n="step9.customSecretsTitle">➕ Extra secrets (optional)</span>
@@ -1921,7 +1928,7 @@
                 </p>
 
                 <div id="customSecretsList">
-                    <!-- 동적으로 생성됨 -->
+                    <!-- Generated dynamically -->
                 </div>
 
                 <button class="add-secret-btn" onclick="addCustomSecret()" data-i18n="step9.addSecret">
@@ -1950,7 +1957,7 @@
                 <button class="px-6 py-2.5 bg-slate-600 hover:bg-slate-500 rounded-lg font-medium transition" onclick="resetWizard()" data-i18n="step9.startOver">🔄 Start over</button>
             </div>
 
-            <!-- Star 부탁 -->
+            <!-- Star request -->
             <div class="mt-6 flex items-center justify-center gap-3 text-slate-400 text-sm">
                 <span data-i18n="step9.starRequest">If this helped, please leave a ⭐️!!</span>
                 <a href="https://github.com/Cassiiopeia/projectops" target="_blank" rel="noopener"

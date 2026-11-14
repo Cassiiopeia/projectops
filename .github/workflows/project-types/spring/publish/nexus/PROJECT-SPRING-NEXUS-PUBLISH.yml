@@ -1,10 +1,10 @@
 # ===================================================================
-# Spring Nexus 라이브러리 배포 워크플로우
+# Spring Nexus library publish workflow
 # ===================================================================
 #
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# GRADLE_PROPERTIES: gradle.properties 파일 내용 (Nexus 인증 정보 포함)
+# GRADLE_PROPERTIES: contents of gradle.properties (includes Nexus credentials)
 # ===================================================================
 
 name: PROJECT-SPRING-NEXUS-PUBLISH
@@ -16,7 +16,7 @@ on:
       - 'v*.*.*'
 
 permissions:
-  # Nexus 로 올리기만 한다 — 저장소를 읽는 것 외에 GITHUB_TOKEN 권한이 필요 없다 (#595).
+  # Only uploads to Nexus — no GITHUB_TOKEN permission needed beyond reading the repo (#595).
   contents: read
 
 jobs:
@@ -44,12 +44,12 @@ jobs:
         id: get_version
         run: |
           if [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            # 태그에서 버전 추출
+            # Extract the version from the tag
             TAG_NAME=${GITHUB_REF#refs/tags/}
             VERSION=${TAG_NAME#v}
             echo "🏷️ Version from tag: $VERSION"
           else
-            # main 브랜치에서 version.yml로부터 버전 추출
+            # Extract the version from version.yml on main
             chmod +x .github/scripts/version_manager.sh
             VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
             echo "📄 Version from version.yml: $VERSION"

@@ -1,11 +1,11 @@
 #!/bin/bash
-# version-sync.sh - version.json의 버전을 HTML 파일에 동기화
+# version-sync.sh - sync the version from version.json into the HTML file
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/version.json"
 HTML_FILE="$SCRIPT_DIR/secrets-converter.html"
 
-# version.json에서 버전 추출
+# Extract the version from version.json
 VERSION=$(grep -o '"version": *"[^"]*"' "$VERSION_FILE" | cut -d'"' -f4)
 
 if [ -z "$VERSION" ]; then
@@ -15,9 +15,9 @@ fi
 
 echo "Syncing version $VERSION to HTML file..."
 
-# HTML 파일에서 버전 업데이트 (meta tag와 footer)
+# Update the version in the HTML file (meta tag and footer)
 if [ -f "$HTML_FILE" ]; then
-    # macOS와 Linux 호환 sed 명령
+    # sed command compatible with macOS and Linux
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' "s/content=\"[0-9]*\.[0-9]*\.[0-9]*\"/content=\"$VERSION\"/g" "$HTML_FILE"
         sed -i '' "s/v[0-9]*\.[0-9]*\.[0-9]*/v$VERSION/g" "$HTML_FILE"

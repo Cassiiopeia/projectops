@@ -1,11 +1,11 @@
 #!/bin/bash
 # ===================================================================
-# template_initializer.sh — Python 위임 shim (v4.2, 이슈 #448)
+# template_initializer.sh — Python delegating shim (v4.2, issue #448)
 # ===================================================================
 #
-# 로직은 template_initializer.py(크로스 플랫폼, stdlib 전용)로 이전되었다.
-# 이 파일은 기존 워크플로우(PROJECT-TEMPLATE-INITIALIZER)의 호출 계약을
-# 보존하는 위임 shim이다:
+# The logic moved to template_initializer.py (cross-platform, stdlib only).
+# This file is a delegating shim that keeps the call contract of the existing
+# workflow (PROJECT-TEMPLATE-INITIALIZER):
 #   ./.github/scripts/template_initializer.sh --version 1.0.0 --type spring
 # ===================================================================
 set -e

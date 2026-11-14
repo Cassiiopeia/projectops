@@ -1,22 +1,22 @@
 # ===================================================================
 # PROJECT-NODE-NPM-PUBLISH.yaml
-# npm 패키지 자동 배포 워크플로우 v1.0
+# npm package auto-publish workflow v1.0
 # ===================================================================
 #
-# npm 라이브러리/CLI 패키지를 공개 npmjs 레지스트리에 자동 배포합니다.
+# Publishes an npm library/CLI package to the public npmjs registry automatically.
 #
-# 동작:
-# - version.yml 버전을 읽어 package.json에 주입 후 npm publish
-# - 이미 레지스트리에 있는 버전이면 성공 종료 (멱등)
+# What it does:
+# - reads the version.yml version, injects it into package.json, then npm publish
+# - a version already in the registry ends successfully (idempotent)
 #
-# 트리거: main 브랜치 push 시 (+ 수동 실행)
-# - 릴리스 머지(develop→main) 시 README-VERSION-UPDATE 등과 동일 타이밍에 배포
-# - VERSION-CONTROL이 GITHUB_TOKEN으로 version.yml을 변경하면
-#   후속 워크플로우가 트리거되지 않으므로 main push를 트리거로 사용
+# Triggers: push to main (+ manual run)
+# - publishes on a release merge (develop->main), at the same time as README-VERSION-UPDATE etc.
+# - When VERSION-CONTROL changes version.yml with GITHUB_TOKEN,
+#   follow-up workflows are not triggered, so main push is used as the trigger
 #
-# 필요 Secret:
-# - NPM_TOKEN: npm Granular Access Token (2FA bypass 허용, publish 권한)
-#   발급: https://www.npmjs.com/settings → Access Tokens → Generate New Token
+# Required Secret:
+# - NPM_TOKEN: npm Granular Access Token (2FA bypass allowed, publish permission)
+#   Create: https://www.npmjs.com/settings → Access Tokens → Generate New Token
 # ===================================================================
 
 name: PROJECT-NODE-NPM-PUBLISH

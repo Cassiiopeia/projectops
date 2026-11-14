@@ -2,15 +2,15 @@
 """
 asc_client.py
 
-App Store Connect API 클라이언트 (이슈 #643). ASC 호출의 유일한 위치다.
-CLI가 없는 라이브러리 모듈이며 ios_release.py 등이 import 해서 쓴다.
+App Store Connect API client (issue #643). The only place ASC is called.
+A library module without a CLI; ios_release.py and others import it.
 
-  - 인증: 환경변수 ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_PATH (.p8 경로)
-    Actions는 없는 시크릿을 빈 문자열로 주입하므로 빈 값도 "없음"으로 본다.
-  - JWT ES256 서명은 openssl CLI로 만들어 외부 패키지 없이 표준 라이브러리만 쓴다.
-    openssl은 DER 서명을 주므로 JWT가 요구하는 raw(r||s 64바이트)로 바꾼다.
-  - 조회가 안 되는 환경(권한 부족, 네트워크)은 호출하는 쪽이 폴백한다.
-    이 모듈은 실패를 AscError로 알리거나 None을 돌려줄 뿐 스스로 판단하지 않는다.
+  - Auth: env ASC_KEY_ID / ASC_ISSUER_ID / ASC_KEY_PATH (.p8 path)
+    Actions injects missing secrets as empty strings, so an empty value also counts as "missing".
+  - The JWT ES256 signature is made with the openssl CLI, using only the standard library.
+    openssl returns a DER signature, so it is converted to the raw form JWT needs (r||s, 64 bytes).
+  - Where lookups fail (insufficient permissions, network), the caller falls back.
+    This module only reports failure as AscError or returns None; it decides nothing itself.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-# AscError 문구는 사유로 PR 댓글까지 가므로 레포 언어를 따른다 (#769). 경고 로그는 영문
+# AscError text reaches PR comments as a reason, so it follows the repo language (#769). Warning logs are English
 from i18n.messages import t as message  # noqa: E402
 
 BASE_URL = "https://api.appstoreconnect.apple.com"
@@ -39,7 +39,7 @@ _JWT_TTL = 1200
 
 
 class AscError(Exception):
-    """ASC 호출 실패. HTTP 오류면 status에 상태 코드가 들어간다."""
+    """ASC call failure. For HTTP errors, status holds the status code."""
 
     def __init__(self, message: str, status: int | None = None):
         super().__init__(message)
@@ -55,7 +55,7 @@ def _b64url(data: bytes) -> str:
 
 
 def _read_der_len(buf: bytes, pos: int) -> tuple[int, int]:
-    """DER 길이 필드를 읽어 (길이, 다음 위치)를 돌려준다. 긴 형식(0x81 등)도 처리."""
+    """Read a DER length field and return (length, next position). Handles the long form (0x81, etc.) too."""
     first = buf[pos]
     if first < 0x80:
         return first, pos + 1
@@ -64,7 +64,7 @@ def _read_der_len(buf: bytes, pos: int) -> tuple[int, int]:
 
 
 def der_to_raw(der: bytes) -> bytes:
-    """DER ECDSA 서명을 64바이트 r||s로 바꾼다 (각 32바이트, 좌측 0 패딩)."""
+    """Convert a DER ECDSA signature to 64-byte r||s (32 bytes each, left zero-padded)."""
     if not der or der[0] != 0x30:
         raise ValueError("not a DER signature")
     _, pos = _read_der_len(der, 1)
@@ -73,7 +73,7 @@ def der_to_raw(der: bytes) -> bytes:
         if der[pos] != 0x02:
             raise ValueError("not a DER integer")
         ln, pos = _read_der_len(der, pos + 1)
-        # 양수 표기용 선행 0x00 제거 후 32바이트로 좌측 패딩
+        # Drop the leading 0x00 used for positive notation, then left-pad to 32 bytes
         parts.append(der[pos:pos + ln].lstrip(b"\x00").rjust(32, b"\x00"))
         pos += ln
     if any(len(p) != 32 for p in parts):
@@ -82,7 +82,7 @@ def der_to_raw(der: bytes) -> bytes:
 
 
 def make_jwt(key_id: str, issuer_id: str, key_path: str, now: int | None = None, ttl: int = _JWT_TTL) -> str:
-    """ASC API용 JWT. 수명은 20분(1200초) 이하여야 한다."""
+    """JWT for the ASC API. Lifetime must be 20 minutes (1200 seconds) or less."""
     iat = int(time.time()) if now is None else int(now)
     header = {"alg": "ES256", "kid": key_id, "typ": "JWT"}
     payload = {"iss": issuer_id, "iat": iat, "exp": iat + ttl, "aud": "appstoreconnect-v1"}
@@ -97,7 +97,7 @@ def make_jwt(key_id: str, issuer_id: str, key_path: str, now: int | None = None,
 
 
 def _sign_with_base64_key(key_id: str, issuer: str, key_base64: str) -> str:
-    """base64 키(Secret 그대로)를 임시 파일로 풀어 서명하고 바로 지운다 — 워크플로가 키 파일을 따로 만들지 않게."""
+    """Unpack the base64 key (Secret as is) into a temp file, sign, and delete it at once — so workflows need not create a key file."""
     with tempfile.TemporaryDirectory() as folder:
         key_file = Path(folder) / "AuthKey.p8"
         key_file.write_bytes(base64.b64decode(key_base64))
@@ -106,9 +106,9 @@ def _sign_with_base64_key(key_id: str, issuer: str, key_base64: str) -> str:
 
 
 def token_from_env() -> str | None:
-    """환경변수로 토큰을 만든다. 하나라도 비었거나 서명에 실패하면 None (호출자가 폴백).
+    """Build a token from env vars. None if any is empty or signing fails (the caller falls back).
 
-    키는 ASC_KEY_PATH(파일) > ASC_KEY_BASE64(Secret 원문) 순으로 쓴다.
+    Key source order: ASC_KEY_PATH (file) > ASC_KEY_BASE64 (raw Secret).
     """
     key_id = os.environ.get("ASC_KEY_ID", "").strip()
     issuer = os.environ.get("ASC_ISSUER_ID", "").strip()
@@ -120,13 +120,13 @@ def token_from_env() -> str | None:
         if key_path:
             return make_jwt(key_id, issuer, key_path)
         return _sign_with_base64_key(key_id, issuer, key_base64)
-    except Exception as e:  # openssl 없음, 키 파일 없음/손상 등 어떤 실패든 폴백
+    except Exception as e:  # fall back on any failure: no openssl, missing/broken key file, etc.
         _warn(f"could not create the App Store Connect token, continuing without App Store Connect lookups: {e}")
         return None
 
 
 def request(url: str, token: str, timeout: int = _HTTP_TIMEOUT) -> dict:
-    """GET 호출. 테스트에서 monkeypatch 하는 지점이라 모듈 수준 함수로 둔다."""
+    """GET call. Kept as a module-level function because tests monkeypatch it."""
     req = urllib.request.Request(url, headers={
         "Authorization": f"Bearer {token}", "User-Agent": "projectops-asc-client"})
     try:
@@ -135,9 +135,9 @@ def request(url: str, token: str, timeout: int = _HTTP_TIMEOUT) -> dict:
     except urllib.error.HTTPError as e:
         raise AscError(f"ASC HTTP {e.code}: {url}", status=e.code) from e
     except (urllib.error.URLError, OSError, http.client.HTTPException, ValueError) as e:
-        # 연결 리셋, 읽는 도중 끊김, TLS 오류, 잘못된 응답 본문까지 전부 AscError 로 바꿔야
-        # 호출자가 폴백한다 (AscError 만 잡는 곳에서 트레이스백으로 죽지 않게).
-        # JSONDecodeError 와 UnicodeDecodeError 는 ValueError 의 하위 클래스다.
+        # Connection resets, mid-read drops, TLS errors and bad response bodies must all become AscError
+        # so the caller falls back (instead of dying with a traceback where only AscError is caught).
+        # JSONDecodeError and UnicodeDecodeError are subclasses of ValueError.
         raise AscError(message("ios_release.asc.call_failed", error=e)) from e
 
 
@@ -146,7 +146,7 @@ def _url(path: str, params: dict) -> str:
 
 
 def get_all(path: str, params: dict, token: str) -> list[dict]:
-    """links.next를 끝까지 따라가며 data 항목을 모은다."""
+    """Follow links.next to the end and collect data items."""
     items: list[dict] = []
     url: str | None = _url(path, {**params, "limit": _PAGE_LIMIT})
     while url:
@@ -157,7 +157,7 @@ def get_all(path: str, params: dict, token: str) -> list[dict]:
 
 
 def find_app_id(bundle_id: str, token: str) -> str | None:
-    """번들 ID 정확 일치 앱만 인정한다 (필터가 접두 일치를 돌려줘도 걸러냄)."""
+    """Accept only apps with an exact bundle ID match (filters out prefix matches the filter may return)."""
     page = request(_url("/v1/apps", {"filter[bundleId]": bundle_id, "limit": _PAGE_LIMIT}), token)
     for app in page.get("data") or []:
         if (app.get("attributes") or {}).get("bundleId") == bundle_id:
@@ -166,7 +166,7 @@ def find_app_id(bundle_id: str, token: str) -> str | None:
 
 
 def list_app_store_versions(app_id: str, token: str) -> list[dict]:
-    """iOS 앱 버전 목록. 신형(appVersionState)과 구형(appStoreState) 상태를 모두 담는다."""
+    """iOS app version list. Holds both new (appVersionState) and old (appStoreState) states."""
     rows = get_all(f"/v1/apps/{app_id}/appStoreVersions", {"filter[platform]": "IOS"}, token)
     out = []
     for r in rows:
@@ -178,7 +178,7 @@ def list_app_store_versions(app_id: str, token: str) -> list[dict]:
 
 
 def parse_build_number(value: str | None) -> int | None:
-    """첫 번째 점 앞 성분이 정수면 그 값. 점 형식(45300.1)과 비정수도 죽지 않는다."""
+    """The part before the first dot if it is an integer. Does not crash on dotted (45300.1) or non-integer values."""
     if not value:
         return None
     head = str(value).split(".", 1)[0].strip()
@@ -197,8 +197,8 @@ def _numbers(rows: list[dict], *keys: str) -> list[int]:
 
 
 def recent_max_build(app_id: str, token: str) -> int | None:
-    """최근 올라간 빌드 번호 중 최대. builds와 buildUploads 첫 페이지만 본다.
-    정렬 기준이 문서에 보장되지 않으므로 값을 직접 모아 최대를 구한다. 둘 다 실패하면 None."""
+    """Highest recently uploaded build number. Looks only at the first page of builds and buildUploads.
+    Sort order is not guaranteed by the docs, so values are collected and the max taken. None if both fail."""
     nums: list[int] = []
     ok = False
     for path, keys in ((f"/v1/builds", ("version",)), (f"/v1/apps/{app_id}/buildUploads", ("cfBundleVersion", "version"))):
@@ -214,9 +214,9 @@ def recent_max_build(app_id: str, token: str) -> int | None:
 
 
 def build_exists(app_id: str, build_number: int, token: str) -> bool:
-    """해당 번호의 빌드가 이미 올라가 있는가. 하나라도 찾으면 True.
-    못 찾았는데 한쪽이라도 조회가 실패했으면 "없음"을 단정할 수 없으므로 AscError를 던진다
-    (호출자가 재업로드를 막는다. 방금 올린 빌드는 builds 목록 반영이 늦을 수 있다)."""
+    """Whether a build with this number is already uploaded. True if either finds it.
+    If not found but either lookup failed, "absent" cannot be asserted, so AscError is raised
+    (the caller blocks re-upload; a just-uploaded build may appear in the builds list late)."""
     target = str(build_number)
     errors: list[AscError] = []
     queries = (

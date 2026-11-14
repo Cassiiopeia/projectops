@@ -1,7 +1,7 @@
 /* ===================================================================
- * playstore 마법사 — 내보내기·가져오기 (Secret 일괄 복사, JSON·TXT·ZIP 다운로드, JSON 가져오기)
- * 로드 순서: ../_shared/wizard-common.js > playstore-wizard.js > 이 파일
- * 함수 선언만 둔다 (상태·초기화 코드는 본 파일)
+ * playstore wizard — export/import (copy all Secrets, JSON/TXT/ZIP download, JSON import)
+ * Load order: ../_shared/wizard-common.js > playstore-wizard.js > this file
+ * Function declarations only (state and init code live in the main file)
  * =================================================================== */
 
 // ============================================
@@ -19,13 +19,13 @@ function copyAllSecrets() {
         { key: 'ENV_FILE', value: state.envFileContent }
     ];
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     const customSecrets = getCustomSecretsForExport();
     customSecrets.forEach(cs => {
         secrets.push({ key: cs.key, value: cs.value });
     });
 
-    // 설정된 값만 필터링
+    // Keep only values that are set
     const configuredSecrets = secrets.filter(s => s.value);
 
     if (configuredSecrets.length === 0) {
@@ -67,7 +67,7 @@ function downloadAsJson() {
         ENV_FILE: state.envFileContent
     };
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     const customSecrets = getCustomSecretsForExport();
     customSecrets.forEach(cs => {
         secrets[cs.key] = cs.value;
@@ -116,7 +116,7 @@ function downloadAsTxt() {
         ''
     ];
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     const customSecrets = getCustomSecretsForExport();
     if (customSecrets.length > 0) {
         lines.push(translate('export.customSecretsHeader'));
@@ -183,13 +183,13 @@ function generateReadme() {
     });
 }
 
-/** 내보내기 파일의 생성 시각 (ko 는 기존 ko-KR 표기 유지) */
+/** Creation time of the export file (ko keeps the existing ko-KR format) */
 function formatExportDate() {
     return new Date().toLocaleString(getWizardLanguage() === 'ko' ? 'ko-KR' : 'en-US');
 }
 
 async function downloadAsZip() {
-    // JSZip 로드 확인
+    // Check that JSZip is loaded
     if (typeof JSZip === 'undefined') {
         showToast(translate('export.zipLibraryFailed'));
         return;
@@ -197,7 +197,7 @@ async function downloadAsZip() {
 
     const zip = new JSZip();
 
-    // 1. 실제 파일들 (Base64 디코딩)
+    // 1. Actual files (Base64 decoded)
     if (state.keystoreBase64) {
         try {
             const binaryString = atob(state.keystoreBase64);
@@ -220,7 +220,7 @@ async function downloadAsZip() {
         }
     }
 
-    // 2. 개별 Secret TXT 파일들 (github-secrets 폴더에)
+    // 2. Individual Secret TXT files (in the github-secrets folder)
     const secrets = [
         { name: 'RELEASE_KEYSTORE_BASE64.txt', value: state.keystoreBase64 },
         { name: 'RELEASE_KEYSTORE_PASSWORD.txt', value: state.storePassword },
@@ -231,12 +231,12 @@ async function downloadAsZip() {
         { name: 'ENV_FILE.txt', value: state.envFileContent }
     ];
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     const customSecrets = getCustomSecretsForExport();
     customSecrets.forEach(cs => {
         secrets.push({ name: `${cs.key}.txt`, value: cs.value });
 
-        // 바이너리 파일은 실제 파일로도 복원
+        // Binary files are also restored as real files
         if (cs.type === 'binary') {
             try {
                 const binaryString = atob(cs.value);
@@ -244,14 +244,14 @@ async function downloadAsZip() {
                 for (let i = 0; i < binaryString.length; i++) {
                     bytes[i] = binaryString.charCodeAt(i);
                 }
-                // 파일명에서 확장자 추출
+                // Extract the extension from the file name
                 const ext = cs.fileName.split('.').pop() || 'bin';
                 zip.file(`custom-files/${cs.fileName}`, bytes);
             } catch (e) {
                 console.error(`[playstore export] custom file decode failed (${cs.key}):`, e);
             }
         } else {
-            // 텍스트 파일은 그대로 저장
+            // Text files are saved as is
             zip.file(`custom-files/${cs.fileName}`, cs.value);
         }
     });
@@ -265,17 +265,17 @@ async function downloadAsZip() {
         }
     });
 
-    // 파일이 하나도 없으면 경고
+    // Warn if there are no files at all
     if (fileCount === 0) {
         showToast(translate('export.nothingToExport'));
         return;
     }
 
-    // 3. README.md 생성
+    // 3. Generate README.md
     const readme = generateReadme();
     zip.file("README.md", readme);
 
-    // 4. ZIP 다운로드
+    // 4. Download the ZIP
     try {
         const content = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(content);
@@ -302,7 +302,7 @@ function importFromJson(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // 파일 확장자 확인
+    // Check the file extension
     if (!file.name.endsWith('.json')) {
         showToast(translate('export.jsonOnly'));
         event.target.value = '';
@@ -315,7 +315,7 @@ function importFromJson(event) {
         try {
             const data = JSON.parse(e.target.result);
 
-            // 유효성 검사 - 적어도 하나의 알려진 키가 있어야 함
+            // Validation - at least one known key must exist
             const knownKeys = [
                 'RELEASE_KEYSTORE_BASE64',
                 'RELEASE_KEYSTORE_PASSWORD',
@@ -333,7 +333,7 @@ function importFromJson(event) {
                 return;
             }
 
-            // State에 값 매핑
+            // Map values into State
             let importedCount = 0;
 
             if (data.RELEASE_KEYSTORE_BASE64) {
@@ -365,10 +365,10 @@ function importFromJson(event) {
                 importedCount++;
             }
 
-            // LocalStorage에 저장
+            // Save to LocalStorage
             saveState();
 
-            // 테이블 갱신
+            // Refresh the table
             generateFinalResult();
 
             showToast(translate('export.imported', { count: importedCount }));
@@ -378,7 +378,7 @@ function importFromJson(event) {
             showToast(translate('export.jsonReadFailed'));
         }
 
-        // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
+        // Reset the file input (so the same file can be chosen again)
         event.target.value = '';
     };
 

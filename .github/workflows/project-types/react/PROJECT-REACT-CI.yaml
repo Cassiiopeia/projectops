@@ -1,27 +1,27 @@
 # ===================================================================
-# React CI (코드 분석 및 빌드 검증)
+# React CI (code analysis and build verification)
 # ===================================================================
 #
-# main 브랜치 푸시 시 React 애플리케이션의 빌드를 검증합니다.
+# Verifies the React app build on a push to main.
 #
-# 주요 특징:
-# - npm ci로 의존성 설치
-# - npm run build로 빌드 검증
-# - node_modules 및 빌드 캐싱 지원
+# Key points:
+# - installs dependencies with npm ci
+# - verifies the build with npm run build
+# - caches node_modules and build output
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# ENV_FILE (선택): .env 파일 내용
+# ENV_FILE (optional): contents of the .env file
 #
-# ※ CI는 빌드 검증 목적이므로 배포 관련 Secrets 불필요
+# * CI only verifies the build, so no deploy Secrets are needed
 # ===================================================================
 #
-# 🔧 프로젝트별 설정 (env 섹션)
+# 🔧 Per-project settings (env section)
 # ===================================================================
-# PROJECT_NAME : 프로젝트 이름
-# NODE_VERSION : Node.js 버전 (기본: 20.15.0)
-# ENV_FILE     : 환경변수 파일명 (기본: .env)
+# PROJECT_NAME : project name
+# NODE_VERSION : Node.js version (default: 20.15.0)
+# ENV_FILE     : env file name (default: .env)
 # ===================================================================
 
 name: PROJECT-REACT-CI
@@ -47,11 +47,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스코드 체크아웃
+      # 1. Check out the source
       - name: Check out code
         uses: actions/checkout@v5
 
-      # 2. 환경변수 파일 생성
+      # 2. Create the env file
       - name: Create environment file (${{ env.ENV_FILE }})
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE || secrets.ENV }}
@@ -59,10 +59,10 @@ jobs:
           echo -e "$ENV_CONTENT" > ${{ env.ENV_FILE }}
           echo "✅ ${{ env.ENV_FILE }} file created"
 
-      # 패키지 매니저 감지 (#669)
-      # setup-node 의 cache 는 lock 파일이 없거나 pnpm 이면 "Dependencies lock file is not found" 로
-      # 첫 step 부터 실패한다. 기존에 동작하던 npm(package-lock.json) 경로가 최우선이고,
-      # 그 다음 pnpm, yarn 순으로 보며 lock 이 전혀 없으면 캐시 없이 npm install 로 폴백한다.
+      # Detect the package manager (#669)
+      # setup-node's cache fails from the first step with "Dependencies lock file is not found" when there is no lock file or with pnpm.
+      # The npm (package-lock.json) path that already worked comes first,
+      # then pnpm, then yarn; with no lock file at all it falls back to npm install without cache.
       - name: Detect package manager
         id: pm
         run: |
@@ -80,19 +80,19 @@ jobs:
           echo "cache=$cache" >> "$GITHUB_OUTPUT"
           echo "📦 Package manager: $manager"
 
-      # pnpm, yarn 은 setup-node 의 캐시 설정보다 먼저 사용 가능해야 한다 (Node 번들 corepack 사용)
+      # pnpm and yarn must be available before setup-node's cache setting (uses Node's bundled corepack)
       - name: Enable Corepack
         if: steps.pm.outputs.manager == 'pnpm' || steps.pm.outputs.manager == 'yarn'
         run: corepack enable
 
-      # 3. Node.js 설정
+      # 3. Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: ${{ steps.pm.outputs.cache }}
 
-      # 4. npm 의존성 캐싱
+      # 4. Cache npm dependencies
       - name: Cache npm dependencies
         if: steps.pm.outputs.manager == 'npm' || steps.pm.outputs.manager == 'none'
         uses: actions/cache@v4
@@ -102,20 +102,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-
 
-      # 5. node_modules 캐싱
-      # package-lock.json이 변경되지 않으면 npm ci 건너뛰기
+      # 5. Cache node_modules
+      # Skip npm ci when package-lock.json has not changed
       - name: Cache node_modules
         id: node-modules-cache
         uses: actions/cache@v4
         with:
           path: "**/node_modules"
-          # lock 파일이 없으면 해시가 빈 값이라 키가 고정되어 package.json 이 바뀌어도 옛 캐시를 쓴다 — 그 경우만 package.json 해시를 쓴다
+          # Without a lock file the hash is empty, the key is fixed, and old caches are used even if package.json changes — use the package.json hash only then
           key: ${{ runner.os }}-node-modules-${{ steps.pm.outputs.manager == 'none' && hashFiles('**/package.json') || hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-node-modules-
 
-      # 6. 의존성 설치
-      # 캐시가 없을 때만 실행 (npm ci는 package-lock.json 기준 정확한 버전 설치)
+      # 6. Install dependencies
+      # Runs only without a cache (npm ci installs exact versions from package-lock.json)
       - name: Install dependencies
         if: steps.node-modules-cache.outputs.cache-hit != 'true'
         env:
@@ -126,14 +126,14 @@ jobs:
             npm)  npm ci ;;
             pnpm) pnpm install --frozen-lockfile ;;
             yarn)
-              # Yarn Berry(.yarnrc.yml)는 --immutable, Classic 은 --frozen-lockfile
+              # Yarn Berry (.yarnrc.yml) uses --immutable, Classic uses --frozen-lockfile
               if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
             *)    npm install ;;
           esac
           echo "✅ Dependencies installed"
 
-      # 7. Next.js 빌드 캐싱 (Next.js 프로젝트인 경우)
-      # .next/cache 폴더를 캐싱하여 증분 빌드 속도 향상
+      # 7. Cache the Next.js build (for Next.js projects)
+      # Cache the .next/cache folder to speed up incremental builds
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
@@ -143,8 +143,8 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}-
             ${{ runner.os }}-nextjs-
 
-      # 8. 프로젝트 빌드
-      # 빌드 실패 시에도 워크플로우를 중단하지 않고 에러 로그 수집
+      # 8. Build the project
+      # Collect error logs without stopping the workflow when the build fails
       - name: Build project
         id: build
         run: |
@@ -153,8 +153,8 @@ jobs:
           echo "Node.js: ${{ env.NODE_VERSION }}"
           echo ""
           
-          # 빌드 실행 및 로그 저장
-          # 빌드 실패 시 exit 0으로 워크플로우 계속 진행 (에러 로그 수집 목적)
+          # Run the build and save the log
+          # On build failure, exit 0 so the workflow continues (to collect error logs)
           npm run build > build_log.txt 2>&1 || {
             echo "build_failed=true" >> $GITHUB_OUTPUT
             echo "status=failed" >> $GITHUB_OUTPUT
@@ -167,8 +167,8 @@ jobs:
           echo "status=success" >> $GITHUB_OUTPUT
           echo "✅ Build complete"
 
-      # 9. 빌드 실패 시 에러 로그 출력
-      # 빌드가 실패한 경우에만 실행
+      # 9. Print error logs when the build failed
+      # Runs only when the build failed
       - name: Print build error log
         if: steps.build.outputs.build_failed == 'true'
         run: |
@@ -177,7 +177,7 @@ jobs:
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo ""
           
-          # 로그 파일의 마지막 50줄만 출력 (전체 로그는 아티팩트에서 확인 가능)
+          # Print only the last 50 lines of the log (the full log is in the artifact)
           if [ -f "build_log.txt" ]; then
             tail -n 50 build_log.txt
           else
@@ -187,21 +187,21 @@ jobs:
           echo ""
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           
-          # 빌드 실패로 워크플로우 종료
+          # End the workflow as failed
           exit 1
 
-      # 10. 빌드 로그 아티팩트 업로드
-      # 빌드 성공/실패 여부와 관계없이 로그 저장
+      # 10. Upload the build log artifact
+      # Save the log whether the build succeeded or not
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-log
           path: build_log.txt
-          retention-days: 7  # 7일간 보관
+          retention-days: 7  # keep for 7 days
 
-      # 11. 빌드 결과 요약
-      # 워크플로우 실행 결과를 보기 쉽게 요약
+      # 11. Build result summary
+      # Summarize the workflow result for easy reading
       - name: Build summary
         if: always()
         run: |

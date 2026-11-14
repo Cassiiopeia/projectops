@@ -1,34 +1,34 @@
 # ===================================================================
 # PROJECT-TEMPLATE-NPM-PUBLISH.yaml
-# projectops npm 패키지 자동 배포 워크플로우 v1.0
+# projectops npm package auto-publish workflow v1.0
 # ===================================================================
 #
-# 이 워크플로우는 projectops 저장소 전용입니다.
-# template_integrator로 복사되지 않으며, template_initializer가 삭제합니다.
+# This workflow is for the projectops repo only.
+# template_integrator does not copy it, and template_initializer deletes it.
 #
-# 동작:
-# - main 기준으로 version.yml 버전을 읽어 package.json에 주입 후 npm publish
-# - 이미 레지스트리에 있는 버전이면 성공 종료 (멱등)
-# - 배포 후 같은 버전의 GitHub Release를 만든다 (별도 job, 이미 있으면 건너뜀, #738)
-#   설치 대상 레포로 복사되는 공통 워크플로우가 아니라 이 레포 전용 파일에 둔 이유:
-#   Release 생성을 공통에 넣으면 이 템플릿을 설치한 모든 레포의 동작이 바뀐다.
+# What it does:
+# - reads the version.yml version on main, injects it into package.json, then npm publish
+# - a version already in the registry ends successfully (idempotent)
+# - after publishing, creates a GitHub Release for the same version (separate job, skipped if it exists, #738)
+#   Why it lives in this repo-only file and not a shared workflow copied into installed repos:
+#   putting Release creation in the shared one would change behavior in every repo that installed this template.
 #
-# 채널 정책 (#796): npm `latest` 는 배포 브랜치(main)에 올린 것과 항상 같다.
-#   - main 에 push 하고 CI 를 통과하면 `latest` 로 나간다. 별도 승격 주기·대기 기간은 없다.
-#   - develop(개발 브랜치)은 npm 에 올리지 않는다. 그래서 `latest` 를 받는 사용자는 사람이 main 에 올리기로
-#     결정한 버전만 받는다. "얼마나 자주 나가는가"는 main 에 올리는 빈도, 곧 메인테이너의 결정이다.
-#   - 이 정책이 깨지지 않도록 트리거를 main 으로만 두고 dist-tag 를 `latest` 로 명시한다.
+# Channel policy (#796): npm `latest` always equals what was pushed to the deploy branch (main).
+#   - Pushing to main and passing CI ships it as `latest`. No separate promotion cycle or waiting period.
+#   - develop (the development branch) is never published to npm. So users on `latest` get only versions
+#     a person decided to push to main. "How often it ships" is how often main is pushed, i.e. the maintainer's decision.
+#   - To keep this policy intact, the trigger is main only and the dist-tag is set to `latest` explicitly.
 
-# 트리거: main 브랜치 push 시 (+ 수동 실행)
-# (VERSION-CONTROL이 GITHUB_TOKEN으로 version.yml을 변경하면
-#  후속 워크플로우가 트리거되지 않으므로 main push를 트리거로 사용
-#  — PLUGIN-VERSION-SYNC와 동일 패턴)
+# Triggers: push to main (+ manual run)
+# (When VERSION-CONTROL changes version.yml with GITHUB_TOKEN,
+#  follow-up workflows are not triggered, so main push is used as the trigger
+#  — same pattern as PLUGIN-VERSION-SYNC)
 #
-# 인증: npm Trusted Publishing (OIDC). Secret 없음
-#   - npmjs.com 패키지 설정의 Trusted Publisher 에 이 레포와 이 워크플로 파일 이름이 등록되어 있다.
-#     파일 이름을 바꾸면 그 설정도 같이 바꿔야 한다 (안 바꾸면 publish 가 인증에서 실패)
-#   - npm 11.5.1 이상이 필요해 Node 24 를 쓴다. `id-token: write` 권한이 있어야 한다
-#   - 2FA 우회 토큰(NPM_TOKEN)은 2027-01 부터 직접 배포가 막혀 쓰지 않는다
+# Auth: npm Trusted Publishing (OIDC). No Secret
+#   - This repo and this workflow file name are registered as a Trusted Publisher in the npmjs.com package settings.
+#     Renaming the file requires changing that setting too (otherwise publish fails auth)
+#   - Needs npm 11.5.1 or later, so Node 24 is used. Requires `id-token: write` permission
+#   - 2FA-bypass tokens (NPM_TOKEN) are not used, since direct publishing with them is blocked from 2027-01
 # ===================================================================
 
 name: PROJECT-TEMPLATE-NPM-PUBLISH
@@ -47,8 +47,8 @@ permissions:
   id-token: write
 
 jobs:
-  # 3 OS 스모크를 통과한 커밋만 내보낸다. 게이트가 없으면 깨진 버전이 먼저 latest 로 나간다.
-  # GitHub API 는 run 이 완료·성공이어도 job 이 아직 대기 중일 때가 있어 job 까지 본다.
+  # Ship only commits that passed the 3-OS smoke. Without the gate a broken version goes to latest first.
+  # The GitHub API sometimes shows a run completed/successful while a job is still queued, so check jobs too.
   wait-for-ci:
     name: Wait for CI on this commit
     runs-on: ubuntu-latest
@@ -69,7 +69,7 @@ jobs:
             exit 0
           fi
           runs_url="repos/$GITHUB_REPOSITORY/actions/workflows/PROJECT-TEMPLATE-CI.yaml/runs?head_sha=$GITHUB_SHA&event=push"
-          # CI 는 paths 필터가 있어 문서만 바뀐 커밋에는 run 이 없다. 3분 안에 안 생기면 대상이 아니다
+          # CI has a paths filter, so docs-only commits have no run. If none appears within 3 minutes, it is not a target
           for attempt in $(seq 1 170); do
             run_id=$(gh api "$runs_url" --jq '.workflow_runs[0].id // empty')
             if [ -z "$run_id" ]; then
@@ -92,7 +92,7 @@ jobs:
                 exit 1
               fi
               if [ "$cancelled" != "0" ]; then
-                # 새 push 가 이 run 을 취소했다. 그 push 의 배포가 이어받는다
+                # A new push cancelled this run. That push's publish takes over
                 echo "CI was replaced by a newer push, leaving the publish to that run."
                 echo "passed=false" >> "$GITHUB_OUTPUT"
                 exit 0
@@ -161,8 +161,8 @@ jobs:
         if: steps.check.outputs.skip == 'false'
         run: echo "✅ Published projectops@${{ steps.version.outputs.version }} to npm"
 
-  # npm 배포와 분리한 이유: contents: write 를 이 job 에만 주어,
-  # npm 에 올리는 publish 단계가 저장소 쓰기 권한 토큰과 같은 job 에 있지 않게 한다.
+  # Why separate from npm publishing: contents: write goes only to this job,
+  # so the npm publish step never shares a job with a repo-write token.
   github-release:
     name: Create GitHub Release
     needs: publish-npm
@@ -176,7 +176,7 @@ jobs:
         with:
           ref: main
 
-      # 태그는 RELEASE-CHANGELOG가 만든다. push 시점에 아직 없을 수 있어 잠시 기다린다.
+      # RELEASE-CHANGELOG creates the tag. It may not exist yet at push time, so wait a bit.
       - name: Create GitHub Release (idempotent)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -195,7 +195,7 @@ jobs:
             exit 0
           fi
 
-          # 태그가 원격에 생길 때까지 최대 5분 대기 (조용히 넘기면 Release가 영영 누락된다)
+          # Wait up to 5 minutes for the tag to appear on the remote (passing silently would lose the Release forever)
           for i in $(seq 1 20); do
             git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG" && FOUND=1 && break
             echo "⏳ Waiting for tag $TAG ($i/20)"
@@ -212,7 +212,7 @@ jobs:
           jq -n --arg tag "$TAG" --arg name "$TAG" --rawfile body release_notes.txt \
             '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}' > release_payload.json
 
-          # 일시 오류(5xx, 429)는 3회까지 재시도한다. 422는 다른 곳에서 먼저 만들어진 경우라 존재 확인 후 성공 처리한다.
+          # Retry transient errors (5xx, 429) up to 3 times. 422 means it was created elsewhere first; confirm it exists and treat as success.
           for attempt in 1 2 3; do
             CODE=$(curl -s -o release_resp.json -w "%{http_code}" -X POST "${AUTH[@]}" \
               -d @release_payload.json "$API/releases")

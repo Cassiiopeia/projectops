@@ -1,74 +1,74 @@
 # ===================================================================
-# Spring Boot 무중단 배포 (Nginx Blue-Green, SSH + Docker)
+# Spring Boot zero-downtime deploy (Nginx Blue-Green, SSH + Docker)
 # ===================================================================
 #
-# deploy 브랜치 푸시 시 Docker 이미지를 빌드하고
-# nginx config 의 proxy_pass 포트 토글로 Blue-Green 무중단 배포합니다.
+# On a push to the deploy branch, builds the Docker image and
+# deploys Blue-Green with zero downtime by toggling the proxy_pass port in the nginx config.
 #
-# 본 워크플로우는 무중단 배포 옵션입니다.
-# 기본 배포는 PROJECT-SPRING-SIMPLE-CICD.yaml 입니다.
-# 전환하려면 아래 push.branches 주석 해제 + SIMPLE-CICD 의 push 트리거 주석 처리.
+# This workflow is the zero-downtime deploy option.
+# The default deploy is PROJECT-SPRING-SIMPLE-CICD.yaml.
+# To switch, uncomment push.branches below + comment out the push trigger in SIMPLE-CICD.
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# APPLICATION_PROD_YML (선택): application-prod.yml 내용
-# DOCKERHUB_USERNAME: DockerHub 사용자명
-# DOCKERHUB_TOKEN: DockerHub 액세스 토큰
-# SERVER_HOST: 배포 서버 주소
-# SERVER_USER: SSH 사용자명
-# SERVER_PASSWORD: SSH 비밀번호 (SSH_AUTH_METHOD=password일 때)
-# SSH_KEY: SSH 개인키 .pem 내용 (SSH_AUTH_METHOD=key일 때, AWS EC2 등)
-# ===================================================================
-#
-# 🔧 환경변수 설정 (env 섹션에서 설정)
+# APPLICATION_PROD_YML (optional): contents of application-prod.yml
+# DOCKERHUB_USERNAME: DockerHub user name
+# DOCKERHUB_TOKEN: DockerHub access token
+# SERVER_HOST: deploy server address
+# SERVER_USER: SSH user name
+# SERVER_PASSWORD: SSH password (when SSH_AUTH_METHOD=password)
+# SSH_KEY: SSH private key .pem contents (when SSH_AUTH_METHOD=key, AWS EC2 etc.)
 # ===================================================================
 #
-# 🌐 포트 및 컨테이너:
-# PROJECT_NAME: 프로젝트명 (컨테이너/이미지 이름)
-# SERVICE_DOMAIN: 외부 도메인 (nginx server_name 과 일치)
-# CONTAINER_INTERNAL_PORT: Spring Boot 내부 포트 (기본: 8080)
-# BLUE_PORT: Blue 호스트 노출 포트 (기본: 8080)
-# GREEN_PORT: Green 호스트 노출 포트 (기본: 8081)
+# 🔧 Environment settings (set in the env section)
+# ===================================================================
+#
+# 🌐 Ports and container:
+# PROJECT_NAME: project name (container/image name)
+# SERVICE_DOMAIN: external domain (matches nginx server_name)
+# CONTAINER_INTERNAL_PORT: Spring Boot internal port (default: 8080)
+# BLUE_PORT: Blue host port (default: 8080)
+# GREEN_PORT: Green host port (default: 8081)
 #
 # 🔧 Nginx:
-# NGINX_RP_CONF: nginx 역방향 프록시 config 파일 경로
-# NGINX_BACKUP_DIR: nginx config 백업 디렉토리
-# NGINX_BACKUP_KEEP: 백업 보존 개수 (기본: 10)
+# NGINX_RP_CONF: nginx reverse proxy config file path
+# NGINX_BACKUP_DIR: nginx config backup directory
+# NGINX_BACKUP_KEEP: number of backups kept (default: 10)
 #
-# 📦 볼륨/스토리지:
-# ENABLE_VOLUME_MOUNT: 볼륨 마운트 여부 (true/false)
-# VOLUME_HOST_PATH: 호스트 볼륨 경로
-# VOLUME_CONTAINER_PATH: 컨테이너 내부 마운트 경로
+# 📦 Volume/storage:
+# ENABLE_VOLUME_MOUNT: whether to mount a volume (true/false)
+# VOLUME_HOST_PATH: host volume path
+# VOLUME_CONTAINER_PATH: mount path inside the container
 #
-# 🔌 SSH 연결:
-# SSH_PORT: SSH 포트 (기본: 2022)
-# SSH_COMMAND_TIMEOUT: 명령 타임아웃 (기본: 600s)
-# SSH_CONNECTION_TIMEOUT: 연결 타임아웃 (기본: 60s)
+# 🔌 SSH connection:
+# SSH_PORT: SSH port (default: 2022)
+# SSH_COMMAND_TIMEOUT: command timeout (default: 600s)
+# SSH_CONNECTION_TIMEOUT: connection timeout (default: 60s)
 #
-# ⏱️ 헬스체크:
-# HEALTHCHECK_PATH: HTTP 경로 (기본: /actuator/health, fallback: /)
-# HEALTHCHECK_MAX_RETRIES: 컨테이너 헬스체크 최대 횟수 (기본: 120)
-# HEALTHCHECK_RETRY_INTERVAL: 재시도 간격 초 (기본: 1)
-# DOMAIN_CHECK_RETRIES: nginx reload 후 도메인 검증 횟수 (기본: 10)
-# DOMAIN_CHECK_INTERVAL: 도메인 검증 간격 초 (기본: 2)
-# IN_FLIGHT_WAIT: old 컨테이너 제거 전 대기 초 (기본: 5)
+# ⏱️ Health check:
+# HEALTHCHECK_PATH: HTTP path (default: /actuator/health, fallback: /)
+# HEALTHCHECK_MAX_RETRIES: max container health checks (default: 120)
+# HEALTHCHECK_RETRY_INTERVAL: retry interval in seconds (default: 1)
+# DOMAIN_CHECK_RETRIES: domain checks after nginx reload (default: 10)
+# DOMAIN_CHECK_INTERVAL: domain check interval in seconds (default: 2)
+# IN_FLIGHT_WAIT: seconds to wait before removing the old container (default: 5)
 #
-# 💡 사전 조건:
-#   - 서버에 nginx 설치 + sites-enabled config 존재
-#   - 해당 config 의 server 블록에 다음 라인 존재:
+# 💡 Prerequisites:
+#   - nginx installed on the server + a sites-enabled config
+#   - the config's server block contains this line:
 #       server_name ${SERVICE_DOMAIN};
-#       proxy_pass http://127.0.0.1:${BLUE_PORT};   # 또는 ${GREEN_PORT}
-#   - SSH 사용자가 sudo 로 nginx -t / reload, docker 명령 실행 가능
+#       proxy_pass http://127.0.0.1:${BLUE_PORT};   # or ${GREEN_PORT}
+#   - the SSH user can run nginx -t / reload and docker commands with sudo
 # ===================================================================
 
 name: PROJECT-SPRING-NONSTOP-NGINX-CICD
 
 # ===================================================================
-# 트리거 설정
+# Trigger settings
 # ===================================================================
-# deploy 브랜치 push 자동 트리거는 주석 처리되어 있습니다.
-# 본 워크플로우로 전환하려면 아래 push.branches 주석을 해제하세요.
+# The automatic trigger on deploy branch push is commented out.
+# To switch to this workflow, uncomment push.branches below.
 on:
   # push:
   #   branches:
@@ -76,53 +76,53 @@ on:
   workflow_dispatch:
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
 
 # ===================================================================
-# 환경 변수 설정
+# Environment variables
 # ===================================================================
 env:
-  # 🔧 프로젝트 설정 - 실제 프로젝트명으로 변경하세요
+  # 🔧 Project settings - change to your real project name
   PROJECT_NAME: "__PROJECT_NAME__"  # @wizard ask:@repo
   SERVICE_DOMAIN: "__SERVICE_DOMAIN__"  # @wizard ask:example.com
 
-  # ☁️ Spring Boot 설정
+  # ☁️ Spring Boot settings
   SPRING_PROFILE: "prod"
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:21
   GRADLE_OPTS: "-Dspring.profiles.active=prod"
 
-  # 📁 경로 설정
+  # 📁 Path settings
   APPLICATION_YML_DIR: "__APPLICATION_YML_DIR__"  # @wizard auto:spring-app-yml-dir
   DOCKERFILE_PATH: "./Dockerfile"
 
-  # 🌐 포트 및 컨테이너 설정
+  # 🌐 Port and container settings
   CONTAINER_INTERNAL_PORT: "8080"
   BLUE_PORT: "8080"
   GREEN_PORT: "8081"
 
-  # 🔧 Nginx 설정
+  # 🔧 Nginx settings
   NGINX_RP_CONF: "/etc/nginx/sites-enabled/example.conf"
   NGINX_BACKUP_DIR: "/volume1/project/nginx/backups"
   NGINX_BACKUP_KEEP: "10"
 
-  # 📦 볼륨 마운트 설정
+  # 📦 Volume mount settings
   ENABLE_VOLUME_MOUNT: "false"
   VOLUME_HOST_PATH: "/volume1/projects/__PROJECT_NAME__"  # @wizard ask:/volume1/projects/__PROJECT_NAME__
   VOLUME_CONTAINER_PATH: "/app"
 
-  # 🔐 SSH 인증 방식: "password"(Synology·일반 서버) | "key"(AWS EC2·.pem)
-  #   password → SERVER_PASSWORD secret 사용
-  #   key      → SSH_KEY secret 사용 (.pem 파일 전체 내용을 secret 값으로)
+  # 🔐 SSH auth method: "password" (Synology, regular servers) | "key" (AWS EC2, .pem)
+  #   password → uses the SERVER_PASSWORD secret
+  #   key      → uses the SSH_KEY secret (the full .pem file contents as the secret value)
   SSH_AUTH_METHOD: "password"  # @wizard ask:password
 
-  # 🔌 SSH 연결 설정
+  # 🔌 SSH connection settings
   SSH_PORT: "2022"
   SSH_COMMAND_TIMEOUT: "600s"
   SSH_CONNECTION_TIMEOUT: "60s"
 
-  # ⏱️ 헬스체크 설정
+  # ⏱️ Health check settings
   HEALTHCHECK_PATH: "/actuator/health"
   HEALTHCHECK_MAX_RETRIES: "120"
   HEALTHCHECK_RETRY_INTERVAL: "1"
@@ -132,7 +132,7 @@ env:
 
 jobs:
   # ===================================================================
-  # 빌드 작업
+  # Build job
   # ===================================================================
   build:
     name: Build Spring Boot application
@@ -196,7 +196,7 @@ jobs:
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   # ===================================================================
-  # 배포 작업 (Blue-Green 무중단)
+  # Deploy job (Blue-Green, zero downtime)
   # ===================================================================
   deploy:
     name: Blue-Green zero-downtime deploy
@@ -243,7 +243,7 @@ jobs:
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
 
-            # 🔐 SSH 인증 방식에 따른 sudo 추상화
+            # 🔐 sudo abstraction per SSH auth method
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
             if [ "${SSH_AUTH_METHOD}" = "key" ]; then
               SUDO() { sudo "$@"; }
@@ -267,13 +267,13 @@ jobs:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             # ============================================================
-            # 1. 최신 이미지 Pull
+            # 1. Pull the latest image
             # ============================================================
             echo "📥 Pulling image: ${IMAGE}"
             SUDO docker pull "${IMAGE}"
 
             # ============================================================
-            # 2. nginx 설정 백업
+            # 2. Back up the nginx config
             # ============================================================
             echo "📁 Creating nginx backup directory: ${NGINX_BACKUP_DIR}"
             SUDO mkdir -p "${NGINX_BACKUP_DIR}"
@@ -283,7 +283,7 @@ jobs:
             SUDO cp "${NGINX_RP_CONF}" "${BACKUP_FILE}"
 
             # ============================================================
-            # 3. 현재 활성 포트 판별 (nginx config proxy_pass 파싱)
+            # 3. Find the current active port (parse proxy_pass in the nginx config)
             # ============================================================
             echo "🔍 Finding the active port in the nginx config"
             ACTIVE_PORT=$(
@@ -338,7 +338,7 @@ jobs:
             echo "🗑️ Previous container (to be removed) = ${OLD_CONTAINER_NAME}"
 
             # ============================================================
-            # 4. 동일 슬롯(idle 쪽) 잔존 컨테이너 정리
+            # 4. Clean up a leftover container in the same slot (idle side)
             # ============================================================
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${NEW_CONTAINER_NAME}\$"; then
               echo "🗑️ Cleaning up idle slot: ${NEW_CONTAINER_NAME}"
@@ -346,7 +346,7 @@ jobs:
             fi
 
             # ============================================================
-            # 5. 볼륨 마운트 옵션 구성
+            # 5. Build volume mount options
             # ============================================================
             VOLUME_MOUNT_OPTION="-v /etc/localtime:/etc/localtime:ro"
             if [ "${ENABLE_VOLUME_MOUNT}" = "true" ]; then
@@ -361,10 +361,10 @@ jobs:
             fi
 
             # ============================================================
-            # 6. 새 컨테이너 기동
+            # 6. Start the new container
             # ============================================================
             echo "🐳 Starting new container: ${NEW_CONTAINER_NAME} (port ${NEW_PORT})"
-              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
+              # Bring the service back automatically after a server reboot or Docker restart (#727)
             SUDO docker run -d \
               -p ${NEW_PORT}:${CONTAINER_INTERNAL_PORT} \
               --name "${NEW_CONTAINER_NAME}" \
@@ -375,7 +375,7 @@ jobs:
               "${IMAGE}"
 
             # ============================================================
-            # 7. 컨테이너 헬스체크 (로컬 포트 직접 호출)
+            # 7. Container health check (calls the local port directly)
             # ============================================================
             echo "⏳ Starting health check (up to ${HEALTHCHECK_MAX_RETRIES} tries × ${HEALTHCHECK_RETRY_INTERVAL}s)"
             HEALTHCHECK_SUCCESS=false
@@ -399,7 +399,7 @@ jobs:
             fi
 
             # ============================================================
-            # 8. nginx config 포트 토글 (proxy_pass 포트 치환)
+            # 8. Toggle the nginx config port (replace the proxy_pass port)
             # ============================================================
             echo "🔧 Switching the nginx config port: ${ACTIVE_PORT} → ${NEW_PORT}"
             TMP_FILE="$(mktemp)"
@@ -435,7 +435,7 @@ jobs:
             ' "${NGINX_RP_CONF}" > "${TMP_FILE}"
 
             # ============================================================
-            # 9. nginx 설정 검증 + reload (실패 시 백업 복구)
+            # 9. Validate + reload the nginx config (restore the backup on failure)
             # ============================================================
             echo "🔧 Applying and validating the nginx config"
             SUDO cp "${TMP_FILE}" "${NGINX_RP_CONF}"
@@ -466,7 +466,7 @@ jobs:
             fi
 
             # ============================================================
-            # 10. 도메인 접근 검증
+            # 10. Verify domain access
             # ============================================================
             echo "🌐 Checking domain access (${SERVICE_DOMAIN})"
             DOMAIN_OK=false
@@ -486,14 +486,14 @@ jobs:
             fi
 
             # ============================================================
-            # 11. 이전 컨테이너 제거
+            # 11. Remove the previous container
             # ============================================================
             echo "⏱️ Waiting for in-flight requests (${IN_FLIGHT_WAIT}s)"
             sleep ${IN_FLIGHT_WAIT}
 
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${OLD_CONTAINER_NAME}\$"; then
               echo "🗑️ Removing old=${OLD_CONTAINER_NAME}"
-              # 이 배포의 이전 이미지 ID — 아래에서 이것만 지운다 (서버 전체 prune 은 다른 프로젝트 이미지를 지운다, #734)
+              # This deploy's previous image ID — only this is removed below (a server-wide prune removes other projects' images, #734)
               OLD_IMAGE_ID=$(SUDO docker inspect --format '{{.Image}}' "${OLD_CONTAINER_NAME}" 2>/dev/null || true)
               SUDO docker rm -f "${OLD_CONTAINER_NAME}" || true
               if [ -n "${OLD_IMAGE_ID}" ]; then
@@ -508,10 +508,10 @@ jobs:
             fi
 
             # ============================================================
-            # 12. 백업 보존
+            # 12. Keep backups
             # ============================================================
-            # 서버 전체 prune(docker image prune -af)은 같은 서버의 다른 프로젝트 이미지를 지우므로 하지 않는다 (#734).
-            # 이 배포의 이전 이미지는 위에서 이미 지웠다.
+            # No server-wide prune (docker image prune -af): it would remove other projects' images on the same server (#734).
+            # This deploy's previous image was already removed above.
 
             echo "🧹 Keeping the latest ${NGINX_BACKUP_KEEP} backup files"
             KEEP_PLUS_ONE=$((NGINX_BACKUP_KEEP + 1))
@@ -523,29 +523,29 @@ jobs:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ===================================================================
-# 📝 사용 방법
+# 📝 How to use
 # ===================================================================
 #
-# 1) GitHub Secrets 등록:
+# 1) Register GitHub Secrets:
 #    APPLICATION_PROD_YML, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN,
 #    SERVER_HOST, SERVER_USER, SERVER_PASSWORD
 #
-# 2) 본 워크플로우의 env 블록에서 프로젝트별 설정 수정:
+# 2) Edit per-project settings in this workflow's env block:
 #    - PROJECT_NAME, SERVICE_DOMAIN
 #    - APPLICATION_YML_DIR, CONTAINER_INTERNAL_PORT
-#    - BLUE_PORT, GREEN_PORT (서로 다른 호스트 포트)
+#    - BLUE_PORT, GREEN_PORT (different host ports)
 #    - NGINX_RP_CONF, NGINX_BACKUP_DIR
 #    - ENABLE_VOLUME_MOUNT, VOLUME_HOST_PATH, VOLUME_CONTAINER_PATH
 #
-# 3) 서버 사전 준비:
-#    - nginx 설치 + sites-enabled config 존재
-#    - 해당 config server 블록에 다음 라인 존재:
+# 3) Prepare the server:
+#    - nginx installed + a sites-enabled config
+#    - the config's server block contains this line:
 #        server_name ${SERVICE_DOMAIN};
-#        proxy_pass http://127.0.0.1:${BLUE_PORT};   # 또는 ${GREEN_PORT}
-#    - SSH 사용자가 sudo 로 nginx -t / reload, docker 명령 실행 가능
+#        proxy_pass http://127.0.0.1:${BLUE_PORT};   # or ${GREEN_PORT}
+#    - the SSH user can run nginx -t / reload and docker commands with sudo
 #
-# 4) 본 워크플로우로 전환:
-#    - 본 파일의 push.branches 주석 해제
-#    - PROJECT-SPRING-SIMPLE-CICD.yaml 의 push 트리거 주석 처리
+# 4) Switch to this workflow:
+#    - uncomment push.branches in this file
+#    - comment out the push trigger in PROJECT-SPRING-SIMPLE-CICD.yaml
 #
 # ===================================================================

@@ -1,39 +1,39 @@
 #!/usr/bin/env python3
 # ===================================================================
-# apply_build_profile.py — 빌드 프로파일을 두 층에 함께 적용한다 (#603)
+# apply_build_profile.py — applies a build profile to both layers together (#603)
 # ===================================================================
 #
-# 크로스 플랫폼(Windows/macOS/Linux) 표준 라이브러리 전용 — PyYAML/jq 불필요.
+# Cross-platform (Windows/macOS/Linux), standard library only — no PyYAML/jq.
 #
-# ## 왜 있나
+# ## Why it exists
 #
-# 앱의 개발 스위치는 **두 층**에 있다.
+# An app's development switches live in **two layers**.
 #
-#   런타임      `.env`           dotenv가 에셋으로 읽는다. Secret으로 주입된다.
-#   컴파일타임  `--dart-define`  바이너리에 박힌다. Secret으로 위조할 수 없다.
+#   runtime       `.env`           read as an asset by dotenv. Injected from a Secret.
+#   compile time  `--dart-define`  baked into the binary. Cannot be forged with a Secret.
 #
-# 기능 하나를 켜려면 **두 층이 모두 맞아야 한다.** 그런데 워크플로에서 이 둘이 따로
-# 놀면 **한쪽만 적용돼도 그대로 통과한다.** 실측 사고: `.env`에 개발 플래그가 찍히고
-# 로그는 "적용 완료"를 냈는데, 설치해 보니 디버깅 도구가 없었다 — 릴리스 빌드라
-# 컴파일타임 게이트가 닫혀 있었다. 로그만 봐서는 알 수 없었다.
+# Turning one feature on needs **both layers to agree.** When the workflow handles the two
+# separately, **applying only one still passes.** Real incident: `.env` got the dev flag and
+# the log said "applied", but the installed app had no debugging tools — it was a release build,
+# so the compile-time gate was closed. The log alone could not show it.
 #
-# 이 스크립트가 **한 곳에서 두 층을 모두 정한다.** 워크플로는 결과를 그대로 쓴다:
+# This script **decides both layers in one place.** The workflow uses the result as is:
 #
-#   - name: 빌드 프로파일 적용
+#   - name: Apply build profile
 #     id: build_profile
 #     run: python3 .github/scripts/apply_build_profile.py test .env
 #
 #   - name: Build
-#     # 🔴 여기에 dart-define을 직접 적지 않는다. 적는 순간 다시 두 곳이 된다.
+#     # 🔴 Never write dart-defines here directly. The moment you do, there are two places again.
 #     run: flutter build apk --release ${{ steps.build_profile.outputs.build_flags }}
 #
-# ## 설정이 없으면 아무것도 하지 않는다 ⚠️
+# ## No config means it does nothing ⚠️
 #
-# 이 템플릿은 남의 저장소에 설치된다. 프로파일 정의가 없는 저장소에서 `.env`를
-# 건드리거나 빌드 플래그를 만들어 내면 **멀쩡히 돌던 빌드가 깨진다.**
-# 설정 파일이 없으면 빈 `build_flags`만 내보내고 성공으로 끝낸다.
+# This template is installed into other people's repos. Touching `.env` or inventing build flags
+# in a repo without profile definitions **breaks builds that were working.**
+# Without a config file it emits an empty `build_flags` and ends successfully.
 #
-# ## 설정 (.github/config/build-profile.json)
+# ## Config (.github/config/build-profile.json)
 #
 #   {
 #     "dev_keys":    ["APP_SHOW_DEV_TOOLS", "APP_ENABLE_NETWORK_LOG"],
@@ -46,13 +46,13 @@
 #     }
 #   }
 #
-#   dev_keys     개발 전용 런타임 키. 프로파일을 적용하기 전에 .env에서 걷어낸다
-#                (Secret에 남아 있던 값이 살아남지 못하게 한다).
-#   secret_keys  값이 있기만 해도 배포 빌드를 세울 키 (QA 토큰 등).
-#   profiles     프로파일 이름 → 적용할 env / dart_define. 이름은 자유다.
+#   dev_keys     dev-only runtime keys. Removed from .env before applying the profile
+#                (so values left in the Secret cannot survive).
+#   secret_keys  keys that stop a release build if they have any value (QA tokens, etc.).
+#   profiles     profile name -> env / dart_define to apply. Names are free.
 #
-# `release`라는 이름의 프로파일에는 **검증이 걸린다** — 개발 키가 켜진 채로,
-# 또는 QA 토큰이 남은 채로 빌드가 나가지 않는다.
+# A profile named `release` **is verified** — a build never goes out with dev keys on
+# or with a QA token left behind.
 # ===================================================================
 
 import argparse
@@ -64,29 +64,29 @@ from pathlib import Path
 
 DEFAULT_CONFIG = Path(".github/config/build-profile.json")
 
-# 이 이름의 프로파일에는 "꺼져 있어야 한다"는 검증이 걸린다.
+# A profile with this name is verified to have everything "off".
 GUARDED_PROFILE = "release"
 
 
 def log(msg):
-    # 비UTF-8 바이트(surrogateescape)가 값에 섞여도 로그 출력이 죽지 않게 한다
+    # Keep log output alive even when non-UTF-8 bytes (surrogateescape) are in values
     print(msg.encode("utf-8", "backslashreplace").decode("utf-8"), file=sys.stderr)
 
 
 def fail(msg):
-    # GitHub Actions 주석 형식 — 로그에서 눈에 띄고 요약에도 올라간다
+    # GitHub Actions annotation format — stands out in the log and shows in the summary
     print(f"::error::{msg}", file=sys.stderr)
     sys.exit(1)
 
 
 def load_config(path: Path):
-    """설정을 읽는다. 없으면 None — 호출부가 '아무것도 하지 않음'으로 처리한다."""
+    """Read the config. None if missing — the caller treats it as 'do nothing'."""
     if not path.is_file():
         return None
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
-        # 깨진 설정을 조용히 무시하면 "왜 안 먹지"로 몇 시간이 간다
+        # Silently ignoring a broken config costs hours of "why doesn't it work"
         fail(f"Cannot read the build profile config: {path} ({e})")
     if not isinstance(data, dict):
         fail(f"The build profile config is not an object: {path}")
@@ -96,17 +96,17 @@ def load_config(path: Path):
 def read_env_lines(env_file: Path):
     if not env_file.is_file():
         fail(f"No .env file: {env_file}")
-    # 값에 비ASCII가 섞여도 죽지 않게 — 러너 로캘에 기대지 않는다.
-    # replace 로 읽고 다시 쓰면 원본 바이트가 U+FFFD 로 영구 치환되므로
-    # surrogateescape 로 읽어 쓸 때 같은 바이트로 되돌린다(#693).
+    # Do not crash on non-ASCII values — do not rely on the runner locale.
+    # Reading with replace and writing back permanently turns the original bytes into U+FFFD,
+    # so read with surrogateescape and restore the same bytes on write (#693).
     return env_file.read_text(encoding="utf-8", errors="surrogateescape").splitlines()
 
 
 def parse_env_line(line):
-    """`.env` 한 줄을 (키, 값)으로 읽는다. 키 줄이 아니면 None.
+    """Read one `.env` line as (key, value). None if it is not a key line.
 
-    dotenv 계열이 받아들이는 `export KEY=v`, `KEY = v`, `KEY="v"` 를 모두 같은 키로
-    본다. strip 과 verify 가 이 함수 하나를 공유해야 한쪽만 놓치는 우회가 안 생긴다(#692).
+    Treats `export KEY=v`, `KEY = v`, `KEY="v"` (all accepted by dotenv variants) as the same key.
+    strip and verify must share this one function so neither side misses a bypass (#692).
     """
     s = line.strip()
     if not s or s.startswith("#") or "=" not in s:
@@ -124,11 +124,11 @@ def parse_env_line(line):
 
 
 def strip_keys(lines, keys):
-    """주어진 키를 선언한 줄을 걷어낸다.
+    """Remove the lines that declare the given keys.
 
-    sed -i 를 쓰지 않는 이유: GNU(-i)와 BSD(-i '') 문법이 갈려 Linux 러너와
-    macOS 러너에서 동작이 달라진다. 조용히 통과하고 아무것도 안 바뀌는
-    사고가 실제로 있었다(#523).
+    Why not sed -i: GNU (-i) and BSD (-i '') syntax differ, so Linux and
+    macOS runners behave differently. A silent pass that changed nothing
+    really happened (#523).
     """
     keys = set(keys)
     kept = []
@@ -140,7 +140,7 @@ def strip_keys(lines, keys):
 
 
 def env_value(lines, key):
-    """마지막에 선언된 값이 이긴다 — dotenv 구현들의 일반적 동작."""
+    """The last declared value wins — the usual dotenv behavior."""
     found = None
     for ln in lines:
         parsed = parse_env_line(ln)
@@ -150,7 +150,7 @@ def env_value(lines, key):
 
 
 def mask(key, value):
-    """토큰·비밀번호류는 값을 찍지 않는다 — 빌드 로그는 누구나 본다."""
+    """Never print values of tokens/passwords — anyone can read build logs."""
     if value is None or value == "":
         return "(none)"
     upper = key.upper()
@@ -160,8 +160,8 @@ def mask(key, value):
 
 
 def to_text(where, key, value):
-    """설정 값을 문자열로 만든다. JSON 불리언은 소문자로 — bool.fromEnvironment 는
-    소문자 `true` 만 참으로 읽으므로 `True` 가 나가면 앱에서 조용히 false 가 된다(#693)."""
+    """Turn a config value into a string. JSON booleans become lowercase — bool.fromEnvironment
+    only reads lowercase `true` as true, so a `True` would silently become false in the app (#693)."""
     if isinstance(value, bool):
         return "true" if value else "false"
     if isinstance(value, (int, float)):
@@ -174,7 +174,7 @@ def to_text(where, key, value):
 
 
 def as_map(where, value):
-    """객체여야 하는 설정 조각을 검증해 복사본을 돌려준다 (구조 오류를 트레이스백 대신 안내로)."""
+    """Validate a config piece that must be an object and return a copy (structure errors as guidance instead of a traceback)."""
     if value is None:
         return {}
     if not isinstance(value, dict):
@@ -191,17 +191,17 @@ def as_key_list(where, value):
 
 
 def define_tokens(dart_define: dict):
-    # dict 순서를 그대로 쓴다 — 설정 파일에 적힌 순서가 로그에 그대로 나와야 읽기 쉽다
+    # Keep dict order — the order in the config file should show in the log as is for readability
     return [f"--dart-define={k}={v}" for k, v in dart_define.items()]
 
 
 def build_flags(dart_define: dict) -> str:
-    # 워크플로가 셸 명령줄에 그대로 끼워 넣으므로 공백·메타문자는 인용한다(#693)
+    # The workflow drops this into a shell command line as is, so quote spaces and metacharacters (#693)
     return " ".join(shlex.quote(t) for t in define_tokens(dart_define))
 
 
 def emit_output(flags: str):
-    """워크플로가 빌드 명령에 붙일 수 있게 내보낸다. 로컬 실행이면 화면 출력만."""
+    """Export so the workflow can append it to the build command. Local runs print to screen only."""
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
         with open(out, "a", encoding="utf-8") as f:
@@ -209,7 +209,7 @@ def emit_output(flags: str):
 
 
 def verify_release(lines, dev_keys, secret_keys, flags, test_defines):
-    """배포 빌드가 개발 상태로 나가지 않는지 양쪽 층을 모두 본다."""
+    """Check both layers so a release build does not ship in a dev state."""
     for k in dev_keys:
         v = env_value(lines, k)
         if v is not None and v.strip().lower() == "true":
@@ -218,7 +218,7 @@ def verify_release(lines, dev_keys, secret_keys, flags, test_defines):
         v = env_value(lines, k)
         if v is not None and v.strip() != "":
             fail(f"A development secret is left in a release build: {k}")
-    # 컴파일타임 쪽도 본다. 여기가 뚫리면 .env가 아무리 깨끗해도 개발 빌드가 나간다.
+    # Check the compile-time side too. If this leaks, a dev build ships no matter how clean .env is.
     for k, v in test_defines.items():
         if f"--dart-define={k}={v}" in shlex.split(flags):
             fail(f"A test-only flag got into a release build: {k}={v}")
@@ -236,7 +236,7 @@ def main(argv=None):
 
     cfg = load_config(Path(args.config))
 
-    # ── 설정이 없다 → 아무것도 하지 않는다 (기존 저장소 무영향) ──
+    # ── No config -> do nothing (existing repos unaffected) ──
     if cfg is None:
         log(f"ℹ️  No build profile config ({args.config}) — skipping")
         emit_output("")
@@ -262,9 +262,9 @@ def main(argv=None):
     env_file = Path(args.env_file)
     lines = read_env_lines(env_file)
 
-    # 개발 키와 이번에 쓸 키를 함께 걷어낸 뒤 다시 쓴다.
-    # dev_keys 를 지우는 이유: Secret 에 남아 있던 값이 살아남으면 프로파일이
-    # 의미를 잃는다. want_env 를 지우는 이유: 같은 키가 두 번 적히는 것을 막는다.
+    # Remove dev keys and the keys we are about to write, then write them again.
+    # Why remove dev_keys: if values left in the Secret survive, the profile
+    # loses its meaning. Why remove want_env: prevents the same key appearing twice.
     lines = strip_keys(lines, set(dev_keys) | set(want_env))
     for k, v in want_env.items():
         lines.append(f"{k}={v}")
@@ -275,8 +275,8 @@ def main(argv=None):
     flags = build_flags(dart_define)
     emit_output(flags)
 
-    # ── 결과 — 두 층을 함께 보여준다 ──
-    # 한 층만 찍으면 "적용 완료"가 거짓말이 된다. 그게 이 스크립트가 생긴 이유다.
+    # ── Result — show both layers together ──
+    # Printing only one layer makes "applied" a lie. That is why this script exists.
     log(f"✅ Build profile applied: {args.profile}")
     log("── Runtime switches (.env) ──")
     shown = list(dict.fromkeys(list(want_env) + dev_keys + secret_keys))
@@ -296,9 +296,9 @@ def main(argv=None):
                 if not isinstance(p, dict):
                     fail(f"Build profile config structure error: profiles.{name} must be an object")
                 test_defines.update(as_map(f"{name}.dart_define", p.get("dart_define")))
-        # 배포 프로파일이 같은 키를 **다른 값으로** 덮어썼다면 위반이 아니다
-        # (예: test 는 APP_FLAVOR=dev, release 는 APP_FLAVOR=prod).
-        # 값까지 같다면 덮어쓴 것이 아니라 테스트 값이 그대로 나가는 것이므로 막는다.
+        # If the release profile overwrote the same key **with a different value**, it is not a violation
+        # (e.g. test has APP_FLAVOR=dev, release has APP_FLAVOR=prod).
+        # If the value is the same, it was not overwritten — the test value is shipping as is, so block it.
         for k, v in dart_define.items():
             if test_defines.get(k) != v:
                 test_defines.pop(k, None)

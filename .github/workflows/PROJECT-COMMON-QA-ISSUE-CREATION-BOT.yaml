@@ -1,38 +1,38 @@
 # ===================================================================
 # PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml
-# 자동 QA 이슈 생성 워크플로우
+# Automatic QA issue creation workflow
 # ===================================================================
 #
-# 이 워크플로우는 GitHub 이슈/PR 댓글에서 @projectops 멘션을 감지하여
-# QA(시험요청) 이슈를 자동으로 생성합니다.
+# Detects an @projectops mention in GitHub issue/PR comments and
+# creates a QA (test request) issue automatically.
 #
 # ===================================================================
-# 작동 방식:
-# 1. 이슈 또는 PR 댓글에서 "@projectops" + "create" + "qa" 감지 (순서 무관)
-# 2. 댓글에 👀 리액션 추가 (확인 표시)
-# 3. 원본 이슈/PR 제목 또는 브랜치명에서 이슈 번호 추출
-# 4. 제목에서 불필요한 이모지 및 키워드 제거
-# 5. "🔍 [시험요청]" 접두사를 붙여 QA 이슈 생성
-# 6. 시험 템플릿이 적용된 본문 자동 생성
-# 7. 원본 이슈/PR에 QA 이슈 링크 댓글 작성
+# How it works:
+# 1. Detects "@projectops" + "create" + "qa" in an issue or PR comment (any order)
+# 2. Adds a 👀 reaction to the comment (acknowledgement)
+# 3. Extracts the issue number from the original issue/PR title or branch name
+# 4. Removes unneeded emoji and keywords from the title
+# 5. Creates the QA issue with the QA prefix (e.g. "🔍 [QA]")
+# 6. Generates a body with the test template applied
+# 7. Comments a link to the QA issue on the original issue/PR
 #
-# 지원 기능:
-# - 이슈와 PR 모두 지원
-# - PR 브랜치명에서 이슈 번호 자동 추출
-# - 명령어 순서 무관 (@projectops create qa, @projectops qa create 모두 가능)
-# - 이모지 자동 제거 (🚀, 🔥, ⌛ 등)
-# - 이슈 타입 키워드 제거 ([버그], [디자인], [기능요청] 등)
-# - 카테고리 및 내용 자동 추출
-# - QA 템플릿 자동 적용
-# - 담당자 자동 할당
-# - 확인 리액션 (👀) 자동 추가
+# Features:
+# - Works for both issues and PRs
+# - Extracts the issue number from the PR branch name automatically
+# - Any command order (@projectops create qa and @projectops qa create both work)
+# - Removes emoji automatically (🚀, 🔥, ⌛, etc.)
+# - Removes issue type keywords ([버그], [디자인], [기능요청], [Bug], [Feature], etc.)
+# - Extracts category and content automatically
+# - Applies the QA template automatically
+# - Assigns an assignee automatically
+# - Adds the acknowledgement reaction (👀) automatically
 #
-# 사용 예시:
-# 원본 이슈: "🚀 [기능개발][로그인] 소셜 로그인 추가"
-# QA 이슈: "🔍 [시험요청][로그인] 소셜 로그인 추가"
+# Example:
+# Original issue: "🚀 [Feature][Login] Add social login"
+# QA issue: "🔍 [QA][Login] Add social login"
 #
-# 트리거 방법:
-# 이슈/PR 댓글에 "@projectops create qa" 또는 "@projectops qa create" 입력
+# How to trigger:
+# Type "@projectops create qa" or "@projectops qa create" in an issue/PR comment
 # ===================================================================
 
 name: PROJECT-CREATE-QA-ISSUE
@@ -42,17 +42,17 @@ on:
     types: [created]
 
 # ===================================================================
-# 설정 변수
+# Settings
 # ===================================================================
 env:
-  # QA 이슈 기본 담당자 설정
-  # - 'default': 댓글 작성자가 담당자로 지정됨
-  # - GitHub ID (예: 'Cassiiopeia'): 해당 사용자가 담당자로 지정됨
+  # Default assignee for QA issues
+  # - 'default': the comment author becomes the assignee
+  # - GitHub ID (e.g. 'Cassiiopeia'): that user becomes the assignee
   DEFAULT_QA_ASSIGNEE: 'default'
 
 jobs:
   create-qa:
-    # @projectops과 create, qa 키워드가 모두 포함되어 있으면 실행 (순서 무관)
+    # Run when @projectops, create and qa are all present (any order)
     if: |
       !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') &&
       (
@@ -85,8 +85,8 @@ jobs:
             
             console.log('👀 Added reaction to the comment');
 
-      # 게시 문구는 .github/scripts/qa_bot_messages.py 가 version.yml 의 언어(options.language)로 만든다 (#787).
-      # 필요한 파일만 받는다. 기본 브랜치의 설정을 읽으므로 PR 이 언어를 바꿔 끼울 수 없다.
+      # The posted text is built by .github/scripts/qa_bot_messages.py in the version.yml language (options.language) (#787).
+      # Fetch only the needed files. Settings are read from the default branch, so a PR cannot swap the language.
       - name: Check out the message module
         uses: actions/checkout@v5
         with:
@@ -105,7 +105,7 @@ jobs:
             const issue = context.payload.issue;
             const commenter = context.payload.comment.user.login;
 
-            // 담당자 결정: 'default'면 댓글 작성자, 그 외에는 지정된 GitHub ID
+            // Assignee: comment author for 'default', otherwise the given GitHub ID
             const defaultAssignee = process.env.DEFAULT_QA_ASSIGNEE || 'default';
             const assignee = (defaultAssignee === 'default') ? commenter : defaultAssignee;
             console.log(`👤 Assignee: ${assignee} (setting: ${defaultAssignee})`);
@@ -118,7 +118,7 @@ jobs:
             let originalIssueNumber = issueOrPrNumber;
             let title = issue.title;
             
-            // PR인 경우 브랜치명에서 이슈 번호 추출
+            // For a PR, extract the issue number from the branch name
             if (isPullRequest) {
               const { data: pr } = await github.rest.pulls.get({
                 owner: context.repo.owner,
@@ -129,13 +129,13 @@ jobs:
               const branchName = pr.head.ref;
               console.log(`🌿 Branch: ${branchName}`);
             
-              // 브랜치명에서 #31 형태의 이슈 번호 추출
+              // Extract an issue number like #31 from the branch name
               const issueMatch = branchName.match(/#(\d+)/);
               if (issueMatch) {
                 originalIssueNumber = parseInt(issueMatch[1]);
                 console.log(`🔍 Extracted issue number: #${originalIssueNumber}`);
             
-                // 원본 이슈 정보 가져오기
+                // Fetch the original issue info
                 try {
                   const { data: originalIssue } = await github.rest.issues.get({
                     owner: context.repo.owner,
@@ -152,20 +152,20 @@ jobs:
             
             console.log('📝 Original title:', title);
             
-            // 1. 이모지 제거
+            // 1. Remove emoji
             title = title.replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
                         .replace(/[\u{2600}-\u{26FF}]/gu, '')
                         .replace(/[\u{2700}-\u{27BF}]/gu, '');
             
-            // 2. 특정 키워드 앞부분까지 제거
+            // 2. Remove everything up to the type keyword
             const keywordPattern = /^.*?\[(버그|디자인|기능요청|기능추가|기능개선|Bug|Design|Feature Request|Feature|Improvement)\]/i;
             title = title.replace(keywordPattern, '');
             
-            // 3. 공백 정리
+            // 3. Tidy whitespace
             title = title.replace(/^\s+/, '').trim();
             console.log('✨ Cleaned title:', title);
             
-            // 4. QA 이슈 제목과 본문 — 언어에 맞는 문구는 파이썬 모듈이 만든다 (#787)
+            // 4. QA issue title and body — the Python module builds language-appropriate text (#787)
             const { execFileSync } = require('child_process');
             const messages = (...args) => JSON.parse(execFileSync(
               'python3', ['.github/scripts/qa_bot_messages.py', ...args], { encoding: 'utf8' }));
@@ -177,7 +177,7 @@ jobs:
             console.log('🎯 QA issue title:', qaTitle);
 
             try {
-              // QA 이슈 생성
+              // Create the QA issue
               const { data: qaIssue } = await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
@@ -189,7 +189,7 @@ jobs:
             
               console.log(`✅ Created QA issue: #${qaIssue.number}`);
             
-              // 원본 이슈/PR에 댓글
+              // Comment on the original issue/PR
               const commentBody = messages('comment', '--qa', String(qaIssue.number),
                 ...(isPullRequest ? ['--original', String(originalIssueNumber)] : [])).comment;
 
@@ -212,7 +212,7 @@ jobs:
             } catch (error) {
               console.error('❌ Error:', error);
             
-              // 에러 발생 시 댓글
+              // Comment on error
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
                 repo: context.repo.repo,

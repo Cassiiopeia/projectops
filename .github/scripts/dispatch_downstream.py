@@ -2,24 +2,24 @@
 """
 dispatch_downstream.py
 
-기본 토큰(GITHUB_TOKEN)으로 릴리스 PR을 머지했을 때, 원래 base 브랜치 push로 돌았어야 할
-후속 워크플로우를 명시적으로 깨운다 (이슈 #551).
+When a release PR is merged with the default token (GITHUB_TOKEN), explicitly wake the follow-up workflows
+that should have run on the base branch push (issue #551).
 
-왜 필요한가: GitHub은 GITHUB_TOKEN이 만든 push로는 워크플로우를 다시 트리거하지 않는다
-(무한 루프 방지). PAT로 머지하면 이 제약이 없으므로 이 스크립트를 돌릴 필요가 없다.
-반면 workflow_dispatch 이벤트는 GITHUB_TOKEN으로도 트리거할 수 있다 — 그 점을 이용한다.
+Why: GitHub does not re-trigger workflows from pushes made by GITHUB_TOKEN
+(prevents infinite loops). Merging with a PAT has no such limit, so this script is not needed then.
+workflow_dispatch events, however, can be triggered with GITHUB_TOKEN — this uses that.
 
-대상은 고정 목록이 아니라 레포에 실제로 설치된 워크플로우에서 찾는다. 프로젝트 타입마다
-배포 워크플로우가 다르기 때문이다. 두 조건을 모두 만족해야 깨운다:
-  1) base 브랜치 push로 트리거되는가  — 원래 돌았어야 할 대상인가
-  2) workflow_dispatch를 지원하는가   — 깨울 수단이 있는가
+Targets are found among workflows actually installed in the repo, not a fixed list, because
+deploy workflows differ per project type. Both conditions must hold to wake one:
+  1) triggered by a push to the base branch  — should it have run?
+  2) supports workflow_dispatch              — is there a way to wake it?
 
-2)를 만족하지 않으면 깨울 방법이 없다. 조용히 넘기지 않고 이름을 출력해 사용자가 판단하게 한다.
+Without 2) there is no way to wake it. Instead of skipping silently, print the name so the user decides.
 
-  - 커맨드: scan | dispatch
-  - 출력: 언제나 JSON (ok / 데이터 / next)
+  - Commands: scan | dispatch
+  - Output: always JSON (ok / data / next)
 
-사용 예:
+Usage:
   python3 dispatch_downstream.py scan --branch main
   GITHUB_TOKEN=... python3 dispatch_downstream.py dispatch --repo owner/name --branch main
 """
@@ -39,39 +39,39 @@ from i18n.messages import t as message
 
 WORKFLOWS_DIR = Path(".github/workflows")
 
-# 자기 자신은 릴리스 PR 이벤트로 도는 워크플로우라 push 대상이 아니다. 혹시 이름이 바뀌어도
-# 아래 트리거 판정(push+branch)에서 걸러지지만, 의도를 남겨둔다.
+# This workflow itself runs on the release PR event, so it is not a push target. Even if renamed it is
+# filtered by the trigger check below (push+branch), but the intent is recorded.
 SELF = "PROJECT-COMMON-RELEASE-CHANGELOG"
 
-# 깨우면 안 되는 워크플로우 — push로 도는 것이 맞지만 "릴리스 머지 직후"에 돌면 해로운 것들.
+# Workflows that must not be woken — they rightly run on push but are harmful "right after a release merge".
 #
-# VERSION-CONTROL: "릴리스 PR을 거치지 않은 main 직접 push"에만 발동해야 하는 안전망이다.
-#   릴리스 머지 후 깨우는 것은 설계 의도에 정면으로 반한다. 이 워크플로우의 가드는
-#   github.event.before가 없으면 HEAD^..HEAD만 검사하는데, dispatch에는 before가 없다.
-#   README 갱신 같은 후속 커밋이 먼저 들어오면 그 범위에 version.yml이 없어 가드가 뚫리고
-#   버전이 한 번 더 올라간다. 순서에 기대지 않고 아예 제외한다.
+# VERSION-CONTROL: a safety net that must fire only on "a direct main push that skipped the release PR".
+#   Waking it after a release merge directly contradicts its design. Its guard checks only
+#   HEAD^..HEAD when github.event.before is missing, and dispatch has no before.
+#   If a follow-up commit such as the README update lands first, that range has no version.yml, the guard leaks
+#   and the version goes up once more. Exclude it outright instead of relying on order.
 EXCLUDE = {"PROJECT-COMMON-VERSION-CONTROL"}
 USER_AGENT = "projectops-dispatch-downstream"
 
 
 def _strip_comments(text: str) -> str:
-    """주석 줄 제거 — 주석 안의 예시 트리거를 실제 트리거로 오인하지 않도록."""
+    """Remove comment lines — so example triggers in comments are not mistaken for real ones."""
     return "\n".join(l for l in text.split("\n") if not re.match(r"^\s*#", l))
 
 
 def parse_triggers(text: str, branch: str) -> dict:
-    """워크플로우 YAML에서 필요한 트리거 정보만 뽑는다.
+    """Extract only the needed trigger info from workflow YAML.
 
-    정식 YAML 파서를 쓰지 않는 이유: 이 레포의 워크플로우에는 0칸 들여쓰기 heredoc이 들어 있어
-    엄격한 파서가 파싱에 실패한다(GitHub 본체는 정상 처리). 여기서는 트리거 블록만 보면 되므로
-    줄 단위 스캔이 더 안전하다.
+    Why no real YAML parser: workflows in this repo contain 0-indent heredocs that make
+    strict parsers fail (GitHub itself handles them). Only the trigger block matters here, so
+    a line-by-line scan is safer.
     """
     body = _strip_comments(text)
     lines = body.split("\n")
 
     has_dispatch = any(re.match(r"^\s*workflow_dispatch:", l) for l in lines)
 
-    # on: 블록 안의 push: 하위 branches 목록을 찾는다 (형식 3개: ["x"] · 줄바꿈 "- x" · 단일 값 x)
+    # Find the branches list under push: inside the on: block (3 forms: ["x"] / newline "- x" / single value x)
     in_on = False
     in_push = False
     in_branch_list = False
@@ -81,7 +81,7 @@ def parse_triggers(text: str, branch: str) -> dict:
         if re.match(r"^on:", line):
             in_on = True
             continue
-        if in_on and re.match(r"^[a-zA-Z_]", line):  # 최상위 다른 키 → on 블록 종료
+        if in_on and re.match(r"^[a-zA-Z_]", line):  # another top-level key -> end of on block
             in_on = False
             in_push = False
         if not in_on:
@@ -89,12 +89,12 @@ def parse_triggers(text: str, branch: str) -> dict:
         if re.match(r"^\s{2}push:", line):
             in_push = True
             continue
-        if in_push and re.match(r"^\s{2}[a-zA-Z_]+:", line):  # push와 같은 깊이의 다른 이벤트
+        if in_push and re.match(r"^\s{2}[a-zA-Z_]+:", line):  # another event at the same depth as push
             in_push = False
         if not in_push:
             in_branch_list = False
             continue
-        # 줄바꿈 목록: branches: 다음 줄들의 "- x"
+        # Newline list: "- x" on the lines after branches:
         if in_branch_list:
             item = re.match(r"^\s+-\s*[\"']?([^\"'\s#]+)", line)
             if item:
@@ -119,13 +119,13 @@ def parse_triggers(text: str, branch: str) -> dict:
         "workflow_dispatch": has_dispatch,
         "push_branches": push_branches,
         "on_push_branch": branch in push_branches,
-        # branches: 는 있는데 값을 못 읽음 — 조용히 빠지지 않게 unreachable 로 보고한다
+        # branches: present but value unreadable — report as unreachable so it does not drop silently
         "branches_unreadable": has_branches_key and not push_branches,
     }
 
 
 def scan(branch: str, workflows_dir: Path = WORKFLOWS_DIR) -> dict:
-    """설치된 워크플로우를 훑어 깨울 대상과 깨울 수 없는 대상을 가른다."""
+    """Scan installed workflows and split them into wake targets and unwakeable ones."""
     targets, unreachable = [], []
     if workflows_dir.is_dir():
         for path in sorted(workflows_dir.iterdir()):
@@ -136,7 +136,7 @@ def scan(branch: str, workflows_dir: Path = WORKFLOWS_DIR) -> dict:
             try:
                 info = parse_triggers(path.read_text(encoding="utf-8"), branch)
             except Exception as e:
-                # 판정 불가 — 깨우지 않되 결과에 남겨 수동 확인 대상으로 드러낸다
+                # Undecidable — do not wake, but keep it in the result to surface for manual checking
                 sys.stderr.write(f"  ⚠️ Could not read triggers: {path.name} ({type(e).__name__}: {e})\n")
                 unreachable.append(path.name)
                 continue
@@ -157,15 +157,15 @@ def _dispatch_one(repo: str, token: str, filename: str, ref: str) -> tuple[bool,
         return (200 <= status < 300), f"HTTP {status}"
     except urllib.error.HTTPError as e:
         return False, f"HTTP {e.code} {e.reason}"
-    except Exception as e:  # 네트워크 오류 등 — 릴리스 자체를 실패시키지 않는다
+    except Exception as e:  # network errors etc. — never fail the release itself
         return False, f"{type(e).__name__}: {e}"
 
 
 def _notify_pr(repo: str, pr: str, token: str, out: dict) -> None:
-    """dispatch가 전량 실패하면 릴리스 PR에 알린다 (#555).
+    """Notify the release PR when every dispatch fails (#555).
 
-    PAT가 없는 저장소에서 dispatch는 후속 워크플로우를 깨우는 유일한 수단이다. 전부 실패하면
-    배포·동기화가 통째로 누락되는데, 로그만 남기면 아무도 모른 채 지나간다.
+    In repos without a PAT, dispatch is the only way to wake follow-up workflows. If all fail,
+    deploy and sync are skipped entirely, and a log alone goes unnoticed.
     """
     if not (repo and pr and token):
         return
@@ -173,12 +173,12 @@ def _notify_pr(repo: str, pr: str, token: str, out: dict) -> None:
         github_api.request("POST", f"{github_api.API_ROOT}/repos/{repo}/issues/{pr}/comments",
                            token, {"body": render_failure_comment(out)}, user_agent=USER_AGENT)
         sys.stderr.write("  ℹ️ Reported the failure on the release PR\n")
-    except Exception as e:  # 알림 실패가 릴리스를 막아선 안 된다
+    except Exception as e:  # a failed notification must not block the release
         sys.stderr.write(f"  ⚠️ Could not comment on the PR: {type(e).__name__}\n")
 
 
 def render_failure_comment(out: dict, lang: str | None = None) -> str:
-    """전량 실패 알림 본문: 제목 > 안내 > 실패 표 > 확인할 것. 언어는 version.yml options.language (#769)"""
+    """All-failed notification body: title > guidance > failure table > what to check. Language from version.yml options.language (#769)"""
     lines = [
         message("dispatch.comment.title", lang),
         "",
@@ -199,7 +199,7 @@ def render_failure_comment(out: dict, lang: str | None = None) -> str:
 
 
 def _log(out: dict) -> None:
-    """Actions 로그에서 바로 읽히도록 결과를 사람 말로 풀어 stderr에 쓴다."""
+    """Write the result to stderr in plain words so it reads directly in the Actions log."""
     w = sys.stderr.write
     for item in out.get("dispatched", []):
         w(f"  ✅ Triggered: {item['workflow']}\n")
@@ -231,7 +231,7 @@ def cmd_dispatch(args) -> int:
                "summary": "No GITHUB_TOKEN, follow-up workflows were not triggered", "next": None}
         _log(out)
         print(json.dumps(out, ensure_ascii=False))
-        return 0  # 릴리스는 이미 끝났다 — 여기서 실패로 파이프라인을 막지 않는다
+        return 0  # the release is already done — do not block the pipeline with a failure here
 
     for filename in found["targets"]:
         ok, detail = _dispatch_one(args.repo, token, filename, args.branch)
@@ -245,9 +245,9 @@ def cmd_dispatch(args) -> int:
         "summary": f"{len(dispatched)} triggered / {len(failed)} failed / {len(found['unreachable'])} cannot be triggered",
         "next": None,
     }
-    # 사람이 읽을 로그는 stderr로 — stdout은 JSON 한 줄이라는 계약을 지킨다.
+    # Human-readable logs go to stderr — keeps the contract that stdout is one JSON line.
     _log(out)
-    # 하나도 못 깨웠으면 조용히 넘기지 않는다 (#555)
+    # If nothing could be woken, do not pass silently (#555)
     if failed and not dispatched:
         _notify_pr(args.repo, os.environ.get("PR_NUMBER", ""), token, out)
     print(json.dumps(out, ensure_ascii=False))
@@ -258,12 +258,12 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="dispatch_downstream")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_scan = sub.add_parser("scan", help="깨울 후속 워크플로우 탐색 (네트워크 없음)")
-    p_scan.add_argument("--branch", required=True, help="base 브랜치 (예: main)")
+    p_scan = sub.add_parser("scan", help="find follow-up workflows to wake (no network)")
+    p_scan.add_argument("--branch", required=True, help="base branch (e.g. main)")
 
-    p_dispatch = sub.add_parser("dispatch", help="탐색 후 workflow_dispatch 트리거")
+    p_dispatch = sub.add_parser("dispatch", help="scan, then trigger workflow_dispatch")
     p_dispatch.add_argument("--repo", required=True, help="owner/name")
-    p_dispatch.add_argument("--branch", required=True, help="base 브랜치 (예: main)")
+    p_dispatch.add_argument("--branch", required=True, help="base branch (e.g. main)")
 
     args = parser.parse_args(argv)
     if args.command == "scan":

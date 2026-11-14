@@ -1,43 +1,43 @@
 # ============================================================
-# iOS Fastfile (TestFlight 업로드 + App Store 심사 자동 제출)
+# iOS Fastfile (TestFlight upload + automatic App Store review submission)
 # ============================================================
-# ★ 이 파일은 마법사(testflight-wizard.py setup)가 ios/fastlane/Fastfile 로 깔며,
-#   GitHub Actions 워크플로우(PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml)가 그대로 실행합니다.
-#   (Android의 Fastfile.playstore 와 동일한 "깐 파일 = 도는 파일" 구조)
+# ★ The wizard (testflight-wizard.py setup) installs this file as ios/fastlane/Fastfile,
+#   and the GitHub Actions workflow (PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml) runs it as is.
+#   (Same "installed file = running file" structure as Android's Fastfile.playstore)
 #
-# 배포 모드(DEPLOY_MODE) — 공통 네이밍 + iOS 하위호환 별칭 둘 다 인식:
-#   store_only    (= testflight_only, 기본) : TestFlight 업로드까지만
-#   store_prepare (= appstore_prepare)       : TestFlight + ASC 버전 생성·빌드 선택·What's New 채움(제출 직전)
-#   store_submit  (= appstore_submit)        : 위 전부 + 심사 자동 제출(submit_for_review)
+# Deploy mode (DEPLOY_MODE) — recognizes both the shared names and iOS backward-compatible aliases:
+#   store_only    (= testflight_only, default) : up to the TestFlight upload only
+#   store_prepare (= appstore_prepare)         : TestFlight + create ASC version, select build, fill What's New (just before submission)
+#   store_submit  (= appstore_submit)          : all of the above + automatic review submission (submit_for_review)
 #
-# 출시 방식(STORE_RELEASE_MODE, #1125) — 심사 승인 뒤 출시를 누가 하나 (store_submit 에서만 의미):
-#   auto   (기본) : 승인 즉시 자동 출시 (automatic_release: true)
-#   manual        : 승인 뒤 App Store Connect 에서 사람이 '이 버전 출시' (automatic_release: false)
+# Release mode (STORE_RELEASE_MODE, #1125) — who releases after approval (meaningful only for store_submit):
+#   auto   (default) : released automatically on approval (automatic_release: true)
+#   manual           : after approval a person presses 'Release this version' in App Store Connect (automatic_release: false)
 #
-# ⚠️ 신규 앱은 최초 1회 App Store Connect에서 수동 제출이 필요합니다.
-#   그 이후 업데이트부터 store_submit으로 완전 자동 제출됩니다.
+# ⚠️ A new app needs one manual submission in App Store Connect first.
+#   From the following updates, store_submit submits fully automatically.
 #
-# 스토어 문구 (store_prepare / store_submit 에서만 쓰인다):
-#   '새로운 기능(What's New)' : 워크플로 env STORE_WHATS_NEW_OVERRIDE 가 있으면 그 문구, 없으면 CHANGELOG
-#   심사 메모(Notes)          : ios/fastlane/review_notes.txt 가 있으면 그 내용, 없으면 ASC 기존값 유지
+# Store text (used only for store_prepare / store_submit):
+#   'What's New'        : the workflow env STORE_WHATS_NEW_OVERRIDE if set, else CHANGELOG
+#   Review notes (Notes): contents of ios/fastlane/review_notes.txt if present, else the existing ASC value stays
 # ============================================================
 default_platform(:ios)
 
-# >>> store-text — 문구 결정 규칙. 테스트(test_store_whats_new.py)가 이 구간만 떼어 실행한다.
-# '새로운 기능' 문구와 그 출처를 돌려준다. 공백만 있는 값은 없는 것으로 본다.
+# >>> store-text — text decision rules. A test (test_store_whats_new.py) runs only this block.
+# Returns the 'What's New' text and its source. A whitespace-only value counts as missing.
 def resolve_whats_new(override, changelog)
   default_notes = "버그를 수정하고 안정성을 개선했습니다."
   o = (override || "").strip
-  return [o, "STORE_WHATS_NEW_OVERRIDE 덮어쓰기"] unless o.empty?
+  return [o, "STORE_WHATS_NEW_OVERRIDE override"] unless o.empty?
   c = (changelog || "").strip
   return [c, "CHANGELOG"] unless c.empty?
-  [default_notes, "기본 문구"]
+  [default_notes, "default text"]
 end
 
-# 언어별 '새로운 기능' 문구를 읽는다 (#829). 폴더(STORE_NOTES_DIR)는 store_notes.py 가 만들며
-# 파일 이름이 App Store Connect 언어 코드다(ko.txt, en-US.txt, ja.txt, zh-Hans.txt).
-# 폴더가 없거나 비어 있으면 nil — 이때 호출부는 옛 동작(한 문구를 DELIVER_LOCALES 전체에)을 그대로 탄다.
-# version.yml 에 store_locales 가 없는 레포는 폴더가 만들어지지 않으므로 아무것도 달라지지 않는다.
+# Reads per-language 'What's New' text (#829). The folder (STORE_NOTES_DIR) is created by store_notes.py and
+# file names are App Store Connect language codes (ko.txt, en-US.txt, ja.txt, zh-Hans.txt).
+# nil if the folder is missing or empty — then the caller keeps the old behavior (one text for all DELIVER_LOCALES).
+# Repos without store_locales in version.yml never get the folder, so nothing changes.
 def resolve_locale_notes(dir)
   return nil if dir.nil? || dir.strip.empty? || !Dir.exist?(dir)
   notes = {}
@@ -49,8 +49,8 @@ def resolve_locale_notes(dir)
   notes.empty? ? nil : notes
 end
 
-# 심사 메모 원본 파일 내용. 없거나 비어 있으면 nil — 이때는 notes.txt 를 만들지 않아야 ASC 기존값이 남는다.
-# (빈 notes.txt 는 deliver 가 전송하지 않아 '초기화'도 되지 않는다 — 실측)
+# Contents of the review notes source file. nil if missing or empty — then notes.txt must not be created so the ASC value stays.
+# (deliver does not send an empty notes.txt, so it cannot 'reset' either — measured)
 def resolve_review_notes(path)
   return nil unless File.file?(path)
   text = File.read(path).strip
@@ -58,14 +58,14 @@ def resolve_review_notes(path)
 end
 # <<< store-text
 
-# 심사 대기·심사 중인 버전 > 그 버전 문자열. 조회 실패도 잠긴 것으로 본다 (모르면 건드리지 않음)
-# deliver 는 버전 표기와 메타데이터를 먼저 바꾼 뒤 빌드 선택에서 실패하므로 그 전에 막는다
+# Version waiting for review / in review > that version string. A failed lookup counts as locked too (do not touch what is unknown)
+# deliver changes the version label and metadata first and then fails at build selection, so block it before that
 def find_version_locked_by_review(app_id)
   review_locked_states = ["WAITING_FOR_REVIEW", "IN_REVIEW"]
   app = Spaceship::ConnectAPI::App.find(app_id)
   return nil if app.nil?
   versions = app.get_app_store_versions(filter: { platform: "IOS" })
-  # 신형(appVersionState), 구형(appStoreState) 상태 필드 둘 다 확인
+  # Check both the new (appVersionState) and old (appStoreState) state fields
   locked = versions.find do |version|
     states = [:app_version_state, :app_store_state].filter_map { |field| version.respond_to?(field) ? version.public_send(field) : nil }
     states.any? { |state| review_locked_states.include?(state) }
@@ -77,7 +77,7 @@ rescue StandardError => e
 end
 
 platform :ios do
-  desc "TestFlight 업로드 (+ DEPLOY_MODE=store_submit이면 App Store 심사 자동 제출)"
+  desc "TestFlight upload (+ automatic App Store review submission when DEPLOY_MODE=store_submit)"
   lane :deploy do
     api_key = app_store_connect_api_key(
       key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
@@ -86,25 +86,25 @@ platform :ios do
     )
 
     app_id = ENV["APP_IDENTIFIER"]
-    UI.user_error!("APP_IDENTIFIER(번들 ID) 환경변수가 필요합니다.") if app_id.nil? || app_id.strip.empty?
+    UI.user_error!("The APP_IDENTIFIER (bundle ID) env var is required.") if app_id.nil? || app_id.strip.empty?
 
     deploy_mode = (ENV["DEPLOY_MODE"] || "testflight_only").strip
     prepare_appstore = ["appstore_prepare", "appstore_submit", "store_prepare", "store_submit"].include?(deploy_mode)
     submit_to_appstore = ["appstore_submit", "store_submit"].include?(deploy_mode)
-    # 출시 방식: 워크플로 없이 lane 을 직접 불러도 지금 동작(auto)이 기본. 오타는 조용히 auto 로 넘기지 않고 멈춘다
+    # Release mode: auto (current behavior) is the default even when the lane is called without the workflow. Typos stop instead of silently becoming auto
     release_mode = (ENV["STORE_RELEASE_MODE"] || "auto").strip
     release_mode = "auto" if release_mode.empty?
     unless ["auto", "manual"].include?(release_mode)
       UI.user_error!("STORE_RELEASE_MODE must be auto or manual (got: '#{release_mode}')")
     end
-    # store_prepare 는 지금처럼 자동 출시를 켜지 않는다 (제출을 사람이 하므로)
+    # store_prepare does not turn on automatic release as before (a person submits)
     automatic_release = submit_to_appstore && release_mode == "auto"
-    UI.message("🎛️  배포 모드: #{deploy_mode} (ASC 버전 준비: #{prepare_appstore} / 심사 자동제출: #{submit_to_appstore})")
+    UI.message("🎛️  Deploy mode: #{deploy_mode} (ASC version prep: #{prepare_appstore} / automatic review submission: #{submit_to_appstore})")
     UI.message("🚦 Release mode: #{release_mode} (automatic release after approval: #{automatic_release})")
 
-    # 1) TestFlight 업로드 (항상 수행). ASC 준비/제출 모드면 빌드 처리 완료까지 대기.
-    #    ⚠️ Apple Processing(빌드 처리)은 보통 5~15분, 때때로 1시간+ (Apple 서버 사정, 통제 불가).
-    #       store_prepare/store_submit은 이 대기에 종속된다. 급할 땐 store_only.
+    # 1) TestFlight upload (always). In ASC prepare/submit modes, wait until build processing finishes.
+    #    ⚠️ Apple Processing (build processing) usually takes 5-15 minutes, sometimes 1 hour+ (Apple's servers, out of our control).
+    #       store_prepare/store_submit depend on this wait. Use store_only when in a hurry.
     pilot(
       api_key: api_key,
       app_identifier: app_id,
@@ -115,35 +115,35 @@ platform :ios do
       notify_external_testers: false,
       uses_non_exempt_encryption: false
     )
-    puts "✅ TESTFLIGHT 업로드 완료!"
+    puts "✅ TESTFLIGHT upload done!"
 
     locked_version = prepare_appstore ? find_version_locked_by_review(app_id) : nil
 
-    # 2) App Store 버전 준비 (+ store_submit이면 심사 자동 제출)
+    # 2) Prepare the App Store version (+ automatic review submission for store_submit)
     if locked_version
       UI.important("Skipped the App Store step: version #{locked_version} is waiting for or in review. TestFlight upload is done. Deploy again after review.")
     elsif prepare_appstore
       app_ver = ENV["APP_VERSION"]
-      # '새로운 기능' 문구: 덮어쓰기 값이 있으면 그것, 없으면 CHANGELOG(RELEASE_NOTES).
-      # 왜 덮어쓰나는 워크플로 env 주석 참고. TestFlight What to Test 는 위 pilot 이 항상 CHANGELOG 를 쓴다.
+      # 'What's New' text: the override value if set, else CHANGELOG (RELEASE_NOTES).
+      # See the workflow env comment for why to override. TestFlight What to Test always uses CHANGELOG via pilot above.
       release_notes, notes_source = resolve_whats_new(ENV["STORE_WHATS_NEW_OVERRIDE"], ENV["RELEASE_NOTES"])
-      UI.message("📝 whatsNew 출처: #{notes_source}")
+      UI.message("📝 whatsNew source: #{notes_source}")
 
-      # whatsNew 메타를 절대경로로 생성 (상대경로는 fastlane CWD와 어긋나 공란 → 제출 거부).
-      # release_notes.txt만 만들고 다른 메타는 안 만듦 → ASC 기존 메타(설명/키워드 등) 보존.
+      # Write the whatsNew metadata with absolute paths (relative paths disagree with fastlane's CWD → blank → submission rejected).
+      # Creates only release_notes.txt and no other metadata → existing ASC metadata (description, keywords, etc.) is kept.
       workspace = ENV["GITHUB_WORKSPACE"] || Dir.pwd
       metadata_path = File.join(workspace, "ios", "fastlane", "metadata")
       require "fileutils"
-      # ⚠️ 로케일 디렉토리명은 deliver가 인정하는 코드만 (ko 유효, ko-KR 무효).
+      # ⚠️ Locale directory names must be codes deliver accepts (ko valid, ko-KR invalid).
       locale_notes = resolve_locale_notes(ENV["STORE_NOTES_DIR"])
       if locale_notes
-        # 언어별 문구(#829). 번역이 없는 언어는 store_notes.py 가 기본 언어 문구로 이미 채워 두었다 —
-        # App Store Connect 는 What's New 가 빈 언어가 하나라도 있으면 심사 제출을 거부한다.
+        # Per-language text (#829). Languages without a translation were already filled with the default-language text by store_notes.py —
+        # App Store Connect rejects review submission if any language has an empty What's New.
         locale_notes.each do |loc, text|
           dir = File.join(metadata_path, loc)
           FileUtils.mkdir_p(dir)
           File.write(File.join(dir, "release_notes.txt"), text)
-          UI.message("📝 whatsNew 메타 작성 [#{loc}]: #{text}")
+          UI.message("📝 Writing whatsNew metadata [#{loc}]: #{text}")
         end
       else
         locales = (ENV["DELIVER_LOCALES"] || "ko").split(",").map(&:strip).reject(&:empty?)
@@ -152,22 +152,22 @@ platform :ios do
           FileUtils.mkdir_p(dir)
           File.write(File.join(dir, "release_notes.txt"), release_notes)
         end
-        UI.message("📝 whatsNew 메타 작성: #{release_notes}")
+        UI.message("📝 Writing whatsNew metadata: #{release_notes}")
       end
 
-      # 심사 메모(Notes)는 ios/fastlane/review_notes.txt 를 원본으로 삼아 매번 그 내용을 넣는다.
-      # 심사용 공용 계정이 없어 로그인 안내를 Notes 에만 두는 앱은 그 안내가 어긋나면 거절되므로 코드와 함께 관리한다.
-      # 파일이 없거나 비어 있으면 notes.txt 를 만들지 않아 ASC 기존값을 그대로 둔다. 연락처 등 다른 심사정보는 건드리지 않는다.
+      # Review notes (Notes) use ios/fastlane/review_notes.txt as the source and get its content every time.
+      # Apps without a shared review account keep login instructions only in Notes, and a mismatch there gets rejected, so it is managed with the code.
+      # Without the file (or if empty), notes.txt is not created and the existing ASC value stays. Other review info such as contacts is untouched.
       notes_src = File.join(workspace, ENV["APP_ROOT"] || ".", "ios", "fastlane", "review_notes.txt")
       review_dir = File.join(metadata_path, "review_information")
       review_notes = resolve_review_notes(notes_src)
       if review_notes
         FileUtils.mkdir_p(review_dir)
         File.write(File.join(review_dir, "notes.txt"), review_notes)
-        UI.message("📝 심사 Notes 작성: #{notes_src}")
+        UI.message("📝 Writing review Notes: #{notes_src}")
       else
         FileUtils.rm_f(File.join(review_dir, "notes.txt"))
-        UI.message("⏭️  review_notes.txt 없음 — 심사 Notes는 ASC 기존값 유지")
+        UI.message("⏭️  No review_notes.txt — review Notes keep the existing ASC value")
       end
 
       UI.message("📂 metadata_path=#{metadata_path}")
@@ -178,7 +178,7 @@ platform :ios do
         app_version: app_ver,
         build_number: ENV["BUILD_NUMBER"],
         submit_for_review: submit_to_appstore,
-        automatic_release: automatic_release,          # manual 이면 승인 뒤 사람이 출시
+        automatic_release: automatic_release,          # with manual, a person releases after approval
         force: true,
         run_precheck_before_submit: false,
         skip_binary_upload: true,
@@ -193,12 +193,12 @@ platform :ios do
       if submit_to_appstore && !automatic_release
         puts "✅ Submitted for App Store review. Release mode manual: after approval, release this version in App Store Connect."
       elsif submit_to_appstore
-        puts "✅ APP STORE 심사 자동 제출 완료!"
+        puts "✅ APP STORE review submitted automatically!"
       else
-        puts "✅ APP STORE 버전 준비 완료 (Prepare for Submission) — ASC에서 검토 후 'Add for Review'만 누르면 제출됩니다."
+        puts "✅ APP STORE version ready (Prepare for Submission) — just press 'Add for Review' in ASC after checking to submit."
       end
     else
-      puts "⏭️  store_only(testflight_only) 모드 — App Store 단계 건너뜀 (TestFlight 업로드만 완료)"
+      puts "⏭️  store_only (testflight_only) mode — skipping App Store stages (TestFlight upload only)"
     end
   end
 end

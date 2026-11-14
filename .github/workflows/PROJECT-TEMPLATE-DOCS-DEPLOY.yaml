@@ -1,18 +1,18 @@
 # ===================================================================
 # PROJECT-TEMPLATE-DOCS-DEPLOY.yaml
-# projectops 문서 사이트(VitePress) GitHub Pages 배포 워크플로우 v1.0
+# projectops docs site (VitePress) GitHub Pages deploy workflow v1.0
 # ===================================================================
 #
-# 이 워크플로우는 projectops 저장소 전용입니다.
-# template_integrator로 복사되지 않으며, template_initializer가 삭제합니다.
+# This workflow is for the projectops repo only.
+# template_integrator does not copy it, and template_initializer deletes it.
 #
-# 동작:
-# - site/ (VitePress 설정)로 docs/ 를 빌드해 GitHub Pages 에 배포
-# - 문서 원본은 docs/ 하나뿐이며 site/ 는 빌드 설정만 가진다
+# What it does:
+# - builds docs/ with site/ (VitePress config) and deploys to GitHub Pages
+# - docs/ is the only docs source; site/ holds only build config
 #
-# 트리거: main 브랜치 push 시 docs/**, site/** 변경 (+ 수동 실행)
+# Triggers: push to main changing docs/** or site/** (+ manual run)
 #
-# 사전 설정: Settings → Pages → Source 를 "GitHub Actions" 로 지정
+# Prerequisite: set Settings → Pages → Source to "GitHub Actions"
 # ===================================================================
 
 name: PROJECT-TEMPLATE-DOCS-DEPLOY
@@ -31,7 +31,7 @@ permissions:
   pages: write
   id-token: write
 
-# Pages 배포는 한 번에 하나만. 진행 중인 배포를 끊지 않는다.
+# One Pages deploy at a time. Do not cancel a deploy in progress.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -40,24 +40,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: 체크아웃
+      - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Node.js 설정
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: 문서 빌드
+      - name: Build docs
         run: |
           cd site
           npm ci
           npm run docs:build
 
-      - name: Pages 설정
+      - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: 아티팩트 업로드
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: site/.vitepress/dist
@@ -69,6 +69,6 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Pages 배포
+      - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4

@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
-"""projectops Flutter 마법사 4종 정합성 검증 (testflight·playstore·firebase·oauth).
+"""Consistency check for the 4 projectops Flutter wizards (testflight, playstore, firebase, oauth).
 
-왜 필요한가
+Why it exists
 -----------
-과거 iOS(testflight) 마법사만 집중적으로 개선되고 나머지 둘에 전파되지 않아
-같은 클래스명이 정반대 의미로 쓰이거나, 한쪽에만 있는 기능이 생겼다.
-이 스크립트는 그 드리프트를 CI/로컬에서 즉시 잡는다.
+Only the iOS (testflight) wizard used to get improvements, which never spread to the other two,
+so the same class name ended up meaning opposite things, or features existed on one side only.
+This script catches that drift immediately in CI and locally.
 
-검사 항목
+Checks
 ---------
-1. 공통 자산 로드      — 마법사 HTML이 _shared/wizard.css, wizard-common.js를 참조하는가
-2. 공통 함수 재정의    — 마법사 JS가 공통 유틸을 다시 정의해 덮어쓰고 있지 않은가
-3. 필수 기능 균일성    — 마법사들이 같은 이름의 핵심 기능을 모두 제공하는가
-4. 미정의 CSS 클래스   — HTML이 쓰는 프로젝트 클래스가 어딘가에 정의돼 있는가
-5. 버전 동기화         — version.json 과 HTML 인라인 versionJson 이 일치하는가
-6. 낡은 링크           — 구 레포명·존재하지 않는 경로를 가리키고 있지 않은가
-7. 첫 사용자 안내      — 준비물/소요시간/문서링크/재개안내가 마법사마다 모두 있는가
-8. Python 공통 블록    — .py의 쓰기 게이트(testflight·playstore·oauth)·인자 계약(testflight·playstore) 블록이 글자 단위로 같은가
-9. 언어 전환(i18n)     — 엔진 로드 순서·en/ko 사전 키 누락·HTML 한글 잔존 (check_i18n.py, common 마법사 포함)
+1. Shared asset loading   — does the wizard HTML reference _shared/wizard.css and wizard-common.js
+2. Shared function override — does wizard JS redefine and override shared utils
+3. Required feature parity — do all wizards provide the core features under the same names
+4. Undefined CSS classes  — is every project class used in HTML defined somewhere
+5. Version sync           — do version.json and the HTML inline versionJson match
+6. Stale links            — does anything point to the old repo name or nonexistent paths
+7. First-time user guide  — does every wizard have prerequisites/duration/docs link/resume notice
+8. Python shared blocks   — are the .py write gate (testflight, playstore, oauth) and argument contract (testflight, playstore) blocks identical character for character
+9. Language switch (i18n) — engine load order, missing en/ko dictionary keys, leftover Korean in HTML (check_i18n.py, common wizards included)
 
-사용법
+Usage
 ------
     python3 .github/util/flutter/_shared/check-consistency.py
     python3 .github/util/flutter/_shared/check-consistency.py --json
 
-종료 코드: 0 = 통과, 1 = 위반 있음
+Exit code: 0 = pass, 1 = violations
 """
 from __future__ import annotations
 
@@ -35,9 +35,9 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import check_i18n  # noqa: E402  같은 폴더 모듈 (파일명에 하이픈이 있어 이 파일은 import 불가)
+import check_i18n  # noqa: E402  module in the same folder (this file cannot be imported because its name has a hyphen)
 
-# cp949 콘솔에서 이모지 출력으로 죽지 않게 한다
+# Keep emoji output from crashing a cp949 console
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -47,24 +47,24 @@ SHARED_DIR = Path(__file__).resolve().parent
 FLUTTER_DIR = SHARED_DIR.parent
 REPO_SLUG = "Cassiiopeia/projectops"
 
-# 공통 유틸에 정의된 함수 — 마법사 JS가 재정의하면 정본이 무력화된다
+# Functions defined in the shared utils — redefining them in wizard JS disables the source of truth
 SHARED_FUNCS_RE = re.compile(r"^(?:async )?function ([A-Za-z0-9_]+)", re.M)
 
-# 공통 JS를 의도적으로 덮어쓰는 함수 (마법사별 명시 목록)
-# firebase: 단계 이동이 순서 제약 없고 Secret 입력 UI가 달라 흐름 함수를 자체 구현으로 대체
+# Functions that intentionally override shared JS (explicit list per wizard)
+# firebase: step navigation has no order constraint and the Secret input UI differs, so flow functions are its own implementation
 INTENTIONAL_OVERRIDES = {
     "firebase": {"showStep", "prevStep", "addCustomSecret", "updateCustomSecretKey", "renderCustomSecrets"},
 }
 
-# .py에 글자 단위로 같아야 하는 블록 (# >>> 공통 블록: 이름 ... # <<< 공통 블록: 이름) > 그 블록을 가진 마법사
-# 공용 모듈로 빼지 않는 이유: .py는 단일 파일로 실행·배포된다 (firebase ZIP은 .py 하나만 담음)
-# oauth 는 위치인자 호출 이력이 없어(argparse) 인자 계약 블록은 두지 않고 쓰기 게이트만 공유한다
+# Blocks that must be identical character for character in .py (# >>> 공통 블록: name ... # <<< 공통 블록: name) > wizards that have the block
+# Why not a shared module: each .py runs and ships as a single file (the firebase ZIP contains only the .py)
+# oauth has no history of positional calls (argparse), so it shares only the write gate, not the argument contract block
 PY_BLOCK_WIZARDS_BY_BLOCK = {
     "쓰기 게이트": ("testflight", "playstore", "oauth"),
     "인자 계약": ("testflight", "playstore"),
 }
 
-# 마법사가 모두 제공해야 하는 기능 (이름 통일 대상)
+# Features every wizard must provide (names unified)
 REQUIRED_FUNCS = (
     "showStep",
     "goToStep",
@@ -82,15 +82,15 @@ REQUIRED_FUNCS = (
     "renderCustomSecrets",
 )
 
-# 마법사 HTML에 모두 있어야 하는 첫 사용자 안내 요소 (id 또는 클래스)
+# First-time user guide elements every wizard HTML must have (id or class)
 REQUIRED_MARKERS = (
     ("securityWarning", 'id="securityWarning"'),
     ("changelogModal", 'id="changelogModal"'),
-    ("소요시간·준비물 배너", 'class="wizard-meta"'),
-    ("재개 안내", 'class="resume-hint"'),
-    # 문서 링크: 한국어 docs/FLUTTER-*.md 또는 영어 docs/en/flutter-*.md (#976 사이트 규칙)
-    ("문서 링크", ("docs/FLUTTER-", "docs/en/flutter-")),
-    ("언어 전환 버튼", "data-lang-toggle"),
+    ("duration/prerequisites banner", 'class="wizard-meta"'),
+    ("resume notice", 'class="resume-hint"'),
+    # Docs link: Korean docs/FLUTTER-*.md or English docs/en/flutter-*.md (#976 site rule)
+    ("docs link", ("docs/FLUTTER-", "docs/en/flutter-")),
+    ("language toggle button", "data-lang-toggle"),
 )
 
 
@@ -106,7 +106,7 @@ def wizard_paths(name: str) -> dict[str, Path]:
 
 
 def wizard_js_files(name: str) -> list[Path]:
-    """마법사 JS 전부 (본 파일 + 단계별 분할 파일 {name}-wizard-*.js)"""
+    """All wizard JS (main file + per-step split files {name}-wizard-*.js)"""
     base = FLUTTER_DIR / f"{name}-wizard"
     return sorted(base.glob(f"{name}-wizard*.js"))
 
@@ -123,12 +123,12 @@ def check() -> list[str]:
     shared_i18n_js = SHARED_DIR / "wizard-i18n.js"
     for p in (shared_css, shared_js, shared_i18n_js):
         if not p.exists():
-            problems.append(f"[공통자산] {p.name} 이 없습니다")
+            problems.append(f"[shared assets] {p.name} is missing")
     if problems:
         return problems
 
     shared_funcs = set(SHARED_FUNCS_RE.findall(read(shared_js) + "\n" + read(shared_i18n_js)))
-    # 공통 CSS에 정의된 클래스
+    # Classes defined in the shared CSS
     shared_classes = set(re.findall(r"^\.([a-zA-Z][\w-]*)", read(shared_css), re.M))
 
     for name in WIZARDS:
@@ -137,42 +137,42 @@ def check() -> list[str]:
 
         for key, p in paths.items():
             if not p.exists():
-                problems.append(f"{tag} {p.name} 이 없습니다")
+                problems.append(f"{tag} {p.name} is missing")
         js_files = wizard_js_files(name)
         html, js = read(paths["html"]), "\n".join(read(p) for p in js_files)
         if not html or not js:
             continue
 
-        # 1. 공통 자산 로드
-        # 주석에 경로 문자열만 있어도 통과하지 않도록 실제 태그로 판정한다
+        # 1. Shared asset loading
+        # Judge by the actual tag so a path string in a comment does not pass
         if not re.search(r'<link[^>]+href="\.\./_shared/wizard\.css"', html):
-            problems.append(f"{tag} HTML이 ../_shared/wizard.css 를 로드하지 않습니다")
+            problems.append(f"{tag} HTML does not load ../_shared/wizard.css")
         if not re.search(r'<script[^>]+src="\.\./_shared/wizard-common\.js"', html):
-            problems.append(f"{tag} HTML이 ../_shared/wizard-common.js 를 로드하지 않습니다")
+            problems.append(f"{tag} HTML does not load ../_shared/wizard-common.js")
         else:
-            # 공통 JS가 마법사 JS보다 먼저 로드되어야 오버라이드 사고가 없다
+            # Shared JS must load before wizard JS, or overrides go wrong
             i_common = html.find("../_shared/wizard-common.js")
             for js_file in js_files:
                 i_own = html.find(f'src="{js_file.name}"')
                 if i_own == -1:
-                    problems.append(f"{tag} HTML이 {js_file.name} 를 로드하지 않습니다")
+                    problems.append(f"{tag} HTML does not load {js_file.name}")
                 elif i_common > i_own:
-                    problems.append(f"{tag} 공통 JS가 {js_file.name} 보다 늦게 로드됩니다 (순서 교정 필요)")
+                    problems.append(f"{tag} shared JS loads after {js_file.name} (fix the order)")
 
-        # 2. 공통 함수 재정의
+        # 2. Shared function override
         own_funcs = set(SHARED_FUNCS_RE.findall(js))
         allowed = INTENTIONAL_OVERRIDES.get(name, set())
         redefined = sorted((own_funcs & shared_funcs) - allowed)
         if redefined:
-            problems.append(f"{tag} 공통 유틸을 재정의하고 있습니다: {', '.join(redefined)}")
+            problems.append(f"{tag} redefines shared utils: {', '.join(redefined)}")
 
-        # 3. 필수 기능 균일성
+        # 3. Required feature parity
         available = own_funcs | shared_funcs
         missing = [f for f in REQUIRED_FUNCS if f not in available]
         if missing:
-            problems.append(f"{tag} 필수 기능 누락: {', '.join(missing)}")
+            problems.append(f"{tag} missing required features: {', '.join(missing)}")
 
-        # 4. 미정의 CSS 클래스 (프로젝트 자체 클래스만 대상 — Tailwind 유틸은 제외)
+        # 4. Undefined CSS classes (project classes only — Tailwind utilities excluded)
         own_css = set(re.findall(r"^\s*\.([a-zA-Z][\w-]*)", html, re.M))
         used = set(re.findall(r'class="([^"]+)"', html))
         used_classes = {c for chunk in used for c in chunk.split()}
@@ -186,52 +186,52 @@ def check() -> list[str]:
             if c.startswith(project_prefixes) and c not in known
         )
         if undefined:
-            problems.append(f"{tag} 정의되지 않은 클래스 사용: {', '.join(undefined)}")
+            problems.append(f"{tag} uses undefined classes: {', '.join(undefined)}")
 
-        # 5. 버전 동기화
+        # 5. Version sync
         try:
             vjson = json.loads(read(paths["version"]))
             inline = re.search(
                 r'<script type="application/json" id="versionJson">(.*?)</script>', html, re.S
             )
             if not inline:
-                problems.append(f"{tag} HTML에 versionJson 블록이 없습니다")
+                problems.append(f"{tag} HTML has no versionJson block")
             elif json.loads(inline.group(1)) != vjson:
-                problems.append(f"{tag} version.json 과 HTML이 다릅니다 — ./version-sync.sh 실행 필요")
+                problems.append(f"{tag} version.json and HTML differ — run ./version-sync.sh")
         except (json.JSONDecodeError, ValueError) as e:
-            problems.append(f"{tag} version.json 파싱 실패: {e}")
+            problems.append(f"{tag} failed to parse version.json: {e}")
 
-        # 6. 낡은 링크
-        # ⚠️ 문자열 포함 여부가 아니라 "실제 URL"만 본다.
-        #    version.json 변경 이력에 "구 레포명을 교정했다"는 설명이 들어가는데,
-        #    그 텍스트는 HTML에 주입되므로 단순 포함 검사는 오탐이 된다.
+        # 6. Stale links
+        # ⚠️ Looks only at "real URLs", not string containment.
+        #    version.json changelogs include text like "fixed the old repo name",
+        #    and that text is injected into the HTML, so a plain containment check gives false positives.
         for blob, label in ((html, "HTML"), (js, "JS")):
             seen = set()
             for m in re.finditer(r"github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)", blob):
                 slug = m.group(1)
                 if slug != REPO_SLUG and slug not in seen:
                     seen.add(slug)
-                    hint = " (구 레포명 — 리브랜딩 후 projectops)" if "SUH-DEVOPS-TEMPLATE" in slug else ""
-                    problems.append(f"{tag} {label}가 다른 레포를 가리킵니다: {slug}{hint}")
+                    hint = " (old repo name — projectops after the rebrand)" if "SUH-DEVOPS-TEMPLATE" in slug else ""
+                    problems.append(f"{tag} {label} points to another repo: {slug}{hint}")
 
-        # 7. 첫 사용자 안내
+        # 7. First-time user guide
         for label, marker in REQUIRED_MARKERS:
-            # 표식 후보 여러 개면 하나만 있어도 통과
+            # With several marker candidates, any one passes
             marker_candidates = marker if isinstance(marker, tuple) else (marker,)
             if not any(candidate in html for candidate in marker_candidates):
-                problems.append(f"{tag} 첫 사용자 안내 누락: {label}")
+                problems.append(f"{tag} first-time user guide missing: {label}")
 
-    # version-sync.sh 가 마법사마다 파일명만 빼고 동일한지
+    # Is version-sync.sh identical across wizards except the file name
     norm = []
     for name in WIZARDS:
         s = read(wizard_paths(name)["sync"]).replace(f"{name}-wizard.html", "<HTML>")
         norm.append((name, s))
     if len({s for _, s in norm}) > 1:
-        problems.append("[공통] version-sync.sh 가 마법사마다 다릅니다 (파일명 외 차이 없어야 함)")
+        problems.append("[shared] version-sync.sh differs between wizards (only the file name may differ)")
 
-    # ── Python CLI 계약 ────────────────────────────────────────────
-    # 마법사는 같은 방식으로 호출돼야 한다: 명명 플래그 정본 + 공통 부울 플래그.
-    # 과거 testflight는 위치인자만, firebase는 플래그만 받아 사용법이 갈렸다.
+    # ── Python CLI contract ────────────────────────────────────────────
+    # Wizards must be called the same way: named flags canonical + shared boolean flags.
+    # testflight used to take only positional arguments and firebase only flags, so usage diverged.
     for name in WIZARDS:
         py = read(wizard_paths(name)["py"])
         if not py:
@@ -239,10 +239,10 @@ def check() -> list[str]:
         tag = f"[{name}]"
         for flag in ("--dry-run", "--non-interactive", "--no-backup"):
             if flag not in py:
-                problems.append(f"{tag} CLI 공통 옵션 미지원: {flag}")
-        # dry-run이 "선언만 되고 실제로는 파일을 쓰는" 상태를 막는다
+                problems.append(f"{tag} missing shared CLI option: {flag}")
+        # Prevent --dry-run being "declared but still writing files"
         if "--dry-run" in py and not re.search(r"\bDRY_RUN\b|\bdry_run\b", py):
-            problems.append(f"{tag} --dry-run을 받지만 실제 동작에 연결되어 있지 않습니다")
+            problems.append(f"{tag} accepts --dry-run but it is not wired to the actual behavior")
 
     problems.extend(check_python_shared_blocks())
     problems.extend(check_i18n.check())
@@ -250,7 +250,7 @@ def check() -> list[str]:
 
 
 def extract_python_block(source: str, block_name: str) -> str | None:
-    """`# >>> 공통 블록: 이름` ~ `# <<< 공통 블록: 이름` 사이 본문 (시작 줄 설명은 제외)"""
+    """Body between `# >>> 공통 블록: name` and `# <<< 공통 블록: name` (start line description excluded)"""
     pattern = re.compile(
         rf"^# >>> 공통 블록: {re.escape(block_name)}\b[^\n]*\n(.*?)^# <<< 공통 블록: {re.escape(block_name)}$",
         re.S | re.M,
@@ -260,25 +260,25 @@ def extract_python_block(source: str, block_name: str) -> str | None:
 
 
 def check_python_shared_blocks() -> list[str]:
-    """공통 블록 존재 > 마법사 간 동일성 비교"""
+    """Shared block exists > compare across wizards"""
     problems: list[str] = []
     for block_name, block_wizards in PY_BLOCK_WIZARDS_BY_BLOCK.items():
         bodies = {}
         for name in block_wizards:
             body = extract_python_block(read(wizard_paths(name)["py"]), block_name)
             if body is None:
-                problems.append(f"[{name}] .py에 '{block_name}' 공통 블록 표시가 없습니다")
+                problems.append(f"[{name}] .py has no '{block_name}' shared block marker")
             else:
                 bodies[name] = body
         if len(bodies) == len(block_wizards) and len(set(bodies.values())) > 1:
             names = " ↔ ".join(block_wizards)
-            problems.append(f"[공통] .py '{block_name}' 블록이 서로 다릅니다 ({names}) — 한쪽을 고쳤으면 다른 쪽도 같게")
+            problems.append(f"[shared] .py '{block_name}' blocks differ ({names}) — if you edited one, make the other match")
     return problems
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Flutter 마법사 정합성 검증")
-    ap.add_argument("--json", action="store_true", help="JSON으로 출력")
+    ap = argparse.ArgumentParser(description="Flutter wizard consistency check")
+    ap.add_argument("--json", action="store_true", help="print as JSON")
     args = ap.parse_args()
 
     problems = check()
@@ -287,12 +287,12 @@ def main() -> int:
         print(json.dumps({"ok": not problems, "count": len(problems), "problems": problems},
                          ensure_ascii=False, indent=2))
     elif problems:
-        print(f"❌ 정합성 위반 {len(problems)}건\n")
+        print(f"❌ {len(problems)} consistency violations\n")
         for p in problems:
             print(f"  - {p}")
-        print("\n수정 후 다시 실행하세요.")
+        print("\nFix them and run again.")
     else:
-        print(f"✅ 마법사 {len(WIZARDS)}종 정합성 통과")
+        print(f"✅ All {len(WIZARDS)} wizards are consistent")
 
     return 1 if problems else 0
 

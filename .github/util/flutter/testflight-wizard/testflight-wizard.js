@@ -1,6 +1,6 @@
 /**
- * Flutter iOS TestFlight 통합 마법사
- * 파일 업로드, Base64 변환, localStorage 진행률 저장 포함
+ * Flutter iOS TestFlight all-in-one wizard
+ * Includes file upload, Base64 conversion and localStorage progress saving
  */
 
 // ============================================
@@ -17,21 +17,21 @@ const state = {
     profileName: '',
     appName: '',
     encryptionType: 'none',
-    // 파일 데이터 (Base64)
+    // File data (Base64)
     p12Base64: '',
     p12Password: '',
     provisionBase64: '',
     p8Base64: '',
     apiKeyId: '',
     issuerId: '',
-    // Custom Secrets (사용자 추가)
+    // Custom Secrets (added by the user)
     customSecrets: []
     // [{
     //   key: 'SECRET_NAME',
     //   value: '...',
     //   fileName: 'file.json',
     //   type: 'text' | 'binary',
-    //   hint: '사용법 힌트'
+    //   hint: 'usage hint'
     // }]
 };
 
@@ -47,12 +47,12 @@ function loadState() {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
             const savedState = JSON.parse(saved);
-            // 현재 코드의 totalSteps 보존 (버전 업그레이드 시 캐시된 값 무시)
+            // Keep the code's totalSteps (ignore cached values after a version upgrade)
             const currentTotalSteps = state.totalSteps;
             Object.assign(state, savedState);
-            state.totalSteps = currentTotalSteps; // 항상 현재 코드 기준으로 설정
+            state.totalSteps = currentTotalSteps; // always set from the current code
 
-            // currentStep이 totalSteps를 초과하면 보정
+            // Correct currentStep if it exceeds totalSteps
             if (state.currentStep > state.totalSteps) {
                 state.currentStep = state.totalSteps;
             }
@@ -67,7 +67,7 @@ function loadState() {
 }
 
 function restoreUIFromState() {
-    // 입력 필드 복원
+    // Restore input fields
     const inputs = {
         'projectPath': state.projectPath,
         'repoRoot': state.repoRoot,
@@ -87,7 +87,7 @@ function restoreUIFromState() {
         if (el && value) el.value = value;
     });
 
-    // Step 5 display 요소 업데이트
+    // Update Step 5 display elements
     if (state.bundleId) {
         const displayBundleId = document.getElementById('display-bundle-id');
         if (displayBundleId) displayBundleId.textContent = state.bundleId;
@@ -97,13 +97,13 @@ function restoreUIFromState() {
         if (displayProfileName) displayProfileName.textContent = state.profileName;
     }
 
-    // 암호화 설정 복원
+    // Restore the encryption setting
     if (state.encryptionType) {
         const radio = document.querySelector(`input[name="encryptionType"][value="${state.encryptionType}"]`);
         if (radio) radio.checked = true;
     }
 
-    // 파일 업로드 상태 복원
+    // Restore file upload state
     if (state.p12Base64) {
         document.getElementById('p12-upload').classList.add('has-file');
         const info = document.getElementById('p12-info');
@@ -131,7 +131,7 @@ function restoreUIFromState() {
         }
     }
 
-    // 커스텀 Secrets 복원
+    // Restore custom Secrets
     if (state.customSecrets && state.customSecrets.length > 0) {
         renderCustomSecrets();
     }
@@ -142,9 +142,9 @@ function restoreUIFromState() {
 // ============================================
 
 /**
- * Team ID 실시간 검증.
- * 복붙 중 마지막 글자가 누락된 9자리 입력이 잦은데, 그대로 Secret에 들어가면
- * 빌드 서명 단계에서야 팀 불일치로 실패해 원인 추적이 어렵다. 입력 시점에 잡는다.
+ * Live Team ID validation.
+ * A 9-character input missing its last character after copy-paste is common; stored in a Secret as is,
+ * it fails only at build signing with a team mismatch that is hard to trace. Catch it at input time.
  */
 function validateTeamId(input) {
     const warning = document.getElementById('teamId-warning');
@@ -153,7 +153,7 @@ function validateTeamId(input) {
     const value = (input.value || '').trim().toUpperCase();
     input.value = value;
 
-    // 미입력 상태에서는 경고를 띄우지 않는다 (입력 전부터 빨간 글씨는 노이즈)
+    // Do not warn while empty (red text before any input is noise)
     if (value.length === 0) {
         warning.className = 'text-xs mt-1 hidden';
         return;
@@ -175,7 +175,7 @@ function validateTeamId(input) {
 // File Upload & Base64 Conversion
 // ============================================
 
-// .p12 파일 업로드
+// .p12 file upload
 async function handleP12Upload(event) {
     const file = event.target.files[0];
     if (file) await handleP12File(file);
@@ -200,7 +200,7 @@ async function handleP12File(file) {
     }
 }
 
-// .mobileprovision 파일 업로드
+// .mobileprovision file upload
 async function handleProvisionUpload(event) {
     const file = event.target.files[0];
     if (file) await handleProvisionFile(file);
@@ -225,7 +225,7 @@ async function handleProvisionFile(file) {
     }
 }
 
-// .p8 파일 업로드
+// .p8 file upload
 async function handleP8Upload(event) {
     const file = event.target.files[0];
     if (file) await handleP8File(file);
@@ -244,7 +244,7 @@ async function handleP8File(file) {
         info.style.display = 'block';
         info.textContent = `✅ ${file.name}`;
 
-        // 파일명에서 Key ID 자동 추출
+        // Extract the Key ID from the file name automatically
         const match = file.name.match(/AuthKey_(\w+)\.p8/);
         if (match) {
             state.apiKeyId = match[1];
@@ -268,9 +268,9 @@ async function selectProjectFolder() {
             const dirHandle = await window.showDirectoryPicker();
             const folderName = dirHandle.name;
 
-            // 브라우저는 보안상 절대경로를 주지 않는다 (폴더명만 얻을 수 있음).
-            // 입력칸에 안내문을 써넣으면 실제 경로를 덮어써 폴백(/path/to/project)이 나가므로,
-            // 입력칸은 건드리지 않고 힌트 영역에만 폴더명을 표시한다.
+            // Browsers never give absolute paths for security (only the folder name is available).
+            // Writing a notice into the input would overwrite the real path and send the fallback (/path/to/project),
+            // so the input is left alone and only the hint area shows the folder name.
             const hint = document.getElementById('projectPath-hint');
             if (hint) {
                 hint.innerHTML = translate('folder.selectedHint', { folderName });
@@ -309,23 +309,23 @@ function updateProgress() {
         const label = indicator.querySelector('span');
 
         if (stepNum < state.currentStep) {
-            // 완료된 스텝
+            // Completed step
             circle.className = 'step-circle w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm z-10 shadow-lg';
             circle.innerHTML = '✓';
             if (label) label.className = 'text-xs mt-2 text-green-400 text-center hidden md:block';
         } else if (stepNum === state.currentStep) {
-            // 현재 스텝 - 파랑-보라 그라데이션
+            // Current step - blue-purple gradient
             circle.className = 'step-circle w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white flex items-center justify-center font-bold text-sm z-10 shadow-lg shadow-blue-500/30';
             circle.innerHTML = stepNum;
             if (label) label.className = 'text-xs mt-2 text-blue-400 text-center hidden md:block';
         } else {
-            // 아직 안 한 스텝
+            // Step not done yet
             circle.className = 'step-circle w-10 h-10 rounded-full bg-slate-700 text-slate-400 flex items-center justify-center font-bold text-sm z-10';
             circle.innerHTML = stepNum;
             if (label) label.className = 'text-xs mt-2 text-slate-500 text-center hidden md:block';
         }
 
-        // 클릭하여 해당 스텝으로 이동 가능
+        // Click to jump to that step
         indicator.style.cursor = 'pointer';
         indicator.onclick = () => goToStep(stepNum);
     });
@@ -334,23 +334,23 @@ function updateProgress() {
 function initializeStep(stepNumber) {
     switch (stepNumber) {
         case 2:
-            // Step 2: Distribution 인증서
+            // Step 2: Distribution certificate
             restoreInputValues();
             break;
         case 3:
-            // Step 3: App ID (Bundle ID) - bundleId 입력
+            // Step 3: App ID (Bundle ID) - bundleId input
             restoreInputValues();
             break;
         case 4:
-            // Step 4: Provisioning Profile - profileName 입력
+            // Step 4: Provisioning Profile - profileName input
             restoreInputValues();
             break;
         case 5:
-            // Step 5: App Store Connect 앱 등록 (신규!)
+            // Step 5: register the app in App Store Connect (new!)
             syncStep5ASCValues();
             break;
         case 6:
-            // Step 6: 앱 정보 확인 - 이전 단계에서 입력한 값 표시
+            // Step 6: check app info - show values entered in earlier steps
             syncStep6Values();
             restoreInputValues();
             break;
@@ -359,18 +359,18 @@ function initializeStep(stepNumber) {
             restoreInputValues();
             break;
         case 8:
-            // Step 8: Fastlane 설정
+            // Step 8: Fastlane setup
             generateInitCommand();
             break;
         case 9:
-            // Step 9: 완료
+            // Step 9: done
             generateResults();
             break;
     }
 }
 
 function syncStep5ASCValues() {
-    // Step 3에서 입력한 Bundle ID를 Step 5 App Store Connect 가이드에 표시
+    // Show the Bundle ID from Step 3 in the Step 5 App Store Connect guide
     const bundleIdValue = state.bundleId || getInputValue('bundleId');
     const displayBundleIdAsc = document.getElementById('display-bundle-id-asc');
     if (displayBundleIdAsc && bundleIdValue) {
@@ -379,21 +379,21 @@ function syncStep5ASCValues() {
 }
 
 function syncStep6Values() {
-    // Step 3에서 입력한 Bundle ID를 Step 6에 표시
+    // Show the Bundle ID from Step 3 in Step 6
     const bundleIdValue = state.bundleId || getInputValue('bundleId');
     const displayBundleId = document.getElementById('display-bundle-id');
     if (displayBundleId && bundleIdValue) {
         displayBundleId.textContent = bundleIdValue;
     }
 
-    // Step 4에서 입력한 Profile Name을 Step 6에 표시
+    // Show the Profile Name from Step 4 in Step 6
     const profileNameValue = state.profileName || getInputValue('profileName');
     const displayProfileName = document.getElementById('display-profile-name');
     if (displayProfileName && profileNameValue) {
         displayProfileName.textContent = profileNameValue;
     }
 
-    // 확인용 입력 필드에도 값 설정 (readonly)
+    // Set the value in the confirmation input field too (readonly)
     const bundleIdConfirm = document.getElementById('bundleId-confirm');
     if (bundleIdConfirm && bundleIdValue) {
         bundleIdConfirm.value = bundleIdValue;
@@ -479,20 +479,20 @@ function resetWizard() {
 
         clearState();
 
-        // UI 초기화
+        // Reset the UI
         const inputs = ['projectPath', 'repoRoot', 'bundleId', 'bundleId-confirm', 'teamId', 'profileName', 'profileName-confirm', 'appName', 'p12-password', 'api-key-id', 'issuer-id'];
         inputs.forEach(id => {
             const input = document.getElementById(id);
             if (input) input.value = '';
         });
 
-        // Display 요소 초기화
+        // Reset display elements
         const displayBundleId = document.getElementById('display-bundle-id');
         if (displayBundleId) displayBundleId.textContent = translate('value.notEntered');
         const displayProfileName = document.getElementById('display-profile-name');
         if (displayProfileName) displayProfileName.textContent = translate('value.notEntered');
 
-        // 파일 업로드 상태 초기화
+        // Reset file upload state
         document.querySelectorAll('.file-upload').forEach(el => {
             el.classList.remove('has-file');
         });
@@ -514,18 +514,18 @@ function resetWizard() {
 function saveCurrentStepData() {
     switch (state.currentStep) {
         case 1:
-            // Step 1: 시작하기 - 프로젝트 경로
+            // Step 1: get started - project path
             state.projectPath = getInputValue('projectPath');
-            // 구버전이 입력칸에 써넣던 안내문이 남아 있으면 경로로 쓰지 않는다
+            // If a notice written into the input by an old version remains, do not use it as the path
             if (state.projectPath.startsWith('선택된 폴더:')) {
                 state.projectPath = '';
             }
-            // 상대경로는 Step 8 명령어에서 cd 실패로 이어지므로 미리 걸러낸다
+            // Relative paths lead to a failed cd in the Step 8 command, so filter them out early
             if (state.projectPath && !isAbsolutePath(state.projectPath)) {
                 showToast(translate('step1.absolutePathRequired'));
                 state.projectPath = '';
             }
-            // 모노레포에서만 채우는 선택 입력 — 비어 있으면 Flutter 루트를 그대로 쓴다
+            // Optional input filled only for monorepos — empty means the Flutter root is used as is
             state.repoRoot = getInputValue('repoRoot');
             if (state.repoRoot && !isAbsolutePath(state.repoRoot)) {
                 showToast(translate('step1.repoRootAbsoluteRequired'));
@@ -533,22 +533,22 @@ function saveCurrentStepData() {
             }
             break;
         case 2:
-            // Step 2: Distribution 인증서 - .p12 파일 및 비밀번호
+            // Step 2: Distribution certificate - .p12 file and password
             state.p12Password = getInputValue('p12-password');
             break;
         case 3:
-            // Step 3: App ID (Bundle ID) - bundleId 입력
+            // Step 3: App ID (Bundle ID) - bundleId input
             state.bundleId = getInputValue('bundleId');
             break;
         case 4:
-            // Step 4: Provisioning Profile - profileName 입력
+            // Step 4: Provisioning Profile - profileName input
             state.profileName = getInputValue('profileName');
             break;
         case 5:
-            // Step 5: App Store Connect 앱 등록 - 별도 저장 없음 (확인 단계)
+            // Step 5: register the app in App Store Connect - nothing to save (confirmation step)
             break;
         case 6:
-            // Step 6: 앱 정보 확인 - Team ID, App Name, 암호화 설정
+            // Step 6: check app info - Team ID, App Name, encryption setting
             state.teamId = getInputValue('teamId').toUpperCase();
             state.appName = getInputValue('appName');
             const encryptionRadio = document.querySelector('input[name="encryptionType"]:checked');
@@ -560,10 +560,10 @@ function saveCurrentStepData() {
             state.issuerId = getInputValue('issuer-id');
             break;
         case 8:
-            // Step 8: Fastlane 설정 - 별도 저장 없음
+            // Step 8: Fastlane setup - nothing to save
             break;
         case 9:
-            // Step 9: 완료 - 별도 저장 없음
+            // Step 9: done - nothing to save
             break;
     }
 
@@ -575,8 +575,8 @@ function saveCurrentStepData() {
 // ============================================
 
 function generateInitCommand() {
-    // 경로 미입력 시 placeholder가 그대로 나가면 cd 실패로 이어진다.
-    // 명령어를 감추는 대신 배너로 무엇을 채워야 하는지 알린다.
+    // If the placeholder goes out without a path, cd fails.
+    // Instead of hiding the command, a banner says what to fill in.
     const pathMissing = !state.projectPath;
     const projectPath = state.projectPath || translate('step8.projectPathPlaceholder');
     const bundleId = state.bundleId || 'com.example.app';
@@ -589,9 +589,9 @@ function generateInitCommand() {
         warning.classList.toggle('hidden', !pathMissing);
     }
 
-    // 스크립트(.github/...)는 레포 루트 기준인데 pubspec.yaml은 Flutter 루트 기준이다.
-    // 모노레포(예: repo/client/)에서는 두 위치가 달라, cd 지점을 레포 루트로 잡고
-    // Flutter 루트는 인자로 따로 넘겨야 양쪽 다 해결된다.
+    // Scripts (.github/...) are relative to the repo root, but pubspec.yaml is relative to the Flutter root.
+    // In a monorepo (e.g. repo/client/) the two differ, so cd goes to the repo root
+    // and the Flutter root is passed separately as an argument to satisfy both.
     const repoRoot = state.repoRoot || projectPath;
     const isMonorepo = !!state.repoRoot && state.repoRoot !== state.projectPath;
 
@@ -605,7 +605,7 @@ function generateInitCommand() {
         ? '.github\\util\\flutter\\testflight-wizard\\testflight-wizard.py'
         : '.github/util/flutter/testflight-wizard/testflight-wizard.py';
 
-    // Windows 기본 터미널인 PowerShell 5.1 은 && 를 파싱하지 못한다
+    // PowerShell 5.1, the default Windows terminal, cannot parse &&
     const separator = isWindows ? ';' : ' &&';
     const cmd = `cd "${repoRoot}"${separator} ${python} "${scriptPath}" setup "${projectPath}" "${bundleId}" "${teamId}" "${profileName}" "${usesNonExemptEncryption}"`;
     setElementText('initCmd', cmd);
@@ -666,7 +666,7 @@ function downloadAsJson() {
         IOS_BUNDLE_ID: state.bundleId
     };
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     if (state.customSecrets && state.customSecrets.length > 0) {
         state.customSecrets.forEach(cs => {
             if (cs.key && cs.value) {
@@ -723,7 +723,7 @@ function downloadAsTxt() {
         state.bundleId || translate('value.notEntered')
     ];
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     if (state.customSecrets && state.customSecrets.length > 0) {
         lines.push('');
         lines.push(translate('export.customSecretsHeader'));
@@ -757,7 +757,7 @@ function downloadAsTxt() {
 // Secret Guide Modal Functions
 // ============================================
 
-/** 가이드 문구 — 언어 전환 반영 위해 열 때마다 조립 */
+/** Guide text — assembled each time it opens to reflect language switches */
 function getSecretGuides() {
     return {
         certificate: {
@@ -862,7 +862,7 @@ function closeGuideModal(event) {
 // ============================================
 
 function setupInputHandlers() {
-    // Team ID 대문자 자동 변환
+    // Uppercase the Team ID automatically
     const teamIdInput = document.getElementById('teamId');
     if (teamIdInput) {
         teamIdInput.addEventListener('input', (e) => {
@@ -870,14 +870,14 @@ function setupInputHandlers() {
         });
     }
 
-    // ESC 키로 모달 닫기
+    // Close the modal with the ESC key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeGuideModal();
         }
     });
 
-    // 입력 필드 변경 시 저장
+    // Save on input field change
     const inputIds = ['projectPath', 'bundleId', 'bundleId-confirm', 'teamId', 'profileName', 'profileName-confirm', 'appName', 'p12-password', 'api-key-id', 'issuer-id'];
     inputIds.forEach(id => {
         const input = document.getElementById(id);
@@ -887,7 +887,7 @@ function setupInputHandlers() {
         }
     });
 
-    // Bundle ID 입력 시 실시간 동기화
+    // Live sync on Bundle ID input
     const bundleIdInput = document.getElementById('bundleId');
     if (bundleIdInput) {
         bundleIdInput.addEventListener('input', (e) => {
@@ -897,7 +897,7 @@ function setupInputHandlers() {
         });
     }
 
-    // Profile Name 입력 시 실시간 동기화
+    // Live sync on Profile Name input
     const profileNameInput = document.getElementById('profileName');
     if (profileNameInput) {
         profileNameInput.addEventListener('input', (e) => {
@@ -907,7 +907,7 @@ function setupInputHandlers() {
         });
     }
 
-    // 암호화 설정 변경 시 저장
+    // Save on encryption setting change
     document.querySelectorAll('input[name="encryptionType"]').forEach(radio => {
         radio.addEventListener('change', saveState);
     });
@@ -918,7 +918,7 @@ function setupInputHandlers() {
 // ============================================
 
 function initialize() {
-    // 저장된 상태 로드
+    // Load saved state
     const hasState = loadState();
 
     if (hasState) {
@@ -935,15 +935,15 @@ function initialize() {
     showSecurityWarning();
 }
 
-// DOM 로드 완료 시 초기화
+// Initialize when the DOM is loaded
 document.addEventListener('DOMContentLoaded', initialize);
 
-/** 내보내기 날짜 표기 — ko 는 기존 출력과 같게 ko-KR */
+/** Export date format — ko keeps the existing ko-KR output */
 function getExportDateLocale() {
     return getWizardLanguage() === 'ko' ? 'ko-KR' : 'en-US';
 }
 
-/** 미입력 표시칸 — 이미 미입력 문구(en·ko)를 보이는 칸만 현재 언어로 (예시 값은 유지) */
+/** "Not entered" cells — switch only cells already showing the not-entered text (en/ko) to the current language (example values stay) */
 function refreshNotEnteredLabels() {
     const notEnteredTexts = ['(not entered)', '(미입력)'];
     ['display-bundle-id', 'display-profile-name'].forEach((id) => {
@@ -954,7 +954,7 @@ function refreshNotEnteredLabels() {
     });
 }
 
-// 언어 전환: JS 가 그린 영역(현재 단계·커스텀 Secret·Team ID 경고) 다시 그리기
+// Language switch: redraw JS-drawn areas (current step, custom Secrets, Team ID warning)
 document.addEventListener('wizardlanguagechange', () => {
     showStep(state.currentStep);
     renderCustomSecrets();
@@ -963,7 +963,7 @@ document.addEventListener('wizardlanguagechange', () => {
     if (teamIdInput) validateTeamId(teamIdInput);
 });
 
-// 페이지 언로드 시 경고 (데이터 손실 방지)
+// Warn on page unload (prevents data loss)
 window.addEventListener('beforeunload', (e) => {
     if (state.currentStep > 1 || state.bundleId || state.p12Base64) {
         e.preventDefault();
@@ -975,14 +975,14 @@ window.addEventListener('beforeunload', (e) => {
 // Changelog Modal Functions
 // ============================================
 
-// ESC 키로 changelog 모달도 닫기
+// Close the changelog modal with ESC too
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeChangelogModal();
     }
 });
 
-// 페이지 로드 시 버전 배지 업데이트
+// Update the version badge on page load
 document.addEventListener('DOMContentLoaded', () => {
     const data = getVersionData();
     if (data && data.version) {

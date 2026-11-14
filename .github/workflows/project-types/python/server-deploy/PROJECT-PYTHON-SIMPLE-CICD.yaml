@@ -1,127 +1,127 @@
 # ===================================================================
-# Python FastAPI CI/CD 배포 (SSH + Docker)
+# Python FastAPI CI/CD deploy (SSH + Docker)
 # ===================================================================
 #
-# main 브랜치 푸시 시 Docker 이미지를 빌드하고
-# SSH로 접속 가능한 서버(Synology·AWS EC2·VPS 등)에 자동 배포합니다.
+# On a push to main, builds the Docker image and
+# deploys it automatically to an SSH-reachable server (Synology, AWS EC2, VPS, etc.).
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# ENV_FILE: .env 파일 내용
-# DOCKERHUB_USERNAME: DockerHub 사용자명
-# DOCKERHUB_TOKEN: DockerHub 액세스 토큰
-# SERVER_HOST: 배포 서버 주소
-# SERVER_USER: SSH 사용자명
-# SERVER_PASSWORD: SSH 비밀번호 (SSH_AUTH_METHOD=password일 때)
-# SSH_KEY: SSH 개인키 .pem 내용 (SSH_AUTH_METHOD=key일 때, AWS EC2 등)
-# ===================================================================
-#
-# 🔧 환경변수 설정 (env 섹션에서 설정)
+# ENV_FILE: contents of the .env file
+# DOCKERHUB_USERNAME: DockerHub user name
+# DOCKERHUB_TOKEN: DockerHub access token
+# SERVER_HOST: deploy server address
+# SERVER_USER: SSH user name
+# SERVER_PASSWORD: SSH password (when SSH_AUTH_METHOD=password)
+# SSH_KEY: SSH private key .pem contents (when SSH_AUTH_METHOD=key, AWS EC2 etc.)
 # ===================================================================
 #
-# 🌐 포트 및 컨테이너:
-# CONTAINER_INTERNAL_PORT: FastAPI 내부 포트 (기본: 8000)
-# DEPLOY_PORT: 배포 포트
-# CONTAINER_NAME: 컨테이너 이름 (기본: PROJECT_NAME)
+# 🔧 Environment settings (set in the env section)
+# ===================================================================
 #
-# 📦 볼륨 마운트:
-# ENABLE_VOLUME_MOUNT: 볼륨 마운트 활성화 (true/false)
-# VOLUME_HOST_PATH: 호스트 볼륨 경로
-# VOLUME_CONTAINER_PATH: 컨테이너 내부 마운트 경로
+# 🌐 Ports and container:
+# CONTAINER_INTERNAL_PORT: FastAPI internal port (default: 8000)
+# DEPLOY_PORT: deploy port
+# CONTAINER_NAME: container name (default: PROJECT_NAME)
 #
-# 🔌 SSH 연결:
-# SSH_PORT: SSH 포트 (기본: 2022)
-# SSH_COMMAND_TIMEOUT: SSH 명령 타임아웃 (기본: 600s)
-# SSH_CONNECTION_TIMEOUT: SSH 연결 타임아웃 (기본: 60s)
+# 📦 Volume mounts:
+# ENABLE_VOLUME_MOUNT: enable volume mount (true/false)
+# VOLUME_HOST_PATH: host volume path
+# VOLUME_CONTAINER_PATH: mount path inside the container
 #
-# ⏱️ 헬스체크:
-# HEALTHCHECK_WAIT_SECONDS: 초기화 대기 시간 (기본: 10초)
-# HEALTHCHECK_PATH: HTTP 엔드포인트 경로 (비어있으면 로그만 사용)
-# HEALTHCHECK_MAX_RETRIES: HTTP 재시도 횟수 (기본: 5회)
-# HEALTHCHECK_RETRY_INTERVAL: 재시도 간격 (기본: 3초)
-# HEALTHCHECK_LOG_PATTERN: Fallback 로그 검색 패턴
+# 🔌 SSH connection:
+# SSH_PORT: SSH port (default: 2022)
+# SSH_COMMAND_TIMEOUT: SSH command timeout (default: 600s)
+# SSH_CONNECTION_TIMEOUT: SSH connection timeout (default: 60s)
 #
-# 💡 HEALTHCHECK_PATH 예시:
+# ⏱️ Health check:
+# HEALTHCHECK_WAIT_SECONDS: initialization wait (default: 10 seconds)
+# HEALTHCHECK_PATH: HTTP endpoint path (empty = logs only)
+# HEALTHCHECK_MAX_RETRIES: HTTP retry count (default: 5)
+# HEALTHCHECK_RETRY_INTERVAL: retry interval (default: 3 seconds)
+# HEALTHCHECK_LOG_PATTERN: fallback log search pattern
+#
+# 💡 HEALTHCHECK_PATH examples:
 #   FastAPI: "/docs"
-#   커스텀: "/api/v1/health"
+#   custom: "/api/v1/health"
 # ===================================================================
 
 name: PROJECT-PYTHON-SIMPLE-CICD
 
 # ===================================================================
-# 트리거 설정
+# Trigger settings
 # ===================================================================
 on:
   push:
     branches:
-      - main  # 프로덕션 배포
-    # @wizard paths-anchor (모노레포일 때 integrator가 paths 필터를 여기 주입)
-  workflow_dispatch:  # 수동 실행 허용
+      - main  # production deploy
+    # @wizard paths-anchor (for monorepos the integrator injects the paths filter here)
+  workflow_dispatch:  # allow manual runs
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
 
 # ===================================================================
-# 환경 변수 설정
+# Environment variables
 # ===================================================================
 env:
-  # 프로젝트 고유 식별자
+  # Project identifier
   PROJECT_NAME: "__PROJECT_NAME__"  # @wizard ask:@repo
 
-  # 🌐 포트 설정
+  # 🌐 Port settings
   DEPLOY_PORT: "__DEPLOY_PORT__"  # @wizard ask:8000
 
-  # 🐍 Python 설정
+  # 🐍 Python settings
   PYTHON_VERSION: "3.13"
 
-  # 🐳 컨테이너 이름 설정 (비워두면 PROJECT_NAME 사용)
+  # 🐳 Container name (empty = PROJECT_NAME)
   CONTAINER_NAME: ""
 
-  # 🗂️ 볼륨 마운트 설정 (빈값이면 마운트 안함)
+  # 🗂️ Volume mount settings (empty = no mount)
   ENABLE_VOLUME_MOUNT: "false"
   VOLUME_HOST_PATH: "/volume1/projects/__PROJECT_NAME__"  # @wizard ask:/volume1/projects/__PROJECT_NAME__
   VOLUME_CONTAINER_PATH: "/mnt/__PROJECT_NAME__"  # @wizard ask:/mnt/__PROJECT_NAME__
 
-  # 🔐 SSH 인증 방식: "password"(Synology·일반 서버) | "key"(AWS EC2·.pem)
-  #   password → SERVER_PASSWORD secret 사용
-  #   key      → SSH_KEY secret 사용 (.pem 파일 전체 내용을 secret 값으로)
+  # 🔐 SSH auth method: "password" (Synology, regular servers) | "key" (AWS EC2, .pem)
+  #   password → uses the SERVER_PASSWORD secret
+  #   key      → uses the SSH_KEY secret (the full .pem file contents as the secret value)
   SSH_AUTH_METHOD: "password"  # @wizard ask:password
 
-  # 🔌 SSH 연결 설정
-  SSH_PORT: "2022"  # SSH 포트 (Synology 기본: 2022)
-  SSH_COMMAND_TIMEOUT: "600s"  # SSH 명령 실행 타임아웃
-  SSH_CONNECTION_TIMEOUT: "60s"  # SSH 연결 타임아웃
+  # 🔌 SSH connection settings
+  SSH_PORT: "2022"  # SSH port (Synology default: 2022)
+  SSH_COMMAND_TIMEOUT: "600s"  # SSH command timeout
+  SSH_CONNECTION_TIMEOUT: "60s"  # SSH connection timeout
 
-  # 🌐 컨테이너 포트 설정
-  CONTAINER_INTERNAL_PORT: "8000"  # FastAPI 내부 포트
+  # 🌐 Container port settings
+  CONTAINER_INTERNAL_PORT: "8000"  # FastAPI internal port
 
-  # ⏱️ 헬스체크 설정
-  HEALTHCHECK_WAIT_SECONDS: "10"  # 컨테이너 초기화 대기 시간 (초)
-  HEALTHCHECK_PATH: "/docs"  # HTTP 엔드포인트 경로 (비어있으면 로그 패턴만 사용)
-  HEALTHCHECK_MAX_RETRIES: "5"  # HTTP 재시도 횟수
-  HEALTHCHECK_RETRY_INTERVAL: "3"  # 재시도 간격 (초)
-  HEALTHCHECK_LOG_PATTERN: "Uvicorn running on"  # Fallback 로그 검색 패턴
+  # ⏱️ Health check settings
+  HEALTHCHECK_WAIT_SECONDS: "10"  # container initialization wait (seconds)
+  HEALTHCHECK_PATH: "/docs"  # HTTP endpoint path (empty = log pattern only)
+  HEALTHCHECK_MAX_RETRIES: "5"  # HTTP retry count
+  HEALTHCHECK_RETRY_INTERVAL: "3"  # retry interval (seconds)
+  HEALTHCHECK_LOG_PATTERN: "Uvicorn running on"  # fallback log search pattern
 
 jobs:
   # ===================================================================
-  # 빌드 작업
+  # Build job
   # ===================================================================
   build:
     name: Build Python FastAPI application
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스코드 체크아웃
+      # 1. Check out the source
       - name: Check out code
         uses: actions/checkout@v5
 
-      # 사전 점검 (#666)
-      # 신규 설치 직후에는 Secret, Dockerfile, gradlew 가 없는 것이 정상이다. 그대로 두면 하위 step 에서
-      # 원인을 짚기 어려운 한 줄로 실패하므로, 무엇이 없고 무엇을 해야 하는지 첫 step 에서 알린다.
-      # 전제가 모두 갖춰진 레포는 이 step 을 그대로 통과하며 이후 동작은 달라지지 않는다.
+      # Preflight (#666)
+      # Right after a fresh install, a missing Secret, Dockerfile or gradlew is normal. Left alone, a later step
+      # fails with a single line whose cause is hard to see, so the first step says what is missing and what to do.
+      # Repos with every prerequisite pass this step unchanged and later behavior does not change.
       - name: Preflight check
         env:
           SSH_AUTH_METHOD: ${{ env.SSH_AUTH_METHOD }}
@@ -133,19 +133,19 @@ jobs:
           SSH_KEY: ${{ secrets.SSH_KEY }}
         run: |
           fail=0
-          # Dockerfile 점검: 없으면 docker build 단계에서 "failed to read dockerfile" 로만 알려준다
+          # Dockerfile check: without it, docker build only says "failed to read dockerfile"
           if [ ! -f "./Dockerfile" ]; then
             echo "::error title=Preflight check::Dockerfile (./Dockerfile) is missing. Add a Dockerfile to the project root and commit it."
             fail=1
           fi
-          # Secret 점검: 빈 값이면 로그인, SSH 접속 단계에서 원인 불명 에러가 난다
+          # Secret check: empty values cause unclear errors at login and SSH
           for name in DOCKERHUB_USERNAME DOCKERHUB_TOKEN SERVER_HOST SERVER_USER; do
             if [ -z "${!name}" ]; then
               echo "::error title=Preflight check::Secret ${name} is missing. Add it under Settings > Secrets and variables > Actions > New repository secret"
               fail=1
             fi
           done
-          # SSH 인증 방식에 따라 필요한 Secret 이 다르다 (SSH_AUTH_METHOD: password | key)
+          # The required Secret depends on the SSH auth method (SSH_AUTH_METHOD: password | key)
           if [ "${SSH_AUTH_METHOD:-password}" = "key" ]; then
             [ -n "$SSH_KEY" ] || { echo "::error title=Preflight check::Secret SSH_KEY is missing (SSH_AUTH_METHOD=key). Add the full .pem content as its value under Settings > Secrets and variables > Actions > New repository secret"; fail=1; }
           else
@@ -154,7 +154,7 @@ jobs:
           [ "$fail" = "0" ] || exit 1
           echo "✅ Preflight check passed"
 
-      # 2. 디스크 공간 확보
+      # 2. Free disk space
       - name: Free up disk space
         run: |
           echo "📊 Disk usage before build:"
@@ -172,7 +172,7 @@ jobs:
           echo "📊 Disk usage after cleanup:"
           df -h
 
-      # 3. .env 파일 생성
+      # 3. Create the .env file
       - name: Create .env file
         env:
           ENV_CONTENT: ${{ secrets.ENV_FILE }}
@@ -180,18 +180,18 @@ jobs:
           printf '%s\n' "$ENV_CONTENT" > .env
           echo "✅ .env file created"
 
-      # 4. Docker 빌드 환경 설정
+      # 4. Set up the Docker build environment
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
-      # 5. DockerHub 로그인
+      # 5. Log in to DockerHub
       - name: Log in to DockerHub
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 6. Docker 이미지 빌드 및 푸시
+      # 6. Build and push the Docker image
       - name: Build and push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
@@ -199,11 +199,11 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.PROJECT_NAME }}:${{ github.ref_name }}
-          # GitHub Actions 캐시 사용 (로컬 디스크 공간 절약)
+          # Use the GitHub Actions cache (saves local disk space)
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 7. 빌드 후 정리
+      # 7. Clean up after the build
       - name: Clean up after build
         if: always()
         run: |
@@ -213,7 +213,7 @@ jobs:
           df -h
 
   # ===================================================================
-  # 배포 작업
+  # Deploy job
   # ===================================================================
   deploy:
     name: Deploy to remote server
@@ -221,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # SSH 통한 원격 서버 배포 실행
+      # Deploy to the remote server over SSH
       - name: Deploy
         uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         env:
@@ -240,15 +240,15 @@ jobs:
             set -e
 
             # ============================================================
-            # 배포 환경 변수 설정
+            # Deploy environment variables
             # ============================================================
             echo "🔧 Setting environment variables.."
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
 
-            # 🔐 SSH 인증 방식에 따른 sudo 추상화
-            #   password 모드: echo $PW | sudo -S  (Synology 등 sudo 비밀번호 필요 서버)
-            #   key 모드: sudo 직접  (AWS EC2 등 passwordless sudo 서버)
+            # 🔐 sudo abstraction per SSH auth method
+            #   password mode: echo $PW | sudo -S  (servers needing a sudo password, e.g. Synology)
+            #   key mode: plain sudo  (passwordless sudo servers, e.g. AWS EC2)
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
             if [ "${SSH_AUTH_METHOD}" = "key" ]; then
               SUDO() { sudo "$@"; }
@@ -257,18 +257,18 @@ jobs:
             fi
             echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
-            # GitHub에서 전달받은 브랜치명
+            # Branch name passed from GitHub
             BRANCH=${{ github.ref_name }}
 
-            # 프로젝트 설정
+            # Project settings
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
 
             # ============================================================
-            # 포트 및 컨테이너명 설정
+            # Port and container name settings
             # ============================================================
             PORT=${{ env.DEPLOY_PORT }}
 
-            # 컨테이너 이름 설정
+            # Container name
             if [ -z "${{ env.CONTAINER_NAME }}" ]; then
               CONTAINER_NAME="${PROJECT_NAME}"
               echo "ℹ️ CONTAINER_NAME is not set, using PROJECT_NAME: $CONTAINER_NAME"
@@ -279,7 +279,7 @@ jobs:
 
             echo "🚀 Deploying to the deploy environment (branch: $BRANCH)"
 
-            # 설정 정보 출력
+            # Print settings
             echo "📋 Deploy settings:"
             echo "  - Branch: $BRANCH"
             echo "  - Project: $PROJECT_NAME"
@@ -288,14 +288,14 @@ jobs:
             echo "  - Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}"
 
             # ============================================================
-            # Docker 이미지 풀 (Pull)
+            # Pull the Docker image
             # ============================================================
             echo "⬇️ Pulling Docker image: ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}"
             SUDO docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}
 
-            # 컨테이너 시작을 함수로 둬서 배포 실패 시 이전 이미지로 같은 옵션으로 복구할 수 있게 한다 (#730)
+            # Container start lives in a function so a failed deploy can restore the previous image with the same options (#730)
             start_container() {
-              # 서버 재부팅·Docker 재시작 뒤에도 서비스가 자동으로 올라오도록 한다 (#727)
+              # Bring the service back automatically after a server reboot or Docker restart (#727)
               SUDO docker run -d \
                 -p ${PORT}:${{ env.CONTAINER_INTERNAL_PORT }} \
                 --name $CONTAINER_NAME \
@@ -305,7 +305,7 @@ jobs:
                 "$1"
             }
 
-            # 교체 중 실패하면 실패한 컨테이너를 지우고 이전 이미지로 복구한다 (#730)
+            # If the swap fails, remove the failed container and restore the previous image (#730)
             PREV_IMAGE=""
             REPLACING=false
             DEPLOY_OK=false
@@ -330,12 +330,12 @@ jobs:
             trap rollback_on_failure EXIT
 
             # ============================================================
-            # 기존 컨테이너 정리
+            # Clean up the existing container
             # ============================================================
             echo "🧹 Checking whether container $CONTAINER_NAME exists..."
 
-            # 동일한 이름의 컨테이너가 존재하는지 확인
-            # 이전 이미지 ID 를 기억해 둔다 (태그가 새 이미지로 옮겨가도 ID 로 복구할 수 있다)
+            # Check whether a container with the same name exists
+            # Remember the previous image ID (it can be restored by ID even after the tag moves to the new image)
             PREV_IMAGE=$(SUDO docker inspect --format '{{.Image}}' $CONTAINER_NAME 2>/dev/null || true)
             REPLACING=true
             if SUDO docker ps -a --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
@@ -347,20 +347,20 @@ jobs:
             fi
 
             # ============================================================
-            # 새 컨테이너 실행
+            # Run the new container
             # ============================================================
             echo "🚀 Starting new container $CONTAINER_NAME..."
 
-            # Docker 컨테이너 실행
-            # - 포트 매핑: ${PORT}:${{ env.CONTAINER_INTERNAL_PORT }} (외부:내부)
-            # - 시간대: Asia/Seoul
-            # - 볼륨 마운트: 로컬 시간 동기화 및 프로젝트 데이터
-            # ⚠️ .env 파일은 이미 Docker 이미지에 포함되어 있습니다
+            # Run the Docker container
+            # - Port mapping: ${PORT}:${{ env.CONTAINER_INTERNAL_PORT }} (external:internal)
+            # - Time zone: Asia/Seoul
+            # - Volume mounts: local time sync and project data
+            # ⚠️ The .env file is already in the Docker image
 
-            # 볼륨 마운트 옵션 구성
+            # Build volume mount options
             VOLUME_OPTS="-v /etc/localtime:/etc/localtime:ro"
             if [ "${{ env.ENABLE_VOLUME_MOUNT }}" == "true" ]; then
-              # 디렉토리가 없으면 생성
+              # Create the directory if missing
               if [ ! -d "${{ env.VOLUME_HOST_PATH }}" ]; then
                 echo "📁 Creating volume mount directory: ${{ env.VOLUME_HOST_PATH }}"
                 SUDO mkdir -p "${{ env.VOLUME_HOST_PATH }}"
@@ -374,12 +374,12 @@ jobs:
             start_container ${{ secrets.DOCKERHUB_USERNAME }}/${PROJECT_NAME}:${BRANCH}
 
             # ============================================================
-            # 컨테이너 헬스체크
+            # Container health check
             # ============================================================
             echo "⏳ Waiting for the container to start... (${{ env.HEALTHCHECK_WAIT_SECONDS }}s)"
             sleep ${{ env.HEALTHCHECK_WAIT_SECONDS }}
 
-            # 1단계: 컨테이너 프로세스 확인
+            # Step 1: check the container process
             echo "🏥 Running container health check..."
             if ! SUDO docker ps --format '{{.Names}}' | grep -Eq "^${CONTAINER_NAME}\$"; then
               echo "❌ Container $CONTAINER_NAME process is not running"
@@ -388,7 +388,7 @@ jobs:
             fi
             echo "✅ Container process is running"
 
-            # 2단계: HTTP 엔드포인트 체크 (설정된 경우)
+            # Step 2: HTTP endpoint check (if configured)
             HEALTHCHECK_SUCCESS=false
             if [ -n "${{ env.HEALTHCHECK_PATH }}" ]; then
               echo "🌐 Starting HTTP health check: http://localhost:${PORT}${{ env.HEALTHCHECK_PATH }}"
@@ -411,7 +411,7 @@ jobs:
                 fi
               done
 
-              # HTTP 체크 실패 시 fallback으로 로그 패턴 매칭
+              # If the HTTP check fails, fall back to log pattern matching
               if [ "$HEALTHCHECK_SUCCESS" = "false" ]; then
                 echo "⚠️ HTTP health check failed for good, falling back to log pattern matching..."
               fi
@@ -419,7 +419,7 @@ jobs:
               echo "ℹ️ HEALTHCHECK_PATH is not set, using log pattern matching only"
             fi
 
-            # 3단계: 로그 패턴 매칭 (HTTP 실패 시 또는 HTTP 체크 비활성화 시)
+            # Step 3: log pattern matching (when HTTP fails or the HTTP check is disabled)
             if [ "$HEALTHCHECK_SUCCESS" = "false" ]; then
               echo "📋 Starting log pattern matching: '${{ env.HEALTHCHECK_LOG_PATTERN }}'"
 
@@ -442,13 +442,13 @@ jobs:
               fi
             fi
 
-            # 최종 성공 메시지
+            # Final success message
             if [ "$HEALTHCHECK_SUCCESS" = "true" ]; then
               echo "✅ Health check complete: container $CONTAINER_NAME is running"
             fi
 
             # ============================================================
-            # 배포 완료 확인
+            # Confirm the deploy
             # ============================================================
             DEPLOY_OK=true
             echo "✅ Deploy completed successfully!"

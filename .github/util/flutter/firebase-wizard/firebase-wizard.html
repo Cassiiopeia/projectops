@@ -95,7 +95,7 @@
     </script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- 공통 자산 (3종 마법사 공유) — _shared/check-consistency.py가 정합성을 검증한다 -->
+    <!-- Shared assets (shared by the wizards) — _shared/check-consistency.py verifies consistency -->
     <link rel="stylesheet" href="../_shared/wizard.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -124,8 +124,8 @@
             }
         }
     </script>
-    <!-- Firebase 마법사 고유 스타일 — 공통 컴포넌트는 ../_shared/wizard.css 참조 -->
-    <!-- .file-upload: 브랜드 색을 입힌 파일 업로드 (공통 .file-upload 위에 덮어쓴다) -->
+    <!-- Firebase wizard-specific styles — see ../_shared/wizard.css for shared components -->
+    <!-- .file-upload: brand-colored file upload (overrides the shared .file-upload) -->
     <style>
         body { background: #0f172a; color: #e2e8f0; font-family: 'Pretendard Variable', sans-serif; }
         .file-upload:hover { border-color: #FFA000; background: rgba(255, 160, 0, 0.05); }
@@ -133,7 +133,7 @@
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
-    <!-- 보안 경고 — 입력값이 이 브라우저에만 남는다는 점을 알린다 -->
+    <!-- Security warning — tells users their input stays only in this browser -->
     <div id="securityWarning" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/90 border border-yellow-700 text-yellow-200 px-6 py-3 rounded-lg shadow-xl z-50 max-w-2xl hidden">
         <div class="flex items-center gap-3">
             <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,7 +151,7 @@
     </div>
 
     <div class="max-w-4xl mx-auto">
-        <!-- 헤더 -->
+        <!-- Header -->
         <header class="mb-8 text-center">
             <h1 class="text-3xl md:text-4xl font-bold mb-3">
                 🔥 <span class="bg-gradient-to-r from-firebase-primary to-firebase-accent bg-clip-text text-transparent" data-i18n="header.title">Firebase App Distribution Deployment Wizard</span>
@@ -170,7 +170,7 @@
             </p>
         </header>
 
-        <!-- 첫 사용자 안내 — 시작 전에 규모·준비물·산출물을 먼저 보여준다 -->
+        <!-- First-time user guide — shows scope, prerequisites and outputs before starting -->
         <div class="wizard-meta">
             <span data-i18n="meta.duration">⏱️ Estimated time <strong>15–25 min</strong></span>
             <span class="text-slate-600">·</span>
@@ -185,7 +185,7 @@
         </div>
         <p class="resume-hint" data-i18n="meta.resumeHint">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
 
-        <!-- Progress Steps (5단계) — 구조는 3종 공통 계약이다. _shared/wizard.css 참조 -->
+        <!-- Progress Steps (5 steps) — the structure is a shared contract across wizards. See _shared/wizard.css -->
         <div class="flex justify-between mb-8 px-2 overflow-x-auto">
             <div class="step-indicator flex flex-col items-center flex-1 relative min-w-[40px]" data-step="1">
                 <div class="step-circle w-8 h-8 rounded-full bg-firebase-primary text-slate-900 flex items-center justify-center font-bold text-xs z-10">1</div>
@@ -210,7 +210,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- Step 1: Firebase Console 가이드 -->
+        <!-- Step 1: Firebase Console guide -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content fade-in" data-step="1">
             <h2 class="text-xl font-bold mb-6 flex items-center gap-3">
@@ -582,7 +582,7 @@
                 </p>
             </div>
 
-            <!-- Repo 정보 입력 (선택) -->
+            <!-- Repo info input (optional) -->
             <div class="grid grid-cols-2 gap-3 mb-4">
                 <input type="text" id="repoOwnerInput" placeholder="GitHub owner (e.g. Cassiiopeia)" data-i18n-placeholder="step5.ownerPlaceholder" value=""
                     class="bg-slate-900 border border-slate-600 rounded-lg px-4 py-2 text-sm font-mono"
@@ -599,7 +599,7 @@
                 <p class="text-xs text-slate-500 mt-1" data-i18n="step5.openSecretsHint">Enter owner/repo to jump straight to the right Secrets page. Nothing you enter is stored or sent anywhere.</p>
             </div>
 
-            <!-- Secrets 매핑표 -->
+            <!-- Secrets mapping table -->
             <div class="mb-6">
                 <h3 class="text-base font-semibold mb-3 text-slate-200" data-i18n="step5.secretsTitle">🔑 GitHub Secrets to register</h3>
                 <table class="w-full text-xs">
@@ -615,7 +615,7 @@
                 </table>
             </div>
 
-            <!-- 다운로드 버튼 -->
+            <!-- Download buttons -->
             <div class="bg-slate-700/50 border border-slate-600 rounded-lg p-4 mb-6">
                 <p class="text-sm font-medium text-blue-400 mb-3" data-i18n="step5.downloadTitle">📥 Download outputs</p>
                 <div class="flex flex-wrap gap-2">
@@ -639,7 +639,7 @@
     <!-- Toast -->
 
     <!-- JS -->
-    <!-- 변경 이력 모달 — 껍데기는 여기 소유, 내용은 공통 openChangelogModal()이 채운다 -->
+    <!-- Changelog modal — the shell lives here; the shared openChangelogModal() fills the content -->
     <div id="changelogModal" class="modal-backdrop hidden" onclick="closeChangelogModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 500px;">
             <div class="flex justify-between items-center mb-6">

@@ -1,39 +1,39 @@
 /**
- * OAuth 로그인 마법사 (Kakao · Google) — 상태·단계 흐름·화면 렌더 (#156)
- * 정적 HTML/JS: 네트워크 호출 없음, Secret 값은 이 브라우저(localStorage)에만 남는다.
+ * OAuth login wizard (Kakao, Google) — state, step flow, screen rendering (#156)
+ * Static HTML/JS: no network calls; Secret values stay only in this browser (localStorage).
  *
- * 단계는 선택한 제공자에 따라 동적이다.
- *   .step-content[data-step-id] 중 활성 단계에만 data-step="순번"을 매겨
- *   공통 showStep·prevStep(_shared/wizard-common.js)이 그대로 동작하게 한다.
- * 단계 화면 렌더는 oauth-wizard-steps.js, 산출물 생성은 oauth-wizard-snippets.js, 내려받기는 oauth-wizard-export.js
+ * Steps are dynamic, depending on the chosen providers.
+ *   Only active steps among .step-content[data-step-id] get data-step="order"
+ *   so the shared showStep/prevStep (_shared/wizard-common.js) work as is.
+ * Step rendering is in oauth-wizard-steps.js, output generation in oauth-wizard-snippets.js, downloads in oauth-wizard-export.js
  */
 
 // ============================================
-// 상수
+// Constants
 // ============================================
 const STORAGE_KEY = 'oauth_wizard_state';
-// 단계 전체 순서 — kakao·google 은 선택했을 때만 활성
+// Full step order — kakao/google are active only when chosen
 const STEP_IDS_IN_ORDER = ['providers', 'identity', 'fingerprints', 'kakao', 'google', 'secrets', 'cicd', 'gitignore', 'apply', 'summary'];
-// googleSetup: firebase-sdk(설정 파일 동봉) | firebase-ids(클라이언트 ID만) | cloud(Cloud 콘솔)
+// googleSetup: firebase-sdk (config files included) | firebase-ids (client IDs only) | cloud (Cloud console)
 const GOOGLE_SETUP_WITH_FILES = 'firebase-sdk';
 
-// 산출물 자리표시자·경로 (oauth-wizard-snippets.js 가 쓴다)
+// Output placeholders and paths (used by oauth-wizard-snippets.js)
 const PLACEHOLDER_KAKAO_NATIVE_APP_KEY = 'YOUR_NATIVE_APP_KEY';
 const PLACEHOLDER_GOOGLE_IOS_CLIENT_ID = 'YOUR_IOS_CLIENT_ID.apps.googleusercontent.com';
 const PLACEHOLDER_GOOGLE_SERVER_CLIENT_ID = 'YOUR_WEB_CLIENT_ID.apps.googleusercontent.com';
 const OAUTH_WIZARD_CLI_PATH = '.github/util/flutter/oauth-wizard/oauth-wizard.py';
-// 마법사 내보내기 파일 이름 — oauth-wizard.py GITIGNORE_EXPORT_PATTERNS 와 함께 바꾼다
+// Wizard export file name — change together with oauth-wizard.py GITIGNORE_EXPORT_PATTERNS
 const OAUTH_EXPORT_FILE_PREFIX_SECRETS = 'oauth-secrets-';
 const OAUTH_EXPORT_FILE_PREFIX_SETUP = 'oauth-setup-';
-// Secret 이름 — .github/scripts/firebase_config_files.py PLATFORMS 와 같다 (#785)
+// Secret names — same as PLATFORMS in .github/scripts/firebase_config_files.py (#785)
 const SECRET_NAME_GOOGLE_SERVICES_JSON = 'GOOGLE_SERVICES_JSON';
 const SECRET_NAME_GOOGLE_SERVICE_INFO_PLIST = 'GOOGLE_SERVICE_INFO_PLIST';
-// 위 스크립트로 Firebase 설정 파일을 복원하는 템플릿 워크플로우 (Flutter CI 는 두 파일 모두)
+// Template workflows that restore the Firebase config files with the script above (Flutter CI restores both)
 const ANDROID_WORKFLOWS = ['PROJECT-FLUTTER-ANDROID-TEST-APK', 'PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD', 'PROJECT-FLUTTER-ANDROID-FIREBASE-CICD', 'PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD'];
 const IOS_WORKFLOWS = ['PROJECT-FLUTTER-IOS-TESTFLIGHT', 'PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT'];
 
 // ============================================
-// 상태
+// State
 // ============================================
 function createInitialState() {
     return {
@@ -77,7 +77,7 @@ function loadState() {
 }
 
 // ============================================
-// 동적 단계
+// Dynamic steps
 // ============================================
 
 function isStepActive(stepId) {
@@ -94,7 +94,7 @@ function getStepIdByNumber(stepNumber) {
     return getActiveStepIds()[stepNumber - 1] || 'providers';
 }
 
-/** 단계 라벨 (키를 문자열 그대로 써야 check_i18n.py 가 사용 여부를 안다) */
+/** Step labels (keys must be written as literal strings so check_i18n.py knows they are used) */
 function getStepLabel(stepId) {
     switch (stepId) {
         case 'providers': return translate('steps.providers');
@@ -110,7 +110,7 @@ function getStepLabel(stepId) {
     }
 }
 
-/** 활성 단계에만 data-step 순번 부여 > 단계 수·현재 순번 갱신 */
+/** Number only active steps with data-step > update the step count and current position */
 function assignStepNumbers() {
     const activeStepIds = getActiveStepIds();
     $$('.step-content[data-step-id]').forEach((element) => {
@@ -141,7 +141,7 @@ function renderStepIndicators() {
         </div>`).join('');
 }
 
-/** 단계 표시: 완료 ✓ / 현재 / 남음 — 어느 단계로든 클릭 이동 가능 (3종 공통 동작) */
+/** Step indicator: done ✓ / current / remaining — any step can be clicked (shared behavior across wizards) */
 function updateProgress() {
     renderStepIndicators();
     $$('.step-indicator').forEach((indicator, index) => {
@@ -182,7 +182,7 @@ function goToStep(stepNumber) {
     if (stepNumber >= 1 && stepNumber <= state.totalSteps) moveToStep(stepNumber);
 }
 
-/** 현재 단계 검증 통과 시에만 다음으로 (단계 표시 클릭 이동은 자유) */
+/** Move on only when the current step validates (clicking the step indicator is free) */
 function nextStep() {
     const problem = findCurrentStepProblem();
     if (problem) {
@@ -192,7 +192,7 @@ function nextStep() {
     if (state.currentStep < state.totalSteps) moveToStep(state.currentStep + 1);
 }
 
-/** 공통 prevStep·nextStep 이 단계 이동 전에 부른다 — 입력은 oninput 으로 이미 저장됨 */
+/** Called by the shared prevStep/nextStep before moving — input was already saved via oninput */
 function saveCurrentStepData() {
     state.currentStepId = getStepIdByNumber(state.currentStep);
 }
@@ -208,10 +208,10 @@ function resetWizard() {
 }
 
 // ============================================
-// 단계별 검증
+// Per-step validation
 // ============================================
 
-/** 현재 단계 > 막는 사유 문구 (통과면 빈 문자열) */
+/** Current step > blocking reason text (empty string when it passes) */
 function findCurrentStepProblem() {
     switch (getStepIdByNumber(state.currentStep)) {
         case 'providers':
@@ -248,15 +248,15 @@ function findGoogleProblem() {
 }
 
 // ============================================
-// 선택 상태 판단
+// Selection state
 // ============================================
 
-/** Google + Firebase SDK 사용 = 설정 파일 2개를 Secret 으로 CI 에 복원 */
+/** Google + Firebase SDK = the 2 config files restored in CI from Secrets */
 function isUsingFirebaseFiles() {
     return state.providers.google && state.googleSetup === GOOGLE_SETUP_WITH_FILES;
 }
 
-/** 입력한 SHA-1 > [{label, sha1, keyHash}] (형식이 맞는 것만) */
+/** Entered SHA-1 > [{label, sha1, keyHash}] (only well-formed ones) */
 function collectFingerprintEntries() {
     return [
         { label: translate('keys.debug'), value: state.debugSha1 },
@@ -269,7 +269,7 @@ function collectFingerprintEntries() {
     }));
 }
 
-/** data-show-if 영역 표시: google-firebase · google-cloud · firebase-files · no-firebase-files */
+/** Show data-show-if areas: google-firebase / google-cloud / firebase-files / no-firebase-files */
 function applyConditionalVisibility() {
     const isFirebaseConsole = state.googleSetup === 'firebase-sdk' || state.googleSetup === 'firebase-ids';
     const visibilityByCondition = {
@@ -284,7 +284,7 @@ function applyConditionalVisibility() {
 }
 
 // ============================================
-// 입력 핸들러
+// Input handlers
 // ============================================
 
 function onTextInput(field, value) {
@@ -329,7 +329,7 @@ function selectOperatingSystem(operatingSystem) {
 
 function setInputValue(id, value) {
     const element = document.getElementById(id);
-    // 입력 중인 칸은 다시 쓰지 않는다 (커서가 끝으로 튀는 문제)
+    // Do not rewrite the field being typed in (the cursor jumps to the end)
     if (element && document.activeElement !== element) element.value = value || '';
 }
 
@@ -343,7 +343,7 @@ function renderOperatingSystemTabs() {
         .forEach(([id, operatingSystem]) => {
             const tab = document.getElementById(id);
             if (!tab) return;
-            // 선택 탭만 강조 (bg-slate-900 과 함께 두면 CSS 순서에 따라 강조가 묻힌다)
+            // Highlight only the selected tab (together with bg-slate-900 the highlight gets lost depending on CSS order)
             const isSelected = state.operatingSystem === operatingSystem;
             tab.classList.toggle('bg-oauth-primary', isSelected);
             tab.classList.toggle('bg-slate-900', !isSelected);
@@ -351,10 +351,10 @@ function renderOperatingSystemTabs() {
 }
 
 // ============================================
-// Secret 목록
+// Secret list
 // ============================================
 
-/** 등록할 Secret > [{key, value, source, usedBy, type}] */
+/** Secrets to register > [{key, value, source, usedBy, type}] */
 function buildSecretsList() {
     const secrets = [];
     if (isUsingFirebaseFiles()) {
@@ -383,7 +383,7 @@ function copySecretValue(key) {
 }
 
 // ============================================
-// 초기화
+// Initialization
 // ============================================
 
 function initialize() {
@@ -400,7 +400,7 @@ function initialize() {
 
 document.addEventListener('DOMContentLoaded', initialize);
 
-// 언어 전환: JS 가 그린 영역(단계 표시·현재 단계·커스텀 Secret) 다시 그리기
+// Language switch: redraw JS-drawn areas (step indicator, current step, custom Secrets)
 document.addEventListener('wizardlanguagechange', () => {
     updateProgress();
     renderStepContent(getStepIdByNumber(state.currentStep));

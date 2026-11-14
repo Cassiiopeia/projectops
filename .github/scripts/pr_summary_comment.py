@@ -2,20 +2,20 @@
 """
 pr_summary_comment.py
 
-PR 변경 요약을 댓글로 올린다. 표식으로 기존 댓글을 찾아 **갱신**하므로 커밋을 여러 번
-올려도 요약 댓글은 하나로 유지된다 (이슈 #553).
+Posts the PR change summary as a comment. It finds the existing comment by marker and **updates** it, so pushing
+commits many times keeps a single summary comment (issue #553).
 
-왜 갱신인가: PR에 커밋을 추가할 때마다 새 댓글이 달리면 스레드가 요약으로 도배되어 정작
-사람이 쓴 리뷰 코멘트가 묻힌다. 표식은 HTML 주석이라 렌더링되지 않는다.
+Why update: if every commit added to a PR posted a new comment, the thread would be flooded with summaries and
+the review comments people wrote would be buried. The marker is an HTML comment, so it is not rendered.
 
-입력은 provider 사다리가 만든 pr_body.md다. 그 파일은 릴리스 노트 형식(`Summary by
-CodeRabbit` 헤더 + `## 릴리스 노트`)으로 감싸여 있는데, PR 댓글에는 그 껍데기가 어울리지
-않으므로 본문만 꺼내 다시 감싼다.
+The input is the pr_body.md built by the provider ladder. That file is wrapped in the release-notes format (`Summary by
+CodeRabbit` header + `## 릴리스 노트`), which does not suit a PR comment,
+so only the body is taken out and rewrapped.
 
-  - 출력: 언제나 JSON 한 줄(stdout). 사람이 읽을 로그는 stderr.
-  - 어떤 실패도 exit 0 — 요약 댓글 때문에 PR이 막히면 안 된다.
+  - Output: always one JSON line (stdout). Human-readable logs go to stderr.
+  - Every failure exits 0 — the summary comment must never block the PR.
 
-사용 예:
+Usage:
   GITHUB_TOKEN=... python3 pr_summary_comment.py --repo owner/name --pr 12 \\
       --body-file pr_body.md --app-release true
 """
@@ -35,20 +35,20 @@ from i18n.messages import resolve_language, t
 MARKER = "<!-- PROJECTOPS-AI-SUMMARY -->"
 USER_AGENT = "projectops-pr-summary"
 
-# 앱 심사로 이어지는 레포에서만 붙는 안내(pr_summary.app_release). 리뷰어가 무게를 다르게 잡도록 한다.
+# Notice added only in repos that lead to app review (pr_summary.app_release). Helps reviewers weigh it differently.
 
 
 def extract_body(raw: str) -> str:
-    """릴리스 노트 껍데기에서 항목 본문만 꺼낸다.
+    """Take only the item body out of the release-notes wrapper.
 
-    provider 사다리는 `## Summary by CodeRabbit` 다음 제목(언어별: `릴리스 노트`, `Release notes` …)
-    아래에 항목을 쓰고 HTML 주석으로 감싼다. 제목 문구에 의존하면 언어가 늘 때마다 깨지므로
-    `Summary by CodeRabbit`이 아닌 첫 `##` 제목을 본문 시작으로 본다.
-    구조가 달라지면(다른 provider 등) 원문을 그대로 쓴다 — 요약이 없는 것보다는 낫다.
+    The provider ladder writes items under the heading after `## Summary by CodeRabbit` (per language: `릴리스 노트`, `Release notes` ...)
+    and wraps them in HTML comments. Relying on the heading text breaks with every added language,
+    so the first `##` heading that is not `Summary by CodeRabbit` is taken as the body start.
+    If the structure differs (another provider, etc.), the original is used as is — better than no summary.
     """
     m = re.search(r"^##[ \t]+(?!Summary by CodeRabbit)[^\n]+\n(.*?)(?:\n<!--|\Z)", raw, re.S | re.M)
     body = m.group(1) if m else raw
-    # 주변 HTML 주석 줄 제거 (남아 있으면 댓글에 빈 줄만 생긴다)
+    # Remove surrounding HTML comment lines (left behind they only add blank lines to the comment)
     body = "\n".join(l for l in body.split("\n") if not l.strip().startswith("<!--"))
     return body.strip()
 
@@ -80,13 +80,13 @@ def main(argv=None) -> int:
     try:
         raw = open(args.body_file, encoding="utf-8").read()
     except Exception as e:
-        out["summary"] = f"요약 파일을 읽지 못했습니다: {e}"
+        out["summary"] = f"Could not read the summary file: {e}"
         sys.stderr.write(out["summary"] + "\n")
         print(json.dumps(out, ensure_ascii=False))
         return 0
 
     if not token:
-        out["summary"] = "GITHUB_TOKEN이 없어 댓글을 올리지 못했습니다"
+        out["summary"] = "No GITHUB_TOKEN, so the comment was not posted"
         sys.stderr.write(out["summary"] + "\n")
         print(json.dumps(out, ensure_ascii=False))
         return 0
@@ -96,16 +96,16 @@ def main(argv=None) -> int:
     try:
         action, comment_id = github_api.upsert_marker_comment(
             args.repo, args.pr, token, body, MARKER, request_function=_request)
-        summary = (f"기존 요약 댓글 갱신 (#{comment_id})" if action == "updated" else "요약 댓글 작성")
+        summary = (f"Updated the existing summary comment (#{comment_id})" if action == "updated" else "Posted the summary comment")
         out.update(ok=True, action=action, comment_id=comment_id, summary=summary)
     except urllib.error.HTTPError as e:
-        out["summary"] = f"댓글 처리 실패: HTTP {e.code} {e.reason}"
+        out["summary"] = f"Comment failed: HTTP {e.code} {e.reason}"
     except Exception as e:
-        out["summary"] = f"댓글 처리 실패: {type(e).__name__}: {e}"
+        out["summary"] = f"Comment failed: {type(e).__name__}: {e}"
 
     sys.stderr.write(out["summary"] + "\n")
     print(json.dumps(out, ensure_ascii=False))
-    return 0  # 요약 댓글 때문에 PR을 막지 않는다
+    return 0  # never block the PR because of the summary comment
 
 
 if __name__ == "__main__":

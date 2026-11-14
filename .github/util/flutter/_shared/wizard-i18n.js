@@ -1,45 +1,45 @@
 /* ===================================================================
- * projectops HTML 마법사 언어 전환 (정본, #769)
+ * projectops HTML wizard language switch (source of truth, #769)
  * ===================================================================
  *
- * 로드하는 쪽: Flutter 마법사 3종 + common 마법사(projects-sync, secrets-converter)
+ * Loaded by: the Flutter wizards + common wizards (projects-sync, secrets-converter)
  *   Flutter: wizard.css > wizard-i18n.js > wizard-common.js > <name>-wizard-i18n.js > <name>-wizard.js
  *   common : ../../flutter/_shared/wizard-i18n.js > <name>-i18n.js > <name>.js
  *
- * 문구 원본 2곳
- *   - 정적 마크업: HTML 본문의 영문이 en 원본. data-i18n 요소의 처음 내용을 en으로 기억
- *   - 그 외(토스트·동적 렌더): registerWizardMessages 사전의 en/ko
- *   ko 문구는 전부 사전에 둔다. 키 누락은 check-consistency.py 가 잡는다.
+ * 2 text sources
+ *   - Static markup: the English in the HTML body is the en source. The initial content of data-i18n elements is remembered as en
+ *   - Everything else (toasts, dynamic rendering): en/ko in the registerWizardMessages dictionary
+ *   All ko text lives in dictionaries. check-consistency.py catches missing keys.
  *
- * 마크업 계약
- *   data-i18n="key"             내용(innerHTML) 교체
- *   data-i18n-placeholder="key" placeholder 교체
- *   data-i18n-title="key"       title 교체
- *   data-lang-toggle            언어 전환 버튼 (엔진이 라벨 채우고 hidden 해제)
+ * Markup contract
+ *   data-i18n="key"             replaces content (innerHTML)
+ *   data-i18n-placeholder="key" replaces placeholder
+ *   data-i18n-title="key"       replaces title
+ *   data-lang-toggle            language toggle button (the engine fills the label and removes hidden)
  *
- * 언어 결정 순서: 주소 ?lang=en|ko > 저장된 선택 > navigator.language 가 ko* 면 ko > en
- * 변경 시 document 에 'wizardlanguagechange' 이벤트 — 동적 영역은 각 마법사가 다시 그린다
+ * Language order: address ?lang=en|ko > saved choice > ko if navigator.language is ko* > en
+ * On change, a 'wizardlanguagechange' event on document — each wizard redraws its dynamic areas
  *
- * common 마법사가 wizard-common.js 대신 이 파일만 로드하는 이유:
- *   common 쪽에 같은 이름·다른 시그니처 함수(showToast·processFile·setupDragAndDrop 등)가 있어
- *   공통 유틸까지 끌어오면 덮어쓰기 관계가 꼬인다. 언어 전환만 떼어 둔다.
+ * Why common wizards load only this file instead of wizard-common.js:
+ *   the common side has functions with the same names but different signatures (showToast, processFile, setupDragAndDrop, etc.),
+ *   so pulling in the shared utils too would tangle overrides. Only the language switch is split out.
  * =================================================================== */
 
 /* eslint-disable no-unused-vars */
 
 const WIZARD_LANGUAGES = ['en', 'ko'];
 const WIZARD_DEFAULT_LANGUAGE = 'en';
-// localStorage: 마법사 공통 언어 선택 (en | ko)
+// localStorage: shared wizard language choice (en | ko)
 const WIZARD_LANGUAGE_STORAGE_KEY = 'projectops.wizard.language';
-// 버튼 라벨은 "바꿀 언어" 이름을 보여준다
+// The button label shows the name of the language to switch to
 const WIZARD_LANGUAGE_TOGGLE_LABELS = { en: '한국어', ko: 'English' };
 
 const wizardMessagesByLanguage = { en: {}, ko: {} };
-// data-i18n 요소 > 처음 영문 내용·속성 (en 복원용)
+// data-i18n element > initial English content/attributes (for restoring en)
 const wizardOriginalContentByElement = new WeakMap();
 let wizardCurrentLanguage = null;
 
-/** 사전 등록 (같은 키는 나중 등록이 이긴다) */
+/** Register a dictionary (for the same key, the later registration wins) */
 function registerWizardMessages(messages) {
     WIZARD_LANGUAGES.forEach((language) => {
         Object.assign(wizardMessagesByLanguage[language], (messages && messages[language]) || {});
@@ -50,7 +50,7 @@ function isSupportedWizardLanguage(language) {
     return WIZARD_LANGUAGES.includes(language);
 }
 
-/** 저장 읽기 실패(사생활 모드·file:// 차단)는 선택 없음으로 처리 */
+/** Treat a failed storage read (private mode, file:// blocked) as no choice */
 function readSavedWizardLanguage() {
     try {
         const saved = localStorage.getItem(WIZARD_LANGUAGE_STORAGE_KEY);
@@ -64,11 +64,11 @@ function saveWizardLanguage(language) {
     try {
         localStorage.setItem(WIZARD_LANGUAGE_STORAGE_KEY, language);
     } catch (err) {
-        /* 저장 실패해도 이번 화면 전환은 유지 */
+        /* Keep this screen's switch even if saving fails */
     }
 }
 
-/** 주소 ?lang= 값 (링크 공유·헤드리스 검증용, 저장하지 않음) */
+/** Address ?lang= value (for sharing links and headless checks; not saved) */
 function readWizardLanguageFromUrl() {
     try {
         const requested = new URLSearchParams(window.location.search).get('lang');
@@ -78,7 +78,7 @@ function readWizardLanguageFromUrl() {
     }
 }
 
-/** 주소 ?lang= > 저장된 선택 > 브라우저 언어(ko*) > en */
+/** Address ?lang= > saved choice > browser language (ko*) > en */
 function detectInitialWizardLanguage() {
     const requested = readWizardLanguageFromUrl();
     if (requested) return requested;
@@ -94,8 +94,8 @@ function getWizardLanguage() {
 }
 
 /**
- * 키 > 현재 언어 문구 (없으면 en > 키 그대로)
- * {name} 자리표시자를 params 값으로 치환
+ * key > text in the current language (else en > the key itself)
+ * Replace {name} placeholders with params values
  */
 function translate(key, params) {
     const language = getWizardLanguage();
@@ -108,7 +108,7 @@ function translate(key, params) {
     ));
 }
 
-/** 처음 본 요소의 영문 내용·속성 기억 (교체 전 1회) */
+/** Remember an element's English content/attributes the first time (once before replacing) */
 function rememberOriginalWizardContent(element) {
     if (wizardOriginalContentByElement.has(element)) return wizardOriginalContentByElement.get(element);
     const original = {
@@ -120,14 +120,14 @@ function rememberOriginalWizardContent(element) {
     return original;
 }
 
-/** ko 는 사전 값, en 은 HTML 원문 (사전에 없으면 원문 유지) */
+/** ko uses the dictionary value, en the HTML source (keeps the source if not in the dictionary) */
 function resolveWizardText(key, originalText, language) {
     if (language === WIZARD_DEFAULT_LANGUAGE) return originalText;
     const message = wizardMessagesByLanguage[language][key];
     return message == null ? originalText : message;
 }
 
-/** data-i18n* 요소 전부에 현재 언어 적용 */
+/** data-i18n* Apply the current language to every data-i18n* element */
 function applyWizardTranslations(rootElement) {
     const root = rootElement || document;
     const language = getWizardLanguage();
@@ -145,7 +145,7 @@ function applyWizardTranslations(rootElement) {
     updateWizardLanguageToggles();
 }
 
-/** 전환 버튼: 바꿀 언어 이름 표시 > 숨김 해제 */
+/** Toggle button: show the name of the language to switch to > unhide */
 function updateWizardLanguageToggles() {
     const language = getWizardLanguage();
     document.querySelectorAll('[data-lang-toggle]').forEach((button) => {
@@ -155,7 +155,7 @@ function updateWizardLanguageToggles() {
     });
 }
 
-/** 언어 변경: 저장 > 정적 문구 적용 > 동적 영역 다시 그리기 알림 */
+/** Language change: save > apply static text > notify to redraw dynamic areas */
 function setWizardLanguage(language) {
     if (!isSupportedWizardLanguage(language)) return;
     wizardCurrentLanguage = language;
@@ -168,10 +168,10 @@ function toggleWizardLanguage() {
     setWizardLanguage(getWizardLanguage() === 'ko' ? 'en' : 'ko');
 }
 
-// 최초 적용: 사전 파일·마법사 JS 가 모두 로드된 뒤 (본문 끝 script 기준 DOMContentLoaded)
+// First application: after the dictionary files and wizard JS have loaded (DOMContentLoaded for scripts at the end of body)
 document.addEventListener('DOMContentLoaded', () => applyWizardTranslations());
 
-// 공통 유틸(wizard-common.js) 문구 — 3종이 함께 쓰는 토스트·커스텀 Secret UI
+// Shared util (wizard-common.js) text — toasts and custom Secret UI used by all wizards
 registerWizardMessages(
 {
   "en": {

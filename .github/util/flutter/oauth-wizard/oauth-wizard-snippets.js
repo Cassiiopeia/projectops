@@ -1,28 +1,28 @@
 /**
- * OAuth 마법사 산출물 생성 (분할 파일 — 함수 선언만, 상태·초기화는 oauth-wizard.js)
+ * OAuth wizard output generation (split file — function declarations only; state and init in oauth-wizard.js)
  *
- * 여기서 만드는 문자열(XML·yaml·Dart·명령어)은 복사해 쓰는 산출물이라 번역하지 않는다.
- * 두 언어에서 바이트 단위로 같아야 한다 (#769 규칙). 주석도 영문으로 둔다.
+ * Strings built here (XML, yaml, Dart, commands) are outputs users copy, so they are not translated.
+ * They must be byte-identical in both languages (#769 rule). Comments are kept in English too.
  *
- * 근거 문서
+ * Reference docs
  *   Kakao : developers.kakao.com/docs/ko/flutter/getting-started, /ios/getting-started, /android/getting-started
  *   Google: pub.dev/packages/google_sign_in, google_sign_in_android, google_sign_in_ios
  */
 
 /* eslint-disable no-unused-vars */
 
-// 자리표시자·경로 상수는 oauth-wizard.js 에 둔다 (분할 파일은 함수 선언만)
+// Placeholder and path constants live in oauth-wizard.js (split files hold only function declarations)
 
 // ============================================
-// 값 검증·변환
+// Value validation/conversion
 // ============================================
 
-/** Kakao 네이티브 앱 키: 32자리 16진 (REST API·JavaScript 키와 구분) */
+/** Kakao native app key: 32 hex characters (distinct from the REST API and JavaScript keys) */
 function isValidKakaoNativeAppKey(value) {
     return /^[0-9a-fA-F]{32}$/.test(String(value || '').trim());
 }
 
-/** Google OAuth 클라이언트 ID: {번호}-{식별자}.apps.googleusercontent.com */
+/** Google OAuth client ID: {number}-{identifier}.apps.googleusercontent.com */
 function isValidGoogleClientId(value) {
     return /^[0-9]+-[0-9a-z]+\.apps\.googleusercontent\.com$/.test(String(value || '').trim());
 }
@@ -35,7 +35,7 @@ function isValidBundleId(value) {
     return /^[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$/.test(String(value || '').trim());
 }
 
-/** SHA-1 입력 > 콜론 구분 대문자 (AA:BB:...) — 형식이 아니면 빈 문자열 */
+/** SHA-1 input > colon-separated uppercase (AA:BB:...) — empty string if not the format */
 function normalizeSha1(value) {
     const hex = String(value || '').replace(/[^0-9a-fA-F]/g, '').toUpperCase();
     if (hex.length !== 40) return '';
@@ -46,7 +46,7 @@ function isValidSha1(value) {
     return normalizeSha1(value) !== '';
 }
 
-/** SHA-1 > Kakao 키 해시 base64 (xxd -r -p | openssl base64 와 같음, oauth-wizard.py key-hash 와 같은 결과) */
+/** SHA-1 > Kakao key hash base64 (same as xxd -r -p | openssl base64, same result as oauth-wizard.py key-hash) */
 function sha1ToKakaoKeyHash(value) {
     const normalized = normalizeSha1(value);
     if (!normalized) return '';
@@ -54,7 +54,7 @@ function sha1ToKakaoKeyHash(value) {
     return btoa(binary);
 }
 
-/** iOS 클라이언트 ID > REVERSED_CLIENT_ID (com.googleusercontent.apps.{번호}-{식별자}) */
+/** iOS client ID > REVERSED_CLIENT_ID (com.googleusercontent.apps.{number}-{identifier}) */
 function toReversedClientId(iosClientId) {
     const match = String(iosClientId || '').trim().match(/^([0-9]+-[0-9a-z]+)\.apps\.googleusercontent\.com$/);
     return match ? `com.googleusercontent.apps.${match[1]}` : 'com.googleusercontent.apps.YOUR_IOS_CLIENT_ID';
@@ -65,10 +65,10 @@ function kakaoKeyOrPlaceholder(value) {
 }
 
 // ============================================
-// 네이티브 설정 (AndroidManifest.xml · Info.plist)
+// Native config (AndroidManifest.xml, Info.plist)
 // ============================================
 
-/** AndroidManifest.xml <application> 안에 넣을 Kakao 로그인 액티비티 */
+/** Kakao login activity to put inside <application> in AndroidManifest.xml */
 function buildKakaoManifestSnippet(nativeAppKey) {
     const key = kakaoKeyOrPlaceholder(nativeAppKey);
     return [
@@ -86,7 +86,7 @@ function buildKakaoManifestSnippet(nativeAppKey) {
     ].join('\n');
 }
 
-/** Info.plist: kakao{키} URL scheme + 카카오톡 앱 확인 허용 목록 */
+/** Info.plist: kakao{key} URL scheme + KakaoTalk app query allow list */
 function buildKakaoPlistSnippet(nativeAppKey) {
     const key = kakaoKeyOrPlaceholder(nativeAppKey);
     return [
@@ -140,7 +140,7 @@ function buildGooglePlistSnippet(iosClientId, serverClientId) {
 }
 
 // ============================================
-// Dart 코드
+// Dart code
 // ============================================
 
 function buildKakaoDartSnippet(nativeAppKey) {
@@ -199,7 +199,7 @@ function buildGoogleDartSnippet(serverClientId) {
 // CI/CD (GitHub Actions)
 // ============================================
 
-/** 템플릿이 이미 돌리는 복원 스텝 (#785 firebase_config_files.py) — 참고용, 다시 넣지 않는다 */
+/** Restore step the template already runs (#785 firebase_config_files.py) — for reference, not added again */
 function buildBuiltInRestoreStepsReference() {
     return [
         '      # Android workflows and Flutter CI',
@@ -216,7 +216,7 @@ function buildBuiltInRestoreStepsReference() {
     ].join('\n');
 }
 
-/** 스크립트가 있는지 확인 > 없으면 템플릿 업데이트 (OS별) */
+/** Check the script exists > otherwise update the template (per OS) */
 function buildTemplateCheckCommand(operatingSystem) {
     const check = operatingSystem === 'windows'
         ? 'Test-Path .github\\scripts\\firebase_config_files.py'
@@ -227,7 +227,7 @@ function buildTemplateCheckCommand(operatingSystem) {
     ].join('\n');
 }
 
-/** 구 템플릿용 수동 스텝 — 스크립트처럼 Secret 이 비면 건너뛴다 (plist 원문만) */
+/** Manual step for old templates — skips when the Secret is empty, like the script (raw plist only) */
 function buildFallbackIosRestoreStep() {
     return [
         '      # Fallback for templates without .github/scripts/firebase_config_files.py.',
@@ -247,7 +247,7 @@ function buildFallbackIosRestoreStep() {
 }
 
 // ============================================
-// .gitignore · 명령어
+// .gitignore / commands
 // ============================================
 
 function buildGitignoreSnippet(includeFirebaseFiles) {
@@ -267,7 +267,7 @@ function buildUntrackCommand() {
     return 'git rm --cached --ignore-unmatch android/app/google-services.json ios/Runner/GoogleService-Info.plist';
 }
 
-/** OS별 CLI 접두사 (macOS/Linux: python3 + /, Windows: python + \) */
+/** CLI prefix per OS (macOS/Linux: python3 + /, Windows: python + \) */
 function buildCliPrefix(operatingSystem) {
     return operatingSystem === 'windows'
         ? `python ${OAUTH_WIZARD_CLI_PATH.replace(/\//g, '\\')}`
@@ -284,7 +284,7 @@ function buildDetectCommand(operatingSystem, projectPath) {
     return `${buildCliPrefix(operatingSystem)} detect --project-path ${quoteProjectPath(projectPath, operatingSystem)}`;
 }
 
-/** setup 명령 — 선택한 제공자·옵션만 플래그로 */
+/** setup command — only the chosen providers/options as flags */
 function buildSetupCommand(operatingSystem, options) {
     const parts = [`${buildCliPrefix(operatingSystem)} setup`, `--project-path ${quoteProjectPath(options.projectPath, operatingSystem)}`];
     if (options.useKakao) parts.push(`--kakao-native-app-key ${kakaoKeyOrPlaceholder(options.kakaoNativeAppKey)}`);
@@ -302,7 +302,7 @@ function buildSetupCommand(operatingSystem, options) {
     return parts.join(' ');
 }
 
-/** 키 지문 확인 명령 (keytool) — 디버그·업로드 키 */
+/** Key fingerprint command (keytool) — debug and upload keys */
 function buildKeytoolCommands(operatingSystem) {
     const debugKeystore = operatingSystem === 'windows'
         ? '"$env:USERPROFILE\\.android\\debug.keystore"'

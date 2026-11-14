@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
-"""changelog provider 공통 헬퍼 (#455) — stdlib 전용.
+"""Shared helpers for changelog providers (#455) — stdlib only.
 
-모든 provider는 같은 계약을 따른다:
-  입력: 환경변수 (COMMIT_RANGE 등)
-  출력: 성공 시 cwd에 pr_body.md(Summary by CodeRabbit 고정 구조) + stdout `PROVIDER=<name>` + exit 0
-        실패 시 stderr 사유 + exit 1 (ladder가 다음 단계로 폴백)
+Every provider follows the same contract:
+  input: env vars (COMMIT_RANGE, etc.)
+  output: on success pr_body.md in cwd (fixed Summary by CodeRabbit structure) + stdout `PROVIDER=<name>` + exit 0
+        on failure the reason on stderr + exit 1 (the ladder falls back to the next step)
 """
 import os
 import re
 import subprocess
 import sys
 
-# 카탈로그(#787)는 스크립트 폴더 한 단계 위에 있다 — provider 가 직접 실행돼도 import 되도록 경로를 잡는다
+# The catalog (#787) is one level above the script folder — set the path so imports work when a provider runs directly
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from i18n.messages import resolve_language, t  # noqa: E402
 
 HEADER = "<!-- This is an auto-generated comment: release notes by coderabbit.ai -->"
 FOOTER = "<!-- end of auto-generated comment: release notes by coderabbit.ai -->"
 
-# 릴리스 노트 섹션 순서. 표시 이름은 레포 언어의 카탈로그에서 가져온다 (#793)
+# Release-notes section order. Display names come from the catalog in the repo language (#793)
 SECTION_ORDER = ["feat", "fix", "improve", "docs", "etc"]
-# 커밋 제목에서 타입을 뽑는 규칙 — 두 컨벤션을 모두 인식한다 (#566).
-#   tier-1: "제목 : feat : 내용"        ← projectops 표준 (타입이 중간에 온다)
-#   tier-2: "feat: 내용"                ← Conventional Commits
-# tier-1을 먼저 본다. tier-2 정규식은 줄 맨 앞만 보므로 tier-1을 통째로 놓쳤고,
-# 그 결과 자체 컨벤션을 지킨 커밋이 전부 "기타"로 떨어졌다.
-# 판정 규칙은 changelog_manager.classify_bump_level()(#546)과 같은 기준을 쓴다.
+# Rules for extracting the type from a commit subject — both conventions are recognized (#566).
+#   tier-1: "title : feat : text"     <- projectops standard (type in the middle)
+#   tier-2: "feat: text"              <- Conventional Commits
+# tier-1 is checked first. The tier-2 regex looks only at line start, so it missed tier-1 entirely,
+# and commits following our own convention all fell into "other".
+# Uses the same criteria as changelog_manager.classify_bump_level() (#546).
 _TYPES = "feat|fix|refactor|docs|chore|style|test|perf|ci|build|revert"
 _TIER1_RE = re.compile(rf"^(?P<title>.+?)\s:\s*(?P<type>{_TYPES})!?\s*:\s*(?P<body>.+)$", re.IGNORECASE)
 _TIER2_RE = re.compile(rf"^(?P<type>{_TYPES})(?:\([^)]*\))?!?:\s*(?P<body>.+)$", re.IGNORECASE)
@@ -37,7 +37,7 @@ _PREFIX_TO_SECTION = {
 
 
 def parse_commit(line):
-    """커밋 제목 → (섹션key, 사용자에게 보여줄 내용). 매치 실패 시 ("etc", 원문)."""
+    """Commit subject -> (section key, text shown to users). No match -> ("etc", original)."""
     m = _TIER1_RE.match(line) or _TIER2_RE.match(line)
     if not m:
         return "etc", _strip_noise(line) or line.strip()
@@ -46,20 +46,20 @@ def parse_commit(line):
 
 
 def _strip_noise(text):
-    """이슈번호(#123)·URL 제거 후 공백 정리 — 사용자에게 의미 없는 토큰."""
+    """Remove issue numbers (#123) and URLs, then tidy spaces — tokens meaningless to users."""
     s = re.sub(r"https?://\S+", "", text)
     s = re.sub(r"#[0-9]+", "", s)
     return re.sub(r" {2,}", " ", s).strip()
 
 
-# 릴리스 PR base 를 모를 때의 마지막 기본값
+# Last-resort default when the release PR base is unknown
 DEFAULT_RELEASE_BASE = "main"
 
 
 def release_commit_range():
-    """릴리스 노트 커밋 범위: COMMIT_RANGE > origin/<PR base>..HEAD > origin/main..HEAD (#1114)
+    """Release-notes commit range: COMMIT_RANGE > origin/<PR base>..HEAD > origin/main..HEAD (#1114)
 
-    GITHUB_BASE_REF 는 pull_request(_target) 이벤트에서 Actions 가 넣는다. base 가 main 이 아닌 레포에서 범위가 비지 않게 한다.
+    Actions sets GITHUB_BASE_REF on pull_request(_target) events. Keeps the range non-empty in repos whose base is not main.
     """
     explicit = os.environ.get("COMMIT_RANGE", "").strip()
     if explicit:
@@ -69,7 +69,7 @@ def release_commit_range():
 
 
 def collect_commits(range_expr, limit=60, fallback_count=30):
-    """지정 range의 커밋 제목 수집([skip ci] 제외). 비면 최근 커밋으로 폴백."""
+    """Collect commit subjects in the range ([skip ci] excluded). Empty -> fall back to recent commits."""
     def _log(args):
         try:
             out = subprocess.run(
@@ -79,7 +79,7 @@ def collect_commits(range_expr, limit=60, fallback_count=30):
             if out.returncode != 0:
                 return []
             return [s for s in out.stdout.splitlines() if s.strip() and "[skip ci]" not in s
-                    and not s.strip().startswith("Merge ")]  # bump 판정과 동일 기준 (#686)
+                    and not s.strip().startswith("Merge ")]  # same criteria as the bump decision (#686)
         except OSError:
             return []
 
@@ -90,12 +90,12 @@ def collect_commits(range_expr, limit=60, fallback_count=30):
 
 
 def clean_message(line):
-    """커밋 제목에서 타입 prefix·이슈번호·URL을 걷어낸 본문만 반환."""
+    """Return only the body of a commit subject with type prefix, issue numbers and URLs removed."""
     return parse_commit(line)[1]
 
 
 def classify(commits):
-    """커밋 제목들을 섹션별로 분류해 {섹션key: [메시지…]} 반환."""
+    """Group commit subjects by section: {section key: [messages...]}."""
     sections = {key: [] for key in SECTION_ORDER}
     for line in commits:
         key, message = parse_commit(line)
@@ -118,15 +118,15 @@ def sections_to_markdown(sections, lang=None):
 
 
 def empty_notes(lang=None):
-    """커밋을 하나도 못 모았을 때의 대체 본문."""
+    """Fallback body when no commits were collected."""
     lang = lang or resolve_language()
     return f"* **{t('release_notes.section.etc', lang)}**\n  * {t('release_notes.empty', lang)}"
 
 
 def write_pr_body(content, path="pr_body.md", lang=None):
-    """Summary by CodeRabbit 고정 구조로 감싸 pr_body.md 저장 — changelog_manager.py 파싱 계약.
+    """Wrap in the fixed Summary by CodeRabbit structure and save pr_body.md — the changelog_manager.py parsing contract.
 
-    `Summary by CodeRabbit` 줄은 워크플로우가 읽는 계약이라 번역하지 않는다. 그 아래 제목만 언어를 따른다.
+    The `Summary by CodeRabbit` line is a contract the workflow reads, so it is not translated. Only the headings below follow the language.
     """
     lang = lang or resolve_language()
     body = "\n".join([

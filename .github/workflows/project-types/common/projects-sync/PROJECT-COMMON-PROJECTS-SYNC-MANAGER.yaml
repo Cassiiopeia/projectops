@@ -1,36 +1,36 @@
 # ===================================================================
 # PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml
-# Issue Label → GitHub Projects Status 동기화
+# Issue Label -> GitHub Projects Status sync
 # ===================================================================
 #
-# GitHub Projects Status → Issue Label은 Cloudflare Worker가 담당합니다.
-# (projects-sync-wizard로 설정)
+# GitHub Projects Status -> Issue Label is handled by a Cloudflare Worker.
+# (set up with projects-sync-wizard)
 #
 # ===================================================================
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# _GITHUB_PAT_TOKEN: Projects API용 PAT (권한: repo, project)
+# _GITHUB_PAT_TOKEN: PAT for the Projects API (scopes: repo, project)
 # ===================================================================
 #
-# 🚀 빠른 시작 (워크플로우 파일은 수정하지 않습니다):
-# 1. _GITHUB_PAT_TOKEN Secret 설정
-# 2. Settings → Secrets and variables → Actions → Variables 탭
-# 3. PROJECT_URL 변수에 GitHub Projects URL 등록
-# 4. 끝!
+# 🚀 Quick start (the workflow file is not edited):
+# 1. Set the _GITHUB_PAT_TOKEN Secret
+# 2. Settings → Secrets and variables → Actions → Variables tab
+# 3. Register the GitHub Projects URL in the PROJECT_URL variable
+# 4. Done!
 #
-# 지원 URL 형식:
+# Supported URL formats:
 # - Organization: https://github.com/orgs/{org}/projects/{number}
 # - User: https://github.com/users/{user}/projects/{number}
-# - /views/{id} 경로가 포함되어도 됩니다
+# - a /views/{id} path is fine too
 #
-# ⚠️ Organization 프로젝트 사용 시 주의사항:
-# - 이 워크플로우를 사용하는 모든 레포에 동일한 Status Label이 필요합니다
-# - 라벨은 .github/config/issue-labels.yml 파일로 관리됩니다
-# - 자세한 내용: docs/PROJECTS-SYNC.md
+# ⚠️ When using an Organization project:
+# - every repo using this workflow needs the same Status Labels
+# - labels are managed in .github/config/issue-labels.yml
+# - details: docs/PROJECTS-SYNC.md
 #
-# 트리거:
-# - Issue Label 변경 시
-# - 수동 실행 (workflow_dispatch)
+# Triggers:
+# - Issue label changes
+# - Manual run (workflow_dispatch)
 # ===================================================================
 
 name: 🔄 Projects Sync - Label to Status
@@ -51,41 +51,41 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  # GITHUB_TOKEN 으로는 읽기만 한다. 명시해 두면 레포 기본값이 나중에 write 로 바뀌어도
-  # 이 워크플로우가 필요 이상의 권한을 갖지 않는다 (#595).
+  # GITHUB_TOKEN only reads. Declaring it keeps this workflow from gaining more permissions than needed
+  # even if the repo default later changes to write (#595).
   contents: read
 
 env:
-  # 동기화할 Status Label 목록 (JSON 배열)
-  # projects-sync-wizard에서 설정한 값과 동일해야 합니다
-  # 한글(기존)과 영문(#776 표준) 라벨을 둘 다 인식한다 — 이름 변경 전환 기간 동안 자동화가 멈추지 않게 한다
+  # Status labels to sync (JSON array)
+  # Must match the values set in projects-sync-wizard
+  # Recognizes both Korean (existing) and English (#776 standard) labels — so automation keeps running during the rename transition
   STATUS_LABELS: '["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "status: todo", "status: in progress", "status: needs review", "status: feedback", "status: done", "status: on hold", "status: cancelled"]'
 
   # ===================================================================
-  # GitHub Projects 연동 설정
+  # GitHub Projects integration settings
   # ===================================================================
   #
-  # 사용하려면 레포 설정에 변수를 등록하세요 (파일 수정 불필요):
+  # To use it, register a variable in the repo settings (no file edit needed):
   #   Settings → Secrets and variables → Actions → Variables → New repository variable
-  #   Name: PROJECT_URL   /   Value: 아래 형식의 보드 URL
+  #   Name: PROJECT_URL   /   Value: the board URL in the format below
   #
-  # 변수를 등록하지 않으면 이 워크플로우는 안내 로그만 남기고 조용히 종료됩니다.
-  # (워크플로우 파일에 URL을 직접 적지 마세요 — 커밋되어 레포 간에 섞입니다)
+  # Without the variable this workflow only logs guidance and exits quietly.
+  # (Do not put the URL in the workflow file — it gets committed and mixed across repos)
   #
-  # 지원 URL 형식:
+  # Supported URL formats:
   # - Organization: https://github.com/orgs/{org}/projects/{number}
   # - User: https://github.com/users/{user}/projects/{number}
-  # - /views/{id} 경로가 포함되어도 됩니다
+  # - a /views/{id} path is fine too
   #
-  # 예시:
-  # - https://github.com/orgs/{조직}/projects/1
-  # - https://github.com/orgs/{조직}/projects/6/views/2
-  # - https://github.com/users/{사용자}/projects/2
+  # Examples:
+  # - https://github.com/orgs/{org}/projects/1
+  # - https://github.com/orgs/{org}/projects/6/views/2
+  # - https://github.com/users/{user}/projects/2
   #
-  # ⚠️ Organization 프로젝트 사용 시:
-  # - 이 워크플로우를 사용하는 모든 레포에 동일한 라벨이 필요합니다
-  # - .github/config/issue-labels.yml 파일로 라벨을 관리하세요
-  # - 자세한 내용: docs/PROJECTS-SYNC.md
+  # ⚠️ When using an Organization project:
+  # - every repo using this workflow needs the same labels
+  # - manage labels with .github/config/issue-labels.yml
+  # - details: docs/PROJECTS-SYNC.md
   # ===================================================================
 
   PROJECT_URL: ${{ vars.PROJECT_URL }}
@@ -93,16 +93,16 @@ env:
 jobs:
   sync-label-to-status:
     runs-on: ubuntu-latest
-    # 조건: Status Label이 변경된 경우에만 실행
+    # Condition: run only when a Status Label changed
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issues' &&
        contains(fromJSON('["작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "status: todo", "status: in progress", "status: needs review", "status: feedback", "status: done", "status: on hold", "status: cancelled"]'), github.event.label.name))
 
     steps:
-      # Projects 연동은 선택 기능이다. PAT Secret 과 PROJECT_URL 변수가 둘 다 있어야만 동작하고,
-      # 하나라도 없으면 안내만 남기고 성공으로 끝낸다 (미설정 레포에서 라벨마다 실패 메일이 가는 것을 막는다, #667).
-      # secrets 는 job-level if 에서 읽을 수 없어 첫 step 에서 판정해 outputs 로 넘긴다.
+      # Projects integration is optional. It works only when both the PAT Secret and the PROJECT_URL variable exist;
+      # if either is missing it only leaves guidance and ends successfully (avoids failure emails per label in unconfigured repos, #667).
+      # secrets cannot be read in a job-level if, so the first step decides and passes it via outputs.
       - name: 🔎 Check Projects sync settings
         id: config
         env:
@@ -146,7 +146,7 @@ jobs:
               issue_number: issueNumber
             });
 
-            // Status Label 찾기
+            // Find the Status Label
             const currentStatusLabel = issue.labels
               .map(l => typeof l === 'string' ? l : l.name)
               .find(name => statusLabels.includes(name));
@@ -169,12 +169,12 @@ jobs:
             const issueNumber = parseInt('${{ steps.issue.outputs.issue_number }}');
 
             // ============================================
-            // URL 파싱 함수
+            // URL parsing function
             // ============================================
             function parseProjectUrl(url) {
               if (!url) return null;
 
-              // 지원 패턴:
+              // Supported patterns:
               // - https://github.com/orgs/{owner}/projects/{number}
               // - https://github.com/orgs/{owner}/projects/{number}/views/{view_id}
               // - https://github.com/users/{owner}/projects/{number}
@@ -204,7 +204,7 @@ jobs:
             }
 
             // ============================================
-            // 프로젝트 URL 파싱
+            // Parse the project URL
             // ============================================
             const projectUrl = process.env.PROJECT_URL;
 
@@ -239,7 +239,7 @@ jobs:
             console.log(`📌 Issue #${issueNumber} → Status: "${statusLabel}"`);
 
             // ============================================
-            // GraphQL로 Project Item ID 찾기
+            // Find the Project Item ID with GraphQL
             // ============================================
             const projectItemQuery = `
               query($owner: String!, $repo: String!, $issueNumber: Int!) {
@@ -282,7 +282,7 @@ jobs:
             console.log(`📌 Project Item ID: ${targetItem.id}`);
 
             // ============================================
-            // Project 필드 정보 조회 (Organization vs User)
+            // Look up Project field info (Organization vs User)
             // ============================================
             const orgProjectQuery = `
               query($owner: String!, $projectNumber: Int!) {
@@ -362,7 +362,7 @@ jobs:
               return;
             }
 
-            // 한글/영문 라벨은 같은 상태다. 보드의 열 이름이 어느 쪽이든 찾을 수 있게 별칭 그룹으로 매칭한다 (#776).
+            // Korean and English labels are the same state. Match by alias group so the board column is found either way (#776).
             const STATUS_ALIASES = [
               ['작업전', 'status: todo'],
               ['작업중', 'status: in progress'],
@@ -373,7 +373,7 @@ jobs:
               ['취소', 'status: cancelled'],
             ];
             const aliasGroup = STATUS_ALIASES.find(g => g.includes(statusLabel)) || [statusLabel];
-            // 라벨 이름과 정확히 같은 열을 우선하고, 없을 때만 별칭 열을 쓴다
+            // Prefer the column named exactly like the label; use an alias column only when there is none
             const targetOption =
               statusField.options.find(opt => opt.name === statusLabel) ||
               statusField.options.find(opt => aliasGroup.includes(opt.name));
@@ -394,7 +394,7 @@ jobs:
             console.log(`📌 Status Option ID: ${targetOption.id}`);
 
             // ============================================
-            // Status 업데이트
+            // Status update
             // ============================================
             const updateMutation = `
               mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {

@@ -1,14 +1,14 @@
-# 의존성 자동 갱신 — 주 1회, 업데이트 PR이 쌓이지 않게 개수 제한
+# Automatic dependency updates — weekly, with a cap so update PRs do not pile up
 #
-# ⚠️ 이 레포에서 주의할 점 (#751)
-#  - 기본 브랜치(main)로 PR이 올라가면 머지 즉시 배포가 돈다. 반드시 개발 브랜치(develop)로 받는다.
-#  - 루트 .github/workflows/ 의 공통 워크플로우는 project-types/common/ 원본과 동일해야 한다.
-#    Dependabot 은 루트 사본만 바꾸므로, 액션 버전 PR 을 머지할 때는 원본도 같이 고쳐야 한다
-#    (이를 막는 자동 검사는 없다. 두 파일을 직접 대조한다).
-#  - 메이저 버전 업은 이 템플릿을 설치한 레포의 동작을 바꿀 수 있어 자동 PR 에서 제외한다.
+# ⚠️ Points to watch in this repo (#751)
+#  - A PR to the default branch (main) deploys the moment it is merged. Always target the development branch (develop).
+#  - The common workflows in the root .github/workflows/ must stay identical to the project-types/common/ sources.
+#    Dependabot changes only the root copies, so when merging an action version PR, fix the source too
+#    (no automatic check prevents this. Compare the two files by hand).
+#  - Major version bumps can change the behavior of repos that installed this template, so they are excluded from automatic PRs.
 version: 2
 updates:
-  # 워크플로우가 쓰는 액션 버전
+  # Action versions used by workflows
   - package-ecosystem: "github-actions"
     directory: "/"
     target-branch: "develop"
@@ -18,7 +18,7 @@ updates:
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
-  # npx 패키지(projectops) 의존성
+  # npx package (projectops) dependencies
   - package-ecosystem: "npm"
     directory: "/"
     target-branch: "develop"

@@ -2,12 +2,12 @@
 
 source "https://rubygems.org"
 
-# Fastlane - iOS 빌드 자동화
-# Ruby 3.4+ 공식 지원 버전 (2.228+)
+# Fastlane - iOS build automation
+# Officially supported on Ruby 3.4+ (2.228+)
 gem "fastlane", "~> 2.228"
 
-# multi_json - google-apis transitive 의존성이 gemspec에 선언 누락한 upstream 버그 회피 (Gem::LoadError 방지)
+# multi_json - works around an upstream bug where a google-apis transitive dependency is undeclared in its gemspec (prevents Gem::LoadError)
 gem "multi_json"
 
-# CocoaPods - iOS 의존성 관리
+# CocoaPods - iOS dependency management
 gem "cocoapods", "~> 1.15"

@@ -56,7 +56,7 @@
     </script>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css" />
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <!-- 공통 자산 (마법사 공유) — _shared/check-consistency.py 가 정합성을 검증한다 -->
+    <!-- Shared assets (shared by the wizards) — _shared/check-consistency.py verifies consistency -->
     <link rel="stylesheet" href="../_shared/wizard.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -76,8 +76,8 @@
             }
         }
     </script>
-    <!-- OAuth 마법사 고유 스타일 — 공통 컴포넌트는 ../_shared/wizard.css -->
-    <!-- .goal-box: 단계 목표 안내 / .provider-card: 1단계 제공자 선택 / .snippet-label: 코드 블록 제목 -->
+    <!-- OAuth wizard-specific styles — shared components are in ../_shared/wizard.css -->
+    <!-- .goal-box: step goal notice / .provider-card: step 1 provider choice / .snippet-label: code block title -->
     <style>
         body { background: #0f172a; color: #e2e8f0; font-family: 'Pretendard Variable', sans-serif; }
         .goal-box { background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1.5rem; color: #c7d2fe; font-size: 0.875rem; }
@@ -92,7 +92,7 @@
     </style>
 </head>
 <body class="min-h-screen p-4 md:p-8">
-    <!-- 보안 경고 — 입력값이 이 브라우저에만 남는다는 점을 알린다 -->
+    <!-- Security warning — tells users their input stays only in this browser -->
     <div id="securityWarning" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-yellow-900/90 border border-yellow-700 text-yellow-200 px-6 py-3 rounded-lg shadow-xl z-50 max-w-2xl hidden">
         <div class="flex items-center gap-3">
             <div class="flex-1">
@@ -103,7 +103,7 @@
     </div>
 
     <div class="max-w-4xl mx-auto">
-        <!-- 헤더 -->
+        <!-- Header -->
         <header class="mb-8 text-center">
             <h1 class="text-3xl md:text-4xl font-bold mb-3">
                 🔐 <span class="bg-gradient-to-r from-oauth-primary to-oauth-accent bg-clip-text text-transparent" data-i18n="header.title">OAuth Login Setup Wizard</span>
@@ -120,7 +120,7 @@
             </p>
         </header>
 
-        <!-- 첫 사용자 안내 — 규모·준비물·산출물 -->
+        <!-- First-time user guide — scope, prerequisites, outputs -->
         <div class="wizard-meta">
             <span data-i18n="meta.duration">⏱️ Estimated time <strong>20–40 min</strong></span>
             <span class="text-slate-600">·</span>
@@ -135,11 +135,11 @@
         </div>
         <p class="resume-hint" data-i18n="meta.resumeHint">Your progress is saved in this browser automatically. Close the window and reopen it to pick up where you left off.</p>
 
-        <!-- 단계 표시 — 선택한 제공자에 따라 JS 가 그린다 (항목은 .step-indicator) -->
+        <!-- Step indicator — drawn by JS based on the chosen providers (items are .step-indicator) -->
         <div id="stepIndicatorList" class="flex justify-between mb-8 px-2 overflow-x-auto"></div>
 
         <!-- ========================================== -->
-        <!-- 단계: 제공자 선택 -->
+        <!-- Step: choose providers -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="providers">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="providers.title">Which login do you want?</span></h2>
@@ -177,7 +177,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: 앱 식별자 -->
+        <!-- Step: app identifiers -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="identity">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="identity.title">Your app IDs</span></h2>
@@ -222,7 +222,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: 서명 키 지문 -->
+        <!-- Step: signing key fingerprints -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="fingerprints">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="fingerprints.title">Android signing-key fingerprints</span></h2>
@@ -304,7 +304,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: Kakao -->
+        <!-- Step: Kakao -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="kakao">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="kakao.title">Kakao Developers setup</span></h2>
@@ -370,7 +370,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: Google -->
+        <!-- Step: Google -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="google">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="google.title">Google Sign-In setup</span></h2>
@@ -466,7 +466,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: GitHub Secrets -->
+        <!-- Step: GitHub Secrets -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="secrets">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="secrets.title">GitHub Secrets</span></h2>
@@ -519,7 +519,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: CI/CD -->
+        <!-- Step: CI/CD -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="cicd">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="cicd.title">CI/CD workflows</span></h2>
@@ -586,7 +586,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: .gitignore -->
+        <!-- Step: .gitignore -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="gitignore">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="gitignore.title">.gitignore</span></h2>
@@ -612,7 +612,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: 프로젝트에 적용 -->
+        <!-- Step: apply to the project -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="apply">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="apply.title">Apply to your project</span></h2>
@@ -650,7 +650,7 @@
         </div>
 
         <!-- ========================================== -->
-        <!-- 단계: 최종 점검 -->
+        <!-- Step: final check -->
         <!-- ========================================== -->
         <div class="card bg-slate-800 rounded-xl shadow-xl p-6 mb-6 step-content hidden" data-step-id="summary">
             <h2 class="text-xl font-bold mb-6"><span class="step-number-badge"></span> <span data-i18n="summary.title">Final checklist</span></h2>
@@ -682,7 +682,7 @@
         </footer>
     </div>
 
-    <!-- 변경 이력 모달 — 껍데기는 여기 소유, 내용은 공통 openChangelogModal() 이 채운다 -->
+    <!-- Changelog modal — the shell lives here; the shared openChangelogModal() fills the content -->
     <div id="changelogModal" class="modal-backdrop hidden" onclick="closeChangelogModal(event)">
         <div class="modal-content" onclick="event.stopPropagation()" style="max-width: 500px;">
             <div class="flex justify-between items-center mb-6">

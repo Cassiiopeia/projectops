@@ -1,38 +1,38 @@
 # ===================================================================
 # PROJECT-TEMPLATE-INITIALIZER.yaml
-# GitHub 템플릿 자동 초기화 워크플로우
+# GitHub template auto-initialization workflow
 # ===================================================================
 #
-# 이 워크플로우는 GitHub 템플릿을 통해 새 프로젝트가 생성될 때
-# 자동으로 실행되어 프로젝트를 초기 상태로 설정합니다.
+# Runs automatically when a new project is created from the GitHub template
+# and sets the project to its initial state.
 #
 # ===================================================================
-# 🔥 안전장치:
-# 1. 이슈 개수 확인 (0개 = 새 저장소)
-# 2. 저장소 생성일 확인 (최근 1시간 이내)
+# 🔥 Safeguards:
+# 1. Check the issue count (0 = new repo)
+# 2. Check the repo creation date (within the last hour)
 #
-# 자동화 작업:
-# 1. version.yml을 0.0.0, basic 타입으로 초기화
-# 2. CHANGELOG.md, CHANGELOG.json 파일 삭제
-# 3. README.md를 기본 템플릿으로 초기화
-# 4. 이슈 템플릿의 assignee를 현재 저장소 소유자로 변경
-# 5. 초기화 완료 후 이 워크플로우 파일 자체를 삭제 (일회성)
+# Automated tasks:
+# 1. Initialize version.yml to 0.0.0 with the basic type
+# 2. Delete CHANGELOG.md and CHANGELOG.json
+# 3. Reset README.md to the default template
+# 4. Change the issue template assignee to the current repo owner
+# 5. Delete this workflow file itself after initialization (one-time)
 #
-# 🛡️ 안전장치:
-# - 다중 조건 검증으로 중복 실행 완전 차단
-# - 템플릿이 아닌 기존 프로젝트에서 실행 방지
-# - 초기화 완료 후 워크플로우 자체 삭제로 재실행 불가
+# 🛡️ Safeguards:
+# - Multiple checks fully block duplicate runs
+# - Prevents running in existing projects that are not from the template
+# - The workflow deletes itself after initialization, so it cannot run again
 # ===================================================================
 
 name: PROJECT-TEMPLATE-INITIALIZER
 
 on:
-  workflow_dispatch:  # 수동 실행
+  workflow_dispatch:  # manual run
   push:
     paths:
       - '.github/scripts/template_initializer.sh'
 
-# 동시 실행 방지
+# Prevent concurrent runs
 concurrency:
   group: template-initializer
   cancel-in-progress: false
@@ -69,7 +69,7 @@ jobs:
             let needsInit = true;
             let failureReasons = [];
             
-            // 1. 이슈 개수 확인 (0개 = 새 저장소)
+            // 1. Check the issue count (0 = new repo)
             console.log("1️⃣ Checking issue count...");
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -86,7 +86,7 @@ jobs:
               console.log("✅ No issues. (new repository)");
             }
             
-            // 2. 저장소 생성일 확인 (최근 1시간 이내)
+            // 2. Check the repo creation date (within the last hour)
             console.log("2️⃣ Checking repository creation time...");
             const { data: repo } = await github.rest.repos.get({
               owner: context.repo.owner,
@@ -101,7 +101,7 @@ jobs:
             console.log(`Current time: ${now.toISOString()}`);
             console.log(`Repository age: ${ageHours.toFixed(1)} hours`);
             
-            if (ageHours > 1) { // 1시간 이상
+            if (ageHours > 1) { // older than 1 hour
               console.log("❌ Repository is more than 1 hour old.");
               failureReasons.push(`repository age ${ageHours.toFixed(1)} hours`);
               needsInit = false;
@@ -109,7 +109,7 @@ jobs:
               console.log("✅ Repository was created within the last hour.");
             }
             
-            // 결과 설정
+            // Set the result
             const projectName = context.repo.repo;
             const currentVersion = "template";
             
@@ -153,7 +153,7 @@ jobs:
         run: |
           echo "=== Template initialization started ==="
           
-          # 스크립트 실행 (옵션 플래그 방식)
+          # Run the script (option flags)
           ./.github/scripts/template_initializer.sh \
             --version 0.0.0 \
             --type basic
@@ -164,25 +164,25 @@ jobs:
         run: |
           echo "=== Preparing commit ==="
           
-          # 워크플로우 파일 삭제 (일회성 실행)
+          # Delete the workflow file (one-time run)
           if [ -f ".github/workflows/PROJECT-TEMPLATE-INITIALIZER.yaml" ]; then
             rm -f .github/workflows/PROJECT-TEMPLATE-INITIALIZER.yaml
             echo "✅ Removed the template initializer workflow file."
           fi
           
-          # 변경된 파일들 확인
+          # Check changed files
           git status --porcelain
           
-          # 모든 변경사항 스테이징
+          # Stage all changes
           git add .
           
-          # 변경사항이 있는지 확인
+          # Check for changes
           if git diff --staged --quiet; then
             echo "❌ No changes to commit."
             exit 1
           fi
           
-          # 커밋 메시지 생성
+          # Build the commit message
           commit_message="projectops : init : ${{ needs.check-initialization-needed.outputs.project_name }} base template initialized
 
           Initialization steps run automatically:
@@ -197,14 +197,14 @@ jobs:
           Project: ${{ needs.check-initialization-needed.outputs.project_name }}
           Initialized at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
           
-          # 커밋 실행
+          # Commit
           git commit -m "$commit_message"
           
-          # 원격 저장소 최신 상태 확인 후 푸시
+          # Check the remote state, then push
           DEFAULT_BRANCH="${{ github.event.repository.default_branch || 'main' }}"
           git fetch origin $DEFAULT_BRANCH
           
-          # 충돌이 있으면 강제 푸시 (템플릿 초기화는 한 번만 실행되므로 안전)
+          # On conflict, force push (safe because template initialization runs only once)
           if ! git push origin $DEFAULT_BRANCH; then
             echo "⚠️ Push rejected, retrying with --force-with-lease..."
             git push --force-with-lease origin $DEFAULT_BRANCH

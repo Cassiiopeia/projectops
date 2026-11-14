@@ -1,7 +1,7 @@
 /* ===================================================================
- * testflight 마법사 — 내보내기·가져오기 (Secret 일괄 복사, ZIP 다운로드, JSON 가져오기)
- * 로드 순서: ../_shared/wizard-i18n.js > ../_shared/wizard-common.js > testflight-wizard-i18n.js > testflight-wizard.js > 이 파일
- * 함수 선언만 둔다 (상태·초기화 코드는 본 파일)
+ * testflight wizard — export/import (copy all Secrets, ZIP download, JSON import)
+ * Load order: ../_shared/wizard-i18n.js > ../_shared/wizard-common.js > testflight-wizard-i18n.js > testflight-wizard.js > this file
+ * Function declarations only (state and init code live in the main file)
  * =================================================================== */
 
 // ============================================
@@ -21,7 +21,7 @@ function copyAllSecrets() {
         { key: 'IOS_BUNDLE_ID', value: state.bundleId }
     ];
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     if (state.customSecrets && state.customSecrets.length > 0) {
         state.customSecrets.forEach(cs => {
             if (cs.key && cs.value) {
@@ -30,7 +30,7 @@ function copyAllSecrets() {
         });
     }
 
-    // 설정된 값만 필터링
+    // Keep only values that are set
     const configuredSecrets = secrets.filter(s => s.value);
 
     if (configuredSecrets.length === 0) {
@@ -62,7 +62,7 @@ function copyAllSecrets() {
 // ============================================
 
 function generateReadme() {
-    // 템플릿 전체를 사전에 둔다 (ko 출력은 기존과 같은 바이트)
+    // The whole template lives in the dictionary (ko output is byte-identical to before)
     return translate('export.readme', {
         date: new Date().toLocaleString(getExportDateLocale()),
         bundleId: state.bundleId || translate('export.notSet'),
@@ -71,7 +71,7 @@ function generateReadme() {
 }
 
 async function downloadAsZip() {
-    // JSZip 로드 확인
+    // Check that JSZip is loaded
     if (typeof JSZip === 'undefined') {
         showToast(translate('export.zipLibraryMissing'));
         return;
@@ -79,7 +79,7 @@ async function downloadAsZip() {
 
     const zip = new JSZip();
 
-    // 1. 실제 파일들 (Base64 디코딩)
+    // 1. Actual files (Base64 decoded)
     if (state.p12Base64) {
         try {
             const binaryString = atob(state.p12Base64);
@@ -115,7 +115,7 @@ async function downloadAsZip() {
         }
     }
 
-    // 2. 개별 Secret TXT 파일들 (github-secrets 폴더에)
+    // 2. Individual Secret TXT files (in the github-secrets folder)
     const secrets = [
         { name: 'APPLE_CERTIFICATE_BASE64.txt', value: state.p12Base64 },
         { name: 'APPLE_CERTIFICATE_PASSWORD.txt', value: state.p12Password },
@@ -128,7 +128,7 @@ async function downloadAsZip() {
         { name: 'IOS_BUNDLE_ID.txt', value: state.bundleId }
     ];
 
-    // 커스텀 Secrets 추가
+    // Add custom Secrets
     if (state.customSecrets && state.customSecrets.length > 0) {
         state.customSecrets.forEach(cs => {
             if (cs.key && cs.value) {
@@ -146,17 +146,17 @@ async function downloadAsZip() {
         }
     });
 
-    // 파일이 하나도 없으면 경고
+    // Warn if there are no files at all
     if (fileCount === 0) {
         showToast(translate('export.nothingToExport'));
         return;
     }
 
-    // 3. README.md 생성
+    // 3. Generate README.md
     const readme = generateReadme();
     zip.file("README.md", readme);
 
-    // 4. ZIP 다운로드
+    // 4. Download the ZIP
     try {
         const content = await zip.generateAsync({ type: "blob" });
         const url = URL.createObjectURL(content);
@@ -183,7 +183,7 @@ function importFromJson(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    // 파일 확장자 확인
+    // Check the file extension
     if (!file.name.endsWith('.json')) {
         showToast(translate('import.jsonOnly'));
         event.target.value = '';
@@ -196,7 +196,7 @@ function importFromJson(event) {
         try {
             const data = JSON.parse(e.target.result);
 
-            // 유효성 검사 - 적어도 하나의 알려진 키가 있어야 함
+            // Validation - at least one known key must exist
             const knownKeys = [
                 'APPLE_CERTIFICATE_BASE64',
                 'APPLE_CERTIFICATE_PASSWORD',
@@ -216,7 +216,7 @@ function importFromJson(event) {
                 return;
             }
 
-            // State에 값 매핑
+            // Map values into State
             let importedCount = 0;
 
             if (data.APPLE_CERTIFICATE_BASE64) {
@@ -256,10 +256,10 @@ function importFromJson(event) {
                 importedCount++;
             }
 
-            // LocalStorage에 저장
+            // Save to LocalStorage
             saveState();
 
-            // 결과 테이블 갱신
+            // Refresh the result table
             generateFinalResult();
 
             showToast(translate('import.done', { count: importedCount }));
@@ -269,7 +269,7 @@ function importFromJson(event) {
             showToast(translate('import.parseFailed'));
         }
 
-        // 파일 입력 초기화 (같은 파일 다시 선택 가능하도록)
+        // Reset the file input (so the same file can be chosen again)
         event.target.value = '';
     };
 

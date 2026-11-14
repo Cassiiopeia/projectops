@@ -1,17 +1,17 @@
 /**
  * GitHub Projects Sync Worker
  *
- * GitHub Projects의 Status가 변경되면 Issue Label을 자동으로 동기화합니다.
+ * Syncs issue labels automatically when a GitHub Projects Status changes.
  *
- * 환경 변수 (wrangler.toml에서 설정):
- * - PROJECT_NUMBER: GitHub Projects 번호
- * - STATUS_FIELD: Status 필드명 (기본값: "Status")
- * - STATUS_LABELS: 동기화할 Status Label 목록 (JSON 배열)
- * - ORG_NAME: GitHub Organization 이름
+ * Env vars (set in wrangler.toml):
+ * - PROJECT_NUMBER: GitHub Projects number
+ * - STATUS_FIELD: Status field name (default: "Status")
+ * - STATUS_LABELS: Status labels to sync (JSON array)
+ * - ORG_NAME: GitHub Organization name
  *
- * Secrets (wrangler secret put으로 설정):
- * - GITHUB_TOKEN: GitHub Personal Access Token (repo, project 권한)
- * - WEBHOOK_SECRET: GitHub Webhook 검증용 비밀키
+ * Secrets (set with wrangler secret put):
+ * - GITHUB_TOKEN: GitHub Personal Access Token (repo, project scopes)
+ * - WEBHOOK_SECRET: secret for GitHub webhook verification
  */
 
 export interface Env {
@@ -23,7 +23,7 @@ export interface Env {
   ORG_NAME: string;
 }
 
-// GitHub Webhook 이벤트 타입 정의
+// GitHub webhook event type definitions
 interface WebhookPayload {
   action: string;
   projects_v2_item?: {
@@ -47,7 +47,7 @@ interface WebhookPayload {
   };
 }
 
-// GraphQL 응답 타입
+// GraphQL response types
 interface ProjectItemResponse {
   data?: {
     node?: {
@@ -74,12 +74,12 @@ interface ProjectItemResponse {
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // POST 요청만 처리
+    // Handle POST requests only
     if (request.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405 });
     }
 
-    // Webhook 서명 검증
+    // Verify the webhook signature
     const signature = request.headers.get('X-Hub-Signature-256');
     if (!signature) {
       console.log('❌ Missing signature header');
@@ -98,7 +98,7 @@ export default {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('✅ Webhook signature verified');
 
-    // 이벤트 타입 확인
+    // Check the event type
     const event = request.headers.get('X-GitHub-Event');
     console.log(`📌 Event type: ${event}`);
 
@@ -110,13 +110,13 @@ export default {
     const payload: WebhookPayload = JSON.parse(body);
     console.log(`📌 Action: ${payload.action}`);
 
-    // edited 액션만 처리 (Status 변경)
+    // Handle only the edited action (Status change)
     if (payload.action !== 'edited') {
       console.log('⏭️ Skipping non-edited action');
       return new Response('OK - Action ignored', { status: 200 });
     }
 
-    // 필드 변경 확인
+    // Check field changes
     if (!payload.changes?.field_value) {
       console.log('⏭️ No field value change detected');
       return new Response('OK - No field change', { status: 200 });
@@ -131,7 +131,7 @@ export default {
     console.log(`📌 Processing item: ${itemNodeId}`);
 
     try {
-      // GraphQL로 현재 Status와 Issue 정보 조회
+      // Look up the current Status and issue info with GraphQL
       const itemInfo = await getProjectItemInfo(itemNodeId, env);
 
       if (!itemInfo?.data?.node?.content) {
@@ -155,33 +155,33 @@ export default {
         return new Response('OK - No status', { status: 200 });
       }
 
-      // Status Labels 파싱
+      // Parse Status Labels
       const statusLabels: string[] = JSON.parse(env.STATUS_LABELS);
 
-      // 현재 있는 Status Label 제거 대상 찾기
+      // Find existing Status Labels to remove
       const labelsToRemove = currentLabels.filter(label =>
         statusLabels.includes(label) && label !== currentStatus
       );
 
       console.log(`🗑️ Labels to remove: ${labelsToRemove.join(', ') || 'none'}`);
 
-      // 이미 동일한 Label이 있으면 스킵 (무한 루프 방지)
+      // Skip if the same label already exists (prevents infinite loops)
       if (currentLabels.includes(currentStatus) && labelsToRemove.length === 0) {
         console.log('⏭️ Label already synced, skipping');
         return new Response('OK - Already synced', { status: 200 });
       }
 
-      // Label 제거
+      // Remove the label
       for (const label of labelsToRemove) {
         await removeLabel(repoOwner, repoName, issueNumber, label, env);
-        console.log(`  ✅ Label "${label}" 제거됨`);
+        console.log(`  ✅ Label "${label}" removed`);
       }
 
-      // 새 Status가 statusLabels에 포함되어 있으면 Label 추가
+      // Add the label if the new Status is in statusLabels
       if (statusLabels.includes(currentStatus) && !currentLabels.includes(currentStatus)) {
         console.log(`➕ Adding label: "${currentStatus}"`);
         await addLabel(repoOwner, repoName, issueNumber, currentStatus, env);
-        console.log(`  ✅ Label "${currentStatus}" 추가됨`);
+        console.log(`  ✅ Label "${currentStatus}" added`);
       }
 
       console.log('🎉 Label sync completed!');
@@ -197,7 +197,7 @@ export default {
 };
 
 /**
- * Webhook 서명 검증 (HMAC-SHA256)
+ * Verify the webhook signature (HMAC-SHA256)
  */
 async function verifySignature(payload: string, signature: string, secret: string): Promise<boolean> {
   const encoder = new TextEncoder();
@@ -232,7 +232,7 @@ async function verifySignature(payload: string, signature: string, secret: strin
 }
 
 /**
- * GraphQL API로 Project Item 정보 조회
+ * Look up Project Item info with the GraphQL API
  */
 async function getProjectItemInfo(nodeId: string, env: Env): Promise<ProjectItemResponse> {
   const query = `
@@ -301,7 +301,7 @@ async function getProjectItemInfo(nodeId: string, env: Env): Promise<ProjectItem
 }
 
 /**
- * REST API로 Label 추가
+ * Add a label with the REST API
  */
 async function addLabel(owner: string, repo: string, issueNumber: number, label: string, env: Env): Promise<void> {
   const response = await fetch(
@@ -324,7 +324,7 @@ async function addLabel(owner: string, repo: string, issueNumber: number, label:
 }
 
 /**
- * REST API로 Label 제거
+ * Remove a label with the REST API
  */
 async function removeLabel(owner: string, repo: string, issueNumber: number, label: string, env: Env): Promise<void> {
   const encodedLabel = encodeURIComponent(label);

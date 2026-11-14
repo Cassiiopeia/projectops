@@ -1,9 +1,16 @@
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "description": "Setup wizard for deploying a Flutter iOS app to TestFlight",
-  "lastUpdated": "2026-11-13",
+  "lastUpdated": "2026-11-14",
   "changelog": [
+    {
+      "version": "1.7.1",
+      "date": "2026-11-14",
+      "changes": [
+        "Fastfile template log and error messages are in English (projectops#1212)"
+      ]
+    },
     {
       "version": "1.7.0",
       "date": "2026-11-13",

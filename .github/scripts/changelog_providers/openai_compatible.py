@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """openai-compatible provider — base_url preset swap (#455).
 
-openai/gemini/claude/ollama 모두 OpenAI 호환(/chat/completions). base_url·기본 모델만 다르다.
+openai/gemini/claude/ollama are all OpenAI-compatible (/chat/completions). Only base_url and default model differ.
 
-입력: PROVIDER_NAME(openai|gemini|claude|ollama), CHANGELOG_BASE_URL(ollama용),
-      MODEL_API_KEY, COMMIT_RANGE, CHANGELOG_MODEL(선택), CHANGELOG_TEST_RESPONSE(테스트용)
-출력: 성공 시 pr_body.md + `PROVIDER=openai:<name>` + exit 0. 실패 시 exit 1 (폴백).
+Input: PROVIDER_NAME (openai|gemini|claude|ollama), CHANGELOG_BASE_URL (for ollama),
+      MODEL_API_KEY, COMMIT_RANGE, CHANGELOG_MODEL (optional), CHANGELOG_TEST_RESPONSE (for tests)
+Output: on success pr_body.md + `PROVIDER=openai:<name>` + exit 0. On failure exit 1 (fallback).
 """
 import json
 import os
@@ -15,21 +15,21 @@ import urllib.request
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import collect_commits, release_commit_range, write_pr_body, fail, resolve_language, t  # noqa: E402
 
-# base_url + 기본 모델. 모델명은 **버전을 박지 않고 별칭을 쓴다** — 버전이 박힌 이름은
-# 1~2년이면 퇴역한다(실측: gemini-1.5-flash가 404로 죽어 있었다, #566).
-# gemini는 lite 별칭이 기본이다. 무료 등급에서 상위 Flash는 RPD 20인 반면 Lite는 500이라
-# 자동화에 쓸 수 있는 쪽은 Lite뿐이다(실측).
+# base_url + default model. Model names **use aliases, not pinned versions** — pinned names
+# retire within 1-2 years (measured: gemini-1.5-flash was dead with 404, #566).
+# gemini defaults to the lite alias. On the free tier the higher Flash has RPD 20 while Lite has 500,
+# so only Lite is usable for automation (measured).
 PRESETS = {
     "openai": ("https://api.openai.com/v1", "gpt-4o-mini"),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-flash-lite-latest"),
     "claude": ("https://api.anthropic.com/v1", "claude-3-5-haiku-latest"),
     "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
     "mistral": ("https://api.mistral.ai/v1", "mistral-small-latest"),
-    "ollama": (None, "qwen2.5"),  # base_url은 CHANGELOG_BASE_URL 필수
+    "ollama": (None, "qwen2.5"),  # base_url requires CHANGELOG_BASE_URL
 }
 
 def build_prompt(commits, lang=None):
-    """프롬프트 본문은 카탈로그에 있다 — 출력 언어와 분류 이름이 레포 언어를 따라야 한다 (#793)."""
+    """The prompt body lives in the catalog — output language and category names must follow the repo language (#793)."""
     return t("release_notes.prompt.openai", lang or resolve_language(), commits=commits)
 
 
@@ -71,7 +71,7 @@ def main():
         prompt = build_prompt("\n".join(commits))
         try:
             content = request_completion(base_url, model, os.environ.get("MODEL_API_KEY", ""), prompt)
-        except Exception as e:  # 네트워크·인증·파싱 실패 전부 폴백 사유
+        except Exception as e:  # network, auth and parse failures are all fallback reasons
             fail(f"openai-compatible: API call failed ({e}) — falling back")
         if not content or not content.strip():
             fail("openai-compatible: empty response — falling back")

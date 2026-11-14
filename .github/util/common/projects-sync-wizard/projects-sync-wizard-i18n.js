@@ -1,8 +1,8 @@
-/* projects-sync 마법사 문구 사전 (#769)
- * 정적 마크업(data-i18n): en 은 HTML 원문 — 여기에는 ko 만
- * 코드 문구(translate): en·ko 둘 다
- * 생성 산출물(Worker 코드·설치 스크립트·README·config)은 번역하지 않음 — 두 언어에서 바이트 동일
- * JSON 형식 유지 (check_i18n.py 가 파싱) — 블록 안 주석·후행 쉼표 금지
+/* projects-sync wizard text dictionary (#769)
+ * Static markup (data-i18n): en is the HTML source — only ko here
+ * Code text (translate): both en and ko
+ * Generated outputs (Worker code, install scripts, README, config) are not translated — byte-identical in both languages
+ * Keep JSON format (parsed by check_i18n.py) — no comments or trailing commas inside the block
  */
 registerWizardMessages(
 {

@@ -1,24 +1,24 @@
 # ===================================================================
-# 템플릿 Util 모듈 버전 동기화 워크플로우
+# Template util module version sync workflow
 # ===================================================================
 #
-# 이 워크플로우는 SUH-DEVOPS-TEMPLATE 전용으로,
-# .github/util/ 하위의 version.json 파일이 변경될 때 자동으로
-# 해당 디렉토리의 version-sync.sh 스크립트를 실행하여
-# HTML 파일의 버전 정보를 동기화합니다.
+# For SUH-DEVOPS-TEMPLATE only:
+# when a version.json under .github/util/ changes, it automatically
+# runs that directory's version-sync.sh script
+# to sync the version info in the HTML file.
 #
-# 트리거 조건:
-# - .github/util/**/version.json 파일 변경 시
-# - 수동 실행 (workflow_dispatch)
+# Triggers:
+# - changes to .github/util/**/version.json
+# - manual run (workflow_dispatch)
 #
-# 동작 방식:
-# 1. .github/util/ 하위의 모든 version-sync.sh 스크립트를 탐색
-# 2. 각 스크립트 실행 (version.json → HTML 동기화)
-# 3. 변경사항이 있으면 자동 커밋 & 푸시
+# How it works:
+# 1. Finds every version-sync.sh script under .github/util/
+# 2. Runs each script (version.json -> HTML sync)
+# 3. Commits & pushes automatically if anything changed
 #
-# 주의사항:
-# - VERSION-CONTROL 워크플로우와 충돌 방지를 위해 concurrency 설정
-# - [skip ci] 커밋 메시지로 무한 루프 방지
+# Notes:
+# - concurrency is set to avoid clashing with the VERSION-CONTROL workflow
+# - a [skip ci] commit message prevents infinite loops
 #
 # ===================================================================
 
@@ -31,7 +31,7 @@ on:
       - '.github/util/**/version.json'
   workflow_dispatch:
 
-# VERSION-CONTROL 워크플로우와 충돌 방지
+# Avoid clashing with the VERSION-CONTROL workflow
 concurrency:
   group: version-sync
   cancel-in-progress: false
@@ -60,7 +60,7 @@ jobs:
       run: |
         echo "🔍 Looking for version-sync.sh scripts under .github/util/..."
 
-        # version-sync.sh 스크립트 목록 찾기
+        # Find the version-sync.sh scripts
         SYNC_SCRIPTS=$(find .github/util -name "version-sync.sh" -type f 2>/dev/null || true)
 
         if [ -z "$SYNC_SCRIPTS" ]; then
@@ -72,7 +72,7 @@ jobs:
         echo "$SYNC_SCRIPTS"
         echo ""
 
-        # 각 스크립트 실행
+        # Run each script
         SCRIPT_COUNT=0
         SUCCESS_COUNT=0
 
@@ -86,10 +86,10 @@ jobs:
           echo "   Path: $SCRIPT"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-          # 스크립트에 실행 권한 부여
+          # Make the script executable
           chmod +x "$SCRIPT"
 
-          # 스크립트 실행
+          # Run the script
           if bash "$SCRIPT"; then
             echo "✅ $SCRIPT_NAME synced"
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
@@ -118,7 +118,7 @@ jobs:
         git add .
         git commit -m "chore: github workflow util module version sync [skip ci]"
 
-        # Race Condition 방지: pull-rebase 후 push (최대 3회 재시도)
+        # Prevent race conditions: pull-rebase, then push (up to 3 retries)
         MAX_RETRIES=3
         RETRY_COUNT=0
         PUSH_SUCCESS=false
