@@ -104,7 +104,7 @@ If the preferences have a `template`, use it as the release-note lead-in.
    If the working tree has **someone else's uncommitted changes** and pull --rebase is refused, do not stash. Align with `git fetch origin` → `git merge --ff-only origin/{HEAD}` (this works on a dirty tree when no files overlap). If it cannot fast-forward (it diverged from your local commits), stop and ask.
 2~3. `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/changelog_cli.py sync-base --head {HEAD} --base {BASE} --project-root {PROJECT_ROOT}` — fetch > check the reverse difference > merge it if there is one, all in one call.
    On `in_sync` (no difference) or `merged`, go to the next step. On `merge_conflict`, **stop** and agree on the resolution with the user. Do not run `merge --abort`, `reset` or drop one side on your own. On `wrong_branch`, tell the user without switching branches.
-   - Before starting, look at `branches_check` from `detect-release-context`: if it has a `warning` (branch missing, 0 commits ahead), the configured head/base pair may differ from this repo's real release flow. Confirm with the user.
+   - Before starting, look at `branches_check` from `detect-release-context`: it runs `git fetch origin` first (`fetched: false` means the counts come from local refs and may be stale). If it has a `warning` (branch missing, 0 commits ahead), the configured head/base pair may differ from this repo's real release flow. Confirm with the user.
 
 **Step 1.5 Release context awareness** — `hint` × `APP_RELEASE`:
 

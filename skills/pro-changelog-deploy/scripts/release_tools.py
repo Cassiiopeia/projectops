@@ -51,20 +51,40 @@ def _commit_count(root: Path, exclude: str, include: str) -> int | None:
     return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip().isdigit() else None
 
 
+# branches_check 가 fetch 를 기다리는 최대 시간 (망이 느려도 detect 가 멈추지 않게)
+_FETCH_TIMEOUT_SECONDS = 30
+
+
+def _fetch_origin(root: Path) -> str | None:
+    """git fetch origin (원격 추적 ref 만 갱신). 성공하면 None, 실패하면 이유"""
+    try:
+        done = subprocess.run(["git", "-C", str(root), "fetch", "--quiet", "origin"], capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=_FETCH_TIMEOUT_SECONDS)
+    except (subprocess.TimeoutExpired, OSError) as error:
+        return type(error).__name__
+    return None if done.returncode == 0 else (done.stderr.strip().splitlines() or ["fetch failed"])[0][:200]
+
+
 def branches_check(project_root: Path, head: str, base: str) -> dict:
-    """설정된 head/base 쌍이 실제로 릴리스할 차이를 갖는지. 로컬 origin/* 추적 ref 기준(fetch 는 하지 않는다)"""
+    """설정된 head/base 쌍이 실제로 릴리스할 차이를 갖는지. fetch 후 origin/* 추적 ref 기준 (#1176)"""
     head_ref, base_ref = f"origin/{head}", f"origin/{base}"
-    out = {"head_exists": _ref_exists(project_root, head_ref), "base_exists": _ref_exists(project_root, base_ref),
+    fetch_error = _fetch_origin(project_root)
+    # 실패해도 계속: 로컬 ref 로 세고 낡았을 수 있다고 알린다
+    stale_note = "" if fetch_error is None else f" (git fetch failed: {fetch_error}; counts come from local refs and may be stale)"
+    out = {"fetched": fetch_error is None, "head_exists": _ref_exists(project_root, head_ref),
+           "base_exists": _ref_exists(project_root, base_ref),
            "ahead_count": None, "behind_count": None, "warning": None}
     if not (out["head_exists"] and out["base_exists"]):
         missing = [r for r, ok in ((head_ref, out["head_exists"]), (base_ref, out["base_exists"])) if not ok]
-        out["warning"] = f"{', '.join(missing)} not found. Check the development/default branches in version.yml, or git fetch and try again"
+        out["warning"] = f"{', '.join(missing)} not found. Check the development/default branches in version.yml{stale_note}"
         return out
     out["ahead_count"] = _commit_count(project_root, base_ref, head_ref)
     out["behind_count"] = _commit_count(project_root, head_ref, base_ref)
     if out["ahead_count"] == 0:
         out["warning"] = (f"{head_ref} has no commits ahead of {base_ref}; there may be nothing to release, or "
-                          "the branch pair may be wrong (confirm this repo's real release flow with the user)")
+                          f"the branch pair may be wrong (confirm this repo's real release flow with the user){stale_note}")
+    elif stale_note:
+        out["warning"] = stale_note.strip(" ()")
     return out
 
 
