@@ -44,6 +44,19 @@ function toSiteLinkHref(sourceRelativePath: string, href: string): string | null
 }
 
 // 문서 첫 문단 > 검색 결과 설명문 (frontmatter description 이 없을 때)
+// 제목 id 문자 규칙: VitePress 기본에서 두 가지만 GitHub 방식으로 (밑줄 유지 · 숫자로 시작해도 _ 안 붙임)
+// 문서 링크가 GitHub 앵커로 적혀 있어 GitHub 화면과 사이트가 같은 id 를 써야 함
+const HEADING_CONTROL_CHARACTERS = /[\u0000-\u001f]/g
+const HEADING_SPECIAL_CHARACTERS = /[\s~`!@#$%^&*()\-+=[\]{}|\\;:"'“”‘’<>,.?/]+/g
+const HEADING_COMBINING_MARKS = /[\u0300-\u036F]/g
+
+/** 제목 > id: 악센트 제거 후 NFC 재결합 (한글 음절 유지), 밑줄 유지, 숫자 시작 그대로 */
+function toHeadingSlug(title: string): string {
+  return title.normalize('NFKD').replace(HEADING_COMBINING_MARKS, '').replace(HEADING_CONTROL_CHARACTERS, '')
+    .replace(HEADING_SPECIAL_CHARACTERS, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '')
+    .toLowerCase().normalize('NFC')
+}
+
 function firstParagraph(markdown: string): string {
   const body = markdown.replace(/\r\n/g, '\n').replace(/^---[\s\S]*?\n---\n/, '')
   const paragraph = body.split(/\n\s*\n/).find((block) => /^[^#|<>!`\-\s*]/.test(block.trim()) || /^\*\*/.test(block.trim())) ?? ''
@@ -255,6 +268,8 @@ export default defineConfig({
   // 저장소 파일 링크는 문서에서 GitHub 절대 주소로 쓴다 > 상대 링크가 깨지면 빌드 실패
   ignoreDeadLinks: false,
   markdown: {
+    // 제목 id: VitePress 기본 규칙 + 마지막에 NFC 재결합 — 기본은 한글을 자모(NFKD)로 남겨 문서의 한글 앵커 링크가 안 맞음
+    anchor: { slugify: toHeadingSlug },
     config(md) {
       // 링크 렌더 전에 상대 .md 링크를 사이트 경로로 바꿈 (VitePress 가 base·cleanUrls·dead link 검사를 이어서 처리)
       md.core.ruler.push('projectops-site-links', (state) => {
