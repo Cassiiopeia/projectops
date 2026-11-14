@@ -2,21 +2,21 @@
 """
 Git Worktree Manager v1.2.0
 
-Git worktree를 자동으로 생성하고 관리하는 스크립트입니다.
-브랜치가 없으면 리모트(origin) 확인 후 자동으로 생성하고, 브랜치명의 특수문자를 안전하게 처리합니다.
-worktree 생성 후 .gitignore 기반 로컬 설정 파일을 자동으로 복사합니다.
+Creates and manages Git worktrees.
+If the branch does not exist, it checks the remote (origin) and creates it, and makes special characters in the branch name safe for folder names.
+After creating the worktree, it copies local config files found through .gitignore.
 
-사용법:
+Usage:
     macOS/Linux:
         python worktree_manager.py <branch_name>
 
-    Windows (환경 변수 방식, 권장):
-        $env:GIT_BRANCH_NAME = "브랜치명"
+    Windows (environment variable, recommended):
+        $env:GIT_BRANCH_NAME = "branch-name"
         $env:PYTHONIOENCODING = "utf-8"
         python -X utf8 worktree_manager.py
 
-예시:
-    python worktree_manager.py "20260120_#163_Github_Projects_에_대한_템플릿_개발_필요"
+Example:
+    python worktree_manager.py "20260120_#163_Add_GitHub_Projects_template"
 
 Author: Cursor AI Assistant
 Version: 1.2.0
@@ -80,33 +80,33 @@ def main() -> int:
   branch_name = get_branch_name()
 
   if not branch_name:
-    print_error("브랜치명이 제공되지 않았습니다.")
+    print_error("No branch name was given.")
     print()
-    print("사용법:")
+    print("Usage:")
     if IS_WINDOWS:
-      print("  Windows 환경:")
-      print("    방법 1: 환경 변수 사용")
-      print(f'      $env:GIT_BRANCH_NAME = "브랜치명"')
+      print("  Windows:")
+      print("    Option 1: environment variable")
+      print(f'      $env:GIT_BRANCH_NAME = "branch-name"')
       print(f"      python {sys.argv[0]}")
       print()
-      print("    방법 2: 파일 사용")
+      print("    Option 2: file")
       print(f'      $env:BRANCH_NAME_FILE = "branch_name.txt"')
       print(f"      python {sys.argv[0]}")
       print()
-      print("    방법 3: 인자로 전달 (한글 깨짐 가능)")
-      print(f'      python {sys.argv[0]} "브랜치명"')
+      print("    Option 3: argument (non-ASCII text may break)")
+      print(f'      python {sys.argv[0]} "branch-name"')
     else:
       print(f"  python {sys.argv[0]} <branch_name>")
     print()
-    print("예시:")
-    print(f'  python {sys.argv[0]} "20260120_#163_Github_Projects_에_대한_템플릿_개발_필요"')
+    print("Example:")
+    print(f'  python {sys.argv[0]} "20260120_#163_Add_GitHub_Projects_template"')
     return 1
 
-  print_step("📋", f"입력된 브랜치: {branch_name}")
+  print_step("📋", f"Branch: {branch_name}")
 
   # 2. Git 저장소 확인
   if not is_git_repository():
-    print_error("현재 디렉토리가 Git 저장소가 아닙니다.")
+    print_error("The current folder is not a Git repository.")
     return 1
 
   # 2-1. Windows 긴 경로 지원 확인 및 활성화
@@ -116,45 +116,45 @@ def main() -> int:
 
   # 3. 브랜치명 정규화
   folder_name = normalize_branch_name(branch_name)
-  print_step("📁", f"폴더명: {folder_name}")
+  print_step("📁", f"Folder name: {folder_name}")
   print()
 
   # 4. 브랜치 존재 확인 (로컬 → 리모트 순서)
-  print_step("🔍", "브랜치 확인 중...")
+  print_step("🔍", "Checking branch...")
 
   if branch_exists(branch_name):
-    print_success("로컬 브랜치가 이미 존재합니다.")
+    print_success("Local branch already exists.")
   else:
-    print_warning("로컬 브랜치가 존재하지 않습니다.")
+    print_warning("Local branch does not exist.")
 
     # 리모트에서 최신 정보 가져오기
     fetch_remote()
 
     if remote_branch_exists(branch_name):
       # 리모트에 브랜치가 있으면 tracking 브랜치로 생성
-      print_step("🌐", f"리모트(origin/{branch_name})에서 브랜치를 가져옵니다...")
+      print_step("🌐", f"Fetching the branch from the remote (origin/{branch_name})...")
 
       if not create_branch_from_remote(branch_name):
-        print_error("리모트 브랜치 기반 로컬 브랜치 생성에 실패했습니다.")
+        print_error("Failed to create a local branch from the remote branch.")
         return 1
 
-      print_success(f"리모트 브랜치(origin/{branch_name})를 기반으로 로컬 브랜치 생성 완료!")
+      print_success(f"Created a local branch from the remote branch (origin/{branch_name}).")
     else:
       # 리모트에도 없으면 현재 브랜치에서 새로 생성
       base_ref = get_base_ref()
       current_branch = get_current_branch()
       if base_ref:
-        print_step("🔄", f"{base_ref} 에서 새 브랜치 생성 중...")
+        print_step("🔄", f"Creating a new branch from {base_ref}...")
       elif current_branch:
-        print_step("🔄", f"현재 브랜치({current_branch})에서 새 브랜치 생성 중...")
+        print_step("🔄", f"Creating a new branch from the current branch ({current_branch})...")
       else:
-        print_step("🔄", "새 브랜치 생성 중...")
+        print_step("🔄", "Creating a new branch...")
 
       if not create_branch(branch_name, base_ref):
-        print_error("브랜치 생성에 실패했습니다.")
+        print_error("Failed to create the branch.")
         return 1
 
-      print_success("새 브랜치 생성 완료!")
+      print_success("Created the new branch.")
 
   print()
 
@@ -165,16 +165,16 @@ def main() -> int:
     print_error(str(e))
     return 1
 
-  print_step("📂", f"Worktree 경로: {worktree_path}")
+  print_step("📂", f"Worktree path: {worktree_path}")
   print()
 
   # 6. Worktree 존재 확인
-  print_step("🔍", "Worktree 확인 중...")
+  print_step("🔍", "Checking worktree...")
 
   if is_worktree_exists(worktree_path):
-    print_info("Worktree가 이미 존재합니다.")
+    print_info("Worktree already exists.")
     print()
-    print_step("📍", f"경로: {worktree_path.resolve()}")
+    print_step("📍", f"Path: {worktree_path.resolve()}")
     return 0
 
   # 7. Worktree 루트 디렉토리 생성
@@ -183,7 +183,7 @@ def main() -> int:
     return 1
 
   # 8. Worktree 생성
-  print_step("🔄", "Worktree 생성 중...")
+  print_step("🔄", "Creating worktree...")
 
   result = create_worktree(branch_name, worktree_path)
 
@@ -194,7 +194,7 @@ def main() -> int:
       print_success(result['message'])
 
     print()
-    print_step("📍", f"경로: {result['path']}")
+    print_step("📍", f"Path: {result['path']}")
 
     # worktree 생성 성공 시 gitignore 기반 로컬 파일 자동 복사
     git_root = get_git_root()
@@ -217,9 +217,9 @@ if __name__ == "__main__":
     sys.exit(exit_code)
   except KeyboardInterrupt:
     print()
-    print_warning("사용자에 의해 중단되었습니다.")
+    print_warning("Stopped by the user.")
     sys.exit(130)
   except Exception as e:
     print()
-    print_error(f"예상치 못한 오류가 발생했습니다: {e}")
+    print_error(f"Unexpected error: {e}")
     sys.exit(1)
