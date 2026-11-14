@@ -1,7 +1,10 @@
 <!-- translated-from: README.md@ba95162a -->
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero.webp" alt="Projectops — 이슈부터 배포까지" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-hero-dark.ko.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-hero.ko.webp" alt="projectops: 이슈부터 배포까지, 코드만 쓰세요" width="100%">
+</picture>
 
 **설치 한 번으로 이슈 → 브랜치 → 릴리스 PR → 배포까지, 단계마다 에이전트 스킬이 함께 움직입니다.**
 
@@ -11,373 +14,161 @@
 
 </div>
 
----
+## 시작하기
 
-## 30초 시작
+```bash
+npx projectops
+```
 
-| 하고 싶은 일 | 실행할 것 |
+| 하고 싶은 것 | 실행 |
 |---|---|
-| 새 프로젝트를 시작한다 | GitHub에서 **Use this template** 클릭 (1분 내 자동 초기화) |
-| 기존 프로젝트에 붙인다 | `npx projectops` |
-| Agent Skills만 설치한다 | `npx projectops --mode skills` |
-| 설치 상태를 점검한다 (읽기 전용) | `npx projectops --mode doctor` |
+| 기존 프로젝트에 넣기 | `npx projectops` (대화형 마법사, 따로 설치할 것 없음) |
+| 새 프로젝트 시작 | GitHub에서 **Use this template** 클릭 (1분 안팎 자동 설정) |
+| Agent Skills만 설치 | `npx projectops --mode skills` |
+| 설치 상태 점검 (읽기 전용) | `npx projectops --mode doctor` |
 
-> Node.js 20.12 이상과 Git이 필요합니다(Agent Skills는 Python 3도 필요). 별도 설치 없이 대화형 마법사가 실행됩니다.
+Node.js 20.12 이상과 Git이 필요합니다 (Agent Skills는 Python 3도 필요). npm `latest`는 `main` 브랜치와 정확히 같습니다. 모든 옵션: [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli).
 
-![npx projectops 대화형 마법사 실행 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.ko.gif)
+<details>
+<summary>마법사가 도는 모습 보기 (예시 Spring 프로젝트 실제 녹화)</summary>
 
-> 위 화면은 샘플 Spring 프로젝트에서 **실제로 실행한 화면**입니다. 화면에 보이는 버전 표기는 녹화 시점 기준입니다. 비대화형 실행과 옵션 전체는 [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli)를 보세요.
+![npx projectops 대화형 마법사](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.ko.gif)
 
-**상태: 활발히 유지보수 중.** 새 버전이 자주, 하루에 여러 번 나가기도 합니다. 검증한 버전에 머물려면 `npx projectops@<버전>`으로 실행하세요 ([릴리스 목록](https://github.com/Cassiiopeia/projectops/releases)).
+</details>
 
----
+## 변경 하나가 배포되기까지
 
-## 왜 이 템플릿인가?
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-cycle-dark.ko.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-cycle.ko.webp" alt="이슈 #1155, 브랜치 안내 댓글, feat 커밋, 39초 만에 병합된 릴리스 PR #1156, 태그 v4.102.0과 npm 배포" width="100%">
+</picture>
 
-이 프로젝트는 두 축으로 개발 워크플로우를 자동화합니다.
+위 카드는 모두 이 레포의 실제 기록입니다. 이슈를 열면(또는 `/pro-github`가 등록하면) 봇이 브랜치명과 커밋 템플릿을 댓글로 달고, `/pro-commit`이 커밋을 쓰고, `/pro-changelog-deploy`가 릴리스 PR을 엽니다. 릴리스 PR은 커밋 제목으로 버전을 정하고(`feat` → minor) 노트를 쓴 뒤 스스로 병합하고 태그를 만듭니다.
 
-**① GitHub Actions** — develop에서 main으로 가는 릴리스 PR이 버전 관리와 체인지로그를 처리하고, 머지되면 CI/CD 배포가 돕니다  
-**② Agent Skills** — `/pro-github`, `/pro-commit`, `/pro-report` 등 AI가 그 자동화의 단계마다 이슈, 내 스타일의 커밋, 보고서, 릴리스 PR까지 대신 진행
+**이 레포에서 측정했습니다.** 2026-11-07 ~ 2026-11-13에 develop → main으로 열린 릴리스 PR 29건은 열린 뒤 버전 결정, CHANGELOG·README 갱신, 태그 생성까지 마치고 병합되는 데 중앙값 **30초**가 걸렸습니다 (가장 빠른 것 25초, 가장 느린 것 50초). 연 뒤로 아무도 손대지 않았습니다. 직접 확인: 병합된 릴리스 PR의 `created_at`과 `merged_at`을 비교하세요 (`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`).
 
-| 기존 방식 | Projectops |
-|----------|---------------------|
-| 버전 수동 관리, 태그 직접 생성 | 릴리스 시 커밋 내용에 맞는 버전 자동 증가 + 태그 생성 |
-| 체인지로그 직접 작성 | 릴리스 PR마다 자동 생성 (커밋 분석, AI 키가 있으면 AI 요약) |
-| CI/CD 처음부터 설정 | 프로젝트 타입별 워크플로우 즉시 구성 |
-| 이슈 매번 형식 맞춰 작성 | `/pro-github` 한 번에 표준 템플릿 생성 + 등록 |
-| 커밋 메시지 이슈 URL 수동 복사 | `/pro-commit` 이슈 컨텍스트 기반으로 내 형식에 맞춰 자동 완성 |
-| PR 설명/보고서 직접 작성 | `/pro-report` git diff 분석 후 자동 생성 |
+<details>
+<summary>실제로 도는 모습: 이슈, PR 요약, 릴리스 (예시 레포 녹화, 모서리 시계는 실제 시간)</summary>
+
+**이슈를 열면** 브랜치명과 커밋 템플릿이 담긴 댓글이 달립니다.
+
+![이슈를 열면 자동으로 달리는 안내 댓글](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.ko.gif)
+
+**PR을 열면** 커밋으로 만든 변경 요약이 달리고, 푸시할 때마다 같은 댓글이 갱신됩니다.
+
+![PR을 열면 달리는 변경 요약 댓글](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.ko.gif)
+
+**릴리스 PR을 열면** 노트 작성, 버전 결정, 병합, 태그 생성까지 진행됩니다.
+
+![릴리스 PR이 자동 병합되고 태그가 생기는 모습](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.ko.gif)
+
+</details>
+
+## 무엇을 얻나요
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-features-dark.ko.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-features.ko.webp" alt="GitHub Actions: 이슈마다 브랜치명, 커밋 제목으로 버전 결정, 프로젝트에 맞는 CI/CD. Agent Skills: 내 스타일의 이슈와 커밋, 실제로 돌려서 확인, 눌러 보는 시안" width="100%">
+</picture>
+
+| 기존 방식 | projectops |
+|---|---|
+| 버전 올리기·태그·체인지로그를 손으로 | 릴리스 PR이 커밋 제목으로 버전을 정하고 노트를 쓰고 태그까지 |
+| CI/CD를 처음부터 구성 | Spring·Flutter·React·Python·Node 워크플로가 설치 즉시 준비 |
+| 이슈와 커밋 메시지를 매번 형식에 맞춰 작성 | `/pro-github`·`/pro-commit`이 팀 형식으로 작성 |
 | 코드 리뷰·분석 매번 프롬프트 입력 | 18종 Skills로 일관된 결과, 매번 재입력 불필요 |
 
-**이 레포에서 잰 값.** 2026-11-07부터 2026-11-13까지 develop에서 main으로 연 릴리스 PR 29개는 PR을 연 뒤 버전 결정, CHANGELOG·README 갱신, 태그 생성까지 끝나고 머지되는 데 중앙값 **30초**가 걸렸습니다(가장 빠른 것 25초, 가장 느린 것 50초). PR을 연 뒤 사람이 손댄 것은 없습니다. 머지된 릴리스 PR의 `created_at`과 `merged_at`을 비교하면 직접 확인할 수 있습니다(`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`).
+**눌러 보는 시안.** `/pro-ui-design`은 레포의 토큰과 글꼴로 만든 시안을 로컬 주소에 띄웁니다. 아래는 두 화면이 상태 하나를 공유하는 예시로, 왼쪽에서 주문하면 오른쪽 주방 화면에 바로 뜹니다. 같은 실행에서 이 GIF를 이슈에 올릴 수도 있습니다.
 
----
+![손님 앱에서 한 주문이 주방 화면에 뜨는 두 연결 시안](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.ko.gif)
 
-## 다른 도구와 비교
+## Agent Skills
 
-이 중 한 가지만 필요하다면 더 작은 도구가 나을 수 있습니다.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-skills-dark.ko.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-skills.ko.webp" alt="스킬 18개를 개발 사이클, 만들고 확인하기, 디자인·미디어·관리 세 묶음으로 정리한 그림" width="100%">
+</picture>
 
-| | projectops | release-please | semantic-release | changesets |
-|---|---|---|---|---|
-| 버전 결정 근거 | 커밋 제목 (`feat` → minor, `feat!` → major) | Conventional Commits | Conventional Commits (설정 가능) | PR마다 쓰는 changeset 파일 |
-| 릴리스 전 검토 단계 | 릴리스 PR(develop → main), 자동 머지 | 직접 머지하는 릴리스 PR | 기본은 없음, push 시 바로 릴리스 | "Version Packages" PR |
-| 체인지로그 | 릴리스 PR에서 작성 (커밋 분석 또는 AI 요약) | 자동 생성 | 자동 생성 (플러그인) | changeset 파일을 모아 작성 |
-| 프로젝트 타입별 CI/CD 워크플로우 | 있음 (Spring, Flutter, React, Python, Node는 npm 배포) | 없음 | 없음 | 없음 |
-| 사이클을 직접 굴리는 에이전트 스킬 (이슈, worktree, 내 스타일 커밋, 보고서, 릴리스 PR, 실기기 QA) | 있음 | 없음 | 없음 | 없음 |
-| 저장소에 추가되는 것 | 약 60개 파일 (아래) | 워크플로우 1개와 설정 파일 | 설정 파일과 CI 단계 | `.changeset/` 폴더와 CI 단계 |
+**Agent Skills** (18종)는 Claude Code, Codex CLI, Gemini CLI, Cursor, GitHub Copilot에서 동작하고 내 스타일로 씁니다 (`~/.projectops/config/config.json`, [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) 참고). 설계·계획·구현은 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡습니다.
 
-- 버전과 체인지로그만 필요하다면 release-please나 semantic-release가 더 가볍습니다.
-- 모노레포에서 npm 패키지를 내고 PR마다 변경 내용을 적게 하고 싶다면 changesets가 맞습니다.
-- 이슈 → 브랜치 → 릴리스 PR → 배포까지 한 번에 설치하고 그 위에 에이전트 스킬까지 쓰고 싶다면 projectops입니다.
+<details>
+<summary>Agent Skills 18종 전체와 설치 방법 보기</summary>
 
-**설치 규모 (실측).** v4.84.0으로 2026-11-05에 빈 저장소에서 `npx projectops --mode full --type basic --force`를 실행하면 56개 파일이 추가됐습니다: 워크플로우 8개, `.github/scripts/` 아래 보조 스크립트 30개, 이슈·PR·Discussion 템플릿, `version.yml`, 설정 안내 문서. `--type spring`은 60개(워크플로우 12개)였습니다.
-
----
-
-## 실제로 이렇게 동작합니다
-
-아래는 테스트 조직의 샘플 레포에 projectops를 설치하고 **실제로 실행하며 녹화한 화면**입니다. 우측 상단 타이머는 실제 경과 시간이고, 기다리는 구간만 빠르게 재생합니다.
-
-### ① 이슈를 열면 브랜치명과 커밋 메시지가 자동으로 달립니다
-
-![이슈를 열면 자동 안내 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.ko.gif)
-
-이슈를 열면 GitHub Actions가 스스로 실행되어 **브랜치명과 커밋 메시지 템플릿**을 댓글로 알려 줍니다. 이 브랜치명으로 작업하면 이슈 번호가 커밋·보고서에 자동으로 연동됩니다.
-
-**에이전트로 진행하기:** `/pro-github`로 이슈를 만들고, `/pro-init-worktree`로 작업 공간을 만들고, `/pro-commit`으로 내 형식의 커밋을 씁니다.
-
-### ② PR을 열면 변경 요약이 자동으로 달립니다
-
-![PR을 열면 변경 요약 댓글이 달리는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.ko.gif)
-
-작업 브랜치로 PR을 열면 커밋을 분석한 **변경 요약**이 댓글로 달립니다. 커밋을 더 올리면 새 댓글을 쌓지 않고 같은 댓글을 갱신합니다.
-
-**에이전트로 진행하기:** `/pro-report`가 diff를 분석해 구현 보고서를 올리고, `/pro-agent-test`가 실제로 실행해 검증합니다.
-
-### ③ 릴리스 PR을 열면 버전 확정부터 머지, 태그까지 자동입니다
-
-![릴리스 PR이 자동으로 머지되고 태그가 생기는 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.ko.gif)
-
-개발 브랜치에서 `main`으로 PR을 열면 릴리스 노트를 쓰고, 커밋 제목(`feat`, `fix` 등)으로 버전을 정해 PR 제목에 반영한 뒤, 자동으로 머지하고 **버전 태그**까지 만듭니다. 위 예시는 `feat` 커밋이라 minor 버전이 올랐습니다.
-
-**에이전트로 진행하기:** `/pro-changelog-deploy`가 develop을 푸시하고 릴리스 PR을 대신 엽니다.
-
-
-### 4. UI 시안을 띄워 눌러 보고 고르기
-
-![서로 연결된 두 시안 화면](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.ko.gif)
-
-시안을 요청하면 실제로 움직이고 반응하는 로컬 페이지가 뜹니다. 여기서는 두 화면이 상태를 공유해, 왼쪽에서 주문하면 오른쪽 주방 화면에 나타납니다. 시안에는 레포의 토큰과 글꼴이 쓰이고, 같은 실행으로 이런 GIF를 이슈에 올릴 수 있습니다.
-
-**에이전트로 진행하기:** `/pro-ui-design`이 시안을 보여 주고, 고른 안을 다음 스킬이 이어받게 기록하며, 결정하기 어려우면 디자이너에게 넘깁니다.
-
----
-
-## 나에게 맞추기 (Make it yours)
-
-Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json`에 적고, 첫 실행 때 따로 묻지 않습니다.
-
-```json
-{
-  "preferences": { "language": "ko", "tone": "짧고 단정하게", "rules": ["이모지 금지"] },
-  "skills": { "pro-commit": { "preset": "gitmoji" } }
-}
-```
-
-`version.yml`의 팀 형식이 우선하며, 내 말투는 그대로 적용됩니다. 자세히: [Skills 가이드](../SKILLS.md).
-
-### 예시: 이 레포에 /pro-oss-consult 돌려 보기
-
-이 레포에 `/pro-oss-consult`를 돌리고, 찾아낸 문제를 고쳤습니다 (측정일 2026-10-13).
-
-| 항목 | 전 | 후 |
+| 묶음 | 스킬 | 용도 |
 |---|---|---|
-| README·매니페스트의 스킬 수 표기 | 불일치 (15 vs 20 표기, 실제 15) | 일치: 코어 14 + 선택 extras 플러그인 1 |
-| 가장 긴 스킬 description | 1,183자, 1,000자 초과 6개 | 237자, 300자 초과 0개 |
-| 커밋 형식 | `pro-commit`에 고정 | 선호 설정과 `version.yml`로 조정 가능 |
+| 사이클 | `/pro-github` | 이슈(한 줄 → 템플릿)·PR·라벨·댓글·레포 탐색·Actions·Secret |
+| 사이클 | `/pro-init-worktree` | Git worktree 생성 + 필요한 로컬 파일 복사 |
+| 사이클 | `/pro-commit` | 이슈 맥락으로 내 형식의 커밋 메시지 완성 (프리셋 또는 템플릿) |
+| 사이클 | `/pro-review` | 6가지 관점 리뷰, Critical / Major / Minor 분류 |
+| 사이클 | `/pro-report` | git diff → 플로차트 포함 구현 보고서, 댓글로 게시 |
+| 사이클 | `/pro-changelog-deploy` | develop 푸시 → main 릴리스 PR + 릴리스 노트 + 자동 병합 |
+| 만들고 확인 | `/pro-launch` | 앱·웹·서버 실행·조작·캡처, 빈 목록·실패 응답 흉내 |
+| 만들고 확인 | `/pro-agent-test` | 실제로 돌리는 QA, 재현 절차·증거·심각도 보고 |
+| 만들고 확인 | `/pro-testcase` | 이슈 → QA 체크리스트 |
+| 만들고 확인 | `/pro-figma` | Figma 시안 → 코드 → 픽셀 대조 |
+| 만들고 확인 | `/pro-desktop-control` | 설치 마법사·OS 대화상자·데스크톱 앱 조작, 설치 전 확인 |
+| 만들고 확인 | `/pro-ssh` | SSH로 서버 명령 실행 (EC2, 시놀로지 NAS, Linux) |
+| 디자인·관리 | `/pro-ui-design` | 로컬 주소에서 비교하고 눌러 보고 고르는 시안, 디자이너 요청서 |
+| 디자인·관리 | `/pro-image` | 프로젝트 화풍의 이미지 에셋, 진짜 투명 배경 |
+| 디자인·관리 | `/pro-presentation` | HTML 발표 덱 제작, 말로 연습 코칭, PDF·PPT 내보내기 |
+| 디자인·관리 | `/pro-code-consult` | AI가 짠 코드를 내 코딩 규칙으로 관리 |
+| 디자인·관리 | `/pro-oss-consult` | 오픈소스 관점으로 레포 채점, 승인한 것만 수정 |
+| 디자인·관리 | `/pro-skill-creator` | 스킬 생성·리뷰·개선 |
 
-바뀐 것: description을 짧은 영어 트리거로 줄이고, 가드 테스트로 코어 스킬 문서를 검사하며, `pro-commit`이 팀의 `version.yml` 커밋 템플릿을 따릅니다.
-
----
-
-## 구성 요소
-
-| 구성 | 하는 일 | 문서 |
-|---|---|---|
-| **GitHub Actions** | develop에서 main으로 가는 릴리스 PR이 버전 관리와 체인지로그를 처리하고, 머지되면 CI/CD 배포가 돕니다 | [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) |
-| **Agent Skills** (18종) | `/pro-github`, `/pro-commit`, `/pro-report` 등으로 AI가 단계마다 이슈·내 스타일 커밋·보고서·릴리스 PR을 대신 진행합니다 | [Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills) |
-| **npx CLI** | 기존 프로젝트에 워크플로우를 설치·업데이트하고 상태를 진단합니다 | [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli) |
-
-<details>
-<summary>Agent Skills 18종 전체 보기</summary>
-
-### 🔄 개발 사이클 자동화
-
-| 스킬 | 용도 |
-|------|------|
-| `/pro-init-worktree` | Git worktree 생성 + 민감 파일 자동 복사 |
-| `/pro-commit` | 이슈 컨텍스트 기반 커밋 메시지를 내 형식(preset·template)으로 자동 완성 |
-| `/pro-report` | git diff 분석 → 구현 보고서 생성 + GitHub 댓글 자동 포스팅 |
-| `/pro-changelog-deploy` | develop push → main 릴리스 PR 생성 + 릴리스 노트 작성 + automerge |
-| `/pro-github` | GitHub 전반: 이슈 생성(설명 한 줄 → 템플릿 작성+등록)/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions/Secret 관리 |
-
-### 📊 분석형 (코드 수정 없음)
-
-| 스킬 | 용도 |
-|------|------|
-| `/pro-review` | 보안/성능/버그/품질 6관점 리뷰, Critical/Major/Minor 분류 |
-
-### 🔧 구현형 (실제 코드 작성)
-
-| 스킬 | 용도 |
-|------|------|
-| `/pro-figma` | Figma 시안을 코드로 옮기고, 옮긴 것이 시안과 같은지 픽셀로 센다 |
-| `/pro-launch` | 앱·웹·서버를 띄우고 조작하고 찍는다 — 상태바 고정 캡처, 폭 바꾸기, 응답 바꿔치기(빈 목록·실패 연출), 코드 렌더 |
-| `/pro-desktop-control` | 웹 페이지도 에뮬레이터도 아닌 이 컴퓨터 화면의 프로그램(설치 마법사·OS 대화상자·데스크톱 앱)을 조작한다: 요소를 읽고, 마우스를 움직이지 않고 누르고, 설치 전에는 묻고, 보안 확인 창은 사용자에게 넘긴다. Windows·macOS 지원 (macOS는 알림·시스템 대화상자, Apple 계정 로그인 코드까지) |
-| `/pro-ui-design` | 로컬 주소에서 UI 시안 보기: 레포의 실제 토큰과 글꼴로 레이아웃을 비교하고 애니메이션과 여러 화면 연결 프로토타입을 직접 눌러 본다. 고른 안을 구현하거나, PNG·GIF를 이슈에 올리거나, 상태별 캡처와 문구 후보를 담아 디자이너에게 넘긴다 |
-| `/pro-image` | 프로젝트 화풍에 맞는 이미지 에셋(배경, 캐릭터, 아이콘, 일러스트, 아이템)을 만든다. 에이전트가 레포의 그림 하네스로 대충 한 요청을 빠짐없는 프롬프트로 바꾸고, Codex(ChatGPT 구독)나 Antigravity가 그린 뒤 CLI가 크기와 진짜 투명 배경까지 맞춘다. 화풍이 없으면 여러 화풍을 비교판으로 보여 주고 고르게 한다 |
-| `/pro-presentation` | 발표를 HTML 덱으로 짓거나 기존 PPT를 가져와, 한 장씩 말로 연습하며 대본을 내 입에 맞게 다듬는다. 말한 방향은 발표 메모리에 쌓여 모든 장에 반영되고, PDF와 글자를 고칠 수 있는 PPT로 내보낸 뒤 HTML과 대조해 검수한다 |
-| `/pro-oss-consult` | GitHub 레포를 오픈소스로서 진단 — 성격 판별, 6축 채점, 성숙도 단계, 승인받은 것만 About·topics·라벨·파일 수정. 단일 레포·계정 전체 일괄 |
-| `/pro-code-consult` | AI가 짠 코드를 내 코딩 규칙에 맞게 관리 — 점검, 승인한 항목만 한 번에 하나씩 리팩터링(전후 대조), 변경분의 낡은 주석·중복 검사, 기존 위반 동결(줄어들기만 함) |
-
-> 설계·계획·구현 흐름은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
-
-### 📝 문서/산출물 생성형
-
-| 스킬 | 용도 |
-|------|------|
-| `/pro-testcase` | 이슈 분석 → QA 체크리스트 생성 |
-| `/pro-agent-test` | 앱·웹·서버를 실제로 실행해 밟으며 버그를 찾는 QA — 재현 절차·근거·심각도와 함께 보고 (코드는 고치지 않음) |
-| `/pro-ssh` | 원격 서버 SSH 접속·명령 실행 (AWS EC2, 시놀로지 NAS, Linux 등 범용) |
-| `/pro-skill-creator` | Skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
-
-**Extras** (선택 플러그인): `/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
-
-</details>
-
-<details>
-<summary>개발 사이클과 자동화 파이프라인 흐름도 보기</summary>
-
-### AI 개발 사이클
-
-Agent Skills가 개발 사이클 전체를 커버합니다.
-
-```mermaid
-flowchart TD
-    A(["작업 시작"]) --> B["/pro-github<br/>이슈 등록"]
-    B --> C["/pro-init-worktree<br/>worktree + 민감파일 복사"]
-    C --> D{"작업 유형"}
-
-    D -->|새 기능·설계·리팩토링| E1["superpowers:brainstorming<br/>무엇을 왜 만들지 확정"]
-    D -->|버그·장애| E2["superpowers:systematic-debugging<br/>원인 조사"]
-
-    E1 --> P["superpowers:writing-plans<br/>구현 계획"]
-    P --> F["superpowers:executing-plans<br/>계획 실행"]
-    E2 --> F
-    F --> H["/pro-review<br/>셀프 리뷰"]
-    H --> I["/pro-commit<br/>이슈 연동 커밋"]
-    I --> J["/pro-report<br/>구현 보고서 + GitHub 댓글"]
-    J --> K(["PR 등록"])
-    K --> L["/pro-changelog-deploy<br/>릴리스 PR + automerge"]
-```
-
-> Skills 전체 목록 및 상세 사용법: **[docs/SKILLS.md](../SKILLS.md)**
-
-### GitHub Actions 자동화 파이프라인
-
-```mermaid
-flowchart TD
-    A([develop 푸시]) --> B[개발 통합]
-    B --> C[develop→main 릴리스 PR]
-    C --> D["PR 내 버전 확정<br/>커밋 기반 승격 + 태그 + AI 체인지로그"]
-    D --> E[자동 머지]
-    E --> F["main push → CI/CD 배포<br/>Flutter / Spring / React 등"]
-    F --> G([완료])
-```
-
-</details>
-
-<details>
-<summary>Agent Skills만 설치하기 (Claude Code, Gemini CLI, Codex CLI, Cursor)</summary>
+**Extras** (선택 플러그인): `/pro-synology-expose`, `/pro-skill-bug` (어느 세션에서든 스킬 버그 의심 보고), `/pro-disk-cleanup` (디스크 용량 안전 정리), `/pro-orca-tunnel` (요청 시 Orca Web 공개 주소). 설치: `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code
 claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
-```
-
-```bash
 # Gemini CLI
 gemini extensions install https://github.com/Cassiiopeia/projectops
-```
-
-```bash
 # Codex CLI (macOS / Linux)
 codex plugin marketplace add Cassiiopeia/projectops
-```
-
-`--mode skills` 마법사는 Codex marketplace를 등록한 뒤 native skills fallback도 자동 준비합니다. `/plugins`는 설치 확인/관리용으로만 사용하면 됩니다.
-
-Codex plugin marketplace를 사용할 수 없는 환경에서는 [Skills 가이드](../SKILLS.md)의 fallback 설치 방식을 사용하세요.
-
-```bash
-# Cursor / 전체 Agent Skills 설치 메뉴 (권장 — npx)
+# Cursor, GitHub Copilot, 전체 메뉴
 npx projectops --mode skills
 ```
 
-
-
-> Claude Code는 `/pro-` 자동완성, Gemini는 extension, Codex는 plugin marketplace를 우선 사용합니다. 자세한 설치 방식은 [Skills 가이드](../SKILLS.md)를 확인하세요.
-
 </details>
 
----
+## 다른 도구와 비교
 
-## 지원 프로젝트 타입
+이 중 한 조각만 필요하다면 더 작은 도구가 나을 수 있습니다 ([전체 비교](https://cassiiopeia.github.io/projectops/ko/compare)).
 
-| 타입 | 버전 파일 | CI/CD |
-|------|----------|-------|
-| `spring` | build.gradle | SSH+Docker 배포, Nexus |
-| `flutter` | pubspec.yaml | TestFlight, Play Store |
-| `react` (Next.js 포함) | package.json | Docker |
-| `node` | package.json | npm 배포 (`--publish npm`) |
-| `python` | pyproject.toml | SSH+Docker 배포 |
-| `react-native` | Info.plist + build.gradle | — |
-| `react-native-expo` | app.json | — |
-| `basic` | version.yml만 | — |
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| 버전 결정 기준 | 커밋 제목 | Conventional Commits | Conventional Commits | changeset 파일 |
+| 릴리스 단계 | 릴리스 PR, 자동 병합 | 직접 병합하는 릴리스 PR | 푸시하면 릴리스 | "Version Packages" PR |
+| 프로젝트 타입별 CI/CD | 있음 | 없음 | 없음 | 없음 |
+| 사이클 전체를 돌리는 에이전트 스킬 | 있음 | 없음 | 없음 | 없음 |
+| 레포에 추가되는 것 | 약 60개 파일 | 워크플로 + 설정 | 설정 + CI 단계 | `.changeset/` + CI 단계 |
 
----
+## 맞지 않는 경우
 
-## 댓글 명령어
+- **GitHub 전용.** GitHub Actions와 이슈·PR을 전제로 합니다.
+- **브랜치 두 개.** 릴리스는 개발 브랜치에서 기본 브랜치로 갑니다 (이름은 `version.yml`에서 바꿈).
+- **약 60개 파일**이 레포에 추가됩니다 (워크플로, 보조 스크립트, 템플릿).
+- **릴리스가 잦습니다.** `latest`는 `main`을 따릅니다. `npx projectops@<버전>`은 설치 도구만 고정하고 워크플로 템플릿은 고정하지 않습니다.
+- **서버 배포는 SSH로 접속되는 Docker 호스트를 가정합니다.** 개인 액세스 토큰은 선택입니다 ([설정](https://cassiiopeia.github.io/projectops/ko/getting-started)).
 
-Issue나 PR에 댓글로 자동화를 실행합니다.
+지원 타입: `spring`, `flutter`, `react` (Next.js 포함), `node`, `python`, `react-native`, `react-native-expo`, `basic`. `@projectops server build`, `@projectops build app` 같은 댓글 명령: [PR Preview](https://cassiiopeia.github.io/projectops/ko/pr-preview), [Flutter 빌드](https://cassiiopeia.github.io/projectops/ko/flutter-test-build-trigger), [이슈 자동화](https://cassiiopeia.github.io/projectops/ko/issue-automation).
 
-| 명령어 | 기능 | 대상 |
-|--------|------|------|
-| `@projectops server build` | 임시 서버 배포 | Spring, Python |
-| `@projectops server destroy` | 서버 삭제 | Spring, Python |
-| `@projectops server status` | 서버 상태 확인 | Spring, Python |
-| `@projectops build app` | iOS + Android 빌드 | Flutter |
-| `@projectops apk build` | Android만 빌드 | Flutter |
-| `@projectops ios build` | iOS만 빌드 | Flutter |
-| `@projectops create qa` | QA 이슈 자동 생성 | 모든 프로젝트 |
+## 커뮤니티
 
-> 상세: [PR Preview](../PR-PREVIEW.md) | [Flutter 빌드](../FLUTTER-TEST-BUILD-TRIGGER.md) | [이슈 자동화](../ISSUE-AUTOMATION.md)
-
----
-
-## 설정
-
-### 개인 액세스 토큰 (선택)
-
-모든 워크플로우는 기본 제공 `GITHUB_TOKEN`으로 동작합니다. 아래 기능이 필요할 때만 개인 액세스 토큰을 저장소 Secret `_GITHUB_PAT_TOKEN`으로 등록하세요.
-
-| 필요한 기능 | 기본 토큰으로 안 되는 이유 | Classic 토큰 권한 |
-|---|---|---|
-| 브랜치 보호 규칙이 Actions 봇을 막아도 릴리스 PR이 머지되게 | 릴리스 워크플로우가 `--admin`으로 다시 머지하며, 관리자 토큰이 필요하다 | `repo`, `workflow` |
-| 이슈 라벨을 GitHub Projects 보드와 동기화 | `GITHUB_TOKEN`은 Projects API를 쓸 수 없다 | `repo`, `project` |
-| 비공개 저장소에서 이슈 헬퍼 댓글로 다른 워크플로우를 이어 실행 | `GITHUB_TOKEN`이 만든 이벤트는 다른 워크플로우를 깨우지 않는다 | `repo` |
-
-토큰이 없어도 릴리스 머지 뒤에 돌아야 할 워크플로우는 명시적 dispatch로 실행되므로, 그 용도로는 토큰이 필요 없습니다.
-
-Fine-grained 토큰이라면 **Contents**, **Pull requests**, **Issues**, **Workflows**를 *Read and write*로 주면 첫 번째 기능에 충분할 것으로 봅니다. 아직 끝까지 검증하지 않았고 Projects 동기화는 Classic 토큰으로만 확인했습니다. 실패하면 이슈로 알려 주세요.
-
-```
-Repository Settings → Secrets → Actions → New repository secret
-Name: _GITHUB_PAT_TOKEN
-```
-
-### Organization 설정
-
-```
-Settings → Actions → General
-├─ ✅ Allow GitHub Actions to create and approve pull requests
-└─ ✅ Read and write permissions
-```
-
----
-
-## 알아둘 것
-
-맞지 않는 경우를 먼저 알려 드립니다.
-
-- **GitHub 전용입니다.** GitHub Actions와 GitHub 이슈·PR을 전제로 하므로 GitLab 등은 지원하지 않습니다.
-- **릴리스는 개발 브랜치 → 기본 브랜치 PR 구조를 전제로 합니다.** 브랜치 이름은 `version.yml`에서 바꿀 수 있지만, 두 브랜치를 나눠 쓰지 않는 저장소에는 맞지 않습니다.
-- **개인 액세스 토큰(PAT)은 선택입니다.** 브랜치 보호를 넘어 머지하거나 Projects 보드를 동기화할 때만 필요합니다. [설정](#설정)을 보세요.
-- **저장소에 약 60개 파일이 추가됩니다** (워크플로우, 보조 스크립트, 템플릿). [실측](#다른-도구와-비교)을 보세요.
-- **새 버전이 자주 나옵니다.** 검증한 버전은 `npx projectops@<버전>`으로 고정하세요.
-- **서버 배포 워크플로우는 SSH로 접속하는 Docker 서버를 전제로 합니다.**
-
----
+- **첫 기여라면** [`good first issue`](https://github.com/Cassiiopeia/projectops/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)를 골라 `/assign`만 한 줄로 댓글 달면 봇이 7일 동안 담당자로 지정합니다.
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) · [ARCHITECTURE.md](../../ARCHITECTURE.md) · [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md) · [SECURITY.md](../../SECURITY.md) (보안 취약점은 비공개로 제보)
+- 버그·요청은 [Issues](https://github.com/Cassiiopeia/projectops/issues), 질문은 [Discussions](https://github.com/Cassiiopeia/projectops/discussions). 끝난 이슈는 `status: done` 라벨이 붙고 릴리스가 병합될 때 닫힙니다.
 
 ## 문서
 
-전체 문서는 **[문서 사이트](https://cassiiopeia.github.io/projectops/ko/)** 에서 검색하며 볼 수 있습니다.
+모든 내용은 **[문서 사이트](https://cassiiopeia.github.io/projectops/ko/)**에 있습니다: [시작하기](https://cassiiopeia.github.io/projectops/ko/getting-started) · [CLI](https://cassiiopeia.github.io/projectops/ko/cli) · [Agent Skills](https://cassiiopeia.github.io/projectops/ko/skills) · [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control) · [체인지로그](https://cassiiopeia.github.io/projectops/ko/changelog-automation) · [SSH + Docker 배포](https://cassiiopeia.github.io/projectops/ko/ssh-docker-deployment-guide) · [Flutter CI/CD](https://cassiiopeia.github.io/projectops/ko/flutter-cicd-overview) · [문제 해결](https://cassiiopeia.github.io/projectops/ko/troubleshooting)
 
-- [시작하기](https://cassiiopeia.github.io/projectops/ko/getting-started)
-- [CLI 레퍼런스](https://cassiiopeia.github.io/projectops/ko/cli)
-- [Agent Skills 가이드](https://cassiiopeia.github.io/projectops/ko/skills)
-- [버전 관리](https://cassiiopeia.github.io/projectops/ko/version-control)
-- [체인지로그 자동화](https://cassiiopeia.github.io/projectops/ko/changelog-automation)
-- [PR Preview](https://cassiiopeia.github.io/projectops/ko/pr-preview)
-- [이슈 자동화](https://cassiiopeia.github.io/projectops/ko/issue-automation)
-- [SSH + Docker 배포](https://cassiiopeia.github.io/projectops/ko/ssh-docker-deployment-guide)
-- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/ko/flutter-cicd-overview)
-- [트러블슈팅](https://cassiiopeia.github.io/projectops/ko/troubleshooting)
-
----
-
-## 지원
-
-- [Issues](https://github.com/Cassiiopeia/projectops/issues) — 버그 리포트, 기능 요청
-  - 완료된 이슈는 `status: done` 라벨을 붙이고 닫습니다.
-- [CONTRIBUTING.ko.md](CONTRIBUTING.ko.md) — 기여 가이드
-- [SECURITY.ko.md](SECURITY.ko.md) — 보안 취약점은 공개 이슈가 아니라 비공개로 신고해 주세요
+전체 버전 기록: [CHANGELOG.md](../../CHANGELOG.md)
 
 ---
 
 <div align="center">
 
-**MIT License**
+**MIT License** · README 이미지는 [`docs/recording/readme_assets/`](../recording/readme_assets/)에서 렌더링합니다
 
 </div>

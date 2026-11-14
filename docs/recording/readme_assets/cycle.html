@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<!-- README 사이클: 이슈 > 브랜치 댓글 > 커밋 > 릴리스 PR > 태그·배포 (실제 기록: 이슈 #1155, PR #1156, v4.102.0, 시각 UTC) -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<script src="assets.js"></script>
+<style>
+  .canvas { width: 1200px; padding: 44px 44px 36px; }
+  .head { display: flex; justify-content: space-between; align-items: flex-end; }
+  .title { margin: 12px 0 0; font-size: 34px; line-height: 1.15; font-weight: 800; letter-spacing: -0.035em; }
+  .title em { font-style: normal; color: var(--sub); font-weight: 700; }
+  .legend { display: flex; gap: 16px; font-size: 13px; color: var(--sub); padding-bottom: 6px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; }
+  .legend .agent i { background: var(--accent); }
+  .legend .actions i { background: var(--teal); }
+
+  /* 시간 줄: 점 5개 + 이어지는 선 */
+  .rail { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin: 34px 0 14px; }
+  .rail::before {
+    content: ""; position: absolute; left: 10%; right: 10%; top: 9px; height: 2px; border-radius: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--teal));
+    opacity: 0.55;
+  }
+  .node { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; }
+  .node .dot { width: 20px; height: 20px; border-radius: 50%; background: var(--canvas-bg); border: 2px solid var(--accent); display: grid; place-items: center; }
+  .node .dot::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+  .node.auto .dot { border-color: var(--teal); }
+  .node.auto .dot::after { background: var(--teal); }
+  .node time { font-family: var(--font-mono); font-size: 12.5px; color: var(--sub); letter-spacing: 0; }
+  .node time b { color: var(--ink); font-weight: 600; }
+
+  .cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; align-items: stretch; }
+  .step { display: flex; flex-direction: column; padding: 16px 16px 14px; min-height: 300px; }
+  .step-kind { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--sub); }
+  .step-kind .icon { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; }
+  .step-body { margin-top: 12px; flex: 1; font-size: 13.5px; line-height: 1.45; color: var(--ink-soft); }
+  .step-foot { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .by-agent { background: var(--accent-soft); color: var(--accent); font-family: var(--font-mono); font-weight: 600; letter-spacing: 0; }
+  .by-actions { background: var(--teal-soft); color: var(--teal); }
+
+  .issue-title { font-size: 15px; font-weight: 700; color: var(--ink); line-height: 1.35; }
+  .issue-title span { color: var(--faint); font-weight: 500; }
+  .state-open { background: var(--state-open); color: #fff; }
+  .labels { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .label { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid; }
+  .label.feature { color: #8250df; border-color: rgba(130, 80, 223, 0.35); background: rgba(130, 80, 223, 0.08); }
+  .label.area { color: #0969da; border-color: rgba(9, 105, 218, 0.3); background: rgba(9, 105, 218, 0.07); }
+  html[data-theme="dark"] .label.feature { color: #c297ff; }
+  html[data-theme="dark"] .label.area { color: #79b8ff; }
+
+  .bot { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--sub); }
+  .bot .avatar { width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--teal)); }
+  .bot b { color: var(--ink); }
+  .field { margin-top: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--faint); }
+  .code { margin-top: 5px; padding: 7px 9px; border-radius: 8px; background: var(--surface-code); border: 1px solid var(--line);
+    font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; color: var(--ink); letter-spacing: 0; overflow-wrap: anywhere; }
+  .code .hl { color: var(--accent); font-weight: 700; }
+  .code .teal { color: var(--teal); font-weight: 700; }
+
+  .commit-hash { display: inline-block; font-family: var(--font-mono); font-size: 12px; color: var(--accent); background: var(--accent-soft); padding: 1px 7px; border-radius: 6px; }
+  .bump-note { margin-top: 10px; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--sub); }
+  .bump-note b { color: var(--teal); }
+
+  .merged { background: var(--state-merged); color: #fff; }
+  .pr-title { margin-top: 10px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
+  .branches { margin-top: 4px; font-family: var(--font-mono); font-size: 11.5px; color: var(--sub); }
+  .versions { margin-top: 10px; display: flex; align-items: center; gap: 7px; font-family: var(--font-mono); font-size: 13px; }
+  .versions s { color: var(--faint); }
+  .versions b { color: var(--teal); }
+  .notes { margin-top: 10px; padding-left: 10px; border-left: 2px solid var(--line); font-size: 12px; color: var(--sub); line-height: 1.45; }
+  .clock { margin-top: 10px; font-size: 12.5px; color: var(--sub); }
+  .clock b { color: var(--ink); font-size: 15px; }
+
+  .tag-row { display: flex; align-items: center; gap: 8px; }
+  .tag-name { font-family: var(--font-mono); font-size: 18px; font-weight: 700; color: var(--ink); letter-spacing: 0; }
+  .latest { background: rgba(31, 136, 61, 0.12); color: var(--state-open); border: 1px solid rgba(31, 136, 61, 0.35); }
+  .checks { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+  .checks li { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; }
+  .checks li::before { content: ""; flex: none; margin-top: 2px; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--teal) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/12px no-repeat; }
+  .checks time { display: block; font-family: var(--font-mono); font-size: 11px; color: var(--faint); letter-spacing: 0; }
+
+  .proof { margin-top: 20px; display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 14px;
+    background: var(--surface-muted); border: 1px solid var(--line); font-size: 13.5px; color: var(--sub); }
+  .proof .big { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; color: var(--ink); white-space: nowrap; }
+  .proof .big small { font-size: 15px; font-weight: 700; color: var(--teal); margin-left: 2px; }
+  .proof .sep { width: 1px; align-self: stretch; background: var(--line); }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+  <div class="head">
+    <div>
+      <div class="eyebrow" data-text="eyebrow"></div>
+      <h2 class="title" data-text="title" data-html></h2>
+    </div>
+    <div class="legend">
+      <span class="agent"><i></i><span data-text="legendAgent"></span></span>
+      <span class="actions"><i></i><span data-text="legendActions"></span></span>
+    </div>
+  </div>
+
+  <div class="rail">
+    <div class="node"><span class="dot"></span><time><b>13:49:36</b></time></div>
+    <div class="node auto"><span class="dot"></span><time><b>13:49:48</b> · +12 s</time></div>
+    <div class="node"><span class="dot"></span><time><b>13:51:55</b></time></div>
+    <div class="node auto"><span class="dot"></span><time><b>13:52:08</b> → 13:52:47</time></div>
+    <div class="node auto"><span class="dot"></span><time><b>13:54:32</b></time></div>
+  </div>
+
+  <div class="cards">
+    <!-- 1 이슈 -->
+    <div class="card step">
+      <div class="step-kind"><span class="icon" style="background:rgba(31,136,61,.12);color:var(--state-open)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg></span><span data-text="kindIssue"></span></div>
+      <div class="step-body">
+        <span class="chip state-open">Open</span>
+        <div class="issue-title" style="margin-top:10px">Assign good first issues on a claim comment and release claims with no PR after 7 days <span>#1155</span></div>
+        <div class="labels"><span class="label feature">type: feature</span><span class="label area">area: workflows</span></div>
+      </div>
+      <div class="step-foot"><span class="chip by-agent">/pro-github</span></div>
+    </div>
+
+    <!-- 2 봇 댓글: 브랜치·커밋 템플릿 -->
+    <div class="card step">
+      <div class="step-kind"><span class="icon" style="background:var(--teal-soft);color:var(--teal)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z"/></svg></span><span data-text="kindBranch"></span></div>
+      <div class="step-body">
+        <div class="bot"><span class="avatar"></span><b>github-actions</b> bot</div>
+        <div class="field" data-text="fieldBranch"></div>
+        <div class="code">20261113_#1155_Assign_good_first_issues_on_a_claim…</div>
+        <div class="field" data-text="fieldCommit"></div>
+        <div class="code">Assign good first issues… <span class="hl">: ${type} :</span> {…} …/issues/1155</div>
+      </div>
+      <div class="step-foot"><span class="chip by-actions">GitHub Actions</span></div>
+    </div>
+
+    <!-- 3 커밋 -->
+    <div class="card step">
+      <div class="step-kind"><span class="icon" style="background:var(--accent-soft);color:var(--accent)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg></span><span data-text="kindCommit"></span></div>
+      <div class="step-body">
+        <span class="commit-hash">93699c1</span>
+        <div class="code" style="margin-top:10px">Assign good first issues… <span class="teal">: feat :</span> new repository-only workflow… …/issues/1155</div>
+        <div class="bump-note"><span class="chip by-agent" style="font-size:11px">feat</span>→ <b data-text="bumpMinor"></b></div>
+      </div>
+      <div class="step-foot"><span class="chip by-agent">/pro-commit</span></div>
+    </div>
+
+    <!-- 4 릴리스 PR -->
+    <div class="card step">
+      <div class="step-kind"><span class="icon" style="background:rgba(130,80,223,.12);color:var(--state-merged)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005V3.25Z"/></svg></span><span data-text="kindRelease"></span></div>
+      <div class="step-body">
+        <span class="chip merged">Merged</span>
+        <div class="pr-title">Deploy 20261113-v4.102.0</div>
+        <div class="branches">#1156 · develop → main</div>
+        <div class="versions"><s>4.101.2</s>→<b>4.102.0</b></div>
+        <div class="notes" data-text="notes"></div>
+        <div class="clock"><span data-text="mergedIn"></span> <b>39 s</b></div>
+      </div>
+      <div class="step-foot"><span class="chip by-agent">/pro-changelog-deploy</span></div>
+    </div>
+
+    <!-- 5 태그·배포 -->
+    <div class="card step">
+      <div class="step-kind"><span class="icon" style="background:rgba(9,105,218,.12);color:var(--state-tag)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><span data-text="kindShip"></span></div>
+      <div class="step-body">
+        <div class="tag-row"><span class="tag-name">v4.102.0</span><span class="chip latest">Latest</span></div>
+        <ul class="checks">
+          <li><div><span data-text="checkTag"></span><time>13:52:33</time></div></li>
+          <li><div><span data-text="checkRelease"></span><time>13:54:32</time></div></li>
+          <li><div><span data-text="checkDeploy"></span><time>13:55:46</time></div></li>
+        </ul>
+      </div>
+      <div class="step-foot"><span class="chip by-actions">GitHub Actions</span></div>
+    </div>
+  </div>
+
+  <div class="proof">
+    <span class="big">30<small>s</small></span>
+    <span data-text="proofMedian" data-html></span>
+    <span class="sep"></span>
+    <span data-text="proofTimes"></span>
+  </div>
+</div>
+<script>
+  applyAssetText({
+    en: {
+      eyebrow: "One real cycle on this repo",
+      title: "One issue in. <em>One release out.</em>",
+      legendAgent: "agent skill", legendActions: "GitHub Actions",
+      kindIssue: "Issue", kindBranch: "Branch name", kindCommit: "Commit", kindRelease: "Release PR", kindShip: "Tag & deploy",
+      fieldBranch: "Branch", fieldCommit: "Commit message",
+      bumpMinor: "minor bump",
+      notes: "Community issues are assigned automatically when a contributor comments /assign",
+      mergedIn: "opened → merged in",
+      checkTag: "Version tag", checkRelease: "GitHub release + notes", checkDeploy: "npm publish",
+      proofMedian: "median from release PR opened to merged, across <b>29</b> release PRs (2026-11-07 → 11-13). Nobody touched them.",
+      proofTimes: "Times are UTC, from the real records",
+    },
+    ko: {
+      eyebrow: "이 레포의 실제 사이클 하나",
+      title: "이슈 하나가 들어가면 <em>릴리스 하나가 나옵니다.</em>",
+      legendAgent: "에이전트 스킬", legendActions: "GitHub Actions",
+      kindIssue: "이슈", kindBranch: "브랜치명", kindCommit: "커밋", kindRelease: "릴리스 PR", kindShip: "태그·배포",
+      fieldBranch: "브랜치", fieldCommit: "커밋 메시지",
+      bumpMinor: "minor 승격",
+      notes: "Community issues are assigned automatically when a contributor comments /assign",
+      mergedIn: "열림 → 병합",
+      checkTag: "버전 태그", checkRelease: "GitHub 릴리스 + 노트", checkDeploy: "npm 배포",
+      proofMedian: "릴리스 PR 29건(2026-11-07 ~ 11-13)이 열림부터 병합까지 걸린 시간의 중앙값. 아무도 손대지 않았습니다.",
+      proofTimes: "시각은 UTC, 실제 기록 기준",
+    },
+  });
+</script>
+</body>
+</html>

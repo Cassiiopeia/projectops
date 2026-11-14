@@ -184,6 +184,16 @@ It **diagnoses a GitHub repo as an open source project**. It first determines th
 
 > Issue, PR, and comment work itself is `/pro-github`, and review of code changes is `/pro-review`.
 
+**Example: on this repo.** We ran `/pro-oss-consult` on this repo, then fixed what it found (measured 2026-10-13).
+
+| Check | Before | After |
+|---|---|---|
+| Skill count stated in README and manifests | inconsistent (15 vs 20 stated, actual 15) | consistent: 14 core + 1 in the optional extras plugin |
+| Longest skill description | 1,183 chars; 6 over 1,000 | 237 chars; 0 over 300 |
+| Commit format | hardcoded in `pro-commit` | configurable via preferences and `version.yml` |
+
+What it changed: descriptions were cut to short English triggers, a guard test now checks every core skill's docs, and `pro-commit` follows your team's `version.yml` commit template.
+
 ---
 
 ### `/pro-init-worktree`

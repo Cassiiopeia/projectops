@@ -1,7 +1,10 @@
 <!-- translated-from: README.md@ba95162a -->
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops：Issue からリリースまで" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-hero-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-hero.webp" alt="projectops：Issue からリリースまで、コードを書くだけ" width="100%">
+</picture>
 
 **一度のインストールで Issue → ブランチ → リリース PR → デプロイまで、各ステップをエージェントスキルが動かします。**
 
@@ -11,369 +14,161 @@
 
 </div>
 
----
+## はじめる
 
-## 30 秒ではじめる
+```bash
+npx projectops
+```
 
 | やりたいこと | 実行するもの |
 |---|---|
-| 新しいプロジェクトを始める | GitHub で **Use this template** をクリック（1 分ほどで自動初期化） |
-| 既存プロジェクトに導入する | `npx projectops` |
+| 既存のプロジェクトに追加する | `npx projectops`（対話型ウィザード、事前インストール不要） |
+| 新しいプロジェクトを始める | GitHub で **Use this template** をクリック（約 1 分で自動セットアップ） |
 | Agent Skills だけをインストールする | `npx projectops --mode skills` |
-| インストール状態を点検する（読み取り専用） | `npx projectops --mode doctor` |
+| インストール状態を確認する（読み取り専用） | `npx projectops --mode doctor` |
 
-> Node.js 20.12 以上と Git が必要です（Agent Skills には Python 3 も必要）。別途インストールなしで対話型ウィザードが起動します。
+Node.js 20.12 以上と Git が必要です（Agent Skills には Python 3 も必要）。npm の `latest` は `main` ブランチと完全に同じです。すべてのオプション：[CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語）。
+
+<details>
+<summary>ウィザードの動きを見る（サンプル Spring プロジェクトでの実録）</summary>
 
 ![npx projectops 対話型ウィザード](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> 上の画面はサンプルの Spring プロジェクトで**実際に実行した画面**です（ウィザードはシステムの言語に従います。`--lang en|ko` で指定できます）。画面のバージョン表記は録画時点のものです。非対話型の実行と全オプションは [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語）を参照してください。
+</details>
 
----
+## 1 つの変更がリリースされるまで
 
-## なぜこのテンプレートなのか
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-cycle-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-cycle.webp" alt="Issue #1155、ブランチ案内コメント、feat コミット、39 秒でマージされたリリース PR #1156、タグ v4.102.0 と npm 公開" width="100%">
+</picture>
 
-このプロジェクトは 2 つの軸で開発ワークフローを自動化します。
+上のカードはすべてこのリポジトリの実際の記録です。Issue を開く（または `/pro-github` が登録する）と、ボットがブランチ名とコミットテンプレートをコメントし、`/pro-commit` がコミットを書き、`/pro-changelog-deploy` がリリース PR を開きます。リリース PR はコミットタイトルからバージョンを決め（`feat` → minor）、ノートを書き、自分でマージしてタグを作ります。
 
-**① GitHub Actions**：develop から main へのリリース PR がバージョン管理と変更履歴を処理し、マージすると CI/CD デプロイが動きます。
-**② Agent Skills**：`/pro-github`、`/pro-commit`、`/pro-report` などのコマンドで、AI がその自動化の各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進めます。
+**このリポジトリで計測しました。** 2026-11-07 から 2026-11-13 に develop から main へ開かれたリリース PR 29 件は、開いてからバージョン決定、CHANGELOG・README 更新、タグ作成を終えてマージされるまで中央値 **30 秒**でした（最速 25 秒、最遅 50 秒）。開いた後は誰も触っていません。確認方法：マージ済みリリース PR の `created_at` と `merged_at` を比べてください（`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`）。
 
-| 従来の方法 | Projectops |
-|----------|---------------------|
-| バージョンを手動で管理し、タグも手作業で作成 | リリース時にコミットタイトルに応じてバージョンを自動で上げ、タグを作成 |
-| 変更履歴を手書き | リリース PR ごとに自動生成（コミット分析。AI キーがあれば AI 要約） |
-| CI/CD を一から設定 | プロジェクトタイプ別のワークフローをすぐに構成 |
-| Issue を毎回書式に合わせて作成 | `/pro-github` が標準テンプレートで作成から登録まで一度で実行 |
-| コミットメッセージに Issue の URL を手作業でコピー | `/pro-commit` が Issue の文脈から、自分の形式で自動補完 |
-| PR の説明やレポートを手書き | `/pro-report` が git diff を分析して自動生成 |
-| コードレビューや分析のたびにプロンプトを入力 | 18 種の Skills で一貫した結果。毎回の再入力は不要 |
+<details>
+<summary>実際の動き：Issue、PR 要約、リリース（サンプルリポジトリで録画、隅の時計は実時間）</summary>
 
-**このリポジトリでの実測値。** 2026-11-07〜2026-11-13 に develop から main へ開いたリリース PR 29 件は、PR を開いてからバージョン決定、CHANGELOG・README の更新、タグ作成を終えてマージされるまで中央値 **30 秒**でした（最短 25 秒、最長 50 秒）。PR を開いた後、人の操作はありません。マージ済みリリース PR の `created_at` と `merged_at` を比べれば確認できます（`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`）。
-
----
-
-## 他のツールとの比較
-
-この中の一部だけが必要なら、もっと小さなツールのほうが合うかもしれません。
-
-| | projectops | release-please | semantic-release | changesets |
-|---|---|---|---|---|
-| バージョンの決め方 | コミットタイトル（`feat` → minor、`feat!` → major） | Conventional Commits | Conventional Commits（設定可能） | PR ごとに書く changeset ファイル |
-| リリース前の確認段階 | リリース PR（develop → main）、自動マージ | 自分でマージするリリース PR | 既定ではなし、push で即リリース | 「Version Packages」PR |
-| 変更履歴 | リリース PR で作成（コミット分析または AI 要約） | 自動生成 | 自動生成（プラグイン） | changeset ファイルから組み立て |
-| プロジェクトタイプ別の CI/CD ワークフロー | あり（Spring、Flutter、React、Node、Python ...） | なし | なし | なし |
-| サイクルを回す Agent Skills（Issue、worktree、自分のスタイルのコミット、レポート、リリース PR、実機 QA） | あり | なし | なし | なし |
-| リポジトリに追加されるもの | 約 60 ファイル（下記） | ワークフロー 1 つと設定ファイル | 設定ファイルと CI ステップ | `.changeset/` フォルダーと CI ステップ |
-
-- バージョンと変更履歴だけが必要なら、release-please か semantic-release のほうが軽量です。
-- モノレポから npm パッケージを公開し、PR ごとに変更内容を書かせたいなら changesets が合います。
-- Issue → ブランチ → リリース PR → デプロイまでを一度に導入し、その上で Agent Skills も使いたいなら projectops です。
-
-**導入規模（実測）。** 2026-11-05 に v4.84.0 で、空のリポジトリに `npx projectops --mode full --type basic --force` を実行すると 56 ファイルが追加されました：ワークフロー 8 個、`.github/scripts/` 配下の補助スクリプト 30 個、Issue・PR・Discussion テンプレート、`version.yml`、設定ガイド。`--type spring` では 60 ファイル（ワークフロー 12 個）でした。
-
----
-
-## 実際の動作画面
-
-以下は、テスト用の組織にあるサンプルリポジトリに projectops を導入し、**実際に実行して録画した画面**です。右上のタイマーは実際の経過時間で、待ち時間の部分だけを早送りで再生しています。
-
-### ① Issue を開くと、ブランチ名とコミットメッセージが自動で付く
+**Issue を開く**と、ブランチ名とコミットテンプレートのコメントが付きます。
 
 ![Issue を開くと案内コメントが自動で付く画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
 
-Issue を開くと GitHub Actions が自動で動き、**ブランチ名とコミットメッセージのテンプレート**をコメントで知らせます。このブランチ名で作業すると、Issue 番号がコミットやレポートに自動で連動します。
+**PR を開く**と、コミットから作った変更要約が投稿され、push のたびに同じコメントが更新されます。
 
-**エージェントで進める：** `/pro-github` で Issue を作成し、`/pro-init-worktree` で作業環境を用意し、`/pro-commit` で自分の形式のコミットを書きます。
+![PR を開くと変更要約コメントが付く画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
-### ② PR を開くと、変更の要約が自動で付く
+**リリース PR を開く**と、ノート作成、バージョン決定、マージ、タグ作成まで進みます。
 
-![PR を開くと変更の要約コメントが付く画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
-
-作業ブランチから PR を開くと、コミットを分析した**変更の要約**がコメントで付きます。コミットを追加しても新しいコメントを積み重ねず、同じコメントを更新します。
-
-**エージェントで進める：** `/pro-report` が diff を分析して実装レポートを投稿し、`/pro-agent-test` が実際に実行して検証します。
-
-### ③ リリース PR を開くと、バージョン確定からマージ、タグまで自動
-
-![リリース PR が自動でマージされタグができる画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
-
-開発ブランチから `main` へ PR を開くと、リリースノートを書き、コミットタイトル（`feat`、`fix` など）でバージョンを決めて PR タイトルに反映し、自動でマージして**バージョンタグ**まで作ります。この例は `feat` コミットなので minor が上がりました。
-
-**エージェントで進める：** `/pro-changelog-deploy` が develop を push してリリース PR を開きます。
-
-
-### 4. UI モックアップを表示して操作し、選ぶ
-
-![連動する 2 つのモックアップ画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
-
-モックアップを頼むと、実際に動いて反応するローカルページが開きます。この例では 2 つの画面が状態を共有し、左で注文すると右のキッチン画面に表示されます。モックアップにはリポジトリのトークンとフォントが使われ、同じ実行でこのような GIF を Issue に投稿できます。
-
-**エージェントで進める：** `/pro-ui-design` が案を表示し、選んだ案を次のスキルが引き継げるよう記録し、決めきれないときはデザイナーに渡します。
-
----
-
-## 自分好みにする（Make it yours）
-
-Skill は自分のスタイルで書きます。好みは `~/.projectops/config/config.json` に書きます。初回実行時に質問はしません。
-
-```json
-{
-  "preferences": { "language": "ja", "tone": "短く簡潔に", "rules": ["絵文字なし"] },
-  "skills": { "pro-commit": { "preset": "gitmoji" } }
-}
-```
-
-`version.yml` のチーム形式が優先され、自分のトーンはそのまま適用されます。詳しくは [Skills ガイド](../en/skills.md)を参照してください。
-
-### 例: このリポジトリで /pro-oss-consult を実行
-
-このリポジトリで `/pro-oss-consult` を実行し、見つかった問題を修正しました（測定日 2026-10-13）。
-
-| 項目 | 前 | 後 |
-|---|---|---|
-| README とマニフェストのスキル数表記 | 不一致（15 と 20 の表記、実際は 15） | 一致: コア 14 + 任意の extras プラグイン 1 |
-| 最長のスキル description | 1,183 文字、1,000 文字超が 6 件 | 237 文字、300 文字超は 0 件 |
-| コミット形式 | `pro-commit` に固定 | 設定と `version.yml` で変更可能 |
-
-変更点: description を短い英語のトリガーに縮め、ガードテストでコアスキルの文書を検査し、`pro-commit` がチームの `version.yml` のコミットテンプレートに従うようにしました。
-
----
-
-## 構成要素
-
-| 構成 | できること | ドキュメント |
-|---|---|---|
-| **GitHub Actions** | develop から main へのリリース PR がバージョン管理と変更履歴を処理し、マージすると CI/CD デプロイが動きます | [バージョン管理](https://cassiiopeia.github.io/projectops/version-control)（英語） |
-| **Agent Skills**（18 種） | `/pro-github`、`/pro-commit`、`/pro-report` などで、AI が各ステップ（Issue、自分のスタイルのコミット、レポート、リリース PR）を代わりに進める | [Skills ガイド](https://cassiiopeia.github.io/projectops/skills)（英語） |
-| **npx CLI** | 既存プロジェクトにワークフローを導入・更新し、状態を診断 | [CLI リファレンス](https://cassiiopeia.github.io/projectops/cli)（英語） |
-
-<details>
-<summary>Agent Skills 18 種をすべて見る</summary>
-
-### 🔄 開発サイクルの自動化
-
-| スキル | 用途 |
-|------|------|
-| `/pro-init-worktree` | Git worktree を作成し、機密ファイルを自動でコピー |
-| `/pro-commit` | Issue の文脈から、自分の形式（preset・template）でコミットメッセージを自動補完 |
-| `/pro-report` | git diff を分析 → 実装レポートを生成し、GitHub コメントとして自動投稿 |
-| `/pro-changelog-deploy` | develop を push → main へのリリース PR を作成 + リリースノート作成 + automerge |
-| `/pro-github` | GitHub 全般：Issue の作成（一行の説明 → テンプレートで作成・登録）/参照/編集/コメント/ラベル/担当者、PR の作成/マージ/参照、リポジトリ探索、Actions・Secret の管理 |
-
-### 📊 分析型（コードを変更しない）
-
-| スキル | 用途 |
-|------|------|
-| `/pro-review` | セキュリティ・性能・バグ・品質など 6 つの観点でレビューし、Critical/Major/Minor に分類 |
-
-### 🔧 実装型（実際にコードを書く）
-
-| スキル | 用途 |
-|------|------|
-| `/pro-figma` | Figma のデザインをコードに移し、出来上がりがデザインと同じかをピクセル単位で比較 |
-| `/pro-launch` | アプリ・Web・サーバーを起動・操作・撮影：ステータスバー固定、幅の変更、レスポンスの差し替え（空リスト・失敗の再現）、コードによる描画 |
-| `/pro-desktop-control` | Web ページでもエミュレーターでもない、このコンピューター画面のプログラム（インストールウィザード・OS ダイアログ・デスクトップアプリ）を操作：要素を読み取り、マウスを動かさずに押し、インストール前に確認し、セキュリティ確認画面はユーザーに任せる。Windows と macOS に対応（macOS では通知・システムダイアログ、Apple アカウントのサインインコードにも対応） |
-| `/pro-ui-design` | ローカル URL で UI モックアップを確認：リポジトリの実際のトークンとフォントでレイアウトを比較し、アニメーションや複数画面の連動プロトタイプを実際に操作する。選んだ案を実装、PNG・GIF を Issue に投稿、または状態別キャプチャと文言候補を付けてデザイナーへ |
-| `/pro-image` | プロジェクトの画風に合う画像アセット(背景、キャラクター、アイコン、イラスト、アイテム)を作る。エージェントがリポジトリのアートハーネスから大まかな依頼を完全なプロンプトに書き直し、Codex(ChatGPT サブスクリプション)か Antigravity が描き、CLI がサイズと本物の透過背景を整える。画風が未定なら複数の画風を比較ボードで見せて選ばせる |
-| `/pro-presentation` | 発表を HTML デッキで作るか既存の PPT を取り込み、1 枚ずつ声に出して練習しながら台本を自分の口に合わせる。伝えた方針は発表メモリに残り全スライドに反映。PDF と文字を編集できる PPT に書き出し、HTML と照合して検収する |
-| `/pro-oss-consult` | GitHub リポジトリをオープンソースとして診断：性格の判別、6 軸の採点、成熟度ステージ、承認を得た内容だけ About・topics・ラベル・ファイルを修正。単一リポジトリもアカウント全体も対応 |
-| `/pro-code-consult` | AI が書いたコードを自分のコーディング規約で保守：監査、承認した項目だけ 1 つずつリファクタリング（前後比較）、差分の古いコメント・重複チェック、既存違反の凍結（減る一方） |
-
-> 設計・計画・実装の流れは `superpowers`（brainstorming → writing-plans → executing-plans）が担当します（このプラグインではありません）。
-
-### 📝 ドキュメント・成果物の生成型
-
-| スキル | 用途 |
-|------|------|
-| `/pro-testcase` | Issue を分析 → QA チェックリストを生成 |
-| `/pro-agent-test` | アプリ・Web・サーバーを実際に動かしてバグを探す QA。再現手順・根拠・深刻度とともに報告（コードは修正しない） |
-| `/pro-ssh` | リモートサーバーへ SSH 接続してコマンドを実行（AWS EC2、Synology NAS、Linux など汎用） |
-| `/pro-skill-creator` | Skill の作成・レビュー・改善（CREATE・REVIEW・IMPROVE の 3 モード） |
-
-**Extras**（オプションのプラグイン）：`/pro-synology-expose` — `claude plugin install projectops-extras@projectops-marketplace --scope user`
+![リリース PR が自動マージされタグが作られる画面](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
 
 </details>
 
-<details>
-<summary>開発サイクルとパイプラインの図を見る</summary>
+## 得られるもの
 
-### AI 開発サイクル
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-features-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-features.webp" alt="GitHub Actions：Issue ごとのブランチ名、コミットタイトルからのバージョン、スタックに合った CI/CD。Agent Skills：自分のスタイルの Issue とコミット、実際に動かして確認、押せるモックアップ" width="100%">
+</picture>
 
-Agent Skills が開発サイクル全体をカバーします。
+| これまでのやり方 | projectops |
+|---|---|
+| バージョン・タグ・変更履歴を手作業で | リリース PR がコミットタイトルからバージョンを決め、ノートとタグまで作る |
+| CI/CD をゼロから構築 | Spring・Flutter・React・Python・Node のワークフローをインストール直後から利用 |
+| Issue とコミットメッセージを毎回手で整える | `/pro-github` と `/pro-commit` がチームの形式で書く |
+| コードレビューや分析のたびにプロンプトを入力 | 18 種の Skills で一貫した結果。毎回の再入力は不要 |
 
-```mermaid
-flowchart TD
-    A(["作業開始"]) --> B["/pro-github<br/>Issue 登録"]
-    B --> C["/pro-init-worktree<br/>worktree + 機密ファイルのコピー"]
-    C --> D{"作業の種類"}
+**押せるモックアップ。** `/pro-ui-design` はリポジトリのトークンとフォントで作ったモックアップをローカル URL に表示します。下の例では 2 つの画面が 1 つの状態を共有し、左で注文すると右のキッチン画面に届きます。同じ実行でこの GIF を Issue に投稿することもできます。
 
-    D -->|新機能・設計・リファクタリング| E1["superpowers:brainstorming<br/>何をなぜ作るかを確定"]
-    D -->|バグ・障害| E2["superpowers:systematic-debugging<br/>原因を調査"]
+![顧客アプリの注文がキッチン画面に届く、連動する 2 つのモックアップ](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
 
-    E1 --> P["superpowers:writing-plans<br/>実装計画"]
-    P --> F["superpowers:executing-plans<br/>計画の実行"]
-    E2 --> F
-    F --> H["/pro-review<br/>セルフレビュー"]
-    H --> I["/pro-commit<br/>Issue 連携コミット"]
-    I --> J["/pro-report<br/>実装レポート + GitHub コメント"]
-    J --> K(["PR 作成"])
-    K --> L["/pro-changelog-deploy<br/>リリース PR + automerge"]
-```
+## Agent Skills
 
-> Skills の全一覧と詳しい使い方：**[docs/en/skills.md](../en/skills.md)**（英語）
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-skills-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-skills.webp" alt="18 のスキルを開発サイクル、構築と検証、デザイン・メディア・保守の 3 グループで示した図" width="100%">
+</picture>
 
-### GitHub Actions 自動化パイプライン
-
-```mermaid
-flowchart TD
-    A([develop へ push]) --> B[開発を統合]
-    B --> C[develop→main リリース PR]
-    C --> D["PR 内でバージョン確定<br/>コミットに基づく昇格 + タグ + AI 変更履歴"]
-    D --> E[自動マージ]
-    E --> F["main push → CI/CD デプロイ<br/>Flutter / Spring / React など"]
-    F --> G([完了])
-```
-
-</details>
+**Agent Skills**（18 種）は Claude Code、Codex CLI、Gemini CLI、Cursor、GitHub Copilot で動き、あなたのスタイルで書きます（`~/.projectops/config/config.json`、[Skills ガイド](https://cassiiopeia.github.io/projectops/skills)（英語）を参照）。設計・計画・実装は `superpowers`（brainstorming → writing-plans → executing-plans）が担当します。
 
 <details>
-<summary>Agent Skills だけをインストールする（Claude Code、Gemini CLI、Codex CLI、Cursor）</summary>
+<summary>Agent Skills 全 18 種とインストール方法を見る</summary>
+
+| グループ | スキル | 用途 |
+|---|---|---|
+| サイクル | `/pro-github` | Issue（1 行 → テンプレート）、PR、ラベル、コメント、リポジトリ探索、Actions、Secret |
+| サイクル | `/pro-init-worktree` | Git worktree を作成し、必要なローカルファイルをコピー |
+| サイクル | `/pro-commit` | Issue の文脈から自分の形式でコミットメッセージを完成（プリセットまたはテンプレート） |
+| サイクル | `/pro-review` | 6 つの観点でレビューし、Critical / Major / Minor に分類 |
+| サイクル | `/pro-report` | git diff → フローチャート付き実装レポートをコメントで投稿 |
+| サイクル | `/pro-changelog-deploy` | develop を push → main へのリリース PR + リリースノート + 自動マージ |
+| 構築と検証 | `/pro-launch` | アプリ・Web・サーバーの起動、操作、キャプチャ。空リストや失敗応答も再現 |
+| 構築と検証 | `/pro-agent-test` | 実際に動かす QA。再現手順・証拠・重大度を報告 |
+| 構築と検証 | `/pro-testcase` | Issue → QA チェックリスト |
+| 構築と検証 | `/pro-figma` | Figma デザイン → コード → ピクセル比較 |
+| 構築と検証 | `/pro-desktop-control` | インストーラー、OS ダイアログ、デスクトップアプリの操作。インストール前に確認 |
+| 構築と検証 | `/pro-ssh` | SSH でサーバーのコマンドを実行（EC2、Synology NAS、Linux） |
+| デザインと保守 | `/pro-ui-design` | ローカル URL で比較・操作・選択できるモックアップ、デザイナーへの依頼書 |
+| デザインと保守 | `/pro-image` | プロジェクトの画風に合った画像アセット、本物の透過 |
+| デザインと保守 | `/pro-presentation` | HTML 発表資料の作成、声に出すリハーサルのコーチング、PDF・PPT 出力 |
+| デザインと保守 | `/pro-code-consult` | AI が書いたコードを自分のコーディング規約で保守しやすく |
+| デザインと保守 | `/pro-oss-consult` | オープンソースとしてリポジトリを採点し、承認したものだけ修正 |
+| デザインと保守 | `/pro-skill-creator` | スキルの作成・レビュー・改善 |
+
+**Extras**（任意のプラグイン）：`/pro-synology-expose`、`/pro-skill-bug`（どのセッションからでもスキルのバグを報告）、`/pro-disk-cleanup`（ディスク容量を安全に整理）、`/pro-orca-tunnel`（Orca Web の公開 URL を発行）。インストール：`claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code
 claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
-```
-
-```bash
 # Gemini CLI
 gemini extensions install https://github.com/Cassiiopeia/projectops
-```
-
-```bash
 # Codex CLI (macOS / Linux)
 codex plugin marketplace add Cassiiopeia/projectops
-```
-
-`--mode skills` ウィザードは Codex marketplace を登録したうえで、ネイティブ skills のフォールバックも自動で準備します。`/plugins` はインストールの確認・管理にのみ使ってください。
-
-Codex plugin marketplace が使えない環境では、[Skills ガイド](../en/skills.md)のフォールバックのインストール方法を使ってください。
-
-```bash
-# Cursor / すべての Agent Skills のインストールメニュー（推奨：npx）
+# Cursor、GitHub Copilot、フルメニュー
 npx projectops --mode skills
 ```
 
-> Claude Code は `/pro-` の自動補完、Gemini は extension、Codex は plugin marketplace を優先して使います。詳しくは [Skills ガイド](../en/skills.md)を参照してください。
-
 </details>
 
----
+## 他のツールとの比較
 
-## 対応プロジェクトタイプ
+一部だけが必要なら、より小さなツールのほうが合うかもしれません（[全体の比較](https://cassiiopeia.github.io/projectops/compare)、英語）。
 
-| タイプ | バージョンファイル | CI/CD |
-|------|----------|-------|
-| `spring` | build.gradle | SSH+Docker デプロイ、Nexus |
-| `flutter` | pubspec.yaml | TestFlight、Play Store |
-| `react`（Next.js を含む） | package.json | Docker |
-| `node` | package.json | npm 公開 (`--publish npm`) |
-| `python` | pyproject.toml | SSH+Docker デプロイ |
-| `react-native` | Info.plist + build.gradle | — |
-| `react-native-expo` | app.json | — |
-| `basic` | version.yml のみ | — |
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| バージョンの決め方 | コミットタイトル | Conventional Commits | Conventional Commits | changeset ファイル |
+| リリースの手順 | リリース PR、自動マージ | 自分でマージするリリース PR | push でリリース | "Version Packages" PR |
+| プロジェクト種別ごとの CI/CD | あり | なし | なし | なし |
+| サイクル全体を回すエージェントスキル | あり | なし | なし | なし |
+| リポジトリに追加されるもの | 約 60 ファイル | ワークフロー + 設定 | 設定 + CI ステップ | `.changeset/` + CI ステップ |
 
----
+## 合わないケース
 
-## コメントコマンド
+- **GitHub 専用。** GitHub Actions と Issue・PR が前提です。
+- **2 つのブランチ。** リリースは開発ブランチからデフォルトブランチへ進みます（名前は `version.yml` で変更）。
+- **約 60 ファイル**がリポジトリに追加されます（ワークフロー、補助スクリプト、テンプレート）。
+- **リリースが頻繁です。** `latest` は `main` に追従します。`npx projectops@<version>` が固定するのはインストーラーだけで、ワークフローテンプレートは固定されません。
+- **サーバーデプロイは SSH で接続できる Docker ホストを前提とします。** 個人アクセストークンは任意です（[設定](https://cassiiopeia.github.io/projectops/getting-started)）。
 
-Issue や PR へのコメントで自動化を実行します。
+対応タイプ：`spring`、`flutter`、`react`（Next.js を含む）、`node`、`python`、`react-native`、`react-native-expo`、`basic`。`@projectops server build`、`@projectops build app` などのコメントコマンド：[PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)、[Flutter ビルド](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger)、[Issue 自動化](https://cassiiopeia.github.io/projectops/issue-automation)。
 
-| コマンド | 機能 | 対象 |
-|--------|------|------|
-| `@projectops server build` | 一時サーバーをデプロイ | Spring、Python |
-| `@projectops server destroy` | サーバーを削除 | Spring、Python |
-| `@projectops server status` | サーバーの状態を確認 | Spring、Python |
-| `@projectops build app` | iOS + Android をビルド | Flutter |
-| `@projectops apk build` | Android のみビルド | Flutter |
-| `@projectops ios build` | iOS のみビルド | Flutter |
-| `@projectops create qa` | QA Issue を自動作成 | すべてのプロジェクト |
+## コミュニティ
 
-> 詳細：[PR Preview](../en/pr-preview.md) | [Flutter ビルド](../en/flutter-test-build-trigger.md) | [Issue 自動化](../en/issue-automation.md)
-
----
-
-## 設定
-
-### 個人アクセストークン（任意）
-
-すべてのワークフローは組み込みの `GITHUB_TOKEN` で動きます。次の機能が必要なときだけ、個人アクセストークンをリポジトリの Secret `_GITHUB_PAT_TOKEN` として登録してください。
-
-| 必要な機能 | 組み込みトークンでは足りない理由 | Classic トークンの権限 |
-|---|---|---|
-| ブランチ保護ルールが Actions ボットを止めても、リリース PR をマージしたい | リリースワークフローが `--admin` でマージを再試行し、管理者のトークンが必要になる | `repo`、`workflow` |
-| Issue のラベルを GitHub Projects ボードと同期したい | `GITHUB_TOKEN` は Projects API を使えない | `repo`、`project` |
-| 非公開リポジトリで、Issue ヘルパーのコメントに他のワークフローを反応させたい | `GITHUB_TOKEN` が作ったイベントは他のワークフローを起動しない | `repo` |
-
-トークンがなくても、リリースのマージ後に動くべきワークフローは明示的な dispatch で起動するので、その用途にはトークンは不要です。
-
-fine-grained トークンなら **Contents**、**Pull requests**、**Issues**、**Workflows** を *Read and write* にすれば 1 つ目の機能には足りるはずです。fine-grained トークンはまだ最後まで検証しておらず、Projects 同期は classic トークンでしか確認していません。失敗したら Issue で知らせてください。
-
-```
-Repository Settings → Secrets → Actions → New repository secret
-Name: _GITHUB_PAT_TOKEN
-```
-
-### Organization の設定
-
-```
-Settings → Actions → General
-├─ ✅ Allow GitHub Actions to create and approve pull requests
-└─ ✅ Read and write permissions
-```
-
----
-
-## 知っておいてほしいこと
-
-合わない場合は、先にお伝えしておきます。
-
-- **GitHub 専用です。** GitHub Actions と GitHub の Issue・PR を前提にしているため、GitLab などには対応していません。
-- **リリースは「開発ブランチ → デフォルトブランチ」の PR 構成を前提にしています。** ブランチ名は `version.yml` で変更できますが、2 つのブランチを分けて使わないリポジトリには合いません。
-- **個人アクセストークン（PAT）は任意です。** ブランチ保護を越えてマージするときと、Projects ボードを同期するときだけ必要です。[設定](#設定)を見てください。
-- **リポジトリに約 60 ファイルが追加されます**（ワークフロー、補助スクリプト、テンプレート）。[実測](#他のツールとの比較)を見てください。
-- **新しいバージョンが頻繁に出ます。** 検証したバージョンは `npx projectops@<バージョン>` で固定してください。
-- **サーバーデプロイのワークフローは、SSH で接続できる Docker サーバーを前提にしています。**
-
----
+- **初めての貢献なら** [`good first issue`](https://github.com/Cassiiopeia/projectops/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) を選び、`/assign` だけを 1 行でコメントすると、ボットが 7 日間あなたを担当者にします。
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) · [ARCHITECTURE.md](../../ARCHITECTURE.md) · [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md) · [SECURITY.md](../../SECURITY.md)（脆弱性は非公開で報告）
+- バグや要望は [Issues](https://github.com/Cassiiopeia/projectops/issues)、質問は [Discussions](https://github.com/Cassiiopeia/projectops/discussions) へ。完了した Issue には `status: done` が付き、リリースのマージ時に閉じられます。
 
 ## ドキュメント
 
-すべての内容を**[ドキュメントサイト](https://cassiiopeia.github.io/projectops/)** で検索しながら見られます。ガイドは英語と[韓国語](https://cassiiopeia.github.io/projectops/ko/)で読めます。
+すべて **[ドキュメントサイト](https://cassiiopeia.github.io/projectops/)**（英語・韓国語）にあります：[はじめに](https://cassiiopeia.github.io/projectops/getting-started) · [CLI](https://cassiiopeia.github.io/projectops/cli) · [Agent Skills](https://cassiiopeia.github.io/projectops/skills) · [バージョン管理](https://cassiiopeia.github.io/projectops/version-control) · [変更履歴](https://cassiiopeia.github.io/projectops/changelog-automation) · [SSH + Docker デプロイ](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide) · [Flutter CI/CD](https://cassiiopeia.github.io/projectops/flutter-cicd-overview) · [トラブルシューティング](https://cassiiopeia.github.io/projectops/troubleshooting)
 
-- [はじめに（英語）](https://cassiiopeia.github.io/projectops/getting-started)
-- [CLI リファレンス（英語）](https://cassiiopeia.github.io/projectops/cli)
-- [Agent Skills ガイド（英語）](https://cassiiopeia.github.io/projectops/skills)
-- [バージョン管理（英語）](https://cassiiopeia.github.io/projectops/version-control)
-- [変更履歴の自動化（英語）](https://cassiiopeia.github.io/projectops/changelog-automation)
-- [PR Preview（英語）](https://cassiiopeia.github.io/projectops/pr-preview)
-- [Issue 自動化（英語）](https://cassiiopeia.github.io/projectops/issue-automation)
-- [SSH + Docker デプロイ（英語）](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide)
-- [Flutter CI/CD（英語）](https://cassiiopeia.github.io/projectops/flutter-cicd-overview)
-- [トラブルシューティング（英語）](https://cassiiopeia.github.io/projectops/troubleshooting)
-
----
-
-## サポート
-
-- [Issues](https://github.com/Cassiiopeia/projectops/issues)：バグ報告、機能リクエスト
-  - このリポジトリは完了した Issue を閉じず、`작업완료`（完了）ラベルで示します。未解決の Issue 数が多く見える理由です。
-- [CONTRIBUTING.md](../../CONTRIBUTING.md)：コントリビューションガイド（英語）
-- [SECURITY.md](../../SECURITY.md)：セキュリティ上の脆弱性は、公開 Issue ではなく非公開で報告してください
+全バージョン履歴：[CHANGELOG.md](../../CHANGELOG.md)
 
 ---
 
 <div align="center">
 
-**MIT License**
+**MIT License** · README の画像は [`docs/recording/readme_assets/`](../recording/readme_assets/) からレンダリングしています
 
 </div>

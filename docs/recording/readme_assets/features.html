@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<!-- README 기능 카드 6장: 윗줄 GitHub Actions 3개, 아랫줄 에이전트 스킬 3개 (그림은 CSS·SVG 만) -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<script src="assets.js"></script>
+<style>
+  .canvas { width: 1200px; padding: 40px 44px 44px; }
+  .row-head { display: flex; align-items: baseline; gap: 14px; margin: 0 0 16px; }
+  .row-head h3 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.03em; }
+  .row-head p { margin: 0; font-size: 14.5px; color: var(--sub); }
+  .row-head .badge { width: 10px; height: 10px; border-radius: 3px; align-self: center; }
+  .row + .row { margin-top: 34px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+
+  .feature { overflow: hidden; }
+  .art { position: relative; height: 158px; background: var(--surface-muted); border-bottom: 1px solid var(--line); overflow: hidden; }
+  .art::before { content: ""; position: absolute; inset: 0;
+    background-image: linear-gradient(var(--canvas-line) 1px, transparent 1px), linear-gradient(90deg, var(--canvas-line) 1px, transparent 1px);
+    background-size: 20px 20px; mask-image: radial-gradient(70% 90% at 50% 50%, #000, transparent); }
+  .text { padding: 18px 20px 20px; }
+  .text h4 { margin: 0; font-size: 17px; font-weight: 750; letter-spacing: -0.02em; }
+  .text p { margin: 7px 0 0; font-size: 14px; line-height: 1.5; color: var(--sub); }
+  .text code { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 5px; letter-spacing: 0; }
+
+  /* 그림 공통 조각 */
+  .mini { position: absolute; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-card); }
+  .bar { height: 7px; border-radius: 4px; background: var(--line); }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0; }
+  .pill.teal { background: var(--teal-soft); color: var(--teal); }
+  .pill.indigo { background: var(--accent-soft); color: var(--accent); }
+
+  /* 1 이슈 + 봇 댓글 */
+  .issue-art .issue { left: 34px; top: 26px; width: 200px; padding: 12px; }
+  .issue-art .issue .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--state-open); display: inline-block; vertical-align: middle; }
+  .issue-art .comment { left: 120px; top: 74px; width: 210px; padding: 11px 12px; }
+  .issue-art .comment .who { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sub); margin-bottom: 8px; }
+  .issue-art .comment .who i { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--teal)); }
+
+  /* 2 커밋 > 버전 */
+  .bump-art .commits { position: absolute; left: 26px; top: 24px; display: grid; gap: 8px; }
+  .bump-art .line { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); width: 150px; }
+  .bump-art .line .bar { flex: 1; }
+  .bump-art .arrow { position: absolute; left: 188px; top: 70px; color: var(--faint); }
+  .bump-art .version { position: absolute; right: 24px; top: 34px; width: 118px; padding: 12px 12px 14px; text-align: center; border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), #7c3aed); color: #fff; box-shadow: var(--shadow-float); }
+  .bump-art .version small { display: block; font-size: 10.5px; opacity: 0.8; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+  .bump-art .version b { font-family: var(--font-mono); font-size: 19px; letter-spacing: 0; }
+  .bump-art .version s { display: block; margin: 6px 0 2px; font-family: var(--font-mono); font-size: 11px; opacity: 0.65; }
+
+  /* 3 스택 타일 */
+  .stack-art .tiles { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .tile { width: 54px; height: 54px; border-radius: 15px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px;
+    box-shadow: var(--shadow-card); position: relative; }
+  .tile small { position: absolute; bottom: -20px; left: 50%; transform: translateX(-50%); font-size: 10.5px; color: var(--sub); font-weight: 600; white-space: nowrap; }
+  .tile.spring { background: linear-gradient(135deg, #6db33f, #3d8b1f); }
+  .tile.flutter { background: linear-gradient(135deg, #54c5f8, #01579b); }
+  .tile.react { background: linear-gradient(135deg, #1f2937, #0b1220); color: #61dafb; }
+  .tile.python { background: linear-gradient(135deg, #4b8bbe, #2b5b84); color: #ffd43b; }
+  .tile.node { background: linear-gradient(135deg, #5fa04e, #2f6b26); }
+  .tile.up { transform: translateY(-10px); }
+  html[data-theme="dark"] .tile.react { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), var(--shadow-card); }
+  html[data-theme="dark"] .run-art .phone { background: #2b3352; }
+
+  /* 4 채팅 > 커밋 */
+  .chat-art .prompt { left: 26px; top: 24px; padding: 10px 12px; border-radius: 12px 12px 12px 4px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); letter-spacing: 0; }
+  .chat-art .prompt b { color: var(--accent); }
+  .chat-art .result { right: 22px; top: 74px; width: 250px; padding: 10px 12px; }
+  .chat-art .result .meta { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--sub); margin-bottom: 7px; }
+  .chat-art .result code { display: block; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; color: var(--ink); letter-spacing: 0; }
+  .chat-art .result code b { color: var(--teal); }
+
+  /* 5 기기 + 브라우저 실행 */
+  .run-art .browser { left: 30px; top: 22px; width: 196px; height: 118px; overflow: hidden; }
+  .run-art .browser .top { height: 20px; display: flex; gap: 4px; align-items: center; padding: 0 8px; border-bottom: 1px solid var(--line); }
+  .run-art .browser .top i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+  .run-art .browser .body { padding: 10px; display: grid; gap: 7px; }
+  .run-art .phone { right: 46px; top: 14px; width: 74px; height: 134px; border-radius: 16px; padding: 5px; background: #0d1324; border: 0; }
+  .run-art .phone .screen { width: 100%; height: 100%; border-radius: 12px; background: var(--surface); padding: 14px 7px; display: grid; gap: 6px; align-content: start; }
+  .run-art .check { position: absolute; right: 30px; top: 104px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--teal); color: #fff; box-shadow: var(--shadow-float); }
+  .run-art .shutter { position: absolute; left: 196px; top: 108px; }
+
+  /* 6 연결된 두 화면 */
+  .mock-art .screen-a, .mock-art .screen-b { top: 18px; width: 92px; height: 124px; border-radius: 16px; padding: 10px 8px; display: grid; gap: 6px; align-content: start; }
+  .mock-art .screen-a { left: 66px; }
+  .mock-art .screen-b { right: 66px; }
+  .mock-art .food { height: 34px; border-radius: 9px; background: linear-gradient(135deg, #fbbf77, #f97362); }
+  .mock-art .food.alt { background: linear-gradient(135deg, #a7f3d0, #34d399); }
+  .mock-art .cta { height: 16px; border-radius: 6px; background: var(--accent); margin-top: 4px; }
+  .mock-art .ticket { height: 26px; border-radius: 8px; border-left: 3px solid var(--teal); background: var(--teal-soft); }
+  .mock-art .link { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); display: flex; align-items: center; gap: 4px; color: var(--accent); }
+  .mock-art .link i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }
+  .mock-art .cursor { position: absolute; left: 132px; top: 118px; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+  <div class="row">
+    <div class="row-head"><span class="badge" style="background:var(--teal)"></span><h3>GitHub Actions</h3><p data-text="rowActions"></p></div>
+    <div class="grid">
+      <div class="card feature">
+        <div class="art issue-art">
+          <div class="mini issue"><span class="dot"></span> <span class="bar" style="display:inline-block;width:120px;vertical-align:middle;margin-left:4px"></span><div class="bar" style="margin-top:10px;width:150px"></div><div class="bar" style="margin-top:6px;width:110px"></div></div>
+          <div class="mini comment"><div class="who"><i></i>github-actions</div><span class="pill teal">20261113_#1155_…</span></div>
+        </div>
+        <div class="text"><h4 data-text="aTitle"></h4><p data-text="aLine" data-html></p></div>
+      </div>
+      <div class="card feature">
+        <div class="art bump-art">
+          <div class="commits">
+            <div class="line"><span class="pill teal" style="padding:2px 7px">fix</span><span class="bar"></span></div>
+            <div class="line"><span class="pill indigo" style="padding:2px 7px">feat</span><span class="bar"></span></div>
+            <div class="line"><span class="pill indigo" style="padding:2px 7px">feat</span><span class="bar"></span></div>
+          </div>
+          <svg class="arrow" width="40" height="20" viewBox="0 0 40 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 10h34M28 3l8 7-8 7"/></svg>
+          <div class="version"><small>minor</small><s>4.101.2</s><b>4.102.0</b></div>
+        </div>
+        <div class="text"><h4 data-text="bTitle"></h4><p data-text="bLine" data-html></p></div>
+      </div>
+      <div class="card feature">
+        <div class="art stack-art">
+          <div class="tiles">
+            <div class="tile spring">S<small>Spring</small></div>
+            <div class="tile flutter up">F<small>Flutter</small></div>
+            <div class="tile react">R<small>React</small></div>
+            <div class="tile python up">Py<small>Python</small></div>
+            <div class="tile node">N<small>Node</small></div>
+          </div>
+        </div>
+        <div class="text"><h4 data-text="cTitle"></h4><p data-text="cLine" data-html></p></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="row-head"><span class="badge" style="background:var(--accent)"></span><h3>Agent Skills</h3><p data-text="rowSkills"></p></div>
+    <div class="grid">
+      <div class="card feature">
+        <div class="art chat-art">
+          <div class="mini prompt"><b>/pro-commit</b></div>
+          <div class="mini result"><div class="meta"><span>#1155 · branch</span><span>preset: team</span></div><code>Assign good first issues… <b>: feat :</b> claims use /assign… …/1155</code></div>
+        </div>
+        <div class="text"><h4 data-text="dTitle"></h4><p data-text="dLine" data-html></p></div>
+      </div>
+      <div class="card feature">
+        <div class="art run-art">
+          <div class="mini browser"><div class="top"><i></i><i></i><i></i></div><div class="body"><div class="bar" style="width:70%"></div><div class="bar" style="width:90%;background:var(--accent-soft)"></div><div class="bar" style="width:55%"></div><div class="bar" style="width:80%"></div></div></div>
+          <div class="mini phone"><div class="screen"><div class="bar" style="width:60%"></div><div class="bar" style="height:26px;border-radius:6px;background:var(--accent-soft)"></div><div class="bar"></div><div class="bar" style="width:70%"></div></div></div>
+          <div class="check"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg></div>
+        </div>
+        <div class="text"><h4 data-text="eTitle"></h4><p data-text="eLine" data-html></p></div>
+      </div>
+      <div class="card feature">
+        <div class="art mock-art">
+          <div class="mini screen-a"><div class="bar" style="width:50%"></div><div class="food"></div><div class="food alt"></div><div class="cta"></div></div>
+          <div class="link"><i></i><i></i><svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h14M10 2l5 5-5 5"/></svg></div>
+          <div class="mini screen-b"><div class="bar" style="width:50%"></div><div class="ticket"></div><div class="ticket" style="opacity:.55"></div></div>
+          <svg class="cursor" width="18" height="22" viewBox="0 0 18 22"><path d="M2 2l13 9-6 1.4L6 19z" fill="#0d1324" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="text"><h4 data-text="fTitle"></h4><p data-text="fLine" data-html></p></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  applyAssetText({
+    en: {
+      rowActions: "runs on its own after install",
+      rowSkills: "your agent drives each step",
+      aTitle: "A branch name for every issue",
+      aLine: "Open an issue and a comment arrives with the branch name and the commit template.",
+      bTitle: "Versions from commit titles",
+      bLine: "<code>feat</code> → minor, <code>feat!</code> → major. The release PR writes notes, merges and tags itself.",
+      cTitle: "CI/CD for your stack",
+      cLine: "Deploy workflows for Spring, Flutter, React and Python, npm publish for Node.",
+      dTitle: "Issues and commits in your style",
+      dLine: "<code>/pro-github</code> files the issue, <code>/pro-commit</code> writes the message your team uses.",
+      eTitle: "Checked by really running it",
+      eLine: "<code>/pro-agent-test</code> and <code>/pro-launch</code> drive emulators and browsers and keep the evidence.",
+      fTitle: "Mockups you can press",
+      fLine: "<code>/pro-ui-design</code> puts options on a local URL to compare, press through and pick.",
+    },
+    ko: {
+      rowActions: "설치하면 알아서 돕니다",
+      rowSkills: "에이전트가 단계마다 움직입니다",
+      aTitle: "이슈마다 브랜치명",
+      aLine: "이슈를 열면 브랜치명과 커밋 메시지 템플릿이 댓글로 달립니다.",
+      bTitle: "커밋 제목으로 버전 결정",
+      bLine: "<code>feat</code> → minor, <code>feat!</code> → major. 릴리스 PR이 노트·병합·태그까지 합니다.",
+      cTitle: "프로젝트에 맞는 CI/CD",
+      cLine: "Spring·Flutter·React·Python 배포 워크플로, Node는 npm 배포.",
+      dTitle: "내 스타일의 이슈와 커밋",
+      dLine: "<code>/pro-github</code>가 이슈를 쓰고, <code>/pro-commit</code>이 팀 형식으로 커밋합니다.",
+      eTitle: "실제로 돌려서 확인",
+      eLine: "<code>/pro-agent-test</code>·<code>/pro-launch</code>가 에뮬레이터·브라우저를 직접 밟고 증거를 남깁니다.",
+      fTitle: "눌러 보는 시안",
+      fLine: "<code>/pro-ui-design</code>이 시안을 로컬 주소에 띄워 비교하고, 눌러 보고, 고르게 합니다.",
+    },
+  });
+</script>
+</body>
+</html>

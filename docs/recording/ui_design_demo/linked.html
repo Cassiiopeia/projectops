@@ -1,43 +1,220 @@
 <h2>{{title}}</h2>
 <p class="subtitle">{{subtitle}}</p>
 <style>
-  .menu-item{display:flex;justify-content:space-between;align-items:center;background:var(--ui-surface);border-radius:14px;padding:14px;margin:0 14px 10px}
-  .menu-item b{display:block;font-size:15px}
-  .menu-item small{color:var(--ui-sub)}
-  .add{border:0;border-radius:999px;background:var(--ui-ink);color:var(--ui-bg);padding:8px 14px;font-weight:700}
-  .bar{position:absolute;left:14px;right:14px;bottom:18px}
-  .send{width:100%;border:0;border-radius:14px;background:var(--ui-accent);color:var(--ui-on-accent);padding:14px;font-weight:800;font-size:15px}
-  .send:disabled{opacity:.35}
-  .head{padding:40px 16px 12px;font-size:20px;font-weight:800}
-  .ticket{background:var(--ui-surface);border-radius:14px;padding:14px;margin:0 14px 10px;border-left:5px solid var(--ui-accent);animation:pop .35s ease-out}
-  .ticket small{color:var(--ui-sub)}
-  .empty{color:var(--ui-sub);text-align:center;padding:60px 20px}
-  @keyframes pop{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+  /* 무대: GIF 녹화 영역(.ui-screens) = 손님 폰 + 가운데 흐름 안내 + 주방 폰 */
+  .ui-screens { width: 900px; margin: 0 auto; padding: 30px 26px 34px; gap: 22px; flex-wrap: nowrap; align-items: center;
+    background: #f1f0fa; }
+  /* 바깥 여백(녹화 영역 +12px)도 무대색: GIF 가 한 장의 판으로 보이게 */
+  html.ui-design-frame body { background: #f1f0fa; }
+  .ui-screens > div:nth-child(2) { order: 0; }
+  .ui-screens > .ui-steps { order: 1; }
+  .ui-screens > div:nth-child(3) { order: 2; }
+  .ui-screen-label { display: flex; justify-content: center; margin-bottom: 14px; }
+  .ui-screen-label { font: 600 12.5px/1 var(--app-font); letter-spacing: .02em; color: #555a72; }
+
+  /* 기기 틀: 금속 테두리 + 다이내믹 아일랜드 + 측면 버튼 */
+  .ui-device { --ui-device-width: 286px; --ui-device-height: 588px; --ui-device-radius: 48px; position: relative; padding: 10px;
+    background: #17181f; box-shadow: 0 0 0 1.5px #4a4e5c inset, 0 14px 28px -14px rgba(30, 27, 75, .5); }
+  .ui-device::before { content: ""; position: absolute; right: -3px; top: 150px; width: 3px; height: 64px; border-radius: 0 2px 2px 0; background: #2b2e39; }
+  .ui-device::after { content: ""; position: absolute; left: 50%; top: 21px; transform: translateX(-50%); width: 84px; height: 24px; border-radius: 14px; background: #050506; z-index: 5; }
+  .ui-device-screen { font-family: var(--app-font); -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
+  :root { --app-font: "Pretendard Variable", Pretendard, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", sans-serif; }
+
+  /* 가운데 흐름 안내: 단계 2개 + 공유 상태 연결선 */
+  .ui-steps { width: 150px; background: none; padding: 0; text-align: center; font-family: var(--app-font); }
+  .ui-steps h4 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6c6aa8; margin: 0 0 14px; }
+  .ui-steps ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; counter-reset: step; }
+  .ui-steps li { counter-increment: step; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: #fff;
+    border: 1px solid #e6e4f2; font-size: 12.5px; font-weight: 600; color: #2b2f45; text-align: left; transition: background .3s, color .3s, border-color .3s; }
+  .ui-steps li::before { content: counter(step); flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center;
+    background: #eeedf9; color: #5b57d6; font-size: 11px; font-weight: 700; transition: background .3s, color .3s; }
+  .ui-steps li.ui-step-done { text-decoration: none; color: #0f766e; border-color: #bfe9e1; background: #effbf8; }
+  .ui-steps li.ui-step-done::before { content: "✓"; background: #14b8a6; color: #fff; }
+  .sync { margin: 18px auto 0; display: flex; align-items: center; justify-content: center; gap: 6px; color: #8b88c9; font-size: 11px; font-weight: 600; }
+  .sync i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .35; }
+  .sync.live { color: #14b8a6; }
+  .sync.live i { animation: flow 0.9s ease-in-out infinite; }
+  .sync.live i:nth-child(2) { animation-delay: .15s; } .sync.live i:nth-child(3) { animation-delay: .3s; }
+  @keyframes flow { 0%, 100% { opacity: .25; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
+
+  /* 상태 막대 */
+  .status { height: 50px; padding: 18px 26px 0; display: flex; justify-content: space-between; font-size: 13px; font-weight: 650; }
+  .status .icons { display: flex; gap: 5px; align-items: center; }
+  .status .icons b { width: 16px; height: 9px; border-radius: 2.5px; border: 1.5px solid currentColor; position: relative; opacity: .9; }
+  .status .icons b::after { content: ""; position: absolute; inset: 1px; right: 4px; border-radius: 1px; background: currentColor; }
+  .status .icons s { width: 14px; height: 9px; background: linear-gradient(90deg, currentColor 0 2px, transparent 2px 4px, currentColor 4px 6px, transparent 6px 8px, currentColor 8px 10px, transparent 10px 12px, currentColor 12px); clip-path: polygon(0 100%, 100% 0, 100% 100%); }
+
+  /* 손님 화면 (밝은 테마) */
+  .customer { position: absolute; inset: 0; background: #fbfaf7; color: #1b1a17; }
+  .greet { padding: 6px 20px 0; }
+  .greet small { font-size: 12.5px; color: #8a857a; font-weight: 500; }
+  .greet h3 { margin: 2px 0 0; font-size: 23px; font-weight: 750; letter-spacing: -0.03em; }
+  .chips { display: flex; gap: 6px; padding: 14px 20px 6px; }
+  .chips span { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #6f6a5f; background: #f0ede6; }
+  .chips span.on { background: #1b1a17; color: #fbfaf7; }
+  .menu { padding: 6px 14px 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .item { min-width: 0; display: flex; align-items: center; gap: 12px; padding: 9px; border-radius: 18px; background: #fff; box-shadow: 0 1px 2px rgba(27, 26, 23, .05), 0 6px 16px -10px rgba(27, 26, 23, .18); }
+  .photo { position: relative; flex: none; width: 58px; height: 58px; border-radius: 14px; display: grid; place-items: center; overflow: hidden; }
+  .item .info { flex: 1; min-width: 0; }
+  .item b, .item small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item b { font-size: 14.5px; font-weight: 650; letter-spacing: -0.02em; }
+  .item small { margin-top: 2px; font-size: 11.5px; color: #8a857a; }
+  .item .price { display: block; margin-top: 5px; font-size: 13px; font-weight: 700; color: #1b1a17; }
+  .add { flex: none; width: 32px; height: 32px; border: 0; border-radius: 50%; background: #1b1a17; color: #fff; font: 600 18px/1 var(--app-font); cursor: pointer; display: grid; place-items: center; }
+  .qty { position: absolute; top: 4px; right: 4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: #ff7a45; color: #fff; font-size: 11.5px; font-weight: 800; display: grid; place-items: center; animation: pop .3s cubic-bezier(.2, .9, .3, 1.4); }
+  .item.picked { box-shadow: 0 0 0 1.5px #1b1a17, 0 6px 16px -10px rgba(27, 26, 23, .18); }
+  @keyframes pop { from { transform: scale(.4); } to { transform: none; } }
+  button:focus, button:focus-visible { outline: none; }
+
+  /* 상품 사진 (CSS 그림): 라떼 아트, 참깨 베이글, 오렌지 단면 */
+  .photo.latte { background: #f1e4d3; }
+  .latte .cup { width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 0 #dcc7ad; display: grid; place-items: center; }
+  .latte .coffee { width: 36px; height: 36px; border-radius: 50%; position: relative; background: #7a4a2a; box-shadow: inset 0 0 0 3px #5e3920; }
+  .latte .coffee::before, .latte .coffee::after { content: ""; position: absolute; width: 11px; height: 17px; top: 9px; border-radius: 11px 11px 0 0; background: #fbf1e3; }
+  .latte .coffee::before { left: 12px; transform: rotate(-45deg); transform-origin: 0 100%; }
+  .latte .coffee::after { left: 1.5px; transform: rotate(45deg); transform-origin: 100% 100%; }
+  .photo.bagel { background: #f6e7c8; }
+  .bagel .ring { width: 46px; height: 46px; border-radius: 50%; background:
+      radial-gradient(circle, #f6e7c8 0 22%, #a8652a 22.5% 30%, #d8964f 30.5% 62%, #a8652a 62.5%);
+    box-shadow: 0 2px 0 #c9a46e; position: relative; }
+  .bagel .ring::after { content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background-image: radial-gradient(#fff6e2 1px, transparent 1.4px); background-size: 6px 5px;
+    mask-image: radial-gradient(circle, transparent 0 30%, #000 36% 60%, transparent 66%); }
+  .photo.orange { background: #ffe7c7; }
+  .orange .slice { width: 44px; height: 44px; border-radius: 50%; padding: 3px; background: #f47b20; box-shadow: 0 2px 0 #e9b57c; }
+  .orange .slice i { display: block; width: 100%; height: 100%; border-radius: 50%; padding: 2px; background: #fff3dc; }
+  .orange .slice i::after { content: ""; display: block; width: 100%; height: 100%; border-radius: 50%;
+    background: radial-gradient(circle, #fff3dc 0 8%, transparent 9%), repeating-conic-gradient(#ffa62b 0 32deg, #fff3dc 32deg 36deg); }
+
+  /* 장바구니 막대 + 보냄 알림 */
+  .cart { position: absolute; left: 12px; right: 12px; bottom: 26px; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px;
+    border-radius: 22px; background: #1b1a17; color: #fff; box-shadow: 0 16px 30px -12px rgba(27, 26, 23, .55); }
+  .cart.enter { animation: rise .35s cubic-bezier(.2, .9, .3, 1.2); }
+  .cart .total { flex: 1; }
+  .cart .total small { display: block; font-size: 11px; color: #b9b4a8; }
+  .cart .total b { font-size: 15px; font-weight: 700; }
+  .send { border: 0; border-radius: 16px; padding: 12px 16px; background: #ff7a45; color: #fff; font: 700 13.5px/1 var(--app-font); cursor: pointer; }
+  .home-bar { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: 104px; height: 4px; border-radius: 4px; background: #1b1a17; opacity: .85; }
+  .sent { position: absolute; left: 14px; right: 14px; bottom: 26px; display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 20px;
+    background: #ecfaf6; border: 1px solid #bfe9e1; color: #0f5f56; animation: rise .4s cubic-bezier(.2, .9, .3, 1.2); }
+  .sent .tick { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: #14b8a6; color: #fff; }
+  .sent b { display: block; font-size: 13.5px; }
+  .sent small { font-size: 11.5px; color: #3f7f77; }
+  @keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+
+  /* 주방 화면 (어두운 주방 디스플레이) */
+  .kitchen { position: absolute; inset: 0; background: #0f1322; color: #eef0f8; }
+  .kitchen .status { color: #eef0f8; }
+  .k-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 18px 0; }
+  .k-head h3 { margin: 0; font-size: 22px; font-weight: 750; letter-spacing: -0.03em; }
+  .k-head small { display: block; font-size: 12px; color: #8d93ad; font-weight: 500; }
+  .live { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; background: rgba(52, 211, 153, .12); color: #34d399; font-size: 11.5px; font-weight: 700; }
+  .live i { width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 0 3px rgba(52, 211, 153, .25); }
+  .k-tabs { display: flex; gap: 16px; padding: 16px 18px 10px; font-size: 12.5px; font-weight: 600; color: #6f7591; border-bottom: 1px solid #1e2438; }
+  .k-tabs span.on { color: #eef0f8; position: relative; }
+  .k-tabs span.on::after { content: ""; position: absolute; left: 0; right: 0; bottom: -11px; height: 2px; border-radius: 2px; background: #ff7a45; }
+  .k-tabs em { font-style: normal; margin-left: 5px; padding: 1px 6px; border-radius: 999px; background: #ff7a45; color: #fff; font-size: 10.5px; }
+  .k-empty { position: absolute; left: 0; right: 0; top: 230px; text-align: center; color: #6f7591; }
+  .k-empty .bell { width: 64px; height: 64px; margin: 0 auto 14px; border-radius: 22px; display: grid; place-items: center; background: #171c2f; border: 1px solid #232a42; color: #8d93ad; }
+  .k-empty b { display: block; color: #c9cde0; font-size: 14.5px; }
+  .k-empty small { font-size: 12px; }
+  .ticket { margin: 14px 14px 0; padding: 14px; border-radius: 18px; background: #181e33; border: 1px solid #262e4a; animation: drop .5s cubic-bezier(.2, .9, .3, 1.15); }
+  .ticket.fresh { border: 2px solid #ff7a45; }
+  .ticket .top { display: flex; justify-content: space-between; align-items: center; }
+  .ticket .number { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; }
+  .ticket .new { padding: 3px 8px; border-radius: 7px; background: #ff7a45; color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; }
+  .ticket .meta { margin-top: 3px; font-size: 11.5px; color: #8d93ad; }
+  .ticket ul { list-style: none; margin: 12px 0 0; padding: 12px 0 0; border-top: 1px dashed #2b3352; display: grid; gap: 8px; }
+  .ticket li { display: flex; gap: 10px; font-size: 13.5px; font-weight: 600; }
+  .ticket li span { flex: none; min-width: 26px; height: 22px; border-radius: 7px; display: grid; place-items: center; background: #232a44; color: #ffb38f; font-size: 12px; }
+  .ticket .start { margin-top: 14px; width: 100%; border: 0; border-radius: 13px; padding: 11px; background: #eef0f8; color: #0f1322; font: 700 13px/1 var(--app-font); }
+  @keyframes drop { from { transform: translateY(-18px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
+  .k-home { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: 104px; height: 4px; border-radius: 4px; background: #eef0f8; opacity: .8; }
+
+  /* 누른 자리 표시 (녹화에서 클릭이 보이게) */
+  .tap { position: fixed; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: rgba(91, 87, 214, .28); border: 2px solid rgba(91, 87, 214, .7);
+    pointer-events: none; z-index: 2000; animation: tap .55s ease-out forwards; }
+  @keyframes tap { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
 </style>
 <div id="stage"></div>
 <script>
   const TEXT = {{text}};
-  const store = UIDesign.createStore({ cart: [], orders: [] });
+  // 상품 3개: 그림 종류 + 문구 + 가격(센트·원 단위 정수)
+  const PRODUCTS = TEXT.menu.map((name, index) => ({ name, note: TEXT.notes[index], price: TEXT.prices[index], art: ["latte", "bagel", "orange"][index] }));
+  const ART_HTML = {
+    latte: '<div class="cup"><div class="coffee"></div></div>',
+    bagel: '<div class="ring"></div>',
+    orange: '<div class="slice"><i></i></div>',
+  };
+  const STATUS_HTML = '<div class="status"><span>9:41</span><span class="icons"><s></s><b></b></span></div>';
+  const formatPrice = (amount) => TEXT.currency.replace("{n}", TEXT.currencyIsWhole ? amount.toLocaleString("ko-KR") : (amount / 100).toFixed(2));
+  const ORDER_NUMBER_START = 1042;
+
+  const store = UIDesign.createStore({ cart: [], orders: [], hasSent: false });
   const steps = UIDesign.showSteps(TEXT.steps, { title: TEXT.stepsTitle });
+  const syncIndicator = document.createElement("div");
+  syncIndicator.className = "sync";
+  syncIndicator.innerHTML = `<i></i><i></i><i></i><span>${TEXT.shared}</span>`;
+  document.querySelector(".ui-steps").append(syncIndicator);
+
+  // 수량: 장바구니 안 같은 상품 개수
+  const countOf = (cart, index) => cart.filter((itemIndex) => itemIndex === index).length;
+
+  function renderCustomer(element, state) {
+    const total = state.cart.reduce((sum, index) => sum + PRODUCTS[index].price, 0);
+    const rows = PRODUCTS.map((product, index) => {
+      const count = countOf(state.cart, index);
+      const badge = count ? `<span class="qty">${count}</span>` : "";
+      return `<div class="item ${count ? "picked" : ""}"><div class="photo ${product.art}">${ART_HTML[product.art]}${badge}</div>
+        <div class="info"><b>${product.name}</b><small>${product.note}</small><span class="price">${formatPrice(product.price)}</span></div><button class="add" data-index="${index}">+</button></div>`;
+    }).join("");
+    const footer = state.cart.length
+      ? `<div class="cart ${state.cart.length === 1 ? "enter" : ""}"><div class="total"><small>${TEXT.itemsLabel.replace("{n}", state.cart.length)}</small><b>${formatPrice(total)}</b></div><button class="send">${TEXT.send}</button></div>`
+      : state.hasSent
+        ? `<div class="sent"><span class="tick">✓</span><div><b>${TEXT.sent}</b><small>${TEXT.sentNote.replace("{n}", ORDER_NUMBER_START + state.orders.length - 1)}</small></div></div>`
+        : "";
+    element.innerHTML = `<div class="customer">${STATUS_HTML}<div class="greet"><small>${TEXT.greeting}</small><h3>${TEXT.menuTitle}</h3></div>
+      <div class="chips">${TEXT.categories.map((name, index) => `<span class="${index ? "" : "on"}">${name}</span>`).join("")}</div>
+      <div class="menu">${rows}</div>${footer}<div class="home-bar"></div></div>`;
+    element.querySelectorAll(".add").forEach((button) => button.onclick = () => {
+      store.set((current) => ({ cart: [...current.cart, Number(button.dataset.index)] }));
+      steps.complete(0);
+    });
+    const sendButton = element.querySelector(".send");
+    if (sendButton) sendButton.onclick = () => {
+      store.set((current) => ({ orders: [...current.orders, current.cart], cart: [], hasSent: true }));
+      steps.complete(1);
+      syncIndicator.classList.add("live");
+    };
+  }
+
+  function renderKitchen(element, state) {
+    const tickets = state.orders.map((cart, orderIndex) => {
+      const lines = PRODUCTS.map((product, index) => ({ product, count: countOf(cart, index) })).filter((line) => line.count);
+      const isNewest = orderIndex === state.orders.length - 1;
+      return `<div class="ticket ${isNewest ? "fresh" : ""}"><div class="top"><span class="number">#${ORDER_NUMBER_START + orderIndex}</span><span class="new">${TEXT.newBadge}</span></div>
+        <div class="meta">${TEXT.ticketMeta}</div>
+        <ul>${lines.map((line) => `<li><span>${line.count}×</span>${line.product.name}</li>`).join("")}</ul>
+        <button class="start">${TEXT.start}</button></div>`;
+    }).reverse().join("");
+    const empty = `<div class="k-empty"><div class="bell"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg></div><b>${TEXT.empty}</b><small>${TEXT.emptyNote}</small></div>`;
+    element.innerHTML = `<div class="kitchen">${STATUS_HTML}<div class="k-head"><div><small>${TEXT.kitchenPlace}</small><h3>${TEXT.ordersTitle}</h3></div><span class="live"><i></i>${TEXT.liveLabel}</span></div>
+      <div class="k-tabs"><span class="on">${TEXT.tabNew}${state.orders.length ? `<em>${state.orders.length}</em>` : ""}</span><span>${TEXT.tabCooking}</span><span>${TEXT.tabDone}</span></div>
+      ${state.orders.length ? tickets : empty}<div class="k-home"></div></div>`;
+  }
+
   UIDesign.setScreens([
-    { id: "customer", label: TEXT.customer, render(element, state) {
-      element.innerHTML = `<div class="head">${TEXT.menuTitle}</div>` + TEXT.menu.map((item, index) =>
-        `<div class="menu-item"><div><b>${item}</b><small>${TEXT.price}</small></div><button class="add" data-index="${index}">+</button></div>`).join("")
-        + `<div class="bar"><button class="send" ${state.cart.length ? "" : "disabled"}>${TEXT.send} (${state.cart.length})</button></div>`;
-      element.querySelectorAll(".add").forEach((button) => button.onclick = () => {
-        store.set((current) => ({ cart: [...current.cart, TEXT.menu[button.dataset.index]] }));
-        steps.complete(0);
-      });
-      element.querySelector(".send").onclick = () => {
-        store.set((current) => ({ orders: [...current.orders, current.cart.join(", ")], cart: [] }));
-        UIDesign.toast(TEXT.sent);
-        steps.complete(1);
-      };
-    } },
-    { id: "kitchen", label: TEXT.kitchen, render(element, state) {
-      element.innerHTML = `<div class="head">${TEXT.ordersTitle}</div>` + (state.orders.length
-        ? state.orders.map((order, index) => `<div class="ticket"><small>#${index + 1}</small><div>${order}</div></div>`).join("")
-        : `<div class="empty">${TEXT.empty}</div>`);
-    } },
+    { id: "customer", label: TEXT.customer, render: renderCustomer },
+    { id: "kitchen", label: TEXT.kitchen, render: renderKitchen },
   ], store, document.getElementById("stage"));
+
+  // 누른 자리 물결 (실제 포인터 이벤트 좌표)
+  document.addEventListener("pointerdown", (event) => {
+    const ripple = document.createElement("div");
+    ripple.className = "tap";
+    ripple.style.left = `${event.clientX}px`;
+    ripple.style.top = `${event.clientY}px`;
+    document.body.append(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  }, true);
 </script>

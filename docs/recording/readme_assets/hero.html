@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<!-- README 히어로: 로고·한 줄 가치·설치 명령 + 에이전트 터미널·릴리스 PR 카드 (실제 #1155 > PR #1156 기록) -->
+<html>
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="tokens.css">
+<script src="assets.js"></script>
+<style>
+  .canvas { width: 1200px; height: 540px; padding: 64px 64px 0 72px; display: flex; gap: 40px; }
+  html[data-theme="dark"] .canvas {
+    background: linear-gradient(135deg, #070b18 0%, #0c1230 55%, #1b1757 100%);
+  }
+  html[data-theme="light"] .canvas {
+    background: linear-gradient(135deg, #ffffff 0%, #f5f6ff 55%, #ebe9ff 100%);
+  }
+
+  /* 왼쪽: 로고·문구·설치 */
+  .copy { width: 540px; flex: none; padding-top: 10px; }
+  .wordmark { margin: 22px 0 0; font-size: 92px; line-height: 1; font-weight: 800; letter-spacing: -0.045em; }
+  .wordmark span {
+    background: linear-gradient(100deg, var(--ink) 0%, var(--ink) 35%, var(--accent) 75%, var(--teal) 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .tagline { margin: 22px 0 0; font-size: 27px; line-height: 1.32; font-weight: 500; color: var(--sub); letter-spacing: -0.02em; }
+  .tagline strong { display: block; color: var(--ink); font-weight: 700; }
+  .install {
+    margin-top: 34px; display: inline-flex; align-items: center; gap: 14px;
+    padding: 14px 16px 14px 20px; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card);
+    font-family: var(--font-mono); font-size: 19px; color: var(--ink);
+  }
+  .install .prompt { color: var(--teal); }
+  .install .copy-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface-muted); color: var(--sub); }
+  .facts { margin-top: 26px; display: flex; gap: 22px; font-size: 14px; color: var(--sub); }
+  .facts b { color: var(--ink); font-weight: 700; margin-right: 4px; }
+  .facts span { display: inline-flex; align-items: center; gap: 7px; }
+  .facts i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+  /* 오른쪽: 겹친 카드 */
+  .stage { position: relative; flex: 1; }
+  .terminal {
+    position: absolute; left: 0; top: 18px; width: 500px;
+    border-radius: 16px; background: var(--terminal-bg); border: 1px solid var(--terminal-line);
+    box-shadow: var(--shadow-float); overflow: hidden; color: #dfe5f5;
+  }
+  .terminal-bar { height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 16px; border-bottom: 1px solid var(--terminal-line); background: rgba(255, 255, 255, 0.02); }
+  .terminal-bar i { width: 11px; height: 11px; border-radius: 50%; background: #3a4258; }
+  .terminal-bar i:nth-child(1) { background: #ff5f57; } .terminal-bar i:nth-child(2) { background: #febc2e; } .terminal-bar i:nth-child(3) { background: #28c840; }
+  .terminal-bar span { margin-left: 10px; font-size: 12.5px; color: #8892ad; font-family: var(--font-sans); }
+  .terminal-body { padding: 18px 20px 62px; font-family: var(--font-mono); font-size: 14px; line-height: 1.75; white-space: pre; }
+  .terminal-body .cmd { color: #ffffff; font-weight: 600; }
+  .terminal-body .cmd::before { content: "› "; color: #8b8cf8; }
+  .terminal-body .ok { color: #5eead4; }
+  .terminal-body .dim { color: #7c86a3; }
+  .terminal-body .hl { color: #c4b5fd; }
+  .terminal-body .gap { height: 10px; }
+
+  .pr-card {
+    position: absolute; right: -6px; top: 298px; width: 330px; padding: 16px 18px;
+    border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-float);
+  }
+  .pr-top { display: flex; align-items: center; gap: 10px; }
+  .merged { background: var(--state-merged); color: #fff; }
+  .pr-number { font-size: 13px; color: var(--sub); }
+  .pr-title { margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--ink); }
+  .bump { margin-top: 12px; display: flex; align-items: center; gap: 10px; font-family: var(--font-mono); font-size: 14px; }
+  .bump .from { color: var(--faint); text-decoration: line-through; }
+  .bump .to { color: var(--teal); font-weight: 700; }
+  .pr-meta { margin-top: 10px; display: flex; justify-content: space-between; font-size: 12.5px; color: var(--sub); }
+  .pr-meta b { color: var(--ink); }
+
+  .tag-chip {
+    position: absolute; right: 22px; top: 0; padding: 9px 14px 9px 12px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-float);
+    display: flex; align-items: center; gap: 10px; font-size: 13.5px; font-weight: 600; color: var(--ink);
+  }
+  .tag-chip .dot { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--teal-soft); color: var(--teal); }
+  .tag-chip small { display: block; font-size: 11.5px; color: var(--sub); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="canvas" id="canvas">
+  <div class="copy">
+    <div class="eyebrow" data-text="eyebrow"></div>
+    <h1 class="wordmark"><span>projectops</span></h1>
+    <p class="tagline"><span data-text="taglineTop"></span><strong data-text="taglineBottom"></strong></p>
+    <div class="install">
+      <span><span class="prompt">$</span> npx projectops</span>
+      <span class="copy-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></span>
+    </div>
+    <div class="facts">
+      <span><i></i><b>30 s</b><em data-text="factRelease" style="font-style:normal"></em></span>
+      <span><i></i><b>18</b><em data-text="factSkills" style="font-style:normal"></em></span>
+      <span><i></i><b>8</b><em data-text="factTypes" style="font-style:normal"></em></span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <div class="terminal">
+      <div class="terminal-bar"><i></i><i></i><i></i><span data-text="terminalTitle"></span></div>
+      <div class="terminal-body"><span class="cmd">/pro-github</span> <span class="dim" data-text="cmdIssue"></span>
+<span class="ok">✓</span> issue <span class="hl">#1155</span> <span class="dim">· type: feature</span>
+<span class="ok">✓</span> branch <span class="dim">20261113_#1155_Assign_good_first…</span>
+<div class="gap"></div><span class="cmd">/pro-commit</span>
+<span class="ok">✓</span> Assign good first issues… <span class="hl">: feat :</span> …/1155
+<div class="gap"></div><span class="cmd">/pro-changelog-deploy</span>
+<span class="ok">✓</span> release PR <span class="hl">#1156</span> develop → main
+<span class="ok">✓</span> <span data-text="termMerged"></span></div>
+    </div>
+
+    <div class="tag-chip">
+      <span class="dot"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span>
+      <div>v4.102.0<small data-text="tagNote"></small></div>
+    </div>
+
+    <div class="pr-card">
+      <div class="pr-top"><span class="chip merged"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm0 2.122a2.25 2.25 0 1 0-1.5 0v5.256a2.25 2.25 0 1 0 1.5 0V9.25A3.75 3.75 0 0 0 8.75 13h.878a2.25 2.25 0 1 0 0-1.5H8.75A2.25 2.25 0 0 1 6.5 9.25V5.372Z"/></svg><span data-text="merged"></span></span><span class="pr-number">#1156 · develop → main</span></div>
+      <div class="pr-title">Deploy 20261113-v4.102.0</div>
+      <div class="bump"><span class="from">v4.101.2</span><span>→</span><span class="to">v4.102.0</span><span class="chip" style="background:var(--accent-soft);color:var(--accent)">minor · feat</span></div>
+      <div class="pr-meta"><span data-text="prOpened"></span><span><span data-text="prMergedIn"></span> <b>39 s</b></span></div>
+    </div>
+  </div>
+</div>
+<script>
+  applyAssetText({
+    en: {
+      eyebrow: "GitHub Actions · Agent Skills · npx CLI",
+      taglineTop: "From issue to release.", taglineBottom: "Just write the code.",
+      factRelease: "median release PR", factSkills: "agent skills", factTypes: "project types",
+      terminalTitle: "agent session", cmdIssue: "\"claims should auto-assign\"",
+      termMerged: "merged by itself · tag v4.102.0",
+      tagNote: "tag + release notes", merged: "Merged",
+      prOpened: "opened 13:52:08", prMergedIn: "merged in",
+    },
+    ko: {
+      eyebrow: "GitHub Actions · Agent Skills · npx CLI",
+      taglineTop: "이슈부터 배포까지.", taglineBottom: "코드만 쓰세요.",
+      factRelease: "릴리스 PR 중앙값", factSkills: "에이전트 스킬", factTypes: "프로젝트 타입",
+      terminalTitle: "에이전트 세션", cmdIssue: "\"댓글로 담당자 지정\"",
+      termMerged: "자동 병합 · 태그 v4.102.0",
+      tagNote: "태그 + 릴리스 노트", merged: "Merged",
+      prOpened: "13:52:08 열림", prMergedIn: "병합까지",
+    },
+  });
+</script>
+</body>
+</html>

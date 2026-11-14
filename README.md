@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/hero-en.webp" alt="Projectops: from issue to release" width="100%">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-hero-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-hero.webp" alt="projectops: from issue to release, just write the code" width="100%">
+</picture>
 
 **One install: issue → branch → release PR → deploy, with agent skills that drive each step.**
 
@@ -10,344 +13,154 @@
 
 </div>
 
----
+## Get started
 
-## Get started in 30 seconds
+```bash
+npx projectops
+```
 
 | I want to... | Run this |
 |---|---|
-| Start a new project | Click **Use this template** on GitHub (auto-setup in about a minute) |
-| Add it to an existing project | `npx projectops` |
+| Add it to an existing project | `npx projectops` (interactive wizard, nothing to install first) |
+| Start a new project | Click **Use this template** on GitHub (set up in about a minute) |
 | Install Agent Skills only | `npx projectops --mode skills` |
 | Check the install state (read-only) | `npx projectops --mode doctor` |
 
-> You need Node.js 20.12+ and Git (Agent Skills also need Python 3). An interactive wizard runs with no separate install.
+Needs Node.js 20.12+ and Git (Agent Skills also need Python 3). npm `latest` is exactly what is on `main`. Every flag: [CLI reference](https://cassiiopeia.github.io/projectops/cli).
+
+<details>
+<summary>Watch the wizard run (real recording on a sample Spring project)</summary>
 
 ![npx projectops interactive wizard](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/cli-wizard.gif)
 
-> This is a **real run** on a sample Spring project (the wizard follows your system language, or use `--lang en|ko`). Version numbers shown were current when it was recorded. For non-interactive use and every option, see the [CLI reference](https://cassiiopeia.github.io/projectops/cli).
+</details>
 
-**Status: actively maintained.** npm `latest` is exactly what is on the `main` branch; work in progress on `develop` is never published. Versions can still ship several times a day. Note that `npx projectops@<version>` pins the installer only (workflow templates always come from the current `main`) ([releases](https://github.com/Cassiiopeia/projectops/releases)).
+## How one change ships
 
----
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-cycle-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-cycle.webp" alt="Issue #1155, its branch comment, the feat commit, release PR #1156 merged in 39 seconds, tag v4.102.0 and npm publish" width="100%">
+</picture>
 
-## Why this template?
+Every card above is a real record from this repository. You open an issue (or `/pro-github` files it); a bot comments the branch name and commit template; `/pro-commit` writes the commit; `/pro-changelog-deploy` opens the release PR, which picks the version from commit titles (`feat` → minor), writes the notes, merges itself and tags the release.
 
-This project automates your development workflow on two axes.
+**Measured on this repository.** The 29 release PRs opened from develop to main between 2026-11-07 and 2026-11-13 each went from opened to merged, with the version decided, CHANGELOG and README updated and the tag created, in a median of **30 seconds** (fastest 25, slowest 50). Nobody touched them after opening. Check it yourself: compare `created_at` and `merged_at` of the merged release PRs (`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`).
 
-**① GitHub Actions**: a develop-to-main release PR handles versioning and changelogs; merging it runs CI/CD deployment.
-**② Agent Skills**: commands such as `/pro-github`, `/pro-commit`, and `/pro-report` let an AI agent drive each step of that automation for you: issues, commits in your own style, reports, and release PRs.
+<details>
+<summary>See it run: issue, PR summary and release, recorded in a sample repo (real time in the corner)</summary>
 
-| The usual way | With Projectops |
-|----------|---------------------|
-| Bump versions and create tags by hand | At release time the version is bumped from your commit titles and a tag is created |
-| Write the changelog yourself | Generated for every release PR (commit analysis, or an AI summary if you add an AI key) |
-| Set up CI/CD from scratch | Workflows for your project type, ready immediately |
-| Format every issue by hand | `/pro-github` writes and files an issue from the standard template in one step |
-| Copy the issue URL into commit messages | `/pro-commit` completes the message from the issue context, in your own style |
-| Write PR descriptions and reports by hand | `/pro-report` analyzes the git diff and generates one |
-| Re-type prompts for every code review or analysis | 18 skills give consistent results without re-typing |
-
-**Measured on this repository.** The 29 release PRs opened from develop to main between 2026-11-07 and 2026-11-13 each went from opened to merged, with the version decided, CHANGELOG and README updated and the tag created, in a median of **30 seconds** (fastest 25, slowest 50). Nobody touched them after opening. To check it yourself, compare `created_at` and `merged_at` of the merged release PRs (`GET /repos/Cassiiopeia/projectops/pulls?state=closed&base=main`).
-
----
-
-## Compared with other tools
-
-If you only need one piece of this, a smaller tool may suit you better.
-
-| | projectops | release-please | semantic-release | changesets |
-|---|---|---|---|---|
-| Version decided from | Commit titles (`feat` → minor, `feat!` → major) | Conventional Commits | Conventional Commits (configurable) | Changeset files written in each PR |
-| Review step before a release | A release PR (develop → main), merged automatically | A release PR you merge | None by default, releases on push | A "Version Packages" PR |
-| Changelog | Written in the release PR (commit analysis, or an AI summary) | Generated | Generated (plugin) | Assembled from changeset files |
-| CI/CD workflows for your project type | Yes (Spring, Flutter, React, Python; npm publish for Node) | No | No | No |
-| Agent skills that run the cycle (issues, worktrees, commits in your style, reports, release PRs, real-device QA) | Yes | No | No | No |
-| What it adds to your repo | About 60 files (below) | A workflow and a config file | A config file and a CI step | A `.changeset/` folder and a CI step |
-
-- Want only versioning and a changelog? release-please or semantic-release is smaller.
-- Publishing npm packages from a monorepo where each PR should say what changed? changesets fits better.
-- Want the whole cycle (issue → branch → release PR → deploy) in one install, with agent skills on top? That is what projectops is for.
-
-More in [the full comparison](https://cassiiopeia.github.io/projectops/compare).
-
-**Footprint, measured.** With v4.84.0 on 2026-11-05, `npx projectops --mode full --type basic --force` in an empty repository added 56 files: 8 workflows, 30 helper scripts under `.github/scripts/`, issue, PR and discussion templates, `version.yml` and a setup guide. `--type spring` added 60 files (12 workflows).
-
----
-
-## What it actually looks like
-
-Below is a **real run, recorded** after installing projectops in a sample repo in a test organization. The timer in the top right is real elapsed time; only the waiting parts are played back fast.
-
-### 1. Open an issue and a branch name and commit message arrive automatically
+**Open an issue** and a comment with the branch name and commit template arrives.
 
 ![Automatic guide comment after opening an issue](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-issue.gif)
 
-When an issue is opened, GitHub Actions runs on its own and comments a **branch name and a commit message template**. Work on that branch name and the issue number links into your commits and reports automatically.
-
-**Drive it from your agent:** `/pro-github` files the issue, `/pro-init-worktree` sets up the workspace, and `/pro-commit` writes the commit in your format.
-
-### 2. Open a PR and a change summary arrives automatically
+**Open a PR** and a change summary built from the commits is posted, then updated on every push.
 
 ![Change summary comment after opening a PR](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-pr-summary.gif)
 
-Open a PR from a work branch and a **change summary** built from the commits is posted as a comment. Push more commits and the same comment is updated instead of piling up new ones.
-
-**Drive it from your agent:** `/pro-report` analyzes the diff and posts the implementation report; `/pro-agent-test` verifies the change by actually running it.
-
-### 3. Open a release PR and everything from versioning to merge and tag is automatic
+**Open a release PR** and it writes the notes, decides the version, merges and creates the tag.
 
 ![Release PR merging automatically and a tag appearing](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-release.gif)
 
-Open a PR from the development branch to `main` and it writes the release notes, decides the version from commit titles (`feat`, `fix`, ...) and puts it in the PR title, merges automatically, and creates the **version tag**. This example had `feat` commits, so the minor version went up.
-
-**Drive it from your agent:** `/pro-changelog-deploy` pushes develop and opens the release PR for you.
-
-
-### 4. See UI mockups, press through them, and pick one
-
-![Two linked mockup screens updating each other](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
-
-Ask for mockups and get a local page where they really move and respond. Here two screens share one state: an order placed on the left appears in the kitchen on the right. Mockups use your repo's tokens and fonts, and the same run can post a GIF like this one to the issue.
-
-**Drive it from your agent:** `/pro-ui-design` shows the options, records your pick for the next skills, and hands it to a designer if you cannot decide.
-
----
-
-## Make it yours
-
-Skills write in your style. Put your preferences in `~/.projectops/config/config.json`; nothing is asked on first run.
-
-```json
-{
-  "preferences": { "language": "en", "tone": "short and direct", "rules": ["no emoji"] },
-  "skills": { "pro-commit": { "preset": "gitmoji" } }
-}
-```
-
-Team formats in `version.yml` win; your tone still applies. Details: [Skills guide](docs/en/skills.md).
-
-### Example: /pro-oss-consult on this repo
-
-We ran `/pro-oss-consult` on this repo, then fixed what it found (measured 2026-10-13).
-
-| Check | Before | After |
-|---|---|---|
-| Skill count stated in README and manifests | inconsistent (15 vs 20 stated, actual 15) | consistent: 14 core + 1 in the optional extras plugin |
-| Longest skill description | 1,183 chars; 6 over 1,000 | 237 chars; 0 over 300 |
-| Commit format | hardcoded in `pro-commit` | configurable via preferences and `version.yml` |
-
-What it changed: descriptions were cut to short English triggers, a guard test now checks every core skill's docs, and `pro-commit` follows your team's `version.yml` commit template.
-
----
-
-## What is inside
-
-| Part | What it does | Docs |
-|---|---|---|
-| **GitHub Actions** | A develop-to-main release PR handles versioning and changelogs; merging it runs CI/CD deployment | [Versioning](https://cassiiopeia.github.io/projectops/version-control) |
-| **Agent Skills** (18) | `/pro-github`, `/pro-commit`, `/pro-report` and more let an AI agent drive each step: issues, commits in your style, reports, release PRs | [Skills guide](https://cassiiopeia.github.io/projectops/skills) |
-| **npx CLI** | Installs and updates workflows in an existing project, and diagnoses its state | [CLI reference](https://cassiiopeia.github.io/projectops/cli) |
-
-<details>
-<summary>See all 18 Agent Skills</summary>
-
-### 🔄 Development cycle automation
-
-| Skill | Purpose |
-|------|------|
-| `/pro-init-worktree` | Create a Git worktree and copy sensitive files automatically |
-| `/pro-commit` | Complete a commit message from the issue context, in your own format (preset or template) |
-| `/pro-report` | Analyze the git diff → generate an implementation report and post it as a GitHub comment |
-| `/pro-changelog-deploy` | Push develop → open the main release PR + write release notes + automerge |
-| `/pro-github` | GitHub in general: create issues (one-line description → template + file), view/edit/comment/label/assign, create/merge/view PRs, explore repos, manage Actions and Secrets |
-
-### 📊 Analysis (no code changes)
-
-| Skill | Purpose |
-|------|------|
-| `/pro-review` | Review from 6 angles (security, performance, bugs, quality...), classified Critical/Major/Minor |
-
-### 🔧 Implementation (writes real code)
-
-| Skill | Purpose |
-|------|------|
-| `/pro-figma` | Move a Figma design into code, then compare the result with the design pixel by pixel |
-| `/pro-launch` | Launch, drive, and capture apps, web, and servers: fixed status bar, width changes, response mocking (empty list, failures), render from code |
-| `/pro-desktop-control` | Drive programs on this computer's screen that are not web pages or emulators (installer wizards, OS dialogs, desktop apps): reads elements, presses without moving the mouse, asks before installs, hands security prompts to the user. Windows and macOS (macOS also answers notifications and system dialogs, such as the Apple Account sign-in code) |
-| `/pro-ui-design` | See UI mockups on a local URL: compare layouts, press through animations and linked multi-screen prototypes in your repo's real tokens and fonts. Then build the pick, post a PNG or GIF to the issue, or hand it to a designer with state captures and copy candidates |
-| `/pro-image` | Make image assets that fit your project's own style: backgrounds, characters, icons, illustrations, items. The agent turns a loose request into a full prompt from a per-repo art harness, Codex (ChatGPT subscription) or Antigravity draws it, and the CLI fixes size and real transparency. Compare styles on one board before locking one |
-| `/pro-presentation` | Build a talk as an HTML deck, rehearse it out loud slide by slide with coaching that remembers your directions, compare recorded takes per slide, then export PDF and an editable-text PPT that is checked against the HTML |
-| `/pro-oss-consult` | Diagnose a GitHub repo as an open-source project: type detection, 6-axis scoring, maturity stage, and edits to About, topics, labels, and files only after approval. One repo or a whole account |
-| `/pro-code-consult` | Keep AI-written code maintainable by your conventions: audit, refactor one approved item at a time with before/after checks, check each diff for stale comments and duplicates, freeze existing violations so they only shrink |
-
-> Design, planning, and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin.
-
-### 📝 Documents and artifacts
-
-| Skill | Purpose |
-|------|------|
-| `/pro-testcase` | Analyze an issue → generate a QA checklist |
-| `/pro-agent-test` | QA that actually runs apps, web, and servers to find bugs, reporting reproduction steps, evidence, and severity (it does not fix code) |
-| `/pro-ssh` | Connect to a remote server over SSH and run commands (AWS EC2, Synology NAS, Linux, and more) |
-| `/pro-skill-creator` | Create, review, and improve a Skill (CREATE / REVIEW / IMPROVE modes) |
-
-**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected projectops skill bug from any session), `/pro-disk-cleanup` (find and clear reclaimable disk space safely: worktrees, build output, caches, Docker), `/pro-orca-tunnel` (a public Orca Web URL and pairing link on request) — `claude plugin install projectops-extras@projectops-marketplace --scope user`
-
 </details>
 
-<details>
-<summary>See the development cycle and pipeline diagrams</summary>
+## What you get
 
-### AI development cycle
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-features-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-features.webp" alt="GitHub Actions: branch name for every issue, versions from commit titles, CI/CD for your stack. Agent Skills: issues and commits in your style, checked by really running it, mockups you can press" width="100%">
+</picture>
 
-Agent Skills cover the entire development cycle.
+| The usual way | With projectops |
+|---|---|
+| Bump versions, tag and write the changelog by hand | The release PR decides the version from commit titles, writes the notes and tags |
+| Set up CI/CD from scratch | Workflows for Spring, Flutter, React, Python and Node, ready on install |
+| Format every issue and commit message by hand | `/pro-github` and `/pro-commit` write them in your team's format |
+| Re-type prompts for every review or analysis | 18 skills give consistent results without re-typing |
 
-```mermaid
-flowchart TD
-    A(["Start work"]) --> B["/pro-github<br/>File an issue"]
-    B --> C["/pro-init-worktree<br/>worktree + copy sensitive files"]
-    C --> D{"Type of work"}
+**Mockups you can press.** `/pro-ui-design` puts options on a local URL in your repo's tokens and fonts. Here two screens share one state: the order placed on the left lands in the kitchen on the right. The same run can post this GIF to the issue.
 
-    D -->|New feature / design / refactor| E1["superpowers:brainstorming<br/>Decide what and why"]
-    D -->|Bug / outage| E2["superpowers:systematic-debugging<br/>Find the root cause"]
+![Two linked mockup screens: a customer app order appears on the kitchen display](https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/feature-ui-design.gif)
 
-    E1 --> P["superpowers:writing-plans<br/>Implementation plan"]
-    P --> F["superpowers:executing-plans<br/>Run the plan"]
-    E2 --> F
-    F --> H["/pro-review<br/>Self-review"]
-    H --> I["/pro-commit<br/>Issue-linked commit"]
-    I --> J["/pro-report<br/>Implementation report + GitHub comment"]
-    J --> K(["Open PR"])
-    K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
-```
+## Agent Skills
 
-> Full list of Skills and usage: **[docs/en/skills.md](docs/en/skills.md)**
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-skills-dark.webp">
+  <img src="https://raw.githubusercontent.com/Cassiiopeia/projectops/main/docs/images/readme-skills.webp" alt="18 agent skills in three groups: the cycle, build and verify, design, media and upkeep" width="100%">
+</picture>
 
-### GitHub Actions pipeline
-
-```mermaid
-flowchart TD
-    A([Push to develop]) --> B[Integrate]
-    B --> C[develop→main release PR]
-    C --> D["Finalize version in the PR<br/>commit-based bump + tag + AI changelog"]
-    D --> E[Auto-merge]
-    E --> F["Push to main → CI/CD deploy<br/>Flutter / Spring / React, etc."]
-    F --> G([Done])
-```
-
-</details>
+**Agent Skills** (18) run in Claude Code, Codex CLI, Gemini CLI, Cursor and GitHub Copilot, and write in your style (`~/.projectops/config/config.json`, see the [Skills guide](https://cassiiopeia.github.io/projectops/skills)). Design, planning and implementation are left to `superpowers` (brainstorming → writing-plans → executing-plans).
 
 <details>
-<summary>Install Agent Skills only (Claude Code, Gemini CLI, Codex CLI, Cursor, GitHub Copilot)</summary>
+<summary>See all 18 Agent Skills and how to install them</summary>
+
+| Group | Skill | Purpose |
+|---|---|---|
+| Cycle | `/pro-github` | Issues (one line → template), PRs, labels, comments, repo exploration, Actions and Secrets |
+| Cycle | `/pro-init-worktree` | Create a Git worktree and copy the local files it needs |
+| Cycle | `/pro-commit` | Commit message from the issue context, in your format (preset or template) |
+| Cycle | `/pro-review` | Review from 6 angles, classified Critical / Major / Minor |
+| Cycle | `/pro-report` | git diff → implementation report with a flowchart, posted as a comment |
+| Cycle | `/pro-changelog-deploy` | Push develop → release PR to main + release notes + automerge |
+| Build & verify | `/pro-launch` | Launch, drive and capture apps, web and servers; mock empty and error states |
+| Build & verify | `/pro-agent-test` | QA that really runs the app and reports steps, evidence and severity |
+| Build & verify | `/pro-testcase` | Issue → QA checklist |
+| Build & verify | `/pro-figma` | Figma design → code, then a pixel comparison |
+| Build & verify | `/pro-desktop-control` | Installer wizards, OS dialogs and desktop apps; asks before installs |
+| Build & verify | `/pro-ssh` | Run commands on servers over SSH (EC2, Synology NAS, Linux) |
+| Design & upkeep | `/pro-ui-design` | Mockups on a local URL to compare, press and pick, or a designer request |
+| Design & upkeep | `/pro-image` | Image assets in your project's own style, with real transparency |
+| Design & upkeep | `/pro-presentation` | Build an HTML deck, rehearse aloud with coaching, export PDF and PPT |
+| Design & upkeep | `/pro-code-consult` | Keep AI-written code maintainable by your conventions |
+| Design & upkeep | `/pro-oss-consult` | Score a repo as an open-source project and fix what you approve |
+| Design & upkeep | `/pro-skill-creator` | Create, review and improve a skill |
+
+**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected skill bug from any session), `/pro-disk-cleanup` (reclaim disk space safely), `/pro-orca-tunnel` (a public Orca Web URL on request). Install: `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code
 claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
-```
-
-```bash
 # Gemini CLI
 gemini extensions install https://github.com/Cassiiopeia/projectops
-```
-
-```bash
 # Codex CLI (macOS / Linux)
 codex plugin marketplace add Cassiiopeia/projectops
-```
-
-The `--mode skills` wizard registers the Codex marketplace and also prepares the native skills fallback. Use `/plugins` only to check or manage the install.
-
-Where the Codex plugin marketplace is unavailable, use the fallback install described in the [Skills guide](docs/en/skills.md).
-
-```bash
-# Cursor / GitHub Copilot (~/.copilot/skills) / the full Agent Skills install menu (recommended: npx)
+# Cursor, GitHub Copilot and the full menu
 npx projectops --mode skills
 ```
 
-> Claude Code prefers `/pro-` autocomplete, Gemini prefers its extension, and Codex prefers its plugin marketplace. See the [Skills guide](docs/en/skills.md) for details.
-
 </details>
 
----
+## Compared with other tools
 
-## Supported project types
+If you only need one piece of this, a smaller tool may suit you better ([full comparison](https://cassiiopeia.github.io/projectops/compare)).
 
-| Type | Version file | CI/CD |
-|------|----------|-------|
-| `spring` | build.gradle | SSH + Docker deploy, Nexus |
-| `flutter` | pubspec.yaml | TestFlight, Play Store |
-| `react` (including Next.js) | package.json | Docker |
-| `node` | package.json | npm publish (`--publish npm`) |
-| `python` | pyproject.toml | SSH + Docker deploy |
-| `react-native` | Info.plist + build.gradle | — |
-| `react-native-expo` | app.json | — |
-| `basic` | version.yml only | — |
+| | projectops | release-please | semantic-release | changesets |
+|---|---|---|---|---|
+| Version decided from | Commit titles | Conventional Commits | Conventional Commits | Changeset files |
+| Release step | Release PR, merged automatically | Release PR you merge | Releases on push | "Version Packages" PR |
+| CI/CD for your project type | Yes | No | No | No |
+| Agent skills for the whole cycle | Yes | No | No | No |
+| Adds to your repo | About 60 files | A workflow + config | A config + CI step | `.changeset/` + CI step |
 
----
+## When it is not a fit
 
-## Comment commands
+- **GitHub only.** It relies on GitHub Actions, issues and PRs.
+- **Two branches.** Releases go from a development branch to the default branch (names are set in `version.yml`).
+- **About 60 files** land in your repo (workflows, helper scripts, templates).
+- **Frequent releases.** `latest` follows `main`; `npx projectops@<version>` pins the installer only, not the workflow templates.
+- **Server deploys assume a Docker host reachable over SSH.** A personal access token is optional ([setup](https://cassiiopeia.github.io/projectops/getting-started)).
 
-Run automation by commenting on an issue or PR.
+Supported types: `spring`, `flutter`, `react` (incl. Next.js), `node`, `python`, `react-native`, `react-native-expo`, `basic`. Comment commands such as `@projectops server build` and `@projectops build app`: [PR Preview](https://cassiiopeia.github.io/projectops/pr-preview), [Flutter builds](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger), [Issue automation](https://cassiiopeia.github.io/projectops/issue-automation).
 
-| Command | What it does | Applies to |
-|--------|------|------|
-| `@projectops server build` | Deploy a temporary server | Spring, Python |
-| `@projectops server destroy` | Delete the server | Spring, Python |
-| `@projectops server status` | Check server status | Spring, Python |
-| `@projectops build app` | Build iOS + Android | Flutter |
-| `@projectops apk build` | Build Android only | Flutter |
-| `@projectops ios build` | Build iOS only | Flutter |
-| `@projectops create qa` | Create a QA issue automatically | All projects |
+## Community
 
-> Details: [PR Preview](docs/en/pr-preview.md) | [Flutter builds](docs/en/flutter-test-build-trigger.md) | [Issue automation](docs/en/issue-automation.md)
+- **First contribution?** Pick a [`good first issue`](https://github.com/Cassiiopeia/projectops/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and comment `/assign` on its own line; a bot assigns it to you for 7 days.
+- [CONTRIBUTING.md](CONTRIBUTING.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) · [SECURITY.md](SECURITY.md) (report vulnerabilities privately)
+- [Issues](https://github.com/Cassiiopeia/projectops/issues) for bugs and requests, [Discussions](https://github.com/Cassiiopeia/projectops/discussions) for questions. Finished issues get `status: done` and close when a release merges.
 
----
+## Documentation
 
-## Setup
-
-### Personal access token (optional)
-
-Everything runs with the built-in `GITHUB_TOKEN`. Add a personal access token as the repository secret `_GITHUB_PAT_TOKEN` only if you need one of these:
-
-| You want | Why the built-in token is not enough | Classic token scopes |
-|---|---|---|
-| Release PRs to merge even when branch protection blocks the Actions bot | The release workflow retries the merge with `--admin`, which needs an admin's token | `repo`, `workflow` |
-| Issue labels synced to a GitHub Projects board | `GITHUB_TOKEN` cannot use the Projects API | `repo`, `project` |
-| Other workflows to react to the issue helper's comment in a private repository | Events created with `GITHUB_TOKEN` do not start other workflows | `repo` |
-
-Without a token, workflows that should run after a release merge are started with an explicit dispatch, so you do not need a token for that.
-
-A fine-grained token with **Contents**, **Pull requests**, **Issues** and **Workflows** set to *Read and write* should cover the first row. We have not verified fine-grained tokens end to end yet; for Projects sync we have only tested a classic token. If a fine-grained token fails, please open an issue.
-
-```
-Repository Settings → Secrets → Actions → New repository secret
-Name: _GITHUB_PAT_TOKEN
-```
-
-### Organization settings
-
-```
-Settings → Actions → General
-├─ ✅ Allow GitHub Actions to create and approve pull requests
-└─ ✅ Read and write permissions
-```
-
----
-
-## Things to know
-
-We would rather tell you up front when this is not a fit.
-
-- **GitHub only.** It assumes GitHub Actions and GitHub issues/PRs, so GitLab and others are not supported.
-- **Releases assume a develop branch → default branch PR flow.** Branch names can be changed in `version.yml`, but it does not suit a repo that does not use two branches.
-- **A personal access token is optional.** You need one only to merge past branch protection or to sync a Projects board. See [Setup](#setup).
-- **It adds about 60 files to your repository** (workflows, helper scripts, templates). See [the measurement](#compared-with-other-tools).
-- **New versions ship often.** `latest` follows every push to `main` with no delay. `npx projectops@<version>` pins the installer only; workflow templates always come from the current `main`.
-- **Server deploy workflows assume a Docker server reachable over SSH.**
-
----
+Everything is on the **[docs site](https://cassiiopeia.github.io/projectops/)**, in English and [Korean](https://cassiiopeia.github.io/projectops/ko/): [Getting started](https://cassiiopeia.github.io/projectops/getting-started) · [CLI](https://cassiiopeia.github.io/projectops/cli) · [Agent Skills](https://cassiiopeia.github.io/projectops/skills) · [Versioning](https://cassiiopeia.github.io/projectops/version-control) · [Changelog](https://cassiiopeia.github.io/projectops/changelog-automation) · [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide) · [Flutter CI/CD](https://cassiiopeia.github.io/projectops/flutter-cicd-overview) · [Troubleshooting](https://cassiiopeia.github.io/projectops/troubleshooting)
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
 ## Latest version : v4.103.1 (2026-11-13)
@@ -356,37 +169,8 @@ We would rather tell you up front when this is not a fit.
 
 ---
 
-## Documentation
-
-Browse and search everything on the **[docs site](https://cassiiopeia.github.io/projectops/)**. The guides are available in English and [Korean](https://cassiiopeia.github.io/projectops/ko/).
-
-- [Getting started](https://cassiiopeia.github.io/projectops/getting-started)
-- [CLI reference](https://cassiiopeia.github.io/projectops/cli)
-- [Agent Skills guide](https://cassiiopeia.github.io/projectops/skills)
-- [Versioning](https://cassiiopeia.github.io/projectops/version-control)
-- [Changelog automation](https://cassiiopeia.github.io/projectops/changelog-automation)
-- [PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)
-- [Issue automation](https://cassiiopeia.github.io/projectops/issue-automation)
-- [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide)
-- [Flutter CI/CD](https://cassiiopeia.github.io/projectops/flutter-cicd-overview)
-- [Troubleshooting](https://cassiiopeia.github.io/projectops/troubleshooting)
-
----
-
-## Support
-
-- [Issues](https://github.com/Cassiiopeia/projectops/issues): bug reports and feature requests
-- [Discussions](https://github.com/Cassiiopeia/projectops/discussions): questions and ideas
-  - Finished issues are marked with the `status: done` label and closed automatically when a release is merged (`close_on_release`).
-- [CONTRIBUTING.md](CONTRIBUTING.md): contribution guide
-- [ARCHITECTURE.md](ARCHITECTURE.md): how the code fits together and how to add a flag, option, provider, language or skill
-- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md): how we expect everyone to behave, and where to report problems
-- [SECURITY.md](SECURITY.md): please report security vulnerabilities privately, not in a public issue
-
----
-
 <div align="center">
 
-**MIT License**
+**MIT License** · README images are rendered from [`docs/recording/readme_assets/`](docs/recording/readme_assets/)
 
 </div>

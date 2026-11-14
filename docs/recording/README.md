@@ -38,4 +38,15 @@ python3 docs/recording/ui_design_demo/record_ui_design.py --lang en
 python3 docs/recording/ui_design_demo/record_ui_design.py --lang ko
 ```
 
-It starts a `pro-ui-design` session from this working tree in a temporary git repo, writes `linked.html` with the text for that language, and records the steps with `capture --gif`. Nothing is published.
+It starts a `pro-ui-design` session from this working tree in a temporary git repo, writes `linked.html` with the text for that language, and records the steps with `capture --gif`. The GIF is then re-encoded with one palette shared by all frames, so unchanged areas are not rewritten every frame (about 0.7 MB instead of 5 MB). Nothing is published.
+
+## README images (`readme-hero`, `readme-cycle`, `readme-features`, `readme-skills`)
+
+The designed images on the README landing page are HTML pages in `readme_assets/` (one design system in `tokens.css`, text for each language at the bottom of each page). Needs the browser that `pro-launch web setup` installs.
+
+```bash
+python3 docs/recording/readme_assets/render_readme_assets.py              # all, en + ko, light + dark
+python3 docs/recording/readme_assets/render_readme_assets.py --only cycle --lang en
+```
+
+Each page is rendered at 2x to `docs/images/readme-<name>.webp` (light), `readme-<name>-dark.webp` (dark) and `*.ko.webp` for Korean. READMEs pick light or dark with `<picture>` and `prefers-color-scheme`. The cycle image shows real records (issue #1155, release PR #1156, v4.102.0); change the facts in `cycle.html` and `hero.html` when you swap the example.
