@@ -120,9 +120,9 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 용도에 따라 네 그룹으로 나뉩니다:
 
 - **분석형** (1종) — 코드를 읽기만 하고 수정하지 않음. 계획/리뷰/진단 결과를 돌려줌.
-- **구현형** (8종) — 실제로 파일을 수정하거나 생성함.
-- **개발 사이클 자동화형** (3종) — 커밋, 배포, GitHub 작업을 대신 수행함.
-- **문서/산출물 생성형** (5종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
+- **구현형** (9종) — 실제로 파일을 수정하거나 생성함.
+- **개발 사이클 자동화형** (4종) — 커밋, 배포, GitHub 작업, 서버 점검을 대신 수행함.
+- **문서/산출물 생성형** (4종) — 코드는 건드리지 않고, `.md` 파일이나 보고서를 생성함.
 
 > 설계·계획·구현 흐름은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 담당합니다.
 
@@ -148,7 +148,7 @@ Codex에서는 slash command UI가 아니라 `AGENTS.md`와 설치된 `skills/`�
 
 ---
 
-## 🔧 구현형 Skill (8종)
+## 🔧 구현형 Skill (9종)
 
 실제로 파일을 수정합니다. "작업을 진행해달라"일 때 사용하세요.
 
@@ -224,6 +224,12 @@ GitHub 레포를 **오픈소스 프로젝트로서 진단**합니다. 레포 성
 - 다른 스킬(`pro-agent-test`, `pro-ui-design`, `pro-figma`)이 화면을 찍어야 할 때
 
 > 버그를 찾으며 끝까지 밟는 QA는 `/pro-agent-test`입니다. 이 스킬은 "띄우고 찍는 도구"입니다.
+
+**웹 로그인** — 브라우저에서 Google, Apple, Naver, Kakao, GitHub에 로그인합니다. 이미 로그인된 프로필을 먼저 재사용하고, 계정은 저장해 둔 자격 증명에서 가져오며, 2단계 인증·캡차·패스키 화면은 사용자에게 넘깁니다. Apple 로그인 코드가 에이전트가 도는 Mac으로 오면, 사용자가 동의한 경우에만 시스템 알림에서 코드를 읽어 입력합니다. 자세히: [`web-sign-in.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/pro-launch/references/web-sign-in.md)
+
+**올리기 전에 개인정보 가리기** — `mask`는 스크린샷의 지정 영역을 단색으로 덮고, `redact`는 로그에서 알려진 비밀값·개인정보 형식을 지웁니다. 둘 다 새 파일(`<이름>.masked<확장자>`, `<이름>.redacted<확장자>`)을 만들고 원본은 바꾸지 않습니다. 첨부는 새 파일만 합니다. 자세히: [`evidence.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/pro-launch/references/evidence.md)
+
+**하네스 폴더** — 하네스는 반복하는 사이트·작업마다 두는 폴더 하나입니다. 에이전트가 따라 하는 안내서 `README.md`와 선택 도우미 스크립트가 들어갑니다. 이 컴퓨터 전체용(`~/.projectops/launch/_machine/harness/<이름>/`)이나 레포 하나용으로 두며, 맞는 URL·호스트·앱·창을 열면 자동으로 다시 보여 줍니다. 사이트를 더하려면 코드가 아니라 폴더를 더합니다. 자세히: [`harness.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/pro-launch/references/harness.md)
 
 ---
 
@@ -309,9 +315,9 @@ UI 시안을 로컬 주소에 띄워 비교하고 고르게 합니다. 레포의
 
 ---
 
-## 🔄 개발 사이클 자동화 Skill (3종)
+## 🔄 개발 사이클 자동화 Skill (4종)
 
-이슈 등록부터 커밋, 배포까지 — 반복 작업을 AI가 대신합니다.
+이슈 등록부터 커밋, 배포, 서버 점검까지 — 반복 작업을 AI가 대신합니다.
 
 ### `/pro-commit`
 
@@ -372,7 +378,22 @@ GitHub 이슈/PR/댓글을 **독립적으로 조회하고 관리**합니다. 다
 
 ---
 
-## 📝 문서/산출물 생성형 Skill (5종)
+### `/pro-ssh`
+
+**무엇을 하나요?**
+AWS EC2, 시놀로지 NAS, 일반 Linux 서버 등 **SSH 접근 가능한 모든 서버에 접속**해서 명령을 실행하고 결과를 보고합니다. 비밀번호 인증과 PEM 키 인증을 모두 지원하며, 서버 정보는 `~/.projectops/config/ssh.config.json`에 저장해두면 이름만 말해도 바로 접속합니다.
+
+**수정되는 것**: 없음 (원격 서버에서 명령 실행 후 결과만 반환)
+**돌려주는 것**: SSH 명령 실행 결과 + 요약 보고
+
+**언제 쓰나요?**
+- "서버 로그 봐줘", "prod 검수해줘", "배포 됐는지 확인해줘"
+- CI/CD 완료 후 서버 상태 자동 검수
+- 여러 서버를 config에 등록해두고 이름으로 선택
+
+---
+
+## 📝 문서/산출물 생성형 Skill (4종)
 
 코드는 건드리지 않고, 특정 형식의 **문서 파일**을 생성합니다.
 
@@ -424,21 +445,6 @@ GitHub 이슈를 읽고 관련 코드를 탐색한 뒤, **QA용 테스트 체크
 
 ---
 
-### `/pro-ssh`
-
-**무엇을 하나요?**
-AWS EC2, 시놀로지 NAS, 일반 Linux 서버 등 **SSH 접근 가능한 모든 서버에 접속**해서 명령을 실행하고 결과를 보고합니다. 비밀번호 인증과 PEM 키 인증을 모두 지원하며, 서버 정보는 `~/.projectops/config/ssh.config.json`에 저장해두면 이름만 말해도 바로 접속합니다.
-
-**수정되는 것**: 없음 (원격 서버에서 명령 실행 후 결과만 반환)
-**돌려주는 것**: SSH 명령 실행 결과 + 요약 보고
-
-**언제 쓰나요?**
-- "서버 로그 봐줘", "prod 검수해줘", "배포 됐는지 확인해줘"
-- CI/CD 완료 후 서버 상태 자동 검수
-- 여러 서버를 config에 등록해두고 이름으로 선택
-
----
-
 ### `/pro-skill-creator`
 
 **무엇을 하나요?**
@@ -486,6 +492,71 @@ Cursor·Gemini CLI·pi에는 extras 설치 경로가 없고, `npx projectops` �
 
 개인 설정(언어·말투·규칙)을 읽는 `prefs_cli.py`는 코어 플러그인에 들어 있습니다. extras만 설치하면 설정을 찾지 못해 기본값으로 동작합니다. 개인 설정을 쓰려면 코어 플러그인도 함께 설치하세요.
 
+### `/pro-skill-bug`
+
+**무엇을 하나요?**
+**지금 세션에서 의심되는 projectops 스킬 버그를 보고**합니다. 세션 기록에서 명령·결과·흐름·로그·스크린샷을 모으고 개인정보를 지운 뒤 `Cassiiopeia/projectops`에 이슈를 올립니다(같은 증상의 열린 이슈가 있으면 댓글). 그다음 하던 일로 돌아갑니다. 정말 버그인지 판정하거나 원인을 찾거나 고치지는 않습니다.
+
+Claude Code에서는 extras 훅이 모든 projectops CLI를 지켜보다가 버그가 의심되면 이 스킬을 백그라운드 서브에이전트로 알아서 시작합니다. 명령이 실패한 뒤 손으로 우회한 경우, 도구가 그런 기능이 없다고 답한 경우, 같은 사용법 오류 2회, 같은 실패 3회, projectops 파일 안의 예외가 기준입니다. 세션당 최대 3건입니다. 자동 보고를 끄려면 `~/.projectops/config/config.json`에 `"skill-bug": {"auto_report": false}`를 넣으세요.
+
+**수정되는 것**: 로컬에는 없음 (`Cassiiopeia/projectops`에 이슈나 댓글 생성)
+**돌려주는 것**: 이슈 링크와 새 이슈/댓글 여부 한 줄
+
+**언제 쓰나요?**
+- `pro-*` 도구의 결과가 실제로 일어난 일과 다를 때
+- 같은 명령을 계속 반복하거나, 스킬을 우회해서 끝내야 했을 때
+- "이거 버그 아냐?" — 확실하지 않아도 부르세요
+
+---
+
+### `/pro-disk-cleanup`
+
+**무엇을 하나요?**
+macOS·Windows·Linux에서 스택과 상관없이 **되찾을 수 있는 디스크 공간을 찾아 안전하게 정리**합니다. 읽기 전용 `scan`부터 하고, 찾은 것을 세 단계로 나눕니다.
+
+| 단계 | 들어가는 것 | 정리 방식 |
+|---|---|---|
+| safe | worktree 안 빌드 결과물, 브라우저 캐시, 도구 자체 정리(npm·pip·Homebrew 등) | 한 번 확인 후 |
+| decide | 열린 이슈의 worktree, 에뮬레이터 이미지, DerivedData, Gradle 캐시, 휴지통, 정체를 모르는 큰 폴더 | 사용자가 이름을 댄 것만 |
+| keep | 로그인 프로필, `.git`, 브랜치, stash, 이력 | 지우지 않음 |
+
+지우는 명령은 모두 `--yes`가 없으면 계획만 보여 줍니다. worktree는 GitHub에서 이슈가 닫혔는지 확인하고, 사용 중이거나 최근에 건드린 것이 아닌지 보고, 백업(패치와 작은 고유 파일)을 만든 뒤에만 제거하며 브랜치는 남깁니다.
+
+**수정되는 것**: 사용자가 확인한 것(safe)이나 이름을 댄 것(decide)만
+**돌려주는 것**: 정리 전후 여유 공간, 지운 것, 남긴 것과 이유, 백업 위치
+
+**언제 쓰나요?**
+- "디스크 꽉 찼어", "용량 정리해줘", "뭐가 용량 먹는지 봐줘"
+- "끝난 worktree 정리해줘", "build 폴더 지워줘"
+
+---
+
+### `/pro-orca-tunnel`
+
+**무엇을 하나요?**
+"orca 주소 줘"에 **어디서나 열 수 있는 링크 하나로 답합니다**. Orca Web용으로 떠 있는 cloudflared 빠른 터널을 재사용하거나 새로 열고, 저장해 둔 Orca 짝 맞추기 링크의 주소를 터널 주소로 바꿔 돌려줍니다. Cloudflare 계정은 필요 없고 `cloudflared`만 설치돼 있으면 됩니다. Orca 고유 사실(포트·확인 화면·링크 모양)은 하네스 파일에 두고 Orca가 바뀌면 에이전트가 고칩니다. macOS·Windows·Linux에서 동작합니다.
+
+**수정되는 것**: 빠른 터널 시작·중지, 짝 맞추기 링크를 `~/.projectops/tunnel/` 아래 본인만 읽는 파일에 저장
+**돌려주는 것**: URL 하나 (기기 토큰이 들어 있어 채팅에서 사용자에게만 보냄)
+
+**언제 쓰나요?**
+- "orca 주소 줘", "밖에서 Orca 열고 싶어"
+- Mac에서 떨어져 있을 때 브라우저로 Orca 데스크톱을 쓰고 싶을 때
+
+---
+
+### `/pro-synology-expose`
+
+**무엇을 하나요?**
+시놀로지 NAS에서 (Docker 등으로) 도는 **웹 서비스를 내 도메인의 HTTPS 주소로 노출하는 과정을 안내**합니다. 순서는 고정입니다: DNS 레코드(Cloudflare·Route53 등) → DSM 역방향 프록시 규칙 2개(443 → 로컬 포트, 80 → 443, 필요하면 WebSocket 헤더) → Let's Encrypt 인증서. 서비스 이름·서브도메인·포트·WebSocket 사용 여부는 사용자가 준 정보에서 추론하고 빠진 것만 묻습니다.
+
+**수정되는 것**: NAS는 직접 바꾸지 않음 (안내만 함), NAS 정보는 `~/.projectops/config/config.json`에 저장
+**돌려주는 것**: 서비스에 맞춘 단계별 설정값과 최종 점검표
+
+**언제 쓰나요?**
+- "이 서비스 서브도메인으로 붙여줘", "역방향 프록시 추가해줘", "HTTPS 설정해줘"
+- NAS에 새로 띄운 Docker 서비스에 외부 주소가 필요할 때
+
 ---
 
 ## 어떤 Skill을 언제 쓸까?
@@ -529,14 +600,24 @@ flowchart TD
 
 | 상황 | 사용 Skill |
 |------|----------|
-| 코드 리뷰만 필요 | `review` |
-| 이슈만 빠르게 초안 작성 | `github` |
-| PR 설명 / QA 체크리스트 생성 | `report` / `testcase` |
-| Figma 디자인을 코드로 옮기고 시안과 대조 | `figma` |
-| 원격 서버 SSH 접속·명령 실행 | `ssh` |
-| 배포 PR 생성 + automerge | `changelog-deploy` |
-| GitHub 이슈/PR 조회 및 관리 | `github` |
-| Skill 생성/리뷰/개선 | `skill-creator` |
+| 코드 리뷰만 필요 | `pro-review` |
+| 이슈·PR 생성·조회·닫기, 댓글, 라벨, Actions 로그, Secret | `pro-github` |
+| 브랜치명의 이슈로 메시지를 만들어 커밋 | `pro-commit` |
+| 배포 PR 생성 + automerge, 실패한 automerge 재트리거 | `pro-changelog-deploy` |
+| PR 설명 / 구현 보고서 생성 | `pro-report` |
+| QA 체크리스트 작성 (문서만) | `pro-testcase` |
+| 앱·웹·서버를 실제로 실행해 버그 찾기 | `pro-agent-test` |
+| 앱·에뮬레이터·브라우저·서버 띄우기·조작·캡처 | `pro-launch` |
+| 설치 마법사·OS 대화상자·데스크톱 앱 조작 | `pro-desktop-control` |
+| worktree 생성 + 필요한 로컬 파일 복사 | `pro-init-worktree` |
+| 원격 서버 SSH 접속·명령 실행 | `pro-ssh` |
+| Figma 디자인을 코드로 옮기고 시안과 대조 | `pro-figma` |
+| UI 시안을 띄워 비교·선택, 디자인 요청 | `pro-ui-design` |
+| 프로젝트 화풍에 맞는 이미지 에셋 생성 | `pro-image` |
+| 발표 덱 만들기·말하기 연습 | `pro-presentation` |
+| AI가 짠 코드를 코딩 규칙 기준으로 점검·리팩터링 | `pro-code-consult` |
+| 레포를 오픈소스 프로젝트로 진단 | `pro-oss-consult` |
+| Skill 생성/리뷰/개선 | `pro-skill-creator` |
 
 ---
 

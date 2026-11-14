@@ -120,9 +120,9 @@ In Codex there is no slash command UI. You use Skills by having it read the rele
 By purpose, they fall into four groups:
 
 - **Analysis** (1) — Only read code and never modify it. Return plans, reviews, or diagnoses.
-- **Implementation** (8) — Actually modify or create files.
-- **Development cycle automation** (3) — Do commits, deploys, and GitHub work for you.
-- **Document/artifact generation** (5) — Do not touch code; generate `.md` files or reports.
+- **Implementation** (9) — Actually modify or create files.
+- **Development cycle automation** (4) — Do commits, deploys, GitHub work, and server checks for you.
+- **Document/artifact generation** (4) — Do not touch code; generate `.md` files or reports.
 
 > Design, planning, and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin.
 
@@ -148,7 +148,7 @@ It reviews code from **six angles: security, performance, bugs, quality, archite
 
 ---
 
-## 🔧 Implementation Skills (8)
+## 🔧 Implementation Skills (9)
 
 They actually modify files. Use them when you want the work to be carried out.
 
@@ -224,6 +224,12 @@ A **capability Skill** that starts, operates, and captures apps, web, and server
 - When another Skill (`pro-agent-test`, `pro-ui-design`, `pro-figma`) needs to capture a screen
 
 > QA that goes through the app end to end looking for bugs is `/pro-agent-test`. This Skill is "a tool for starting and capturing".
+
+**Web sign-in** — It signs in to Google, Apple, Naver, Kakao and GitHub in the browser. It first reuses a profile that is already signed in, takes the account from your saved credentials, and hands two-factor, captcha and passkey screens to you. When an Apple sign-in sends its code to the Mac the agent runs on, it can read that code from the system alert, only after you agree. Details: [`web-sign-in.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/pro-launch/references/web-sign-in.md).
+
+**Hide personal data before posting** — `mask` covers areas of a screenshot with a solid box, and `redact` replaces known secret and personal formats in a log. Both write a new file (`<name>.masked<ext>`, `<name>.redacted<ext>`) and never change the original; attach only the new file. Details: [`evidence.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/pro-launch/references/evidence.md).
+
+**Harness folders** — A harness is one folder per site or workflow you repeat: a `README.md` guide the agent follows, plus optional helper scripts. It lives on this machine (`~/.projectops/launch/_machine/harness/<name>/`) or for one repo, and comes back automatically when the agent opens a matching URL, host, app or window. Adding a site means adding a folder, not code. Details: [`harness.md`](https://github.com/Cassiiopeia/projectops/blob/main/skills/pro-launch/references/harness.md).
 
 ---
 
@@ -309,9 +315,9 @@ It builds a talk as an HTML deck and lets you rehearse it out loud, one slide at
 
 ---
 
-## 🔄 Development cycle automation Skills (3)
+## 🔄 Development cycle automation Skills (4)
 
-From registering an issue to committing and deploying — AI takes over the repetitive work.
+From registering an issue to committing, deploying, and checking the server — AI takes over the repetitive work.
 
 ### `/pro-commit`
 
@@ -372,7 +378,22 @@ It **looks up and manages** GitHub issues/PRs/comments **independently**. Withou
 
 ---
 
-## 📝 Document/artifact generation Skills (5)
+### `/pro-ssh`
+
+**What does it do?**
+It **connects to any server reachable by SSH** — AWS EC2, Synology NAS, a generic Linux server, and so on — runs commands, and reports the result. It supports both password and PEM key authentication, and if you save server info in `~/.projectops/config/ssh.config.json`, it connects when you just say the name.
+
+**Modifies**: nothing (runs commands on the remote server and only returns the result)
+**Returns**: SSH command output + a summary report
+
+**When to use it**
+- "Show me the server logs", "check prod", "did the deploy go through?"
+- Automatic server state checks after CI/CD finishes
+- Registering several servers in the config and choosing by name
+
+---
+
+## 📝 Document/artifact generation Skills (4)
 
 They do not touch code; they generate **document files** in a specific format.
 
@@ -418,21 +439,6 @@ QA that **actually runs apps, web, and servers and goes through them looking for
 - Problems that only occur in release builds (R8, signing, and manifest problems do not reproduce in debug)
 
 > It differs from `/pro-testcase` (QA document generation) — this Skill **runs** the app.
-
----
-
-### `/pro-ssh`
-
-**What does it do?**
-It **connects to any server reachable by SSH** — AWS EC2, Synology NAS, a generic Linux server, and so on — runs commands, and reports the result. It supports both password and PEM key authentication, and if you save server info in `~/.projectops/config/ssh.config.json`, it connects when you just say the name.
-
-**Modifies**: nothing (runs commands on the remote server and only returns the result)
-**Returns**: SSH command output + a summary report
-
-**When to use it**
-- "Show me the server logs", "check prod", "did the deploy go through?"
-- Automatic server state checks after CI/CD finishes
-- Registering several servers in the config and choosing by name
 
 ---
 
@@ -483,6 +489,71 @@ Cursor, Gemini CLI and pi have no extras install path. `npx projectops` removes 
 
 The preferences reader (`prefs_cli.py`) ships with the core plugin. With extras alone, skills cannot find it and run with default preferences. Install the core plugin as well to use your preferences.
 
+### `/pro-skill-bug`
+
+**What does it do?**
+It **reports a suspected projectops skill bug from the current session**. It gathers the commands, results, flow, logs and screenshots from the session transcript, strips personal data, and files an issue in `Cassiiopeia/projectops` (or comments on an open issue with the same symptom). Then it goes back to what you were doing. It does not judge whether it really is a bug, look for the cause, or fix anything.
+
+In Claude Code, an extras hook watches every projectops CLI and starts this skill in a background subagent on its own when it sees a suspected bug: a failed command followed by a hand-made workaround, a tool answering that it has no such feature, the same usage error twice, the same failure three times, or a crash inside a projectops file. At most 3 reports per session. To turn the automatic reports off, set `"skill-bug": {"auto_report": false}` in `~/.projectops/config/config.json`.
+
+**Modifies**: nothing locally (creates an issue or a comment in `Cassiiopeia/projectops`)
+**Returns**: one line with the issue link, new or comment
+
+**When to use it**
+- A `pro-*` tool's result does not match what really happened
+- You keep repeating the same command, or had to work around a skill to finish
+- "Is this a bug?" — call it even when unsure
+
+---
+
+### `/pro-disk-cleanup`
+
+**What does it do?**
+It **finds reclaimable disk space and clears it safely** on macOS, Windows and Linux, for any stack. It starts with a read-only `scan` and sorts what it finds into three tiers:
+
+| Tier | What is in it | How it is cleared |
+|---|---|---|
+| safe | Build output inside worktrees, browser caches, a tool's own clean-up (npm, pip, Homebrew, ...) | After one confirmation |
+| decide | Open-issue worktrees, emulator images, DerivedData, Gradle caches, Trash, unknown big folders | Only when you name the item |
+| keep | Login profiles, `.git`, branches, stashes, history | Never |
+
+Every deleting command only prints a plan unless it gets `--yes`. A worktree is removed only after GitHub confirms its issue is closed, it is not in use or recently touched, and a backup (patches and small unique files) is made; the branch is kept.
+
+**Modifies**: only what you confirmed (safe tier) or named (decide tier)
+**Returns**: free space before and after, what was removed, what was kept and why, backup locations
+
+**When to use it**
+- "The disk is full", "free up space", "what is eating my disk"
+- "Clean up the finished worktrees", "delete build folders"
+
+---
+
+### `/pro-orca-tunnel`
+
+**What does it do?**
+It **answers "give me the Orca URL" with one link you can open from anywhere**. It reuses the running cloudflared quick tunnel for Orca Web (or opens a new one), then returns your saved Orca pairing link with the tunnel address swapped in. No Cloudflare account is needed; only `cloudflared` must be installed. Orca-specific facts (port, check page, link shape) live in a harness file the agent updates when Orca changes. Works on macOS, Windows and Linux.
+
+**Modifies**: starts or stops quick tunnels; saves the pairing link in an owner-only file under `~/.projectops/tunnel/`
+**Returns**: one URL (the link carries a device token, so it is sent only to you in the chat)
+
+**When to use it**
+- "Give me the Orca URL", "open Orca remotely"
+- You are away from the Mac and want Orca desktop in a browser
+
+---
+
+### `/pro-synology-expose`
+
+**What does it do?**
+It **walks you through exposing a web service on a Synology NAS** (in Docker or similar) on your own domain over HTTPS, in a fixed order: DNS record (Cloudflare, Route53, others) → two DSM reverse proxy rules (443 → local port, 80 → 443, plus WebSocket headers when needed) → Let's Encrypt certificate. It infers the service name, subdomain, port and WebSocket use from what you give it and asks only for what is missing.
+
+**Modifies**: nothing on the NAS by itself (it guides you); it saves your NAS details in `~/.projectops/config/config.json`
+**Returns**: step-by-step settings for your service and a final checklist
+
+**When to use it**
+- "Put this service on a subdomain", "add a reverse proxy", "set up HTTPS"
+- A new Docker service on the NAS needs a public address
+
 ---
 
 ## Which Skill when?
@@ -526,14 +597,24 @@ flowchart TD
 
 | Situation | Skill to use |
 |------|----------|
-| Only a code review is needed | `review` |
-| Quickly draft just an issue | `github` |
-| Generate a PR description / QA checklist | `report` / `testcase` |
-| Move a Figma design into code and compare it with the design | `figma` |
-| SSH into a remote server and run commands | `ssh` |
-| Create a deploy PR + automerge | `changelog-deploy` |
-| Look up and manage GitHub issues/PRs | `github` |
-| Create/review/improve a Skill | `skill-creator` |
+| Only a code review is needed | `pro-review` |
+| Create, read or close issues and PRs, comments, labels, Actions logs, secrets | `pro-github` |
+| Commit with a message built from the issue in the branch name | `pro-commit` |
+| Create a deploy PR + automerge, or re-trigger a failed automerge | `pro-changelog-deploy` |
+| Generate a PR description / implementation report | `pro-report` |
+| Write a QA checklist (document only) | `pro-testcase` |
+| Actually run the app, web or server to find bugs | `pro-agent-test` |
+| Start, drive and capture an app, emulator, browser or server | `pro-launch` |
+| Press through an installer, OS dialog or desktop app | `pro-desktop-control` |
+| Create a worktree and copy the local files it needs | `pro-init-worktree` |
+| SSH into a remote server and run commands | `pro-ssh` |
+| Move a Figma design into code and compare it with the design | `pro-figma` |
+| Show UI mockups to compare and pick, or request a design | `pro-ui-design` |
+| Make an image asset in the project's style | `pro-image` |
+| Build a talk deck and rehearse it | `pro-presentation` |
+| Audit or refactor AI-written code against your conventions | `pro-code-consult` |
+| Diagnose a repo as an open-source project | `pro-oss-consult` |
+| Create/review/improve a Skill | `pro-skill-creator` |
 
 ---
 
