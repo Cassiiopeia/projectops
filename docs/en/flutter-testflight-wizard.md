@@ -239,7 +239,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 
 ### Test build
 - **File:** `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml`
-- **Trigger:** an `@projectops build app` or `@projectops ios build` comment (repository_dispatch)
+- **Trigger:** an `@projectops app build` or `@projectops ios build` comment (repository_dispatch)
 - **Purpose:** test builds from a PR or issue
 
 ---

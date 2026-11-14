@@ -48,7 +48,7 @@ projectops의 Flutter CI/CD 시스템은 **마법사 도구**와 **GitHub Action
 │                                                                  │
 │  develop 푸시/PR → PROJECT-FLUTTER-CI.yaml (분석 + 빌드 검증)    │
 │                                                                  │
-│  PR/이슈에 빌드 명령어 댓글 (build app/apk build/ios build)     │
+│  PR/이슈에 빌드 명령어 댓글 (app build/apk build/ios build)     │
 │                     ↓                                            │
 │  PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml (트리거)      │
 │                     ↓  repository_dispatch                       │
@@ -242,7 +242,7 @@ App Store Connect 기존값을 그대로 둔다. (예전에는 빈 파일로 '�
 
 | 워크플로우 | 용도 | 트리거 |
 |-----------|------|--------|
-| `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` | 빌드 트리거 감지 | `@projectops build app` / `apk build` / `ios build` 댓글 |
+| `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` | 빌드 트리거 감지 | `@projectops app build` / `apk build` / `ios build` 댓글 |
 | `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml` | iOS 테스트 빌드 | repository_dispatch (`build-ios-app`) |
 | `PROJECT-FLUTTER-ANDROID-TEST-APK.yaml` | Android APK 테스트 빌드 | repository_dispatch (`build-android-app`) |
 
@@ -297,7 +297,7 @@ npx projectops --mode workflows --type flutter
 
 PR 또는 이슈에 댓글 작성:
 ```
-@projectops build app    # Android + iOS 모두 빌드
+@projectops app build    # Android + iOS 모두 빌드
 @projectops apk build    # Android만 빌드
 @projectops ios build    # iOS만 빌드
 ```

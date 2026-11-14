@@ -38,15 +38,17 @@ PR에 다음 댓글 중 하나를 작성합니다:
 
 | 명령어 | 빌드 대상 |
 |--------|----------|
-| `@projectops build app` | Android + iOS 모두 |
+| `@projectops app build` | Android + iOS 모두 |
 | `@projectops apk build` | Android만 |
 | `@projectops ios build` | iOS만 |
 
 ```
-@projectops build app    # 양쪽 모두 빌드
+@projectops app build    # 양쪽 모두 빌드
 @projectops apk build    # Android만 빌드
 @projectops ios build    # iOS만 빌드
 ```
+
+어순은 상관없습니다. `@projectops build app`, `build apk`, `build ios`로 적어도 똑같이 동작합니다. 문서는 `app build` 형태로 씁니다.
 
 ### 이슈에서 빌드 트리거
 
@@ -76,7 +78,7 @@ feature/20240101_#123_기능명
 
 **예시:**
 ```
-@projectops build app                      # Android + iOS 빌드
+@projectops app build                      # Android + iOS 빌드
 @projectops apk build                      # Android만 빌드
 @projectops ios build                      # iOS만 빌드
 @projectops 으로 build 해서 app 테스트해주세요  # Android + iOS 빌드
@@ -166,7 +168,7 @@ feature/20240101_#123_기능명
 
 ```
 1. PR/이슈에 빌드 명령어 댓글 작성
-   (@projectops build app / apk build / ios build)
+   (@projectops app build / apk build / ios build)
        ↓
 2. BUILD-TRIGGER 워크플로우 실행
    - Add 👀 reaction to the comment (👀 리액션 추가)
@@ -174,7 +176,7 @@ feature/20240101_#123_기능명
    - Read PR/issue information (PR/이슈 정보 추출)
        ↓
 3. repository_dispatch 이벤트 발생 (빌드 타입에 따라)
-   - build app: Android + iOS 모두 트리거
+   - app build: Android + iOS 모두 트리거
    - apk build: Android만 트리거
    - ios build: iOS만 트리거
        ↓

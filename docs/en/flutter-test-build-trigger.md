@@ -38,15 +38,17 @@ Write one of these comments on the PR:
 
 | Command | Builds |
 |--------|----------|
-| `@projectops build app` | Android + iOS |
+| `@projectops app build` | Android + iOS |
 | `@projectops apk build` | Android only |
 | `@projectops ios build` | iOS only |
 
 ```
-@projectops build app    # build both
+@projectops app build    # build both
 @projectops apk build    # build Android only
 @projectops ios build    # build iOS only
 ```
+
+Word order does not matter: `@projectops build app`, `build apk` and `build ios` work the same. The docs use the `app build` form.
 
 ### Trigger a build from an issue
 
@@ -78,7 +80,7 @@ A comment triggers a build when it contains one of these patterns:
 
 **Examples:**
 ```
-@projectops build app                      # Android + iOS build
+@projectops app build                      # Android + iOS build
 @projectops apk build                      # Android only
 @projectops ios build                      # iOS only
 @projectops please build the app and test  # Android + iOS build
@@ -168,7 +170,7 @@ A build that was already uploaded is not uploaded again. Before a retry, the wor
 
 ```
 1. Write a build command comment on a PR/issue
-   (@projectops build app / apk build / ios build)
+   (@projectops app build / apk build / ios build)
        ↓
 2. BUILD-TRIGGER workflow runs
    - Add 👀 reaction to the comment
@@ -176,7 +178,7 @@ A build that was already uploaded is not uploaded again. Before a retry, the wor
    - Read PR/issue information
        ↓
 3. repository_dispatch event fires (by build type)
-   - build app: triggers Android + iOS
+   - app build: triggers Android + iOS
    - apk build: triggers Android only
    - ios build: triggers iOS only
        ↓

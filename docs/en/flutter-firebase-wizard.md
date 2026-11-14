@@ -128,7 +128,7 @@ python3 .github/util/flutter/firebase-wizard/firebase-wizard.py setup \
 
 ### Test build
 - **File:** `PROJECT-FLUTTER-ANDROID-TEST-APK.yaml`
-- **Trigger:** an `@projectops build app` or `@projectops apk build` comment (repository_dispatch)
+- **Trigger:** an `@projectops app build` or `@projectops apk build` comment (repository_dispatch)
 - **Purpose:** test APK builds from a PR or issue (includes an option to upload to Firebase)
 
 ---

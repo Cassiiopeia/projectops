@@ -239,7 +239,7 @@ base64 -i AuthKey_XXXXXXXXXX.p8 | pbcopy
 
 ### 테스트 빌드
 - **파일:** `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml`
-- **트리거:** `@projectops build app` 또는 `@projectops ios build` 댓글 (repository_dispatch)
+- **트리거:** `@projectops app build` 또는 `@projectops ios build` 댓글 (repository_dispatch)
 - **용도:** PR/이슈에서 테스트 빌드
 
 ---

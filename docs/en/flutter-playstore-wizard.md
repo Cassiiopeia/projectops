@@ -275,7 +275,7 @@ Set `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64` to the **base64 encoded value** of
 
 ### Test build
 - **File:** `PROJECT-FLUTTER-ANDROID-TEST-APK.yaml`
-- **Trigger:** an `@projectops build app` or `@projectops apk build` comment (repository_dispatch)
+- **Trigger:** an `@projectops app build` or `@projectops apk build` comment (repository_dispatch)
 - **Purpose:** test APK builds from a PR or issue
 
 ### Self-hosted server (SMB) deployment

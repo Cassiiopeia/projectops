@@ -48,7 +48,7 @@ The projectops Flutter CI/CD system combines **wizard tools** with **GitHub Acti
 │                                                                  │
 │  develop push/PR → PROJECT-FLUTTER-CI.yaml (analysis + build check)│
 │                                                                  │
-│  Build command comment on a PR/issue (build app/apk build/ios build)│
+│  Build command comment on a PR/issue (app build/apk build/ios build)│
 │                     ↓                                            │
 │  PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml (trigger)     │
 │                     ↓  repository_dispatch                       │
@@ -245,7 +245,7 @@ so the existing value stayed. Confirmed by measurement.) Apps that have no share
 
 | Workflow | Purpose | Trigger |
 |-----------|------|--------|
-| `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` | Detects the build trigger | `@projectops build app` / `apk build` / `ios build` comment |
+| `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` | Detects the build trigger | `@projectops app build` / `apk build` / `ios build` comment |
 | `PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml` | iOS test build | repository_dispatch (`build-ios-app`) |
 | `PROJECT-FLUTTER-ANDROID-TEST-APK.yaml` | Android APK test build | repository_dispatch (`build-android-app`) |
 
@@ -297,7 +297,7 @@ npx projectops --mode workflows --type flutter
 
 Write a comment on a PR or issue:
 ```
-@projectops build app    # Build both Android and iOS
+@projectops app build    # Build both Android and iOS
 @projectops apk build    # Build Android only
 @projectops ios build    # Build iOS only
 ```
