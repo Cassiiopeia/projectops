@@ -75,6 +75,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py actions cancel {owner} {
 
 - `joblog --grep` is a regex (`'error|failed'`, case-insensitive). An invalid regex is searched as literal text. Check `regex` in the response to see how it was interpreted.
   If you need the full log, save it with `--out file` and read it yourself. Logs past the retention period return `log_expired`.
+- `dispatch` refuses with `ref_ignored_by_workflow` when an `actions/checkout` step in the workflow (read at `--ref`) has a fixed `ref:` other than `--ref`: the run would build that fixed ref (and may use up a store version code). Tell the user; add `--force` only if they want that ref built.
 - `list-failed --workflow build.yaml` keeps only failed runs of that workflow.
 - `runs` takes `--event` and `--created` (`>=2026-11-03`). Each run has `actor`, `triggering_actor`, `head_repository`, `is_fork` and `pull_requests`, so a fork run needs no direct REST call. Fields a command does not expose: use the `api` subcommand.
 - For REST calls the commands above do not cover, use `api`: `api GET {owner} {repo} releases/latest` (a relative path gets `/repos/{owner}/{repo}/` prepended; an absolute path `/repos/{owner}/{repo}/...` also works).

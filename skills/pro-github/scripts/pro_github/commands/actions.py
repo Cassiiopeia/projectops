@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from common.emit import emit
 from common.gh_client import GitHubAPIError
+from pro_github.dispatch_ref_check import check_dispatch_ref
 from pro_github.registry import Command
 from pro_github.responses import api_error, missing_pat
 
@@ -134,6 +135,16 @@ def cmd_actions(args, api) -> int:
             inputs, bad = _parse_inputs(args.input)
             if bad:
                 return emit({"ok": False, "code": "bad_argument", "error": f"--input must be key=value: {bad}"})
+            # 고정 checkout ref 가 --ref 와 다르면 막는다 (다른 브랜치 빌드·버전 소모 방지, #1185)
+            fixed_refs = None if args.force else check_dispatch_ref(api, args.owner, args.repo, args.arg, args.ref, pat)
+            if fixed_refs:
+                refs = sorted({item["ref"] for item in fixed_refs})
+                return emit({"ok": False, "code": "ref_ignored_by_workflow",
+                             "summary": f"not dispatched: {args.arg} checks out {', '.join(refs)} instead of {args.ref}",
+                             "error": f"actions/checkout in {args.arg} uses a fixed ref ({', '.join(refs)}), so --ref {args.ref} "
+                                      f"only picks the workflow file; the job would build {', '.join(refs)}",
+                             "fixed_checkout_refs": fixed_refs,
+                             "next": "tell the user; add --force only if building that fixed ref is what they want"})
             result = api.dispatch_workflow(args.owner, args.repo, args.arg, args.ref, inputs, pat)
             return emit({**result, "summary": f"requested a run of {args.arg} ({args.ref})",
                          "next": f"actions runs {args.owner} {args.repo} {args.arg} --on-branch {args.ref}  # the new run shows up after a few seconds"})
@@ -270,7 +281,7 @@ def _configure_actions(parser) -> None:
     parser.add_argument("--ref", default="develop", help="dispatch: branch or tag to run on")
     parser.add_argument("--input", action="append", default=None, metavar="KEY=VALUE", help="dispatch: workflow input (repeatable)")
     parser.add_argument("--failed-only", dest="failed_only", action="store_true", help="rerun: failed jobs only")
-    parser.add_argument("--force", action="store_true", help="cancel: force cancel (also stops always() steps)")
+    parser.add_argument("--force", action="store_true", help="cancel: force cancel (also stops always() steps). dispatch: run even if checkout uses a fixed ref")
     parser.add_argument("--timeout", type=int, default=300, help="wait: max seconds to wait (up to 540)")
     parser.add_argument("--tail", type=int, default=30, help="Log line count")
     parser.add_argument("--limit", type=int, default=10, help="Run count limit")
