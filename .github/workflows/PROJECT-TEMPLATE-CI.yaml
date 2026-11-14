@@ -66,45 +66,45 @@ jobs:
   # 빠른 길 — 모든 커밋
   # ===================================================================
   quick:
-    name: 감시 검사 (ubuntu · Node 20)
+    name: Guard checks (ubuntu · Node 20)
     # 릴리스 버전 확정 커밋([skip ci])에서는 실행하지 않음
     if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           # 번역 어긋남 점검이 표식 커밋..HEAD 이력을 읽음 (#1140)
           fetch-depth: 0
 
-      - name: Node.js 설정
+      - name: Set up Node.js
         # engines의 하한(20.12)에 맞춘다
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Python 설정
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: 의존성 설치
+      - name: Install dependencies
         # package-lock.json은 .gitignore 대상(레포에 커밋 안 됨)이라 npm install 사용
         run: |
           npm install --no-audit --no-fund
           python3 -m pip install --quiet pytest pyyaml
 
-      - name: node --test (스킬 개수·목록 일치, 옵션 정본)
+      - name: node --test (skill count and list match, options schema)
         # 인자 없는 node --test 는 cwd 기준 test 파일을 자동 탐색한다(Node 20+)
         run: npm test
 
-      - name: CLI 스모크 (--help 종료코드 0)
+      - name: CLI smoke test (--help exits 0)
         run: node bin/projectops.js --help
 
-      - name: pytest (스킬 설명, 한글 줄 장부, 워크플로 권한)
+      - name: pytest (skill docs, Korean line budget, workflow permissions)
         run: python3 -m pytest scripts/tests/ .github/scripts/test/ -q
 
-      - name: 마법사 정합성 검증
+      - name: Wizard consistency check
         # CSS/JS 공통 자산 로드, 공통 유틸 재정의, version.json ↔ HTML 동기화, i18n 사전
         run: python3 .github/util/flutter/_shared/check-consistency.py
 
@@ -148,7 +148,7 @@ jobs:
   # 넓은 길 — main push·수동 실행에서만. OS 차이는 CLI 실행으로 본다.
   # ===================================================================
   matrix-smoke:
-    name: CLI 스모크 (${{ matrix.os }}, Node ${{ matrix.node }})
+    name: CLI smoke test (${{ matrix.os }}, Node ${{ matrix.node }})
     if: >-
       ${{ (github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main')
           && !contains(github.event.head_commit.message, '[skip ci]') }}
@@ -160,10 +160,10 @@ jobs:
         # engines 하한과 현행 LTS. fs.cpSync 처럼 Node 버전과 OS 가 겹쳐야 드러나는 결함이 있다
         node: [20, 24]
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Node.js 설정
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
@@ -173,10 +173,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: 의존성 설치
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
 
-      - name: CLI 스모크 (--help 종료코드 0)
+      - name: CLI smoke test (--help exits 0)
         run: node bin/projectops.js --help
 
       - name: Install into a non-ASCII path with spaces

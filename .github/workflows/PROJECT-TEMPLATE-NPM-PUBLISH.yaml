@@ -107,7 +107,7 @@ jobs:
           exit 1
 
   publish-npm:
-    name: npm 패키지 배포
+    name: Publish npm package
     needs: wait-for-ci
     if: needs.wait-for-ci.outputs.passed == 'true'
     runs-on: ubuntu-latest
@@ -115,69 +115,69 @@ jobs:
       version: ${{ steps.version.outputs.version }}
 
     steps:
-      - name: 저장소 체크아웃 (main 기준)
+      - name: Check out repository (main)
         uses: actions/checkout@v5
         with:
           ref: main
 
-      - name: Node.js 설정
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - name: version.yml에서 버전 추출
+      - name: Read version from version.yml
         id: version
         run: |
           chmod +x .github/scripts/version_manager.sh
           VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
           if [ -z "$VERSION" ]; then
-            echo "❌ version.yml에서 버전을 추출할 수 없습니다"
+            echo "❌ Could not read the version from version.yml"
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 배포 대상 버전: $VERSION"
+          echo "📦 Version to publish: $VERSION"
 
-      - name: package.json 버전 주입
+      - name: Set package.json version
         run: npm pkg set version=${{ steps.version.outputs.version }}
 
-      - name: 이미 배포된 버전인지 확인 (멱등)
+      - name: Check whether this version is already published (idempotent)
         id: check
         run: |
           PKG_NAME=$(npm pkg get name | tr -d '"')
           VERSION="${{ steps.version.outputs.version }}"
           if npm view "${PKG_NAME}@${VERSION}" version >/dev/null 2>&1; then
             echo "skip=true" >> $GITHUB_OUTPUT
-            echo "ℹ️ ${PKG_NAME}@${VERSION} 은 이미 배포되어 있습니다. 건너뜁니다."
+            echo "ℹ️ ${PKG_NAME}@${VERSION} is already published, skipping."
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: npm 배포
+      - name: Publish to npm
         if: steps.check.outputs.skip == 'false'
         run: npm publish --provenance --access public --tag latest
 
-      - name: 배포 결과 요약
+      - name: Publish summary
         if: steps.check.outputs.skip == 'false'
-        run: echo "✅ projectops@${{ steps.version.outputs.version }} npm 배포 완료"
+        run: echo "✅ Published projectops@${{ steps.version.outputs.version }} to npm"
 
   # npm 배포와 분리한 이유: contents: write 를 이 job 에만 주어,
   # npm 에 올리는 publish 단계가 저장소 쓰기 권한 토큰과 같은 job 에 있지 않게 한다.
   github-release:
-    name: GitHub Release 생성
+    name: Create GitHub Release
     needs: publish-npm
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: 저장소 체크아웃 (main 기준)
+      - name: Check out repository (main)
         uses: actions/checkout@v5
         with:
           ref: main
 
       # 태그는 RELEASE-CHANGELOG가 만든다. push 시점에 아직 없을 수 있어 잠시 기다린다.
-      - name: GitHub Release 생성 (멱등)
+      - name: Create GitHub Release (idempotent)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.publish-npm.outputs.version }}
@@ -191,23 +191,23 @@ jobs:
           }
 
           if release_exists; then
-            echo "ℹ️ Release $TAG 는 이미 있습니다. 건너뜁니다."
+            echo "ℹ️ Release $TAG already exists, skipping."
             exit 0
           fi
 
           # 태그가 원격에 생길 때까지 최대 5분 대기 (조용히 넘기면 Release가 영영 누락된다)
           for i in $(seq 1 20); do
             git ls-remote --tags origin "refs/tags/$TAG" | grep -q "$TAG" && FOUND=1 && break
-            echo "⏳ 태그 $TAG 대기 중 ($i/20)"
+            echo "⏳ Waiting for tag $TAG ($i/20)"
             sleep 15
           done
           if [ -z "$FOUND" ]; then
-            echo "::error::태그 $TAG 가 원격에 없어 Release를 만들지 못했습니다."
+            echo "::error::Tag $TAG is not on the remote, so the Release was not created."
             exit 1
           fi
 
           python3 .github/scripts/changelog_manager.py export --version "$VERSION" --output release_notes.txt || true
-          [ -s release_notes.txt ] || echo "릴리스 $VERSION 변경 내용은 CHANGELOG.md를 참고하세요." > release_notes.txt
+          [ -s release_notes.txt ] || echo "See CHANGELOG.md for the changes in release $VERSION." > release_notes.txt
 
           jq -n --arg tag "$TAG" --arg name "$TAG" --rawfile body release_notes.txt \
             '{tag_name:$tag, name:$name, body:$body, draft:false, prerelease:false}' > release_payload.json
@@ -217,12 +217,12 @@ jobs:
             CODE=$(curl -s -o release_resp.json -w "%{http_code}" -X POST "${AUTH[@]}" \
               -d @release_payload.json "$API/releases")
             case "$CODE" in
-              201) echo "✅ GitHub Release 생성: $TAG"; exit 0 ;;
-              422) release_exists && { echo "ℹ️ 다른 실행이 먼저 만들었습니다: $TAG"; exit 0; } ;;
-              429|5??) echo "⏳ 일시 오류 (HTTP $CODE), 재시도 $attempt/3"; sleep $((attempt * 10)); continue ;;
+              201) echo "✅ Created GitHub Release: $TAG"; exit 0 ;;
+              422) release_exists && { echo "ℹ️ Another run already created it: $TAG"; exit 0; } ;;
+              429|5??) echo "⏳ Temporary error (HTTP $CODE), retry $attempt/3"; sleep $((attempt * 10)); continue ;;
             esac
             break
           done
-          echo "::error::Release 생성 실패 (HTTP $CODE)"
+          echo "::error::Failed to create the Release (HTTP $CODE)"
           cat release_resp.json
           exit 1

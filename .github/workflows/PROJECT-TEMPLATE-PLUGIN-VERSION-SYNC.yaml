@@ -36,37 +36,37 @@ permissions:
 
 jobs:
   sync-plugin-version:
-    name: 플러그인 버전 동기화
+    name: Sync plugin versions
     runs-on: ubuntu-latest
 
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: main
 
-      - name: 버전 관리 스크립트 권한 설정
+      - name: Make version manager script executable
         run: chmod +x .github/scripts/version_manager.sh
 
-      - name: version.yml에서 버전 추출
+      - name: Read version from version.yml
         id: version
         run: |
           VERSION=$(./.github/scripts/version_manager.sh get | tail -n 1)
           if [ -z "$VERSION" ]; then
-            echo "❌ version.yml에서 버전을 추출할 수 없습니다"
+            echo "❌ Could not read the version from version.yml"
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "✅ 현재 버전: $VERSION"
+          echo "✅ Current version: $VERSION"
 
-      - name: plugin.json 버전 동기화
+      - name: Sync plugin.json version
         run: |
           PLUGIN_FILE=".claude-plugin/plugin.json"
           VERSION="${{ steps.version.outputs.version }}"
 
           if [ ! -f "$PLUGIN_FILE" ]; then
-            echo "⚠️ $PLUGIN_FILE 파일이 없습니다. 건너뜁니다."
+            echo "⚠️ $PLUGIN_FILE not found, skipping."
             exit 0
           fi
 
@@ -77,15 +77,15 @@ jobs:
             sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$PLUGIN_FILE"
           fi
 
-          echo "✅ plugin.json 버전 동기화: $VERSION"
+          echo "✅ plugin.json version synced: $VERSION"
 
-      - name: marketplace.json 버전 동기화
+      - name: Sync marketplace.json version
         run: |
           MARKETPLACE_FILE=".claude-plugin/marketplace.json"
           VERSION="${{ steps.version.outputs.version }}"
 
           if [ ! -f "$MARKETPLACE_FILE" ]; then
-            echo "⚠️ $MARKETPLACE_FILE 파일이 없습니다. 건너뜁니다."
+            echo "⚠️ $MARKETPLACE_FILE not found, skipping."
             exit 0
           fi
 
@@ -97,15 +97,15 @@ jobs:
             sed -i.bak "/\"plugins\"/,\$ s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$MARKETPLACE_FILE" && rm -f "$MARKETPLACE_FILE.bak"
           fi
 
-          echo "✅ marketplace.json 버전 동기화: $VERSION"
+          echo "✅ marketplace.json version synced: $VERSION"
 
-      - name: Codex plugin.json 버전 동기화
+      - name: Sync Codex plugin.json version
         run: |
           CODEX_PLUGIN_FILE=".codex-plugin/plugin.json"
           VERSION="${{ steps.version.outputs.version }}"
 
           if [ ! -f "$CODEX_PLUGIN_FILE" ]; then
-            echo "⚠️ $CODEX_PLUGIN_FILE 파일이 없습니다. 건너뜁니다."
+            echo "⚠️ $CODEX_PLUGIN_FILE not found, skipping."
             exit 0
           fi
 
@@ -115,15 +115,15 @@ jobs:
             sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$CODEX_PLUGIN_FILE"
           fi
 
-          echo "✅ Codex plugin.json 버전 동기화: $VERSION"
+          echo "✅ Codex plugin.json version synced: $VERSION"
 
-      - name: extras 플러그인 버전 동기화
+      - name: Sync extras plugin versions
         run: |
           VERSION="${{ steps.version.outputs.version }}"
 
           for F in plugins/projectops-extras/.claude-plugin/plugin.json plugins/projectops-extras/.codex-plugin/plugin.json; do
             if [ ! -f "$F" ]; then
-              echo "⚠️ $F 파일이 없습니다. 건너뜁니다."
+              echo "⚠️ $F not found, skipping."
               continue
             fi
 
@@ -133,16 +133,16 @@ jobs:
               sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$F"
             fi
 
-            echo "✅ $F 버전 동기화: $VERSION"
+            echo "✅ $F version synced: $VERSION"
           done
 
-      - name: Gemini extension 버전 동기화
+      - name: Sync Gemini extension version
         run: |
           GEMINI_EXTENSION_FILE="gemini-extension.json"
           VERSION="${{ steps.version.outputs.version }}"
 
           if [ ! -f "$GEMINI_EXTENSION_FILE" ]; then
-            echo "⚠️ $GEMINI_EXTENSION_FILE 파일이 없습니다. 건너뜁니다."
+            echo "⚠️ $GEMINI_EXTENSION_FILE not found, skipping."
             exit 0
           fi
 
@@ -152,15 +152,15 @@ jobs:
             sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$GEMINI_EXTENSION_FILE"
           fi
 
-          echo "✅ Gemini extension 버전 동기화: $VERSION"
+          echo "✅ Gemini extension version synced: $VERSION"
 
-      - name: pi package.json 버전 동기화
+      - name: Sync pi package.json version
         run: |
           PI_PACKAGE_FILE="package.json"
           VERSION="${{ steps.version.outputs.version }}"
 
           if [ ! -f "$PI_PACKAGE_FILE" ]; then
-            echo "⚠️ $PI_PACKAGE_FILE 파일이 없습니다. 건너뜁니다."
+            echo "⚠️ $PI_PACKAGE_FILE not found, skipping."
             exit 0
           fi
 
@@ -170,9 +170,9 @@ jobs:
             sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$PI_PACKAGE_FILE"
           fi
 
-          echo "✅ pi package.json 버전 동기화: $VERSION"
+          echo "✅ pi package.json version synced: $VERSION"
 
-      - name: 변경사항 커밋
+      - name: Commit changes
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
@@ -180,10 +180,10 @@ jobs:
           git add .claude-plugin/plugin.json .claude-plugin/marketplace.json .codex-plugin/plugin.json gemini-extension.json package.json plugins/projectops-extras/.claude-plugin/plugin.json plugins/projectops-extras/.codex-plugin/plugin.json
 
           if git diff --staged --quiet; then
-            echo "ℹ️ 플러그인 버전이 이미 동기화되어 있습니다."
+            echo "ℹ️ Plugin versions are already in sync."
           else
             VERSION="${{ steps.version.outputs.version }}"
-            git commit -m "플러그인 매니페스트 버전 동기화: $VERSION [skip ci]"
+            git commit -m "Sync plugin manifest versions: $VERSION [skip ci]"
 
             # Race Condition 방지: 다른 버전 워크플로우가 동시에 main을 push하면
             # 단순 git push가 ! [rejected] (fetch first)로 거부된다.
@@ -194,19 +194,19 @@ jobs:
 
             while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
               RETRY_COUNT=$((RETRY_COUNT + 1))
-              echo "🔄 Push 시도 $RETRY_COUNT/$MAX_RETRIES..."
+              echo "🔄 Push attempt $RETRY_COUNT/$MAX_RETRIES..."
 
               if git push; then
                 PUSH_SUCCESS=true
-                echo "✅ 플러그인 버전 동기화 커밋 완료"
+                echo "✅ Plugin version sync committed"
                 break
               else
-                echo "⚠️ Push 실패, remote 변경사항 동기화 중..."
+                echo "⚠️ Push failed, pulling remote changes..."
 
                 if git pull --rebase origin ${{ github.event.repository.default_branch || 'main' }}; then
-                  echo "✅ Rebase 성공, 다시 push 시도..."
+                  echo "✅ Rebase succeeded, retrying push..."
                 else
-                  echo "❌ Rebase 실패, 충돌 해결 필요"
+                  echo "❌ Rebase failed, conflicts need to be resolved"
                   git rebase --abort 2>/dev/null || true
                   exit 1
                 fi
@@ -214,7 +214,7 @@ jobs:
             done
 
             if [ "$PUSH_SUCCESS" = false ]; then
-              echo "❌ $MAX_RETRIES회 시도 후에도 push 실패"
+              echo "❌ Push still failed after $MAX_RETRIES attempts"
               exit 1
             fi
           fi
