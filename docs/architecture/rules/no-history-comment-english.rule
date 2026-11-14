@@ -1,0 +1,8 @@
+# History comments in English: state the reason (WHY) in the present tense, keep history in commits and issues (conventions §7.5, 7.6)
+# The Korean rules (no-history-comment, -variants) miss these now that comments are English (#1212)
+description=No history narration in English comments ("previously", "formerly", "used to be", "in the past", "we changed", "the old code")
+paths=src/,scripts/,skills/,plugins/,.github/scripts/
+extensions=.js,.mjs,.py
+# stealth.py: credits the external code (gstack) it was ported from — attribution, not history
+exclude=skills/pro-launch/scripts/stealth.py
+pattern=(#|//)[^\n]*\b([Pp]reviously|[Ff]ormerly|used to be|[Ii]n the past|[Ww]e changed|[Tt]he old code)\b

@@ -75,7 +75,7 @@ def execute(page, args, state: dict) -> dict:
                                 lambda: element.fill(args.text, timeout=target_wait_seconds(args) * 1000))
     if failure:
         return failure
-    # Check the value really stayed before returning ok — ok used to be returned even when it was wiped (#1094)
+    # Check the value really stayed before returning ok, so a field the page wiped is not reported as typed (#1094)
     status = value_status(page, element) if args.text.strip() else "kept"
     was_retyped = status == "cleared"
     if was_retyped:
