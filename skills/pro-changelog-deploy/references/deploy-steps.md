@@ -2,6 +2,19 @@
 
 > When to read: when you actually run deploy mode. SKILL.md has the summary of each step's decision rules; this file has the bash to run as is and the messages to show the user. Show the messages in the user's language (or the configured `language` preference).
 
+## Contents
+
+- [Step 1: Check commit state](#step-1-check-commit-state)
+- [1-1. Bring base up to date (merge the reverse difference — never skip)](#1-1-bring-base-up-to-date-merge-the-reverse-difference--never-skip)
+- [Step 1.5: Release context awareness (is this an app review repo?)](#step-15-release-context-awareness-is-this-an-app-review-repo)
+- [Step 2: Confirm before push](#step-2-confirm-before-push)
+- [Step 3: Push](#step-3-push)
+- [Step 4: Commit analysis](#step-4-commit-analysis)
+- [Step 5 · Step 5.5](#step-5--step-55)
+- [Step 6: Create the deploy PR (with the release notes in the body)](#step-6-create-the-deploy-pr-with-the-release-notes-in-the-body)
+- [Step 7: Verify automerge (deploy-status)](#step-7-verify-automerge-deploy-status)
+- [Step 8: Report the result](#step-8-report-the-result)
+
 **Bash is stateless.** Write the **real values** obtained in [Before you start] into `{PAT}` · `{OWNER}` · `{REPO}` · `{PYTHON}` · `{SCRIPTS}` · `{PROJECT_ROOT}` · `{HEAD_BRANCH}` · `{BASE_BRANCH}` below. Never assume a variable from an earlier Bash call is still alive. `{HEAD_BRANCH}`/`{BASE_BRANCH}` are the values resolved in [Before you start §5] (fallback develop/main). Do not hard-code them.
 
 ## Step 1: Check commit state

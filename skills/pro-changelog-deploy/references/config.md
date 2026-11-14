@@ -2,6 +2,13 @@
 
 > When to read: when you first resolve the values in [Before you start] §2~§5; when you must ask the user about branches (only for repos without version.yml) or app review and record the answer in the config; when `detect-release-context` reports a `conflict`; when the user asks to reconfigure ("change the deploy branch" / "change how release notes are made" / "ask me first" — Korean: "배포 브랜치 바꿔줘" / "릴리스 노트 방식 바꿔줘" / "확인받게 해줘").
 
+## Contents
+
+- [§2 PAT extraction — the agent reads it directly with the `Read` tool (no bash Python extraction)](#2-pat-extraction--the-agent-reads-it-directly-with-the-read-tool-no-bash-python-extraction)
+- [§3 Auto approval mode — `changelog_deploy.auto_approve`](#3-auto-approval-mode--changelog_deployauto_approve)
+- [§4 App review awareness — `changelog_deploy.app_release`](#4-app-review-awareness--changelog_deployapp_release)
+- [§5 Release branch · provider resolution](#5-release-branch--provider-resolution)
+
 **Config file location**: `~/.projectops/config/config.json` (one global file). Path rules in detail: `../../references/config-rules.md §2~3`.
 
 **To update the config, always** follow `../../references/config-rules.md §4`: Read the whole file first, keep the other sections, add or change only the target key, and Write it back. Never drop the PAT, other repos entries, or existing `auto_approve`/`app_release`/branch values. If an entry has no `changelog_deploy` object, create one.

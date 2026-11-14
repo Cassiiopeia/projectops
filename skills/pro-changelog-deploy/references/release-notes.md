@@ -2,6 +2,13 @@
 
 > When to read: the note skeleton and rewrite rules are in SKILL.md step 5. Open this only when you need good/bad examples or the approval gate messages (deploy 5.5 / fix 4.5).
 
+## Contents
+
+- [Commit classification](#commit-classification)
+- [Writing principles — write like app store update notes](#writing-principles--write-like-app-store-update-notes)
+- [File location and fixed structure](#file-location-and-fixed-structure)
+- [Approval gate messages (deploy 5.5 / fix 4.5)](#approval-gate-messages-deploy-55--fix-45)
+
 Show every message below to the user in the user's language (or the configured `language` preference). The text here gives the meaning.
 
 ## Commit classification
