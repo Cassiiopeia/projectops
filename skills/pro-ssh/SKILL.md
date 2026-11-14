@@ -1,7 +1,7 @@
 ---
 name: pro-ssh
-description: "Run commands on remote servers over SSH (AWS EC2, Synology NAS, any Linux host), by saved name or direct host/user/key. Use for 'check the server', 'look at logs', 'is the deploy live'."
-version: 2.1.0
+description: "Run commands on remote servers over SSH (AWS EC2, Synology NAS, Linux or Windows hosts), by saved name or direct host/user/key, including PowerShell and Python scripts on Windows. Use for 'check the server', 'look at logs', 'is the deploy live'."
+version: 2.2.0
 ---
 
 # SSH: remote server access
@@ -60,8 +60,14 @@ If the user did not choose a command, the agent picks one that fits the goal and
 | Save a new server | Ask whether it may be saved, and let the user type the password themselves: `! {PYTHON} {SCRIPTS}/launch_cli.py cred set --name <server> --prompt --json '{"kind":"ssh","host":…,"port":…,"user":…,"use_when":…,"scope":…}'` (do not put the password in `--json`). For key auth, put `key_path` in `--json` without `--prompt` |
 | Import servers from the old `ssh` section | Check the list with `cred import-ssh --dry-run` → run without it (copies the values too) → after confirming connections, `--prune` |
 | Logs · DB | `logs --cred …` · `db --cred …` (`../pro-launch/references/server.md`) |
+| **Windows host: PowerShell or Python script** (anything with quotes, pipes, `$`, Korean text, or more than one line) | `{PYTHON} {SSH_SCRIPTS}/windows_script.py run --cred <server> --file check.py` (or `.ps1`; inline: `--lang python --code '…'`). See below |
 
 - **Reading result codes**: `remote_exit_nonzero` means the connection worked and the remote command ended non-zero (no grep match, etc.; do not suspect the connection details). `auth_failed`, `connect_failed` and `host_key_*` are connection failures. On Windows (cmd) servers, commands joined with `&` keep only the last exit code, so call each step separately or wrap them in PowerShell.
+- **Windows scripts: do not hand-quote `powershell -Command "…"` or `python -c "…"`.** cmd and PowerShell 5.1 strip the inner quotes. `windows_script.py run` (#1189) sends the script as one `powershell -EncodedCommand <base64>` command, which works whether the host's default shell is cmd or PowerShell, then calls `launch_cli.py ssh` and returns its JSON plus `language`, `mode`, `steps`.
+  - Python: found on the host automatically (PATH, then `C:\Users\*\AppData\Local\Programs\Python\Python3*`, then `py`), output forced to UTF-8. `--python <path>` picks one; `code: python_not_found` (exit 127) means none was found.
+  - PowerShell: progress output is off and errors come back as plain text in `stderr` (no `#< CLIXML`); a script error makes the exit code 1. Error line numbers count a few wrapper lines.
+  - Scripts too long for one command line (cmd limit 8191) are uploaded in pieces to `%TEMP%\projectops-ssh-<token>`, run from there and deleted afterwards (`mode: upload`). `--dry-run` shows the commands without connecting.
+  - Same connection flags as `ssh` (`--cred`, `--host`, `--port`, `--user`, `--password-env`, `--key-path`, `--timeout`). `{SSH_SCRIPTS}` is this skill's `scripts/` (fallback block with `SKILL=pro-ssh`, `../references/script-invocation.md`).
 - Passwords that appear in the output are masked as `***`. Password connections use `sshpass` when installed, otherwise OpenSSH `SSH_ASKPASS` (OpenSSH 8.4+, one password attempt so a wrong password cannot lock the account).
 - When connecting to a saved server, `memory` in the response carries facts learned about that server (OS, docker path, containers, log locations). Record new findings with
   `learn --area server --scope machine --key server.<server>.<topic> --how '…' --result ok` (no accounts or secrets). Connections without saving are not remembered.
@@ -74,6 +80,7 @@ Summarize the results for the user. If there are errors, give the cause and the 
 ## What remains in this skill
 
 - `references/troubleshooting.md`: Synology docker absolute path, `wget`, Windows PowerShell, common pitfalls (per-server-type knowledge).
+- `scripts/windows_script.py`: runs a PowerShell or Python script on a Windows host through `launch_cli.py ssh` without hand-quoting (#1189).
 - `scripts/ssh_connect.py`: paramiko-based compatibility path. Use it only where `launch_cli` cannot be used (ssh older than OpenSSH 8.4 with no sshpass). It also takes the password from the `SSH_PASSWORD` environment variable.
 
 ## Shared references

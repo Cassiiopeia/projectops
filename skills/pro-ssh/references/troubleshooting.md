@@ -1,6 +1,6 @@
-# Synology specifics · Windows PowerShell · common pitfalls
+# Synology specifics · Windows hosts · Windows PowerShell · common pitfalls
 
-> When to read: when the target is a Synology NAS, when running from Windows PowerShell, or when `launch_cli ssh` or the compatibility `ssh_connect.py` fails.
+> When to read: when the target is a Synology NAS or a Windows host, when running from Windows PowerShell, or when `launch_cli ssh` or the compatibility `ssh_connect.py` fails.
 > On the first connection, `launch_cli ssh` checks the Synology docker path and records it as the `server.<server>.docker` memory.
 
 ## Synology NAS specifics
@@ -35,6 +35,18 @@ else {
 & $PYTHON -c "import paramiko" 2>$null
 if ($LASTEXITCODE -ne 0) { & $PYTHON -m pip install paramiko }
 ```
+
+## Windows host: scripts, quoting and output (#1189)
+
+Run scripts with `windows_script.py run` (SKILL.md, Phase 1) instead of building `powershell -Command "…"` by hand.
+
+| Symptom | Cause | Fix |
+|------|------|------|
+| `SyntaxError` from `python -c "…'…'…"` | cmd and PowerShell 5.1 strip the quotes inside the argument | `windows_script.py run --file x.py` (sent as `-EncodedCommand`, no quotes reach cmd) |
+| `#< CLIXML …` (a "preparing modules for first use" progress record) in stderr | PowerShell writes progress and errors as CLIXML when stderr is redirected | `windows_script.py` turns progress off and prints errors as plain text |
+| `No installed Python found!` | The `py` launcher has no Python registered for the ssh account | Let `windows_script.py` find `python.exe`, or pass `--python <path>` |
+| Exit code 49 instead of 9009 | ssh passes only the low 8 bits of a Windows exit code | Compare with `exit_code % 256` |
+| Korean text garbled from a PowerShell script that calls a native tool | Native tools print in the console code page (cp949) | Leave the console encoding alone in PowerShell scripts; `launch_cli` decodes cp949 |
 
 ## Common pitfalls
 
