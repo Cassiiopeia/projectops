@@ -72,6 +72,15 @@ def _commit_type_arg(value: str) -> str:
     return commit_type_arg(value)
 
 
+def _non_empty_path_arg(value: str) -> str:
+    """경로 인자: 빈 값·공백만이면 거부 (비어 있는 $VAR 가 현재 폴더 레포에 커밋하던 문제, #1187)"""
+    if not value.strip():
+        import argparse
+        raise argparse.ArgumentTypeError(
+            "the path is empty (an unset shell variable?); pass the real path or drop the option")
+    return value
+
+
 def _style(args) -> tuple:
     """개인 preferences + 팀 version.yml 을 합쳐 커밋 형식을 정한다."""
     from common.commit_style import resolve_for_repo
@@ -134,11 +143,20 @@ def _strip_trailing_mentions(raw: str) -> tuple:
 
 
 def _paths_to_add(git, root: str, paths: list) -> list:
-    """--paths > git add 대상: 줄바꿈으로 이어진 값 분리, 이미 스테이징된 삭제 경로 제외
+    """--paths > git add 대상: 줄바꿈·공백으로 이어진 값 분리, 이미 스테이징된 삭제 경로 제외
 
     스테이징된 삭제(`git rm`·`git mv` 의 옛 경로)를 다시 add 하면 pathspec 오류로 커밋 전체가 멈춘다 (#971)
+    zsh 는 `--paths $P` 를 나누지 않아 "a b c" 한 값으로 온다 (#1184)
     """
-    split_paths = [line.strip() for value in paths for line in value.splitlines() if line.strip()]
+    split_paths = []
+    for value in paths:
+        for line in value.splitlines():
+            line = line.strip()
+            # 디스크에 그 이름이 없을 때만 공백으로 나눈다 (공백 든 실제 경로 보존)
+            if line and any(character.isspace() for character in line) and not (Path(root) / line).exists():
+                split_paths.extend(line.split())
+            elif line:
+                split_paths.append(line)
     missing = {path for path in split_paths if not (Path(root) / path).exists()}
     if not missing:
         return split_paths
@@ -180,7 +198,8 @@ def cmd_commit(args) -> int:
             return emit({"ok": False, "code": "stage_failed", "error": staged.stderr.strip()[:300],
                          "paths": to_add,
                          "next": ("paths are relative to the repo root. Check spelling and case, and drop paths that are "
-                                  "neither on disk nor in the index (such as already committed deletions) from --paths")})
+                                  "neither on disk nor in the index (such as already committed deletions) from --paths. "
+                                  "In zsh pass a path list as ${=P} or one path per argument")})
     if not git("diff", "--cached", "--name-only").stdout.strip():
         return emit({"ok": False, "code": "nothing_staged", "error": "no staged changes",
                      "next": "pass the paths you touched in this task with --paths"})
@@ -216,10 +235,10 @@ def build_parser() -> JSONArgumentParser:
     p_sm.set_defaults(func=cmd_sanitize_message)
 
     p_cm = sub.add_parser("commit", help="clean the message, stage only the given paths and commit (no push)")
-    p_cm.add_argument("--message-file", dest="message_file", default=None, help="commit message file")
+    p_cm.add_argument("--message-file", dest="message_file", default=None, type=_non_empty_path_arg, help="commit message file")
     p_cm.add_argument("--message", default=None, help="commit message (instead of a file)")
     p_cm.add_argument("--paths", nargs="*", default=[], help="paths touched in this task (omit if already staged)")
-    p_cm.add_argument("--root", default=None, help="repo root (default: cwd)")
+    p_cm.add_argument("--root", default=None, type=_non_empty_path_arg, help="repo root (default: cwd)")
     p_cm.set_defaults(func=cmd_commit)
 
     p_gct = sub.add_parser("get-commit-template", help="commit message template")
@@ -230,12 +249,12 @@ def build_parser() -> JSONArgumentParser:
     p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="commit type (fix, docs, chore, ...). Default: inferred from the title tag")
     p_gct.add_argument("--scope", default=None, help="value for the {scope} placeholder")
-    p_gct.add_argument("--repo-root", dest="repo_root", default=None,
+    p_gct.add_argument("--repo-root", dest="repo_root", default=None, type=_non_empty_path_arg,
                        help="repo root to read the format from (default: git root of the cwd, or the cwd outside git)")
     p_gct.set_defaults(func=cmd_get_commit_template)
 
     p_rs = sub.add_parser("resolve-style", help="show the commit format and tone (team > personal)")
-    p_rs.add_argument("--repo-root", dest="repo_root", default=None,
+    p_rs.add_argument("--repo-root", dest="repo_root", default=None, type=_non_empty_path_arg,
                       help="repo root to read the format from (default: git root of the cwd, or the cwd outside git)")
     p_rs.set_defaults(func=cmd_resolve_style)
 
