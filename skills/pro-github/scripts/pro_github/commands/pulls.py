@@ -142,7 +142,7 @@ def cmd_get_pr(args, api) -> int:
         return emit({
             "pr": pr,
             "verdict": verdict,
-            "summary": f"PR #{args.number} {pr.get('state')} / mergeable_state={state} → {verdict}",
+            "summary": f"PR #{args.number} {pr.get('head')} -> {pr.get('base')} {pr.get('state')} / mergeable_state={state} → {verdict}",
         })
     except GitHubAPIError as e:
         return api_error(e)

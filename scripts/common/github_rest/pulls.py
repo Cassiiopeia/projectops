@@ -122,8 +122,12 @@ def get_pull_detail(owner: str, repo: str, pr_number: int, pat: str) -> dict:
     pr = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}", None, pat)
     return {
         "number": pr["number"],
+        "title": pr.get("title"),
         "state": pr["state"],
         "merged": pr.get("merged", False),
+        # 브랜치명 (list_pulls 와 같은 키 이름, #1180)
+        "base": (pr.get("base") or {}).get("ref"),
+        "head": (pr.get("head") or {}).get("ref"),
         "mergeable_state": pr.get("mergeable_state"),
         "body": pr.get("body") or "",
         "head_sha": pr.get("head", {}).get("sha"),

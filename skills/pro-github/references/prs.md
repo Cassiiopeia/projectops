@@ -53,7 +53,7 @@ Output JSON: `{"count":N,"prs":[{number,title,url,state,head,base,merged_at}]}`.
 
 ## PR details / comments / state / merge
 
-`get-pr` returns a `verdict` (mergeable/blocked/computing/merged/closed); use it to check state before merging.
+`get-pr` returns a `verdict` (mergeable/blocked/computing/merged/closed); use it to check state before merging. `pr.title`, `pr.base` and `pr.head` (branch names) are in the output too.
 
 ```bash
 # PR details (mergeable_state etc.); decide mergeability from verdict
