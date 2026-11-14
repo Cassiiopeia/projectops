@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.104.5  
-**Last updated:** 2026-11-14T13:34:27Z  
+**Current version:** 4.104.6  
+**Last updated:** 2026-11-14T13:36:23Z  
+
+---
+
+## [4.104.6] - 2026-11-14
+
+**PR:** #1211  
+
+**Bug fixes**
+- Phone and Tablet in the mockup viewer and in capture now show full-page mockups at phone and tablet width (contributed by @EM-H20)
 
 ---
 
