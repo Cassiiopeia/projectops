@@ -89,7 +89,7 @@ Options per command: `<command> --help` (for `web` · `app` · `desktop`: `<grou
   If `learn_hint` arrives, record the approach that got you unstuck with `learn` (`--scope machine` for methods unrelated to the repo). Secrets and host-mouse methods are never stored.
   **If a response contains `harness`, open its `readme` before repeating work on that site, app or window.**
 - **Do not trim results with `head`, `cut` or python.** You would cut off `next`, `memory` and `known_fix` too.
-  For a short response, add `--brief` to any command (only ok · code · summary · next · error · known_fix · memory · learn_hint · journal · harness; on failure also `reasons` · `output_tail`).
+  For a short response, add `--brief` to any command (only ok · code · summary · next · error · known_fix · memory · learn_hint · journal · harness, plus a read command's result `lines` · `text` · `stdout` · `stderr` · `rows` · `json`; on failure also `reasons` · `output_tail`).
   For specific keys only, add `--fields file,url` (`path` is an alias of `file`). Both always keep those guidance keys. Key order is always
   `ok` · `code` · `summary` · `next` → `known_fix` · `memory` · `journal` · `harness` → the rest.
 - **On `bad_args`, read `unknown` · `did_you_mean` · `valid_options` · `example` and fix the call.** Do not retry by guessing.

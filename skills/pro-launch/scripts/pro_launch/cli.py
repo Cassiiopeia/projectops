@@ -37,7 +37,8 @@ def build_parser() -> argparse.ArgumentParser:
                                      description="Launch, drive and capture apps, web and servers")
     # 출력 모양 옵션 (#898) — 실제로는 _pop_output_options 가 파서 전에 꺼낸다. 여기 둔 것은 도움말용
     parser.add_argument("--brief", action="store_true",
-                        help="Output only the core keys: ok·code·summary·next·error·known_fix·memory·learn_hint·journal·harness")
+                        help="Output only the core keys: ok·code·summary·next·error·known_fix·memory·learn_hint·journal·harness, "
+                             "plus the read result (lines·text·stdout·stderr·rows·json)")
     parser.add_argument("--fields", metavar="a,b,c",
                         help="Keep only these top-level keys (ok·code·summary·next·known_fix·memory·learn_hint·journal·harness are always kept)")
     sub = parser.add_subparsers(dest="command", required=True)

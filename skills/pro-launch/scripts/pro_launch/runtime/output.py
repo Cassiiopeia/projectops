@@ -74,8 +74,10 @@ GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_
                  "journal", "journal_note", "journal_hint", "harness", "harness_note")
 # 실패 · doctor 에만 싣는 버전 + 옛 설치본 경고(성공 포함, 1회) — 보고에 남게 · 줄여도 남긴다
 VERSION_KEYS = ("plugin_version", "newer_installed")
-# --brief 가 남기는 키: 머리 + error + 원인 + 안내 + 버전
-BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS)
+# 읽기 명령의 본 결과 (logs lines · web text · ssh/local stdout · db rows · http json/text) — 빼면 읽은 값이 사라진다 (#1188)
+PRIMARY_OUTPUT_KEYS = ("lines", "text", "stdout", "stderr", "rows", "json")
+# --brief 가 남기는 키: 머리 + error + 원인 + 안내 + 버전 + 본 결과
+BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS, *PRIMARY_OUTPUT_KEYS)
 # 실패면 --brief 에도 남기는 키 — next 가 읽으라고 가리키는 근거 (#972)
 FAILURE_BRIEF_KEYS = ("reasons", "output_tail", "non_device_consumers", "unused_options", "valid_options")
 # --fields 별칭: 요청 이름 > 같은 뜻의 실제 키 (캡처 경로는 file 로 낸다, #972)
