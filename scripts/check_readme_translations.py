@@ -46,7 +46,7 @@ def list_untranslated_commits(repo_root: Path, marker_commit: str) -> tuple[list
     code, _ = run_git(repo_root, "cat-file", "-e", f"{marker_commit}^{{commit}}")
     if code != 0:
         return None, f"commit {marker_commit} not found (shallow clone or wrong hash)"
-    code, output = run_git(repo_root, "log", "--format=%h %s", f"{marker_commit}..HEAD", "--", SOURCE_README)
+    code, output = run_git(repo_root, "log", "--no-merges", "--format=%h %s", f"{marker_commit}..HEAD", "--", SOURCE_README)
     if code != 0:
         return None, "git log failed"
     commits = [line for line in output.splitlines() if line and IGNORED_SUBJECT_MARK not in line]

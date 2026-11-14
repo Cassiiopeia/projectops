@@ -64,8 +64,8 @@ Demo GIFs follow the same rule (`name.gif` English, `name.ko.gif` Korean) and ar
 ## README translations
 
 `docs/i18n/README.{ko,ja,zh-CN}.md` follow `README.md` by hand. The first line of each records the `README.md` commit it
-matches: `<!-- translated-from: README.md@<commit> -->`. CI (`scripts/check_readme_translations.py`) warns, without
-failing, when `README.md` has changed since that commit, and lists the commits to carry over. Release bot commits
-(`[skip ci]`, the version line) are ignored. After you carry the changes into a translation, set its marker to the newest
-`README.md` commit (`git log -1 --format=%h -- README.md`). Run the check locally with
-`python3 scripts/check_readme_translations.py` (add `--strict` to exit 1 when a translation is behind).
+matches: `<!-- translated-from: README.md@<commit> -->`. After you change `README.md`, run
+`python3 scripts/check_readme_translations.py`: it lists the `README.md` commits a translation has not caught up with
+(release bot commits that only touch the version line are ignored; `--strict` exits 1 when one is behind). It is not run
+in CI. After you carry the changes into a translation, set its marker to the newest `README.md` commit
+(`git log -1 --format=%h -- README.md`).

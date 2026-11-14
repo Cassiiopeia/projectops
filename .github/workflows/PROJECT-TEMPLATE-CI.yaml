@@ -35,9 +35,6 @@ on:
       - "skills/**"
       - "scripts/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
-      # README 번역 어긋남 경고 (#1140)
-      - "README.md"
-      - "docs/i18n/README.*.md"
   pull_request:
     # 릴리스 PR(develop→main)은 제외한다 — 그 내용은 develop push에서 이미 검증됐고,
     # automerge가 곧바로 머지해 run이 잘리면서 실패로 남았다 (#565).
@@ -53,9 +50,6 @@ on:
       - "skills/**"
       - "scripts/**"
       - ".github/workflows/PROJECT-TEMPLATE-CI.yaml"
-      # README 번역 어긋남 경고 (#1140)
-      - "README.md"
-      - "docs/i18n/README.*.md"
   workflow_dispatch:
 
 permissions:
@@ -73,9 +67,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
-        with:
-          # 번역 어긋남 점검이 표식 커밋..HEAD 이력을 읽음 (#1140)
-          fetch-depth: 0
 
       - name: Set up Node.js
         # engines의 하한(20.12)에 맞춘다
@@ -107,10 +98,6 @@ jobs:
       - name: Wizard consistency check
         # CSS/JS 공통 자산 로드, 공통 유틸 재정의, version.json ↔ HTML 동기화, i18n 사전
         run: python3 .github/util/flutter/_shared/check-consistency.py
-
-      - name: README translation drift (warning only)
-        # 번역본 표식 이후 README.md 변경을 경고 주석으로 남김. 번역은 사람이 맞추므로 실패시키지 않음 (#1140)
-        run: python3 scripts/check_readme_translations.py
 
       - name: Architecture rules (frozen lists)
         # ledger check 는 위반이 있어도 exit 0 이라 verdict 를 직접 본다
