@@ -1,9 +1,16 @@
 {
   "name": "GitHub Projects Sync Wizard",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Cloudflare Worker setup wizard for two-way sync between GitHub Organization Projects status and issue labels",
-  "lastUpdated": "2026-10-22",
+  "lastUpdated": "2026-11-15",
   "changelog": [
+    {
+      "version": "2.5.1",
+      "date": "2026-11-15",
+      "changes": [
+        "The worker code in the downloaded ZIP is now the same as templates/src/index.ts.template and the setup scripts: English logs and comments, timing-safe signature check (projectops#1215)"
+      ]
+    },
     {
       "version": "2.5.0",
       "date": "2026-10-22",
