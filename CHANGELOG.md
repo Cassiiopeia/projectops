@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.104.6  
-**Last updated:** 2026-11-14T13:36:23Z  
+**Current version:** 4.104.7  
+**Last updated:** 2026-11-14T14:14:44Z  
+
+---
+
+## [4.104.7] - 2026-11-14
+
+**PR:** #1216  
+
+**Improvements**
+- The whole repository is English for contributors: code comments, docstrings, messages and maintainer rules (localized Korean text is unchanged)
+- Play Store and TestFlight Fastfile templates log in English (wizards 1.8.1 and 1.7.1)
 
 ---
 
