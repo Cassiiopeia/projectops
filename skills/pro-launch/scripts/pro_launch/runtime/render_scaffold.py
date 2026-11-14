@@ -116,6 +116,8 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'render_theme.dart';
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   final loaded = await _loadManifestFonts();
@@ -140,6 +142,11 @@ Future<Set<String>> _loadManifestFonts() async {
         }
         await loader.load();
         loaded.add(name);
+      }
+      // Text fonts become renderTheme's fallback (icon fonts never hold text glyphs).
+      final bare = family.replaceFirst(RegExp(r'^packages/[^/]+/'), '');
+      if (!bare.toLowerCase().contains('icon') && !renderTextFontFamilies.contains(bare)) {
+        renderTextFontFamilies.add(bare);
       }
     }
   } catch (error) {
@@ -172,6 +179,48 @@ Future<void> _loadSdkFonts(Set<String> loaded) async {
 }
 """
 
+# 테스트 엔진엔 시스템 글꼴 대체가 없다 (#1179): fontFamily 없는 스타일 > 테스트 글꼴(전부 □),
+# Roboto 에 없는 한글 > □. 기기에선 시스템 글꼴이 채운다. renderTheme 가 테마에서 둘 다 메운다
+_RENDER_THEME_DART = """\
+// Created by `launch_cli.py render scaffold` (#1179) — deleted with this folder after render run.
+// The test engine has no system font to fall back to, so text a device draws fine can come out as boxes.
+import 'package:flutter/material.dart';
+
+/// App text fonts that flutter_test_config.dart loaded (icon fonts excluded).
+final List<String> renderTextFontFamilies = <String>[];
+
+/// Wrap the app theme for render tests: renderTheme(AppTheme.light()).
+/// - A style with no fontFamily (often a button theme's textStyle) gets the theme's family.
+/// - Every style gets the app fonts as fontFamilyFallback (Korean text in Roboto-styled labels).
+ThemeData renderTheme(ThemeData theme) {
+  final family = theme.textTheme.bodyMedium?.fontFamily ?? 'Roboto';
+  final fallback = <String>{family, ...renderTextFontFamilies}.toList();
+  TextStyle? fill(TextStyle? style) => style?.copyWith(
+        fontFamily: style.fontFamily ?? family,
+        fontFamilyFallback: style.fontFamilyFallback ?? fallback,
+      );
+  ButtonStyle? fillButton(ButtonStyle? style) {
+    final textStyle = style?.textStyle;
+    if (style == null || textStyle == null) return style;
+    return style.copyWith(textStyle: WidgetStateProperty.resolveWith((states) => fill(textStyle.resolve(states))));
+  }
+
+  return theme.copyWith(
+    textTheme: theme.textTheme.apply(fontFamilyFallback: fallback),
+    primaryTextTheme: theme.primaryTextTheme.apply(fontFamilyFallback: fallback),
+    filledButtonTheme: FilledButtonThemeData(style: fillButton(theme.filledButtonTheme.style)),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: fillButton(theme.elevatedButtonTheme.style)),
+    outlinedButtonTheme: OutlinedButtonThemeData(style: fillButton(theme.outlinedButtonTheme.style)),
+    textButtonTheme: TextButtonThemeData(style: fillButton(theme.textButtonTheme.style)),
+    appBarTheme: theme.appBarTheme.copyWith(
+      titleTextStyle: fill(theme.appBarTheme.titleTextStyle),
+      toolbarTextStyle: fill(theme.appBarTheme.toolbarTextStyle),
+    ),
+    snackBarTheme: theme.snackBarTheme.copyWith(contentTextStyle: fill(theme.snackBarTheme.contentTextStyle)),
+  );
+}
+"""
+
 # 골든 뼈대: 상태 1개 예시 (아이콘 + 텍스트). agent 가 실제 화면 위젯으로 바꾼다
 _RENDER_TEST_DART = """\
 // Created by `launch_cli.py render scaffold` (#948) — deleted with this folder after render run.
@@ -181,10 +230,12 @@ import 'package:flutter/services.dart'; // MethodChannel · SystemChrome — for
 import 'package:flutter_test/flutter_test.dart';
 // import 'package:{package}/...'; // the real screen widget and its models
 
+import 'render_theme.dart';
+
 void main() {
   Widget wrap(Widget child) => MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(), // use the repo's theme
+        theme: renderTheme(ThemeData()), // wrap the repo's theme: renderTheme(AppTheme.light())
         home: Scaffold(body: child),
       );
 
@@ -242,10 +293,12 @@ def render_scaffold(root: Path, app_arg: str | None, take_baseline) -> dict:
     shots = folder / "shots"
     config_file = folder / "flutter_test_config.dart"
     test_file = folder / "render_test.dart"
+    theme_file = folder / "render_theme.dart"
     shots.mkdir(parents=True)
     config_file.write_text(_FONT_CONFIG_DART, encoding="utf-8")
+    theme_file.write_text(_RENDER_THEME_DART, encoding="utf-8")
     test_file.write_text(_RENDER_TEST_DART.replace("{package}", _package_name(app)), encoding="utf-8")
-    created = [folder_rel, _rel(root, shots), _rel(root, config_file), _rel(root, test_file)]
+    created = [folder_rel, _rel(root, shots), _rel(root, config_file), _rel(root, theme_file), _rel(root, test_file)]
 
     manifest = scaffold_manifest_path(root)
     manifest.parent.mkdir(parents=True, exist_ok=True)
@@ -262,6 +315,6 @@ def render_scaffold(root: Path, app_arg: str | None, take_baseline) -> dict:
                 "--collect", shots_glob, "--cleanup", folder_rel]
     return {"ok": True, "app": app_rel or ".", "folder": folder_rel, "created": created,
             "manifest": str(manifest), "baseline": baseline,
-            "summary": f"Created {folder_rel} (font loader incl. MaterialIcons, golden skeleton, shots/)",
-            "next": "Edit " + _rel(root, test_file) + " to render the real screen, then: "
+            "summary": f"Created {folder_rel} (font loader incl. MaterialIcons, renderTheme, golden skeleton, shots/)",
+            "next": "Edit " + _rel(root, test_file) + " to render the real screen (keep the app theme inside renderTheme(...)), then: "
                     "{PYTHON} {SCRIPTS}/launch_cli.py " + " ".join(shlex.quote(a) for a in run_cmd)}

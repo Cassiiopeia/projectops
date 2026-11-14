@@ -54,7 +54,9 @@ source "{env_file value}"      # collected images go to $SHOT_DIR
 > created become part of the baseline, so a file you forgot to put in `--cleanup` **is not caught as a leftover.**
 > (Found while actually writing this during implementation.)
 
-- `--cleanup` deletes **only paths inside the repo**. A path outside is refused with a warning.
+- `--cleanup` deletes **only paths inside the repo**. A path outside is refused with a warning. Repeat the flag or give a comma
+  list (`--cleanup a,b`). `macos/Podfile` · `ios/Podfile` (under `--cwd`) that the command itself created — `flutter test` on a
+  macOS host does — are removed without it and listed in `removed_tool_generated` (#1178).
 - Collected images are the original PNGs. Shrink them with `shrink` before attaching them to an issue.
 - **Do not call AI generation APIs for captures** — they cost money. Put fake data in through code.
 - **Do not mix with golden baseline files.** Keep everything in a temporary folder (`_launch_render`) and delete it afterwards.
@@ -70,7 +72,12 @@ source "{env_file value}"      # collected images go to $SHOT_DIR
 
 - Finds the app: `--app` > `version.yml` `project_paths.flutter` > `pubspec.yaml` search.
 - Creates `{app}/test/_launch_render/` with `flutter_test_config.dart` (loads the app's `FontManifest.json` fonts **and** the SDK's
-  Roboto and `MaterialIcons`, so icons are not boxes), `render_test.dart` (a golden skeleton writing to `shots/`) and `shots/`.
+  Roboto and `MaterialIcons`, so icons are not boxes), `render_theme.dart` (`renderTheme(theme)`, below), `render_test.dart`
+  (a golden skeleton writing to `shots/`) and `shots/`.
+- **Wrap the app theme in `renderTheme(...)`** (`theme: renderTheme(AppTheme.light())`, #1179). The test engine has no system font
+  to fall back to, so text a device draws fine comes out as boxes: a style with **no `fontFamily`** (typically a button theme's
+  `textStyle`) uses the test font (every glyph a box), and Korean in a Roboto-styled label has no glyph. `renderTheme` gives such
+  styles the theme's family and adds the app's text fonts as `fontFamilyFallback` — Latin keeps its font, Korean falls back.
 - **Refuses if the folder exists** (`scaffold_exists`) — it never overwrites. It takes the leftover baseline itself if you skipped
   `snapshot`, and records what it created in a manifest outside the repo; `render run` drops the manifest once the folder is cleaned up
   (`"scaffold": "cleaned"`, or `scaffold_warning` if the folder is still there).
@@ -88,7 +95,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Widget wrap(Widget child) => MaterialApp(
-        theme: /* the repo's theme */ ThemeData(),
+        theme: renderTheme(/* the repo's theme */ ThemeData()), // render_theme.dart from the scaffold
         home: Scaffold(body: Center(child: child)),
       );
 
@@ -129,6 +136,7 @@ If it exists, use it as is. If not, create a `flutter_test_config.dart` inside t
 | `pumpAndSettle` never finishes | Infinite animation (loading spinner · repeating effect) | Use `pump(Duration)` for a single frame, or turn on "reduce motion" (`MediaQuery(disableAnimations: true)`) |
 | Diff on lines you did not touch | `dart format` rewrote the whole file | Run it only on temporary files. Never run the formatter on repo files |
 | Korean (CJK) text is □ | Fonts were not loaded | See "Check first" above |
+| **Only button labels** (or app bar titles) are □ while body text is fine | The theme's button `textStyle` has no `fontFamily` (on a device the system font fills it), or Korean in a Roboto label | Wrap the theme in the scaffold's `renderTheme(...)` (#1179) |
 | **Icons are □ (boxes)** | The `MaterialIcons` font was not loaded — loading only the Korean font above makes `Icons.*` render as boxes | In `flutter_test_config.dart`, also load the SDK's `bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf` with `FontLoader('MaterialIcons')`. Load custom icon fonts (`fonts:` entries) under the exact names written in `pubspec.yaml`. Also check that the app package has `uses-material-design: true` |
 | `render_failed` + `first_error` is `Error: Undefined name 'MethodChannel'` (or `SystemChrome`, etc.) | Missing `package:flutter/services.dart` import — the most common cause of render failures (#901) | Keep the recipe's three import lines as they are. If you use a screen widget or fake model, **also add that file's `package:{app}/...` import** |
 | `render_failed` + overflow | The repo's test config turns overflow into a failure | **That is a finding in itself.** The screen breaks in that state — put it in the report |
