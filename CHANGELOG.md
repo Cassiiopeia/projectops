@@ -1,7 +1,25 @@
 # Changelog
 
-**Current version:** 4.104.2  
-**Last updated:** 2026-11-14T09:02:20Z  
+**Current version:** 4.104.3  
+**Last updated:** 2026-11-14T09:18:43Z  
+
+---
+
+## [4.104.3] - 2026-11-14
+
+**PR:** #1202  
+
+**Bug fixes**
+- Section links on the documentation site jump to their heading again, on Korean pages too
+- A browser command run outside a project no longer borrows another session's project and browser
+- Waiting and asserting on a URL ignore the query string; two reference images with the same name no longer overwrite each other
+- Installer messages that were always Korean now follow the chosen language
+
+**Documentation**
+- Skills guide counts fixed, a full single-task table, sections for every extras skill and the newer pro-launch features
+- One table of comment commands, every issue template explained, a Contributing page and new troubleshooting entries
+- The template initializer, release and CI workflows and several scripts show English output
+- Contents lists for the long release guides and a knowledge base entry for browser_attach_failed
 
 ---
 
