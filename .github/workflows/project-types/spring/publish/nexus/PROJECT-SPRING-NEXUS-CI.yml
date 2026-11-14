@@ -112,34 +112,34 @@ jobs:
       id: report
       if: always()
       run: |
-        # 상태 값은 뒤 스텝의 if: 조건이 비교하는 출력값이라 번역하지 않는다 (댓글에서만 언어별로 바꿔 보여 준다, #769)
+        # 상태 값은 뒤 스텝의 if: 조건이 비교하는 고정 출력값 (댓글에서만 언어별로 바꿔 보여 줌, #769)
         # 빌드 상태 확인 (exit code 기반)
-        COMPILE_STATUS="✅ 성공"
-        TEST_STATUS="✅ 성공"
-        BUILD_STATUS="✅ 성공"
+        COMPILE_STATUS="✅ passed"
+        TEST_STATUS="✅ passed"
+        BUILD_STATUS="✅ passed"
         
         # 컴파일 상태 확인
         COMPILE_EXIT_CODE="${{ steps.compile.outputs.compile_exit_code }}"
         if [ "$COMPILE_EXIT_CODE" != "0" ] && [ "$COMPILE_EXIT_CODE" != "" ]; then
-          COMPILE_STATUS="❌ 실패"
+          COMPILE_STATUS="❌ failed"
         fi
         
         # 테스트 상태 확인  
         TEST_EXIT_CODE="${{ steps.test.outputs.test_exit_code }}"
         if [ "$TEST_EXIT_CODE" != "0" ] && [ "$TEST_EXIT_CODE" != "" ]; then
-          TEST_STATUS="❌ 실패"
+          TEST_STATUS="❌ failed"
         fi
         
         # 빌드 상태 확인
         BUILD_EXIT_CODE="${{ steps.build.outputs.build_exit_code }}"
         if [ "$BUILD_EXIT_CODE" != "0" ] && [ "$BUILD_EXIT_CODE" != "" ]; then
-          BUILD_STATUS="❌ 실패"
+          BUILD_STATUS="❌ failed"
         fi
         
         # 전체 빌드 상태
-        OVERALL_STATUS="✅ 성공"
+        OVERALL_STATUS="✅ passed"
         if [ "$COMPILE_EXIT_CODE" != "0" ] || [ "$TEST_EXIT_CODE" != "0" ] || [ "$BUILD_EXIT_CODE" != "0" ]; then
-          OVERALL_STATUS="❌ 실패"
+          OVERALL_STATUS="❌ failed"
         fi
         
         echo "compile_status=$COMPILE_STATUS" >> $GITHUB_OUTPUT
@@ -165,7 +165,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
         fi
         
-        # 테스트 에러 추출
+        # Extract test errors
         if [ -f test_output.txt ] && [ "${{ steps.test.outputs.test_exit_code }}" != "0" ]; then
           echo "test_errors<<EOF" >> $GITHUB_OUTPUT
           echo "$(msg nexus_ci.errors.test_heading '## 🧪 Test failures')" >> $GITHUB_OUTPUT
@@ -176,7 +176,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
         fi
         
-        # 빌드 에러 추출
+        # Extract build errors
         if [ -f build_output.txt ] && [ "${{ steps.build.outputs.build_exit_code }}" != "0" ]; then
           echo "build_errors<<EOF" >> $GITHUB_OUTPUT
           echo "$(msg nexus_ci.errors.build_heading '## 📦 Build errors')" >> $GITHUB_OUTPUT
@@ -188,27 +188,27 @@ jobs:
         fi
 
     - name: Comment on PR (Success)
-      if: github.event_name == 'pull_request' && steps.report.outputs.overall_status == '✅ 성공'
+      if: github.event_name == 'pull_request' && steps.report.outputs.overall_status == '✅ passed'
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
-          // 상태 출력값(한국어 고정)을 댓글 언어로 바꿔 보여 준다
-          const showStatus = (value) => ({ '✅ 성공': t('nexus_ci.status.success'), '❌ 실패': t('nexus_ci.status.failure') })[value] ?? value;
+          // Show the fixed status output in the comment language
+          const showStatus = (value) => ({ '✅ passed': t('nexus_ci.status.success'), '❌ failed': t('nexus_ci.status.failure') })[value] ?? value;
           const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
           });
           
-          // 기존 봇 댓글 찾기
+          // Find the existing bot comment
           const botComment = comments.find(comment => 
             comment.user.type === 'Bot' && 
             comment.body.includes('🔧 CI Build Check')
           );
           
-          // 기존 댓글을 찾는 표식 '🔧 CI Build Check' 는 언어와 상관없이 제목에 넣는다
+          // The '🔧 CI Build Check' marker that finds the existing comment stays in the title in every language
           const successMessage = [
             t('nexus_ci.comment.heading', { marker: '🔧 CI Build Check' }),
             '',
@@ -243,21 +243,21 @@ jobs:
           }
 
     - name: Comment on PR (Failure)
-      if: github.event_name == 'pull_request' && steps.report.outputs.overall_status == '❌ 실패'
+      if: github.event_name == 'pull_request' && steps.report.outputs.overall_status == '❌ failed'
       uses: actions/github-script@v7
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
-          // 상태 출력값(한국어 고정)을 댓글 언어로 바꿔 보여 준다
-          const showStatus = (value) => ({ '✅ 성공': t('nexus_ci.status.success'), '❌ 실패': t('nexus_ci.status.failure') })[value] ?? value;
+          // Show the fixed status output in the comment language
+          const showStatus = (value) => ({ '✅ passed': t('nexus_ci.status.success'), '❌ failed': t('nexus_ci.status.failure') })[value] ?? value;
           const { data: comments } = await github.rest.issues.listComments({
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: context.issue.number,
           });
           
-          // 기존 봇 댓글 찾기
+          // Find the existing bot comment
           const botComment = comments.find(comment => 
             comment.user.type === 'Bot' && 
             comment.body.includes('🔧 CI Build Check')
@@ -265,22 +265,22 @@ jobs:
           
           let errorDetails = '';
           
-          // 컴파일 에러 추가
+          // Add compile errors
           if ('${{ steps.errors.outputs.compile_errors }}') {
             errorDetails += '${{ steps.errors.outputs.compile_errors }}\n\n';
           }
           
-          // 테스트 에러 추가  
+          // Add test errors
           if ('${{ steps.errors.outputs.test_errors }}') {
             errorDetails += '${{ steps.errors.outputs.test_errors }}\n\n';
           }
           
-          // 빌드 에러 추가
+          // Add build errors
           if ('${{ steps.errors.outputs.build_errors }}') {
             errorDetails += '${{ steps.errors.outputs.build_errors }}\n\n';
           }
           
-          // 기존 댓글을 찾는 표식 '🔧 CI Build Check' 는 언어와 상관없이 제목에 넣는다
+          // The '🔧 CI Build Check' marker that finds the existing comment stays in the title in every language
           const failureMessage = [
             t('nexus_ci.comment.heading', { marker: '🔧 CI Build Check' }),
             '',
@@ -330,9 +330,9 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         script: |
           const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
-          // 상태 출력값(한국어 고정)을 체크 결과 언어로 바꿔 보여 준다
-          const showStatus = (value) => ({ '✅ 성공': t('nexus_ci.status.success'), '❌ 실패': t('nexus_ci.status.failure') })[value] ?? value;
-          const conclusion = '${{ steps.report.outputs.overall_status }}' === '✅ 성공' ? 'success' : 'failure';
+          // Show the fixed status output in the check result language
+          const showStatus = (value) => ({ '✅ passed': t('nexus_ci.status.success'), '❌ failed': t('nexus_ci.status.failure') })[value] ?? value;
+          const conclusion = '${{ steps.report.outputs.overall_status }}' === '✅ passed' ? 'success' : 'failure';
           const summary = t(conclusion === 'success' ? 'nexus_ci.check.summary_success' : 'nexus_ci.check.summary_failure');
           
           await github.rest.checks.create({
@@ -354,7 +354,7 @@ jobs:
           });
 
     - name: Fail Job on Build Failure
-      if: steps.report.outputs.overall_status == '❌ 실패'
+      if: steps.report.outputs.overall_status == '❌ failed'
       run: |
         echo "❌ The build failed. Check the error messages above."
         exit 1

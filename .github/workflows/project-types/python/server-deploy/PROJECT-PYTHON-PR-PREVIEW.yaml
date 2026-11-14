@@ -45,8 +45,8 @@ env:
   INTERNAL_PORT: '8000'
 
   # 🗂️ 볼륨 마운트 설정 (프로젝트별 수정 필요, 빈값이면 마운트 안함)
-  PROJECT_TARGET_DIR: "/volume1/projects/프로젝트명/ai"  # 서버의 데이터 디렉토리
-  PROJECT_MNT_DIR: "/mnt/프로젝트명"                     # 컨테이너 내부 마운트 경로
+  PROJECT_TARGET_DIR: "/volume1/projects/<project-name>/ai"  # 서버의 데이터 디렉토리
+  PROJECT_MNT_DIR: "/mnt/<project-name>"                     # 컨테이너 내부 마운트 경로
 
   # Traefik & Preview 도메인 설정 (환경 구축 후 수정 금지)
   TRAEFIK_NETWORK: traefik-network
@@ -103,7 +103,7 @@ jobs:
   # -----------------------------------------------------------------
   check-command:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: 명령어 확인
+    name: Check command
     # 공개 레포에서 아무나 댓글로 서버 배포를 걸지 못하게 한다. 허용 목록은 PROJECTOPS_TRIGGER_ASSOCIATIONS 로 바꾼다
     if: |
       github.event_name == 'issue_comment' &&
@@ -193,7 +193,7 @@ jobs:
   # -----------------------------------------------------------------
   build-preview-pr:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 빌드 & 배포 (PR)
+    name: Build & deploy preview (PR)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -657,7 +657,7 @@ jobs:
   # -----------------------------------------------------------------
   get-branch-from-issue:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Issue에서 브랜치 추출
+    name: Get branch from issue
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -773,7 +773,7 @@ jobs:
   # -----------------------------------------------------------------
   build-preview-issue:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 빌드 & 배포 (Issue)
+    name: Build & deploy preview (Issue)
     needs: [check-command, get-branch-from-issue]
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -1318,7 +1318,7 @@ jobs:
   # -----------------------------------------------------------------
   destroy-preview:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 삭제
+    name: Delete preview
     # needs 의존성 제거: PR/Issue 닫힘 이벤트에서도 독립적으로 실행되도록 함
     if: |
       (github.event_name == 'pull_request' && github.event.action == 'closed') ||
@@ -1494,7 +1494,7 @@ jobs:
   # -----------------------------------------------------------------
   check-status:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 상태 확인
+    name: Check preview status
     needs: check-command
     if: needs.check-command.outputs.is_valid == 'true' && needs.check-command.outputs.command == 'status'
     runs-on: ubuntu-latest
@@ -1634,7 +1634,7 @@ jobs:
   # -----------------------------------------------------------------
   build-preview-custom-branch:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 빌드 & 배포 (Custom Branch)
+    name: Build & deploy preview (Custom Branch)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -2189,7 +2189,7 @@ jobs:
   # -----------------------------------------------------------------
   destroy-preview-custom-branch:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 삭제 (Custom Branch)
+    name: Delete preview (Custom Branch)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -2340,7 +2340,7 @@ jobs:
   # -----------------------------------------------------------------
   check-status-custom-branch:
     # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 상태 확인 (Custom Branch)
+    name: Check preview status (Custom Branch)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
