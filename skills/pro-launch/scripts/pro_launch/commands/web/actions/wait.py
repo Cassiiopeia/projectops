@@ -43,10 +43,22 @@ def wait_conditions(args) -> dict:
     return {name: value for name, value in named.items() if value}
 
 
+def url_without_query(url: str, needle: str) -> str:
+    """--url-contains 비교 대상: 주소에서 ?검색어 · #조각을 뺀 앞부분 (#1177)
+
+    로그인 주소의 continue=https://목적지 에 걸려 이동 전에 끝나던 것을 막는다.
+    찾는 글자에 ? · # 이 있으면 그 부분을 보려는 것이라 주소 전체와 비교한다.
+    """
+    if "?" in needle or "#" in needle:
+        return url
+    return url.split("#", 1)[0].split("?", 1)[0]
+
+
 def unmet_conditions(conditions: dict, url: str, visible_text: str, is_selector_visible: bool) -> list[str]:
     """아직 안 맞은 조건 이름들. 빈 목록이면 끝"""
     unmet = []
-    if "url_contains" in conditions and conditions["url_contains"] not in url:
+    needle = conditions.get("url_contains")
+    if needle and needle not in url_without_query(url, needle):
         unmet.append("url_contains")
     if "text" in conditions and conditions["text"] not in visible_text:
         unmet.append("text")
@@ -124,7 +136,7 @@ def execute(page, args, state: dict) -> dict:
 
 
 def configure(p) -> None:
-    p.add_argument("--url-contains", dest="url_contains", default=None, help="Until the URL contains this text")
+    p.add_argument("--url-contains", dest="url_contains", default=None, help="Until the URL (scheme, host and path; the ?query and #fragment only if this text has ? or #) contains this text")
     p.add_argument("--gone", default=None, help="Until this text disappears from the screen (loading or uploading messages)")
     p.add_argument("--timeout", type=int, default=DEFAULT_WAIT_SECONDS,
                    help=f"Wait limit (seconds, default {DEFAULT_WAIT_SECONDS})")

@@ -121,6 +121,7 @@ The method (phone approval · SMS code · authenticator code · security key) di
 
 - **Phone approval**: relay the number and instruction text on screen into the conversation and send a `web shot` capture. **Do not navigate away** from the approval screen
   (navigating cancels the pending approval). Wait until it moves on with `web wait --url-contains "{part of the post-login URL}"` (or `--gone "{approval prompt text}"`).
+  `--url-contains` ignores the `?query` and `#fragment` unless the text has `?` or `#`, so a sign-in URL's `continue=https://...` does not count (#1177).
   If `web login` handed over with `needs_user`, continue after approval with `web login --resume`.
 - **SMS or authenticator code**: get it in the conversation and enter it with `web login --otp-env` (or `--text-env`). Do not copy the code into records or reports.
 - **Security key · steps only a person can do**: say what is needed, with a capture, and wait.
