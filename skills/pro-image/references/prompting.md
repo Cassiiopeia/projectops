@@ -30,6 +30,8 @@ in-image text exactly as given (quote them). One idea per line; concrete nouns b
 1. **Context line**: what this is and where it is used. "Background for a visual novel dialogue scene, shown full screen."
 2. **Reference roles**: one line per attached image, saying what to take from it and what to ignore.
    "ref/cover.png: match line weight, coloring and eye style. Do not copy its pose or background."
+   Two `--ref` files with the same name are copied with their `--ref` position as a prefix (`ref/01-face.png`,
+   `ref/02-face.png`); the run result's `references[].copied_as` shows the names used.
 3. **Subject**: what is in the image, from most to least important.
 4. **Composition**: framing, camera, focal point, empty zones as fractions ("keep the bottom third clear").
 5. **Style**: the STYLE.md look in 2-4 lines. Say "same style as the references" and also describe it.

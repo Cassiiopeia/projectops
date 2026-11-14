@@ -99,8 +99,19 @@ def cmd_run(args) -> dict:
             "name": args.name, "kind": args.kind, "provider": provider_name, "status": "candidate",
             "image": result["image"]["path"], "size": args.size, "alpha": args.alpha,
             "references": [str(path) for path in references], "prompt": prompt_text})
-    # 실제로 넘긴 참조 목록 (빠진 참조가 응답에서 바로 보이게, #1183)
-    return {**result, "references": [str(path) for path in references]}
+    # 실제로 넘긴 참조 목록 (빠진 참조가 응답에서 바로 보이게, #1183) + 복사된 이름 (#1192)
+    return {**result, "references": _reference_report(references, run_dir)}
+
+
+def _reference_report(references: list[Path], run_dir: Path) -> list[dict]:
+    """참조 > {source, copied_as}. copied_as 는 실행 폴더에 실제로 복사된 것만 (거절·누락이면 없음)"""
+    report = []
+    for reference, copy_name in zip(references, generation.reference_copy_names(references)):
+        entry = {"source": str(reference)}
+        if (run_dir / "ref" / copy_name).is_file():
+            entry["copied_as"] = f"ref/{copy_name}"
+        report.append(entry)
+    return report
 
 
 def cmd_check(args) -> dict:

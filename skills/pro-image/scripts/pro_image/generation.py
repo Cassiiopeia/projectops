@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import shutil
 import time
+from collections import Counter
 from pathlib import Path
 
 from . import (background, codex_runner, converter, harness, image_facts, png_codec, postprocess, provider_runner,
@@ -77,6 +78,14 @@ def check_ready(definition: dict | None, name: str) -> dict | None:
     return None
 
 
+def reference_copy_names(references: list[Path]) -> list[str]:
+    """참조 > ref/ 안 파일 이름. 이름이 겹치는 것만 순번 접두사 (01-face.png, #1192)
+    안 겹치면 원래 이름 유지 (프롬프트의 ref/<파일> 표기가 그대로 맞게)"""
+    name_counts = Counter(reference.name for reference in references)
+    return [f"{position:02d}-{reference.name}" if name_counts[reference.name] > 1 else reference.name
+            for position, reference in enumerate(references, start=1)]
+
+
 def _prepare(run_dir: Path, references: list[Path], harness_dir: Path) -> list[Path]:
     (run_dir / "out").mkdir(parents=True, exist_ok=True)
     (run_dir / "ref").mkdir(exist_ok=True)
@@ -84,8 +93,8 @@ def _prepare(run_dir: Path, references: list[Path], harness_dir: Path) -> list[P
     if style.is_file():
         shutil.copyfile(style, run_dir / harness.STYLE_FILE)
     copied = []
-    for reference in references:
-        target = run_dir / "ref" / reference.name
+    for reference, copy_name in zip(references, reference_copy_names(references)):
+        target = run_dir / "ref" / copy_name
         shutil.copyfile(reference, target)
         copied.append(target)
     return copied
