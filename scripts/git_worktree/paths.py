@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""worktree 경로 계산: 브랜치명 > 폴더명, {프로젝트명}-Worktree 루트, 디렉토리 생성"""
+"""Worktree path calculation: branch name > folder name, {project_name}-Worktree root, directory creation"""
 
 import re
 from pathlib import Path
@@ -7,38 +7,38 @@ from pathlib import Path
 from git_worktree.console import print_error
 from git_worktree.git_commands import get_git_root
 
-# 폴더명에서 제거할 특수문자 (파일시스템에서 안전하지 않은 문자)
+# Special characters to remove from folder names (unsafe on file systems)
 SPECIAL_CHARS_PATTERN = r'[#/\\:*?"<>|]'
 
-# Worktree 루트 폴더명 (동적으로 설정됨)
-# 예: myapp → myapp-Worktree
-WORKTREE_ROOT_NAME = None  # get_worktree_root()에서 동적으로 설정
+# Worktree root folder name (set dynamically)
+# e.g. myapp → myapp-Worktree
+WORKTREE_ROOT_NAME = None  # Set dynamically in get_worktree_root()
 
 
 def normalize_branch_name(branch_name: str) -> str:
   """
-  브랜치명을 폴더명으로 안전하게 변환
+  Safely convert a branch name to a folder name
 
-  특수문자 (#, /, \\, :, *, ?, ", <, >, |)를 _ 로 변환하고,
-  연속된 _를 하나로 통합하며, 앞뒤 _를 제거합니다.
+  Replaces special characters (#, /, \\, :, *, ?, ", <, >, |) with _,
+  collapses consecutive _ into one, and strips leading/trailing _.
 
   Args:
-      branch_name: 원본 브랜치명
+      branch_name: Original branch name
 
   Returns:
-      str: 정규화된 폴더명
+      str: Normalized folder name
 
   Example:
       >>> normalize_branch_name("20260120_#163_Github_Projects")
       "20260120_163_Github_Projects"
   """
-  # 특수문자를 _ 로 변환
+  # Replace special characters with _
   normalized = re.sub(SPECIAL_CHARS_PATTERN, '_', branch_name)
 
-  # 연속된 _를 하나로 통합
+  # Collapse consecutive _ into one
   normalized = re.sub(r'_+', '_', normalized)
 
-  # 앞뒤 _를 제거
+  # Strip leading/trailing _
   normalized = normalized.strip('_')
 
   return normalized
@@ -46,25 +46,25 @@ def normalize_branch_name(branch_name: str) -> str:
 
 def get_worktree_root() -> Path:
   """
-  Worktree 루트 경로 계산
+  Calculate the worktree root path
 
-  현재 Git 저장소의 부모 디렉토리에 {프로젝트명}-Worktree 폴더 생성
+  A {project_name}-Worktree folder in the parent directory of the current Git repository
 
   Returns:
-      Path: Worktree 루트 경로
+      Path: Worktree root path
 
   Example:
-      현재: /Users/.../project/myapp
-      반환: /Users/.../project/myapp-Worktree
+      Current: /Users/.../project/myapp
+      Returns: /Users/.../project/myapp-Worktree
   """
   git_root = get_git_root()
   if not git_root:
-    raise RuntimeError("Git 저장소 루트를 찾을 수 없습니다.")
+    raise RuntimeError("Cannot find the Git repository root.")
 
-  # 현재 Git 저장소의 이름 추출 (예: myapp)
+  # Get the current Git repository name (e.g. myapp)
   project_name = git_root.name
 
-  # 부모 디렉토리에 {프로젝트명}-Worktree 폴더 생성
+  # {project_name}-Worktree folder in the parent directory
   worktree_root_name = f"{project_name}-Worktree"
   worktree_root = git_root.parent / worktree_root_name
 
@@ -73,13 +73,13 @@ def get_worktree_root() -> Path:
 
 def get_worktree_path(branch_name: str) -> Path:
   """
-  특정 브랜치의 worktree 전체 경로 반환
+  Return the full worktree path for a branch
 
   Args:
-      branch_name: 브랜치명 (정규화 전)
+      branch_name: Branch name (before normalization)
 
   Returns:
-      Path: Worktree 경로
+      Path: Worktree path
 
   Example:
       >>> get_worktree_path("20260120_#163_Github_Projects")
@@ -92,17 +92,17 @@ def get_worktree_path(branch_name: str) -> Path:
 
 def ensure_directory(path: Path) -> bool:
   """
-  디렉토리가 존재하지 않으면 생성
+  Create the directory if it does not exist
 
   Args:
-      path: 생성할 디렉토리 경로
+      path: Directory path to create
 
   Returns:
-      bool: 성공 여부
+      bool: Whether it succeeded
   """
   try:
     path.mkdir(parents=True, exist_ok=True)
     return True
   except Exception as e:
-    print_error(f"디렉토리 생성 실패: {e}")
+    print_error(f"Failed to create directory: {e}")
     return False
