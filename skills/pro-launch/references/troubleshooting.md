@@ -6,7 +6,7 @@
 
 ## Contents
 
-- [Web (`web`)](#web-web) — 18 entries
+- [Web (`web`)](#web-web) — 19 entries
 - [Android (`android`)](#android-android) — 10 entries
 - [iOS (`ios`)](#ios-ios) — 10 entries
 - [SSH (`ssh`)](#ssh-ssh) — 2 entries
@@ -18,6 +18,7 @@
 | id | Title | Codes |
 |---|---|---|
 | `browser-start-stale-process-or-lock` | web open fails with browser_start_failed — a problem left after self-recovery | `browser_start_failed` · `browser_hung` |
+| `web-browser-attach-failed` | web commands fail with browser_attach_failed — browser alive, attach failed | `browser_attach_failed` |
 | `web-browser-gone` | web commands fail with browser_gone — could not attach to the running browser | `browser_gone` |
 | `web-browser-not-open-other-root` | browser_not_open right after opening — called from another project's location | `browser_not_open` |
 | `web-click-wait-with-expect` | Do not wait with sleep — use click's --expect-url · --expect-text | `expect_not_met` |
@@ -48,6 +49,19 @@
   3. launch_cli.py web open --url <url>
   4. If the response is browser_still_alive, end that pid with the kill command in next (kill -9 <pid> or taskkill)
 - Refs: #711, #712, #887 · verified 2026-10-17
+
+### `web-browser-attach-failed` — web commands fail with browser_attach_failed — browser alive, attach failed
+
+- Codes: `browser_attach_failed`
+- Symptom: web text · shot · click end with browser_attach_failed; the result has pid and says the browser is running but attaching failed
+- Cause: The browser process recorded in the state file is alive and its CDP port answers, but attaching over CDP failed — often for a moment while the page redirects or closes tabs. It is not browser_gone, so the CLI keeps the browser and the whole state file (cdp · pid · viewport · route rules)
+- Fix:
+  1. Wait a few seconds and run the same command again
+  2. If it keeps failing: launch_cli.py web open --url <url> (reuses the browser, or cleans it up and starts a new one)
+  3. Still failing: launch_cli.py web close, then launch_cli.py web open --url <url>
+  4. Check recovered in the web open result to see what was cleaned up (hung_browser · dead_pid · stale_lock)
+- Refs: #1154, #1171 · verified 2026-11-14
+- See also: `web-browser-gone`, `browser-start-stale-process-or-lock`
 
 ### `web-browser-gone` — web commands fail with browser_gone — could not attach to the running browser
 

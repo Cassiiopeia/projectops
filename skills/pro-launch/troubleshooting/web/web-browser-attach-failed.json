@@ -1,0 +1,28 @@
+{
+  "id": "web-browser-attach-failed",
+  "area": "web",
+  "title": "web commands fail with browser_attach_failed — browser alive, attach failed",
+  "match": {
+    "codes": [
+      "browser_attach_failed"
+    ],
+    "keywords": []
+  },
+  "symptom": "web text · shot · click end with browser_attach_failed; the result has pid and says the browser is running but attaching failed",
+  "cause": "The browser process recorded in the state file is alive and its CDP port answers, but attaching over CDP failed — often for a moment while the page redirects or closes tabs. It is not browser_gone, so the CLI keeps the browser and the whole state file (cdp · pid · viewport · route rules)",
+  "fix": [
+    "Wait a few seconds and run the same command again",
+    "If it keeps failing: launch_cli.py web open --url <url> (reuses the browser, or cleans it up and starts a new one)",
+    "Still failing: launch_cli.py web close, then launch_cli.py web open --url <url>",
+    "Check recovered in the web open result to see what was cleaned up (hung_browser · dead_pid · stale_lock)"
+  ],
+  "refs": [
+    1154,
+    1171
+  ],
+  "verified_at": "2026-11-14",
+  "see_also": [
+    "web-browser-gone",
+    "browser-start-stale-process-or-lock"
+  ]
+}

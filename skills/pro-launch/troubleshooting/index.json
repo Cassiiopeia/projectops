@@ -19,6 +19,9 @@
     "bad_viewport": [
       "web-viewport-width-height"
     ],
+    "browser_attach_failed": [
+      "web-browser-attach-failed"
+    ],
     "browser_gone": [
       "web-browser-gone"
     ],
@@ -1123,6 +1126,16 @@
       ],
       "keyword_count": 2,
       "path": "ssh/ssh-windows-cmd-encoding.json"
+    },
+    "web-browser-attach-failed": {
+      "area": "web",
+      "title": "web commands fail with browser_attach_failed — browser alive, attach failed",
+      "fix_short": [
+        "Wait a few seconds and run the same command again",
+        "If it keeps failing: launch_cli.py web open --url <url> (reuses the browser, or cleans it up and starts a new one)"
+      ],
+      "keyword_count": 0,
+      "path": "web/web-browser-attach-failed.json"
     },
     "web-browser-gone": {
       "area": "web",
