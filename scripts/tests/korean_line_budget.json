@@ -1,6 +1,6 @@
 {
   "_about": "Hangul non-comment lines per file (#769). Numbers may only go down. Regenerate lowered numbers: python3 scripts/tests/test_korean_line_budget.py --update",
-  "total": 1056,
+  "total": 1030,
   "files": {
     ".github/config/breaking-changes.json": 1,
     ".github/config/issue-labels.yml": 9,
@@ -17,7 +17,7 @@
     ".github/util/common/github-secrets-converter/secrets-converter.html": 1,
     ".github/util/common/projects-sync-wizard/projects-sync-wizard-setup.ps1": 1,
     ".github/util/common/projects-sync-wizard/projects-sync-wizard.html": 51,
-    ".github/util/common/projects-sync-wizard/projects-sync-wizard.js": 83,
+    ".github/util/common/projects-sync-wizard/projects-sync-wizard.js": 67,
     ".github/util/common/projects-sync-wizard/version.json": 50,
     ".github/util/flutter/_shared/README.md": 3,
     ".github/util/flutter/_shared/check-consistency.py": 3,
@@ -52,7 +52,7 @@
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml": 2,
     ".github/workflows/project-types/python/PROJECT-PYTHON-CI.yaml": 1,
     ".github/workflows/project-types/python/server-deploy/PROJECT-PYTHON-PR-PREVIEW.yaml": 4,
-    ".github/workflows/project-types/spring/server-deploy/PROJECT-SPRING-PR-PREVIEW.yaml": 13,
+    ".github/workflows/project-types/spring/server-deploy/PROJECT-SPRING-PR-PREVIEW.yaml": 4,
     "README.md": 1,
     "plugins/projectops-extras/skills/pro-disk-cleanup/SKILL.md": 2,
     "plugins/projectops-extras/skills/pro-skill-bug/SKILL.md": 1,
@@ -129,7 +129,6 @@
     "skills/references/personas.md": 1,
     "skills/references/sensitive-info.md": 2,
     "src/cli/help.js": 71,
-    "src/commands/workflows.js": 1,
     "src/core/copy/readme.js": 2,
     "src/core/label-style.js": 9,
     "src/core/migrations/rules/settings-extractors.js": 2,

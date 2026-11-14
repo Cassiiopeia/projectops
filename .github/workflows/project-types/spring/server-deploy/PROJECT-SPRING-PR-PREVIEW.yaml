@@ -1,94 +1,94 @@
 # ===================================================================
-# Spring Boot PR/Issue Preview 시스템 (SSH + Docker)
+# Spring Boot PR/Issue Preview system (SSH + Docker)
 # ===================================================================
 #
-# 🔑 필수 GitHub Secrets
+# 🔑 Required GitHub Secrets
 # ===================================================================
-# APPLICATION_PROD_YML (선택): application-prod.yml 내용
-# DOCKERHUB_USERNAME: DockerHub 사용자명
-# DOCKERHUB_TOKEN: DockerHub 액세스 토큰
-# SERVER_HOST: 배포 서버 주소
-# SERVER_USER: SSH 사용자명
-# SERVER_PASSWORD: SSH 비밀번호 (SSH_AUTH_METHOD=password일 때)
-# SSH_KEY: SSH 개인키 .pem 내용 (SSH_AUTH_METHOD=key일 때, AWS EC2 등)
+# APPLICATION_PROD_YML (optional): contents of application-prod.yml
+# DOCKERHUB_USERNAME: Docker Hub user name
+# DOCKERHUB_TOKEN: Docker Hub access token
+# SERVER_HOST: deploy server address
+# SERVER_USER: SSH user name
+# SERVER_PASSWORD: SSH password (when SSH_AUTH_METHOD=password)
+# SSH_KEY: SSH private key .pem contents (when SSH_AUTH_METHOD=key, AWS EC2 etc.)
 # ===================================================================
 #
-# 🚀 사용법:
-#   @projectops server build    - PR/Issue 빌드 및 배포
-#   @projectops server destroy  - Preview 환경 삭제
-#   @projectops server status   - 현재 상태 확인
+# 🚀 Usage:
+#   @projectops server build    - build and deploy the PR/issue
+#   @projectops server destroy  - delete the Preview environment
+#   @projectops server status   - check the current state
 #
-# 📊 리소스 네이밍 규칙:
-#   - 컨테이너: {PROJECT_NAME}-pr-{PR번호}
-#   - 이미지: {DOCKERHUB_USERNAME}/{PROJECT_NAME}:pr-{PR번호}
-#   - 도메인: {PROJECT_NAME}-pr-{PR번호}.pr.suhsaechan.kr
-#   - Preview URL: http://{도메인}:8079
+# 📊 Resource naming:
+#   - Container: {PROJECT_NAME}-pr-{PR number}
+#   - Image: {DOCKERHUB_USERNAME}/{PROJECT_NAME}:pr-{PR number}
+#   - Domain: {PROJECT_NAME}-pr-{PR number}.pr.suhsaechan.kr
+#   - Preview URL: http://{domain}:8079
 #
 # ===================================================================
 
 name: PROJECT-SPRING-PR-PREVIEW
 
 # ===================================================================
-# ⚠️ [영역 1] 프로젝트별 설정 - 다른 프로젝트에서 사용 시 이 섹션만 수정하세요
+# ⚠️ [Section 1] Per-project settings - edit only this section when using it in another project
 # ===================================================================
 env:
-  # 프로젝트 고유 식별자 (컨테이너명, 이미지명, 도메인에 사용) (프로젝트별 수정 필요)
+  # Project identifier (used for container name, image name, domain) (edit per project)
   PROJECT_NAME: "__PROJECT_NAME__"  # @wizard ask:@repo
 
-  # Spring Boot 빌드 설정 (프로젝트별 수정 필요)
+  # Spring Boot build settings (edit per project)
   JAVA_VERSION: "__JAVA_VERSION__"  # @wizard ask:21
   GRADLE_BUILD_CMD: './gradlew clean build -x test -Dspring.profiles.active=prod'
-  JAR_PATH: 'Suh-Web/build/libs/*.jar'  # 멀티모듈이면 빌드 산출물 경로를 직접 수정하세요
+  JAR_PATH: 'Suh-Web/build/libs/*.jar'  # For multi-module builds, edit the build output path yourself
   APPLICATION_YML_PATH: "__APPLICATION_YML_PATH__"  # @wizard auto:spring-app-yml-path
 
-  # Docker 설정 (프로젝트별 수정 필요)
+  # Docker settings (edit per project)
   DOCKERFILE_PATH: './Dockerfile'
   INTERNAL_PORT: '8080'
 
-  # 🗂️ 볼륨 마운트 설정 (프로젝트별 수정 필요, 빈값이면 마운트 안함)
-  PROJECT_TARGET_DIR: ""  # 서버의 데이터 디렉토리 (예: /volume1/projects/myapp/data)
-  PROJECT_MNT_DIR: ""     # 컨테이너 내부 마운트 경로 (예: /mnt/myapp)
+  # 🗂️ Volume mount settings (edit per project; empty = no mount)
+  PROJECT_TARGET_DIR: ""  # data directory on the server (e.g. /volume1/projects/myapp/data)
+  PROJECT_MNT_DIR: ""     # mount path inside the container (e.g. /mnt/myapp)
 
-  # Traefik & Preview 도메인 설정 (환경 구축 후 수정 금지)
+  # Traefik & Preview domain settings (do not change after the environment is set up)
   TRAEFIK_NETWORK: traefik-network
   PREVIEW_DOMAIN_SUFFIX: pr.suhsaechan.kr
   PREVIEW_PORT: '8079'
 
-  # 🔐 SSH 인증 방식: "password"(Synology·일반 서버) | "key"(AWS EC2·.pem)
-  #   password → SERVER_PASSWORD secret 사용
-  #   key      → SSH_KEY secret 사용 (.pem 파일 전체 내용을 secret 값으로)
+  # 🔐 SSH auth method: "password" (Synology, regular servers) | "key" (AWS EC2, .pem)
+  #   password → uses the SERVER_PASSWORD secret
+  #   key      → uses the SSH_KEY secret (the full .pem file contents as the secret value)
   SSH_AUTH_METHOD: "password"  # @wizard ask:password
 
-  # SSH 포트 (서버 포트 환경 구축 후 수정 금지)
+  # SSH port (do not change after the server port is set up)
   SSH_PORT: '2022'
 
-  # Issue Helper 댓글 마커 (프로젝트별 수정 필요)
-  # Issue 댓글에서 브랜치명을 추출할 때 사용
+  # Issue Helper comment marker (edit per project)
+  # Used to extract the branch name from issue comments
   ISSUE_HELPER_MARKER: 'Guide by SUH-LAB'
 
-  # Health Check 설정 (프로젝트별 수정 필요)
-  # - HEALTH_CHECK_PATH: HTTP Health Check 경로 (빈값이면 HTTP 체크 건너뜀)
-  # - HEALTH_CHECK_LOG_PATTERN: 로그 패턴 매칭 (HTTP 실패 시 폴백)
-  # - API_DOCS_PATH: API 문서 URL (빈값이면 배포 코멘트에 미표시)
+  # Health check settings (edit per project)
+  # - HEALTH_CHECK_PATH: HTTP health check path (empty = skip the HTTP check)
+  # - HEALTH_CHECK_LOG_PATTERN: log pattern match (fallback when HTTP fails)
+  # - API_DOCS_PATH: API docs URL (empty = not shown in the deploy comment)
   #
-  # Spring Boot 기본값:
+  # Spring Boot defaults:
   #   HEALTH_CHECK_PATH: '/actuator/health'
   #   HEALTH_CHECK_LOG_PATTERN: 'Started .* in [0-9.]+ seconds'
-  #   API_DOCS_PATH: '/swagger-ui.html' 또는 '/swagger-ui/index.html'
+  #   API_DOCS_PATH: '/swagger-ui.html' or '/swagger-ui/index.html'
   HEALTH_CHECK_PATH: '/actuator/health'
   HEALTH_CHECK_LOG_PATTERN: 'Started .* in [0-9.]+ seconds'
   API_DOCS_PATH: '/docs/swagger'
 
 # ===================================================================
-# 트리거 설정
+# Trigger settings
 # ===================================================================
 on:
   issue_comment:
-    types: [created]      # PR 댓글 + Issue 댓글
+    types: [created]      # PR comments + issue comments
   issues:
-    types: [closed]       # Issue 닫힘 시 destroy
+    types: [closed]       # destroy when the issue closes
   pull_request:
-    types: [closed]       # PR 닫힘 시 destroy
+    types: [closed]       # destroy when the PR closes
 
 permissions:
   contents: read
@@ -100,12 +100,12 @@ permissions:
 # ===================================================================
 jobs:
   # -----------------------------------------------------------------
-  # Job 1: 명령어 파싱 (PR 댓글 + Issue 댓글 모두 지원)
+  # Job 1: parse the command (supports PR and issue comments)
   # -----------------------------------------------------------------
   check-command:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: 명령어 확인
-    # 공개 레포에서 아무나 댓글로 서버 배포를 걸지 못하게 한다. 허용 목록은 PROJECTOPS_TRIGGER_ASSOCIATIONS 로 바꾼다
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Check command
+    # Keep anyone on a public repo from triggering a server deploy by comment. Change the allow list with PROJECTOPS_TRIGGER_ASSOCIATIONS
     if: |
       github.event_name == 'issue_comment' &&
       (
@@ -121,7 +121,7 @@ jobs:
       is_custom_branch: ${{ steps.parse.outputs.is_custom_branch }}
     steps:
       - name: Add 👀 reaction to the comment
-        # 봇 안내 댓글은 제외한다 (#576) — 안내문 문구가 조건을 만족해 오발동한 전례가 있다
+        # Skip bot guide comments (#576) — guide text has matched the condition and misfired before
         if: ${{ !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server') }}
         uses: actions/github-script@v7
         with:
@@ -140,7 +140,7 @@ jobs:
           COMMENT: ${{ github.event.comment.body }}
           IS_PR: ${{ github.event.issue.pull_request != null }}
         run: |
-          # PR인지 Issue인지 확인
+          # Check whether it is a PR or an issue
           if [[ "$IS_PR" == "true" ]]; then
             echo "is_pr=true" >> $GITHUB_OUTPUT
             echo "ℹ️ Command detected in a PR comment"
@@ -149,8 +149,8 @@ jobs:
             echo "ℹ️ Command detected in an issue comment"
           fi
 
-          # 명령어 파싱 (브랜치 파라미터 지원)
-          # 형식: @projectops server <command> [브랜치명]
+          # Parse the command (supports a branch parameter)
+          # Format: @projectops server <command> [branch-name]
           if [[ "$COMMENT" =~ @projectops[[:space:]]+server[[:space:]]+build([[:space:]]+([^[:space:]]+))? ]]; then
             echo "command=build" >> $GITHUB_OUTPUT
             echo "is_valid=true" >> $GITHUB_OUTPUT
@@ -190,11 +190,11 @@ jobs:
           fi
 
   # -----------------------------------------------------------------
-  # Job 2-1: 빌드 & 배포 (PR 댓글에서 실행)
+  # Job 2-1: build & deploy (run from a PR comment)
   # -----------------------------------------------------------------
   build-preview-pr:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 빌드 & 배포 (PR)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Build & deploy preview (PR)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -203,9 +203,9 @@ jobs:
       needs.check-command.outputs.is_custom_branch != 'true'
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -241,7 +241,7 @@ jobs:
             return pr.data.number;
 
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      # 진행 상황 댓글 시스템
+      # Progress comment system
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       - name: Create progress comment
         id: progress
@@ -294,24 +294,24 @@ jobs:
         run: chmod +x gradlew
 
       # =================================================================
-      # ⚠️ [영역 2] 프로젝트별 Secret 파일 생성
+      # ⚠️ [Section 2] Create per-project secret files
       # =================================================================
       #
-      # 📋 필수 (모든 Spring Boot 프로젝트):
+      # 📋 Required (every Spring Boot project):
       #   - application-prod.yml
       #
-      # 📋 선택 (프로젝트에 따라 추가/제거):
+      # 📋 Optional (add/remove per project):
       #   - Firebase: firebase-admin-sdk.json, firebase-messaging-sw.js
       #   - Vertex AI: gen-lang-client-xxx.json
-      #   - 기타 설정 파일: admin.yml, prompt.yml 등
+      #   - Other config files: admin.yml, prompt.yml, etc.
       #
-      # ⚠️ 다른 프로젝트에서 사용 시:
-      #   1. 필요 없는 step은 삭제하세요
-      #   2. 필요한 step을 추가하세요
-      #   3. 파일 경로를 프로젝트에 맞게 수정하세요
+      # ⚠️ When using it in another project:
+      #   1. Delete the steps you do not need
+      #   2. Add the steps you need
+      #   3. Adjust the file paths to the project
       # =================================================================
 
-      # [필수] Spring Boot 설정 파일
+      # [Required] Spring Boot config file
       - name: "[Required] Create application-prod.yml"
         env:
           APPLICATION_PROD_YML: ${{ secrets.APPLICATION_PROD_YML }}
@@ -319,21 +319,21 @@ jobs:
           mkdir -p $(dirname ${{ env.APPLICATION_YML_PATH }})
           printf '%s\n' "$APPLICATION_PROD_YML" > ${{ env.APPLICATION_YML_PATH }}
 
-      # [선택] 아래는 예시입니다. 필요 없으면 삭제하세요.
-      # - name: "[선택] Vertex AI Service Account Key 생성"
+      # [Optional] Examples below; delete them if not needed.
+      # - name: "[Optional] Create Vertex AI Service Account Key"
       #   env:
       #     VERTEX_SA_KEY: ${{ secrets.VERTEX_SA_KEY }}
       #   run: |
       #     echo "$VERTEX_SA_KEY" | sed 's/\\n/\n/g' > ./Suh-Web/src/main/resources/vertex-ai-key.json
 
-      # - name: "[선택] Firebase Admin SDK 생성"
+      # - name: "[Optional] Create Firebase Admin SDK"
       #   env:
       #     FIREBASE_KEY_JSON: ${{ secrets.FIREBASE_KEY_JSON }}
       #   run: |
       #     echo "$FIREBASE_KEY_JSON" | sed 's/\\n/\n/g' > ./Suh-Web/src/main/resources/firebase-admin-sdk.json
 
       # =================================================================
-      # ⚠️ [영역 2 끝] 프로젝트별 Secret 파일 생성 끝
+      # ⚠️ [End of Section 2] Create per-project secret files
       # =================================================================
 
       - name: Gradle build
@@ -454,11 +454,11 @@ jobs:
           script: |
             set -e
 
-            # 환경 변수 설정 (배포 서버용)
+            # Environment variables (for the deploy server)
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
 
-            # 🔐 SSH 인증 방식에 따른 sudo 추상화
+            # 🔐 sudo wrapper depending on the SSH auth method
             SSH_AUTH_METHOD="${{ env.SSH_AUTH_METHOD }}"
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
             if [ "${SSH_AUTH_METHOD}" = "key" ]; then
@@ -468,7 +468,7 @@ jobs:
             fi
             echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
-            # 변수 설정
+            # Variables
             PR_NUMBER=${{ github.event.issue.number }}
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
             CONTAINER_NAME="${PROJECT_NAME}-pr-${PR_NUMBER}"
@@ -486,21 +486,21 @@ jobs:
             echo "🌐 Domain: ${DOMAIN}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-            # 이미지 Pull
+            # Pull the image
             echo "📥 Pulling the Docker image..."
             SUDO docker pull "${IMAGE}"
 
-            # 기존 컨테이너 삭제
+            # Remove the existing container
             echo "🗑️ Removing the old container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
-            # 볼륨 마운트 옵션 구성
+            # Build the volume mount options
             VOLUME_OPTS="-v /etc/localtime:/etc/localtime:ro"
             if [ -n "${{ env.PROJECT_TARGET_DIR }}" ] && [ -n "${{ env.PROJECT_MNT_DIR }}" ]; then
               VOLUME_OPTS="$VOLUME_OPTS -v ${{ env.PROJECT_TARGET_DIR }}:${{ env.PROJECT_MNT_DIR }}"
             fi
 
-            # 새 컨테이너 실행
+            # Run the new container
             echo "🐳 Starting the new container..."
             SUDO docker run -d \
               --name "${CONTAINER_NAME}" \
@@ -515,9 +515,9 @@ jobs:
               "${IMAGE}"
 
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # Health Check (최대 120초 대기) - 하이브리드 방식
-            # 1. HEALTH_CHECK_PATH가 설정되어 있으면 HTTP 체크 시도
-            # 2. 폴백: 로그 패턴 매칭 (HEALTH_CHECK_LOG_PATTERN)
+            # Health check (waits up to 120 seconds) - hybrid approach
+            # 1. Try the HTTP check if HEALTH_CHECK_PATH is set
+            # 2. Fallback: log pattern match (HEALTH_CHECK_LOG_PATTERN)
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             echo ""
             echo "⏳ Starting the health check (waits up to 120 seconds)..."
@@ -532,7 +532,7 @@ jobs:
               sleep 5
               RETRY_COUNT=$((RETRY_COUNT + 1))
 
-              # 1. 컨테이너 상태 확인
+              # 1. Check the container state
               STATUS=$(SUDO docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "not_found")
 
               if [ "$STATUS" = "exited" ]; then
@@ -546,11 +546,11 @@ jobs:
               fi
 
               if [ "$STATUS" = "running" ]; then
-                # 2. HTTP Health Check 시도 (HEALTH_CHECK_PATH가 설정된 경우에만)
+                # 2. Try the HTTP health check (only when HEALTH_CHECK_PATH is set)
                 if [ -n "$HEALTH_PATH" ]; then
                   HEALTH=$(SUDO docker exec "${CONTAINER_NAME}" wget -qO- "http://localhost:${INTERNAL_PORT}${HEALTH_PATH}" 2>/dev/null || echo "")
 
-                  # Spring Actuator 응답 확인 ({"status":"UP"}) 또는 일반 HTTP 응답
+                  # Spring Actuator response ({"status":"UP"}) or a plain HTTP response
                   if echo "$HEALTH" | grep -q '"status":"UP"' || [ -n "$HEALTH" ]; then
                     echo "✅ Started successfully! (HTTP response: ${HEALTH_PATH})"
                     HEALTH_CHECK_PASSED=true
@@ -559,7 +559,7 @@ jobs:
                   fi
                 fi
 
-                # 3. HTTP 응답 없으면 로그 패턴 매칭으로 폴백
+                # 3. No HTTP response: fall back to log pattern matching
                 if [ -n "$LOG_PATTERN" ]; then
                   STARTED=$(SUDO docker logs --tail 50 "${CONTAINER_NAME}" 2>&1 | grep -E "$LOG_PATTERN" || echo "")
 
@@ -615,7 +615,7 @@ jobs:
             const previewUrl = `http://${domain}:${previewPort}`;
             const sha = '${{ steps.pr.outputs.sha }}';
 
-            // Preview 환경 테이블 구성 (API_DOCS_PATH가 있을 때만 API Docs 행 추가)
+            // Build the Preview environment table (API Docs row only when API_DOCS_PATH is set)
             const envRows = [
               `| **Preview URL** | ${previewUrl} |`,
             ];
@@ -680,32 +680,32 @@ jobs:
             const prNumber = context.issue.number;
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
 
-            // 진행 상황에 따라 어디서 실패했는지 표시
+            // Show where it failed based on progress
             const buildDuration = '${{ steps.build_progress.outputs.build_duration }}';
             const dockerDuration = '${{ steps.docker_progress.outputs.docker_duration }}';
 
-            // 실패 지점 판단 - 초기 단계 실패도 구분
+            // Decide the failure point - early-stage failures included
             let buildStatus, dockerStatus, deployStatus;
             let buildTime = '-', dockerTime = '-';
 
             if (!commentId) {
-              // 진행 상황 댓글 생성 전 실패 (초기화 단계)
+              // Failed before the progress comment was created (initialization)
               buildStatus = t('spring_preview.status.init_failed');
               dockerStatus = '-';
               deployStatus = '-';
             } else if (!buildDuration || buildDuration === '') {
-              // 빌드 단계에서 실패
+              // Failed in the build stage
               buildStatus = t('spring_preview.status.failed');
               dockerStatus = t('spring_preview.status.waiting');
               deployStatus = t('spring_preview.status.waiting');
             } else if (!dockerDuration || dockerDuration === '') {
-              // Docker 단계에서 실패
+              // Failed in the Docker stage
               buildStatus = t('spring_preview.status.done');
               dockerStatus = t('spring_preview.status.failed');
               deployStatus = t('spring_preview.status.waiting');
               buildTime = buildDuration;
             } else {
-              // 배포 단계에서 실패
+              // Failed in the deploy stage
               buildStatus = t('spring_preview.status.done');
               dockerStatus = t('spring_preview.status.done');
               deployStatus = t('spring_preview.status.failed');
@@ -738,7 +738,7 @@ jobs:
               t('spring_preview.footer.generated', { system: 'PR Preview' })
             ].join('\n');
 
-            // 진행 상황 댓글이 있으면 업데이트, 없으면 새로 생성
+            // Update the progress comment if it exists, otherwise create one
             if (commentId) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -756,11 +756,11 @@ jobs:
             }
 
   # -----------------------------------------------------------------
-  # Job 2-2: Issue에서 브랜치명 추출
+  # Job 2-2: get the branch name from the issue
   # -----------------------------------------------------------------
   get-branch-from-issue:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Issue에서 브랜치 추출
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Get branch from issue
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -772,9 +772,9 @@ jobs:
       found: ${{ steps.extract.outputs.found }}
       issue_number: ${{ steps.extract.outputs.issue_number }}
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -806,19 +806,19 @@ jobs:
             console.log(`🔍 Searching issue #${issueNumber} for a branch...`);
             console.log(`📝 Marker: ${marker}`);
 
-            // Issue의 모든 댓글 조회
+            // Fetch all issue comments
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issueNumber
             });
 
-            // 브랜치 추출 패턴 (마커와 무관하게 동일한 형식)
-            // "### 브랜치" 또는 "### 브랜치명" 둘 다 매칭
+            // Branch extraction pattern (same format regardless of the marker)
+            // Matches both "### 브랜치" and "### 브랜치명"
             const branchRegex = /###\s*브랜치(?:명)?\s*\n```\s*\n([^\n]+)\s*\n```/;
 
             for (const comment of comments.data) {
-              // 마커가 포함된 댓글 찾기
+              // Find the comment that contains the marker
               if (comment.body.includes(marker)) {
                 const match = comment.body.match(branchRegex);
                 if (match) {
@@ -832,7 +832,7 @@ jobs:
               }
             }
 
-            // 브랜치를 찾지 못한 경우 - 에러가 아님, graceful하게 처리
+            // Branch not found - not an error, handled gracefully
             core.setOutput('found', 'false');
             core.setOutput('issue_number', issueNumber);
             console.log('⚠️ No branch found in the Issue Helper comments.');
@@ -871,11 +871,11 @@ jobs:
             });
 
   # -----------------------------------------------------------------
-  # Job 2-3: 빌드 & 배포 (Issue 댓글에서 실행)
+  # Job 2-3: build & deploy (run from an issue comment)
   # -----------------------------------------------------------------
   build-preview-issue:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 빌드 & 배포 (Issue)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Build & deploy preview (Issue)
     needs: [check-command, get-branch-from-issue]
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -885,9 +885,9 @@ jobs:
       needs.get-branch-from-issue.outputs.found == 'true'
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -934,7 +934,7 @@ jobs:
                 core.setOutput('exists', 'false');
                 console.log(`❌ Branch not found: ${branchName}`);
 
-                // 브랜치 없음 알림 댓글
+                // Branch-not-found notice comment
                 const body = [
                   t('spring_preview.heading.branch_not_found'),
                   '',
@@ -977,11 +977,11 @@ jobs:
         run: |
           echo "ref=$BRANCH_NAME" >> $GITHUB_OUTPUT
           echo "issue_number=${{ needs.get-branch-from-issue.outputs.issue_number }}" >> $GITHUB_OUTPUT
-          # 브랜치의 최신 커밋 SHA 가져오기
+          # Get the latest commit SHA of the branch
           echo "sha=$(git ls-remote https://github.com/${{ github.repository }}.git "refs/heads/$BRANCH_NAME" | cut -c1-7)" >> $GITHUB_OUTPUT
 
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      # 진행 상황 댓글 시스템
+      # Progress comment system
       # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
       - name: Create progress comment
         if: steps.check_branch.outputs.exists == 'true'
@@ -1043,7 +1043,7 @@ jobs:
         run: chmod +x gradlew
 
       # =================================================================
-      # ⚠️ [영역 2] 프로젝트별 Secret 파일 생성
+      # ⚠️ [Section 2] Create per-project secret files
       # =================================================================
       - name: "[Required] Create application-prod.yml"
         if: steps.check_branch.outputs.exists == 'true'
@@ -1053,7 +1053,7 @@ jobs:
           mkdir -p $(dirname ${{ env.APPLICATION_YML_PATH }})
           printf '%s\n' "$APPLICATION_PROD_YML" > ${{ env.APPLICATION_YML_PATH }}
       # =================================================================
-      # ⚠️ [영역 2 끝] 프로젝트별 Secret 파일 생성 끝
+      # ⚠️ [End of Section 2] Create per-project secret files
       # =================================================================
 
       - name: Gradle build
@@ -1191,11 +1191,11 @@ jobs:
           script: |
             set -e
 
-            # 환경 변수 설정 (배포 서버용)
+            # Environment variables (for the deploy server)
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
 
-            # 🔐 SSH 인증 방식에 따른 sudo 추상화
+            # 🔐 sudo wrapper depending on the SSH auth method
             SSH_AUTH_METHOD="${{ env.SSH_AUTH_METHOD }}"
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
             if [ "${SSH_AUTH_METHOD}" = "key" ]; then
@@ -1205,7 +1205,7 @@ jobs:
             fi
             echo "🔐 SSH auth method: ${SSH_AUTH_METHOD}"
 
-            # 변수 설정
+            # Variables
             ISSUE_NUMBER=${{ needs.get-branch-from-issue.outputs.issue_number }}
             PROJECT_NAME="${{ env.PROJECT_NAME }}"
             CONTAINER_NAME="${PROJECT_NAME}-pr-${ISSUE_NUMBER}"
@@ -1223,21 +1223,21 @@ jobs:
             echo "🌐 Domain: ${DOMAIN}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-            # 이미지 Pull
+            # Pull the image
             echo "📥 Pulling the Docker image..."
             SUDO docker pull "${IMAGE}"
 
-            # 기존 컨테이너 삭제
+            # Remove the existing container
             echo "🗑️ Removing the old container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
-            # 볼륨 마운트 옵션 구성
+            # Build the volume mount options
             VOLUME_OPTS="-v /etc/localtime:/etc/localtime:ro"
             if [ -n "${{ env.PROJECT_TARGET_DIR }}" ] && [ -n "${{ env.PROJECT_MNT_DIR }}" ]; then
               VOLUME_OPTS="$VOLUME_OPTS -v ${{ env.PROJECT_TARGET_DIR }}:${{ env.PROJECT_MNT_DIR }}"
             fi
 
-            # 새 컨테이너 실행
+            # Run the new container
             echo "🐳 Starting the new container..."
             SUDO docker run -d \
               --name "${CONTAINER_NAME}" \
@@ -1252,9 +1252,9 @@ jobs:
               "${IMAGE}"
 
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-            # Health Check (최대 120초 대기) - 하이브리드 방식
-            # 1. HEALTH_CHECK_PATH가 설정되어 있으면 HTTP 체크 시도
-            # 2. 폴백: 로그 패턴 매칭 (HEALTH_CHECK_LOG_PATTERN)
+            # Health check (waits up to 120 seconds) - hybrid approach
+            # 1. Try the HTTP check if HEALTH_CHECK_PATH is set
+            # 2. Fallback: log pattern match (HEALTH_CHECK_LOG_PATTERN)
             # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
             echo ""
             echo "⏳ Starting the health check (waits up to 120 seconds)..."
@@ -1269,7 +1269,7 @@ jobs:
               sleep 5
               RETRY_COUNT=$((RETRY_COUNT + 1))
 
-              # 1. 컨테이너 상태 확인
+              # 1. Check the container state
               STATUS=$(SUDO docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "not_found")
 
               if [ "$STATUS" = "exited" ]; then
@@ -1283,11 +1283,11 @@ jobs:
               fi
 
               if [ "$STATUS" = "running" ]; then
-                # 2. HTTP Health Check 시도 (HEALTH_CHECK_PATH가 설정된 경우에만)
+                # 2. Try the HTTP health check (only when HEALTH_CHECK_PATH is set)
                 if [ -n "$HEALTH_PATH" ]; then
                   HEALTH=$(SUDO docker exec "${CONTAINER_NAME}" wget -qO- "http://localhost:${INTERNAL_PORT}${HEALTH_PATH}" 2>/dev/null || echo "")
 
-                  # Spring Actuator 응답 확인 ({"status":"UP"}) 또는 일반 HTTP 응답
+                  # Spring Actuator response ({"status":"UP"}) or a plain HTTP response
                   if echo "$HEALTH" | grep -q '"status":"UP"' || [ -n "$HEALTH" ]; then
                     echo "✅ Started successfully! (HTTP response: ${HEALTH_PATH})"
                     HEALTH_CHECK_PASSED=true
@@ -1296,7 +1296,7 @@ jobs:
                   fi
                 fi
 
-                # 3. HTTP 응답 없으면 로그 패턴 매칭으로 폴백
+                # 3. No HTTP response: fall back to log pattern matching
                 if [ -n "$LOG_PATTERN" ]; then
                   STARTED=$(SUDO docker logs --tail 50 "${CONTAINER_NAME}" 2>&1 | grep -E "$LOG_PATTERN" || echo "")
 
@@ -1356,7 +1356,7 @@ jobs:
             const previewUrl = `http://${domain}:${previewPort}`;
             const sha = '${{ steps.issue.outputs.sha }}';
 
-            // Preview 환경 테이블 구성 (API_DOCS_PATH가 있을 때만 API Docs 행 추가)
+            // Build the Preview environment table (API Docs row only when API_DOCS_PATH is set)
             const envRows = [
               `| **Preview URL** | ${previewUrl} |`,
             ];
@@ -1496,21 +1496,21 @@ jobs:
             }
 
   # -----------------------------------------------------------------
-  # Job 3: Preview 삭제 (PR/Issue 닫힘 또는 destroy 명령)
+  # Job 3: delete the Preview (PR/issue closed or destroy command)
   # -----------------------------------------------------------------
   destroy-preview:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 삭제
-    # needs 의존성 제거: PR/Issue 닫힘 이벤트에서도 독립적으로 실행되도록 함
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Delete preview
+    # No needs dependency: runs independently on PR/issue closed events too
     if: |
       (github.event_name == 'pull_request' && github.event.action == 'closed') ||
       (github.event_name == 'issues' && github.event.action == 'closed') ||
       (github.event_name == 'issue_comment' && !contains(github.event.comment.body, '<!-- SUH-ISSUE-HELPER -->') && contains(github.event.comment.body, '@projectops') && contains(github.event.comment.body, 'server destroy'))
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -1545,9 +1545,9 @@ jobs:
             echo "type=issue_closed" >> $GITHUB_OUTPUT
           fi
 
-      # 닫힘 이벤트마다 무조건 SSH·댓글을 돌리면 프리뷰를 쓴 적 없는 레포에서
-      # secret 없음 실패와 댓글 폭주(secondary rate limit)가 난다 (#808).
-      # 배포 완료 댓글이 남아 있을 때만 지우고, secret 이 없으면 조용히 건너뛴다.
+      # Running SSH and comments on every close event makes repos that never used a preview
+      # fail on missing secrets and flood comments (secondary rate limit) (#808).
+      # Delete only when a deploy-complete comment remains, and skip quietly when secrets are missing.
       - name: Check what to delete
         id: target
         uses: actions/github-script@v7
@@ -1564,7 +1564,7 @@ jobs:
               core.setOutput('should_destroy', 'false');
               return;
             }
-            // 사용자가 직접 destroy 를 요청했으면 흔적이 없어도 그대로 지운다.
+            // If the user asked for destroy directly, delete even without a trace.
             if (process.env.TRIGGER_TYPE === 'comment') {
               core.setOutput('should_destroy', 'true');
               return;
@@ -1576,8 +1576,8 @@ jobs:
               issue_number: number,
               per_page: 100,
             });
-            // 마지막 배포 완료 댓글이 마지막 삭제 완료 댓글보다 뒤에 있어야 살아 있는 Preview 다.
-            // 제목 표식은 두 언어 모두 본다 (언어를 바꾸기 전에 남은 댓글도 정리되게)
+            // The Preview is alive only if the last deploy-complete comment comes after the last delete-complete comment.
+            // Look for title markers in both languages (so comments left from before a language switch are cleaned up too)
             const deployedMarkers = ['Preview 배포 완료', 'Preview deployed'];
             const deletedMarkers = ['Preview 환경 삭제 완료', 'Preview environment deleted'];
             let lastDeploy = -1, lastDestroy = -1;
@@ -1604,11 +1604,11 @@ jobs:
           port: ${{ env.SSH_PORT }}
           envs: SERVER_PASSWORD
           script: |
-            # 환경 변수 설정 (배포 서버용)
+            # Environment variables (for the deploy server)
             export PATH=$PATH:/usr/local/bin
             export PW="${SERVER_PASSWORD}"
 
-            # 🔐 SSH 인증 방식에 따른 sudo 추상화
+            # 🔐 sudo wrapper depending on the SSH auth method
             SSH_AUTH_METHOD="${{ env.SSH_AUTH_METHOD }}"
             SSH_AUTH_METHOD="${SSH_AUTH_METHOD:-password}"
             if [ "${SSH_AUTH_METHOD}" = "key" ]; then
@@ -1630,18 +1630,18 @@ jobs:
             echo "🔢 Number: #${PR_NUMBER}"
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-            # 컨테이너 삭제
+            # Remove the container
             echo "🐳 Removing the container..."
             SUDO docker rm -f "${CONTAINER_NAME}" 2>/dev/null || true
 
-            # 이미지 삭제
+            # Remove the image
             echo "🖼️ Removing the image..."
             SUDO docker rmi "${IMAGE}" 2>/dev/null || true
 
             echo "✅ Removed!"
 
       - name: Deletion complete comment
-        # 실제로 지웠을 때만 남긴다 — 지운 게 없는데 '삭제 완료'를 다는 것이 댓글 폭주의 원인이었다 (#808)
+        # Only when something was actually deleted — posting 'deleted' with nothing deleted caused the comment flood (#808)
         if: steps.target.outputs.should_destroy == 'true'
         uses: actions/github-script@v7
         with:
@@ -1672,18 +1672,18 @@ jobs:
             });
 
   # -----------------------------------------------------------------
-  # Job 4: 상태 확인 (PR/Issue 모두 지원)
+  # Job 4: check status (supports PRs and issues)
   # -----------------------------------------------------------------
   check-status:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 상태 확인
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Check preview status
     needs: check-command
     if: needs.check-command.outputs.is_valid == 'true' && needs.check-command.outputs.command == 'status'
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -1714,7 +1714,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
           script: |
-            # 환경 변수 설정 (배포 서버용)
+            # Environment variables (for the deploy server)
             export PATH=$PATH:/usr/local/bin
 
             NUMBER=${{ github.event.issue.number }}
@@ -1745,7 +1745,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           port: ${{ env.SSH_PORT }}
           script: |
-            # 환경 변수 설정 (배포 서버용)
+            # Environment variables (for the deploy server)
             export PATH=$PATH:/usr/local/bin
 
             NUMBER=${{ github.event.issue.number }}
@@ -1813,13 +1813,13 @@ jobs:
 
   # ============================================================
   # Custom Branch Preview Jobs
-  # 특정 브랜치를 지정하여 빌드/삭제/상태 확인하는 기능
-  # 명령어: @projectops server build <브랜치명>
+  # Build, delete or check status for a specific branch
+  # Command: @projectops server build <branch-name>
   # ============================================================
 
   build-preview-custom-branch:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 빌드 & 배포 (Custom Branch)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Build & deploy preview (Custom Branch)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -1827,9 +1827,9 @@ jobs:
       needs.check-command.outputs.is_custom_branch == 'true'
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -1865,7 +1865,7 @@ jobs:
               core.setOutput('use_hash', 'false');
               core.setOutput('container_suffix', `pr-${issueMatch[1]}`);
             } else {
-              // 해시 생성
+              // Generate the hash
               let hash = 0;
               for (let i = 0; i < branchName.length; i++) {
                 const char = branchName.charCodeAt(i);
@@ -2333,8 +2333,8 @@ jobs:
             }
 
   destroy-preview-custom-branch:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 삭제 (Custom Branch)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Delete preview (Custom Branch)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -2342,9 +2342,9 @@ jobs:
       needs.check-command.outputs.is_custom_branch == 'true'
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
@@ -2454,8 +2454,8 @@ jobs:
             });
 
   check-status-custom-branch:
-    # 잡 이름은 브랜치 보호의 필수 상태 체크 이름이 될 수 있어 번역하지 않는다 (#769)
-    name: Preview 상태 확인 (Custom Branch)
+    # Job names may be required status check names in branch protection, so they are not translated (#769)
+    name: Check preview status (Custom Branch)
     needs: check-command
     if: |
       needs.check-command.outputs.is_valid == 'true' &&
@@ -2463,9 +2463,9 @@ jobs:
       needs.check-command.outputs.is_custom_branch == 'true'
     runs-on: ubuntu-latest
     steps:
-      # 댓글 문구는 레포 언어(version.yml options.language)를 따른다 (#769).
-      # 카탈로그만 따로 받아 $RUNNER_TEMP 에 모듈로 두고 받은 폴더는 지운다 (뒤의 checkout 과 겹치지 않게)
-      # 기본 브랜치에서 받는다 — PR 닫힘 이벤트의 merge ref 는 이미 없을 수 있다
+      # Comment text follows the repo language (version.yml options.language) (#769).
+      # Fetch only the catalog as a module in $RUNNER_TEMP and delete the fetched folder (so it does not clash with the later checkout)
+      # Fetched from the default branch — the merge ref of a PR closed event may already be gone
       - name: Check out the message catalog
         continue-on-error: true
         uses: actions/checkout@v5
