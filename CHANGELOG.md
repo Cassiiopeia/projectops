@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.104.0  
-**Last updated:** 2026-11-14T05:30:34Z  
+**Current version:** 4.104.1  
+**Last updated:** 2026-11-14T06:22:12Z  
+
+---
+
+## [4.104.1] - 2026-11-14
+
+**PR:** #1195  
+
+**Improvements**
+- Clearer names and shorter descriptions in a few tools after the seventh code audit; no behaviour change
 
 ---
 

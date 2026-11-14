@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T05:30:34Z",
-    "currentVersion": "4.104.0",
+    "lastUpdated": "2026-11-14T06:22:12Z",
+    "currentVersion": "4.104.1",
     "projectType": "basic",
-    "totalReleases": 410,
+    "totalReleases": 411,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.104.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1195,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Improvements**\n  * Clearer names and shorter descriptions in a few tools after the seventh code audit; no behaviour change",
+      "parsed_changes": {
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Clearer names and shorter descriptions in a few tools after the seventh code audit; no behaviour change"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.0",
       "project_type": "basic",
