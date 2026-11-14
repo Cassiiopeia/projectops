@@ -1,6 +1,6 @@
 {
   "_about": "Hangul non-comment lines per file (#769). Numbers may only go down. Regenerate lowered numbers: python3 scripts/tests/test_korean_line_budget.py --update",
-  "total": 1407,
+  "total": 1379,
   "files": {
     ".github/config/breaking-changes.json": 1,
     ".github/config/issue-labels.yml": 9,
@@ -83,11 +83,6 @@
     "scripts/common/memory.py": 4,
     "scripts/common/paths.py": 2,
     "scripts/common/title.py": 1,
-    "scripts/git_worktree/branch_input.py": 1,
-    "scripts/git_worktree/console.py": 1,
-    "scripts/git_worktree/git_commands.py": 14,
-    "scripts/git_worktree/local_files.py": 10,
-    "scripts/git_worktree/paths.py": 2,
     "scripts/prefs_cli.py": 7,
     "scripts/projectops_cli.py": 1,
     "skills/pro-agent-test/SKILL.md": 3,
