@@ -10,6 +10,7 @@ import os
 import time
 
 from pro_launch.commands.web.session import read_url_title
+from pro_launch.commands.web.url_match import url_without_query
 # 사용자 인계 대기 상한 — 명령 전체 시간 상한도 이 값을 더하므로 한 곳에 둔다
 from pro_launch.commands.web.watchdog import MAXIMUM_HANDOFF_SECONDS
 from pro_launch.registry import Action
@@ -49,7 +50,7 @@ def _fill_otp(page, selector: str, code: str, timeout_ms: int) -> int:
 
 def _is_condition_met(page, until_url: str | None, until_text: str | None) -> bool:
     try:
-        if until_url and until_url not in page.url:
+        if until_url and until_url not in url_without_query(page.url, until_url):
             return False
         if until_text and not page.get_by_text(until_text).first.is_visible():
             return False
