@@ -114,4 +114,6 @@ export default {
   "envPlan.optSome": "③ 몇 개만 골라서 바꾸기 (고른 것만 입력, 나머지는 기본값)",
   "envPlan.defaultTag": "(기본: {value})",
   "envPlan.pickPrompt": "바꿀 항목을 고르세요 (Space로 선택 · Enter로 확정)",
+  "ide.legacy.configMigrated": "  config 마이그레이션 완료: {source} → ~/.projectops/config/config.json",
+  "ide.legacy.configMigrateFailed": "  config 마이그레이션 실패(무시): {error}",
 };

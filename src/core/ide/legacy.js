@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFileSync } from "../fsutil.js";
 import { compareCacheName } from "./util.js";
+import { t } from "../../i18n/index.js";
 
 // version <= maxLegacy 이면 레거시. null/빈문자열은 판정 불가 → false(안전).
 export function isLegacyVersion(version, maxLegacy) {
@@ -33,10 +34,10 @@ export function migrateConfigRoot(io) {
   if (!src) return { migrated: false, reason: "no-source" };
   try {
     copyFileSync(src, target);
-    io.log(`  config 마이그레이션 완료: ${src} → ~/.projectops/config/config.json`);
+    io.log(t("ide.legacy.configMigrated", { source: src }));
     return { migrated: true, from: src };
   } catch (e) {
-    io.log(`  config 마이그레이션 실패(무시): ${e.message}`);
+    io.log(t("ide.legacy.configMigrateFailed", { error: e.message }));
     return { migrated: false, reason: "error" };
   }
 }

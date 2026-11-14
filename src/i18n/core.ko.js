@@ -30,4 +30,6 @@ export default {
   "errors.unexpected.message": "예기치 못한 오류: {msg}",
   "errors.unexpected.hint": "자세한 내용은 DEBUG=1 로 다시 실행하면 볼 수 있습니다.",
   "run.orphanNotice": "⚠️ 선택되지 않은 타입({type})의 워크플로우가 남아있습니다: {file} — 대화형 마법사(npx projectops)에서 정리할 수 있습니다.",
+  "copy.templateStructureError": "템플릿 저장소 구조 오류 — project-types 폴더를 찾지 못했습니다.",
+  "copy.incomingSaveFailed": "⚠️ incoming 저장 실패({file}): {error} — 병합 안내 없이 계속합니다.",
 };

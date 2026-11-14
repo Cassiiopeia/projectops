@@ -114,4 +114,6 @@ export default {
   "envPlan.optSome": "3) Pick a few to change (only those are asked, the rest keep defaults)",
   "envPlan.defaultTag": "(default: {value})",
   "envPlan.pickPrompt": "Choose the items to change (Space selects, Enter confirms)",
+  "ide.legacy.configMigrated": "  config migrated: {source} → ~/.projectops/config/config.json",
+  "ide.legacy.configMigrateFailed": "  config migration failed (ignored): {error}",
 };

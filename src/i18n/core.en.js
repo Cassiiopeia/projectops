@@ -30,4 +30,6 @@ export default {
   "errors.unexpected.message": "Unexpected error: {msg}",
   "errors.unexpected.hint": "Run again with DEBUG=1 for details.",
   "run.orphanNotice": "⚠️ Workflow of an unselected type ({type}) is left behind: {file}. You can clean it up in the interactive wizard (npx projectops).",
+  "copy.templateStructureError": "Template repository layout is broken: the project-types folder was not found.",
+  "copy.incomingSaveFailed": "⚠️ Could not save the incoming copy ({file}): {error} — continuing without the merge notice.",
 };

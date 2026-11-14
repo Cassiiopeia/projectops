@@ -13,6 +13,7 @@ import { saveIncoming, lineDiffCounts } from "../incoming.js";
 import { branchStatus } from "../git-branch.js";
 import { PUBLISH_TARGETS } from "../constants.js";
 import { commonOptionalGroups, serverDeployEnabled, SERVER_DEPLOY_DIR } from "../workflow-groups.js";
+import { t } from "../../i18n/index.js";
 
 // on: 블록의 브랜치 필터가 전부 develop 뿐인가 (#810).
 // 개발 브랜치가 없는 레포에 깔면 영영 실행되지 않는 워크플로우를 가린다.
@@ -99,7 +100,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // 설치 시점 기준점(#557) — 없으면 null이고 classify가 종전 2-way로 폴백한다.
   const baseline = readBaseline(targetRoot);
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
-  if (!exists(projectTypesDir)) throw new Error("템플릿 저장소 구조 오류 — project-types 폴더를 찾지 못했습니다.");
+  if (!exists(projectTypesDir)) throw new Error(t("copy.templateStructureError"));
 
   const counters = { copied: 0, skipped: 0, templateAdded: 0, optionalCopied: 0, copiedFiles: [],
     replacedBak: [], // #673 — 기준점이 없어 수정 여부를 모른 채 .bak 백업 후 교체한 파일명
@@ -161,7 +162,7 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
       info.added = d.added; info.removed = d.removed;
     } catch (e) {
       trace?.event("copy", "incoming-failed", filename, { message: e?.message || String(e) });
-      console.error(`⚠️ incoming 저장 실패(${filename}): ${e?.message || e} — 병합 안내 없이 계속합니다.`);
+      console.error(t("copy.incomingSaveFailed", { file: filename, error: e?.message || e }));
     }
     counters.skippedConflicts.push(info);
     return info;
@@ -340,7 +341,7 @@ function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace
   // #654 — 새 템플릿을 incoming에 남기고 diff 줄 수를 detail로 함께 기록
   const inc = counters.onSkip?.(srcDir, filename, type) ?? {};
   trace?.event("copy", "skipped-conflict", filename, {
-    decision: decision ?? "skip", note: "사용자 수정본 유지 — 병합 검토 후보",
+    decision: decision ?? "skip", note: "kept the user-modified file — candidate for merge review",
     incoming: inc.incoming || null, added: inc.added ?? null, removed: inc.removed ?? null,
   });
 }
