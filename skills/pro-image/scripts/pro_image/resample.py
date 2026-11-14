@@ -1,11 +1,11 @@
-"""크기 조절 (표준 라이브러리): RGBA > 가로·세로 분리 삼각 필터, 알파 곱한 상태로 계산 (가장자리 번짐 방지)
-Pillow 가 없을 때의 대체 경로 (Windows 기본 Python 포함), 축소 시 필터 폭을 넓혀 계단 현상 방지
+"""Resize (stdlib): RGBA > separable horizontal/vertical triangle filter, computed premultiplied (prevents edge bleed)
+Fallback when Pillow is missing (including stock Windows Python); widens the filter on shrink to avoid aliasing
 """
 from __future__ import annotations
 
 
 def _weights(source_length: int, target_length: int) -> list[tuple[int, list[float]]]:
-    """대상 픽셀별 (시작 원본 인덱스, 가중치 목록)"""
+    """Per target pixel (start source index, weight list)"""
     scale = source_length / target_length
     support = max(1.0, scale)
     rows = []
@@ -70,7 +70,7 @@ def crop(width: int, rgba: bytearray, left: int, top: int, crop_width: int, crop
 
 
 def pad(width: int, height: int, rgba: bytearray, canvas_width: int, canvas_height: int) -> bytearray:
-    """가운데 배치 + 투명 여백"""
+    """Center + transparent padding"""
     canvas = bytearray(canvas_width * canvas_height * 4)
     left, top = (canvas_width - width) // 2, (canvas_height - height) // 2
     for row in range(height):

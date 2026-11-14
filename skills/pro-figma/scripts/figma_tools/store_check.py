@@ -1,7 +1,7 @@
-"""스토어 이미지 판정: 폴더 훑기 > 파일별 규격 > 슬롯별 장수 > 언어별 필수 슬롯
+"""Store image verdict: scan folders > per-file spec > per-slot count > required slots per language
 
-규격 값은 store_specs.json 단독 소유 — 여기에 숫자를 적지 않는다.
-판정만 한다. 고치기·리사이즈·업로드는 하지 않음.
+Spec values are owned solely by store_specs.json — no numbers written here.
+Judges only. Does not fix, resize or upload.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ IMAGE_EXTENSION_FORMATS = {".png": "png", ".jpg": "jpeg", ".jpeg": "jpeg"}
 
 
 def scan_store_folder(root: Path, specs: dict) -> tuple[dict, list]:
-    """{root}/{store}/{locale}/{slot}/*.img > found[store][locale][slot] = [Path], unknown 목록"""
+    """{root}/{store}/{locale}/{slot}/*.img > found[store][locale][slot] = [Path], unknown list"""
     found: dict = {}
     unknown: list = []
     for store_dir in sorted(root.iterdir()):
@@ -36,7 +36,7 @@ def scan_store_folder(root: Path, specs: dict) -> tuple[dict, list]:
 
 
 def _scan_locale(locale_dir: Path, root: Path, store_spec: dict, store_found: dict, unknown: list) -> None:
-    """언어 폴더 1개 > 슬롯 폴더 (언어 무관 슬롯은 _global 에만)"""
+    """One language folder > slot folders (language-independent slots only in _global)"""
     is_global = locale_dir.name == GLOBAL_LOCALE
     for slot_dir in sorted(locale_dir.iterdir()):
         slot_spec = store_spec["slots"].get(slot_dir.name)
@@ -67,7 +67,7 @@ def _unknown(path: Path, root: Path, reason: str) -> dict:
 
 
 def check_image_file(path: Path, slot_spec: dict) -> tuple[dict, list, list]:
-    """파일 1개 > (판독 결과, 문제 목록, 경고 목록). 검사 5개: 판독, 형식, 확장자, 알파, 크기·용량"""
+    """One file > (read result, problem list, warning list). 5 checks: read, format, extension, alpha, size·bytes"""
     header = read_image_header(path)
     problems: list = []
     warnings: list = []
@@ -96,7 +96,7 @@ def check_image_file(path: Path, slot_spec: dict) -> tuple[dict, list, list]:
 
 
 def find_size_problems(width: int, height: int, size_rule: dict) -> list:
-    """크기 규칙 2종: exact(허용 목록) / range(변 길이 + 긴 변:짧은 변 비율)"""
+    """2 size rules: exact (allowed list) / range (edge length + long:short edge ratio)"""
     if "exact" in size_rule:
         if [width, height] in size_rule["exact"]:
             return []
@@ -115,7 +115,7 @@ def find_size_problems(width: int, height: int, size_rule: dict) -> list:
 
 
 def judge_slot(images: list, slot_spec: dict, root: Path) -> dict:
-    """슬롯 1칸 > {status, count, files, problems, warnings} (장수 범위 포함)"""
+    """One slot > {status, count, files, problems, warnings} (including count range)"""
     files, slot_problems, slot_warnings = [], [], []
     for image in images:
         header, problems, warnings = check_image_file(image, slot_spec)
@@ -140,7 +140,7 @@ def judge_slot(images: list, slot_spec: dict, root: Path) -> dict:
 
 
 def needed_slots(store_spec: dict, store_found: dict, locale_found: dict, is_global: bool) -> dict:
-    """이 언어에 꼭 있어야 하는 것 > {slot 또는 group:이름 : 이유}. 조건부 슬롯은 store 폴더 기준"""
+    """What this language must have > {slot or group:name : reason}. Conditional slots judged by the store folder"""
     needed = {}
     present_in_store = {slot for slots in store_found.values() for slot in slots}
     for slot_id, slot_spec in store_spec["slots"].items():

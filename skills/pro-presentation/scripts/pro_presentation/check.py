@@ -1,5 +1,5 @@
-"""check: 덱을 기계적으로 검사 > 빠진 것 · 용어 위반 · 예상 시간 · 녹화 차수별 장 시간 · 그림으로 갈 부분
-코칭 판단은 하지 않는다 (agent 몫, references/coaching.md)
+"""check: mechanical deck checks > missing items · term violations · estimated time · per-slide time by recording take · parts that become images
+No coaching judgment (that is the agent's job, references/coaching.md)
 """
 from __future__ import annotations
 
@@ -11,12 +11,12 @@ from common.emit import emit
 from pro_presentation.deck import load_deck
 
 PIECE_ATTRIBUTE = "data-pp"
-# 장 본체 안 최상위가 아니어도 되는 태그 (내용이 아님)
+# Tags allowed outside the top level of the slide body (not content)
 IGNORED_TOP_TAGS = {"style", "script", "br"}
 
 
 class _TopLevelCollector(html.parser.HTMLParser):
-    """section.slide 바로 아래 요소 중 data-pp 없는 것 > 그림으로 들어갈 부분"""
+    """Elements directly under section.slide without data-pp > parts that go in as images"""
 
     VOID_TAGS = {"img", "br", "hr", "input", "meta", "link", "source"}
 
@@ -52,7 +52,7 @@ def find_picture_parts(slide_html: str) -> list[str]:
 
 
 def find_glossary_hits(deck: dict) -> list[dict]:
-    """memory.md 용어 표의 '쓰지 않는다' 말이 대본(말하는 글)에 있는지 (단순 글자 일치, 카드는 설명이라 제외)"""
+    """Whether 'do not use' words from the memory.md term table appear in the script (spoken text) (plain text match; cards are explanations, so excluded)"""
     hits = []
     for slide in deck["slides"]:
         for row in deck["glossary"]:
@@ -63,7 +63,7 @@ def find_glossary_hits(deck: dict) -> list[dict]:
 
 
 def build_timing(deck: dict) -> tuple[list[dict], dict]:
-    """장별 {예상, 차수별 녹화 초} + 차수별 합계(마지막 구간 끝)"""
+    """Per slide {estimate, recorded seconds per take} + total per take (end of the last range)"""
     rows = []
     for slide in deck["slides"]:
         takes = {recording["label"]: recording["ranges"][slide["id"]][1] - recording["ranges"][slide["id"]][0]

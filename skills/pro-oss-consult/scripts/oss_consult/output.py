@@ -1,4 +1,4 @@
-"""출력 공통: PAT 가림·남이 쓴 문자열 정리 후 emit, 실패 JSON, OWNER/REPO 검증, untrusted 필드 목록
+"""Shared output: emit after masking the PAT and tidying third-party strings, failure JSON, OWNER/REPO validation, untrusted field list
 """
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ from common.emit import emit
 
 from oss_consult.github_api import classify_api_error
 
-# 텍스트 필드 길이 상한. README 앞부분·문서 head 만 길게 허용한다 (남이 쓴 문자열이 컨텍스트를 채우는 것을 막는다).
+# Length caps for text fields. Only the README start and doc heads get long limits (keeps third-party strings from filling the context).
 _STR_LIMIT = 500
 _STR_LIMIT_BY_KEY = {"top": 12000, "head": 4000}
-# 방향 전환(RLO 등)·제로폭·BOM 문자: 화면에서 파일명이나 문구를 다르게 보이게 만든다
+# Direction overrides (RLO etc.), zero-width and BOM characters: they make file names or text look different on screen
 _BIDI = re.compile("[\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]")
 
 
@@ -33,7 +33,7 @@ def _sanitize(obj, stats: dict, key: str = ""):
 
 
 def _out(payload: dict, pat: str | None = None) -> int:
-    """emit 하되 PAT 가 어떤 경로로든 출력에 섞이면 가리고, 남이 쓴 문자열은 길이·제어문자를 정리한다."""
+    """Emit, masking the PAT if it leaks into output by any path, and trimming length and control chars in third-party strings."""
     if pat and pat in json.dumps(payload, ensure_ascii=False):
         payload = json.loads(json.dumps(payload, ensure_ascii=False).replace(pat, "***"))
     if isinstance(payload.get("data"), dict):
@@ -63,7 +63,7 @@ def _split(slug: str) -> tuple[str, str] | None:
     parts = slug.strip().rstrip("/").split("/")
     if len(parts) != 2 or not all(parts):
         return None
-    # API 경로에 그대로 들어가므로 경로·쿼리 문자가 섞인 입력은 받지 않는다
+    # Goes straight into an API path, so reject input mixed with path or query characters
     if not all(re.fullmatch(r"[A-Za-z0-9_.\-]+", p) and p not in (".", "..") for p in parts):
         return None
     return parts[0], parts[1]
@@ -74,7 +74,7 @@ def _bad_slug() -> int:
                  "Example: oss_cli.py collect Cassiiopeia/projectops")
 
 
-# collect 출력 중 **남이 쓴 텍스트**가 담긴 필드. 에이전트는 이를 분석 대상으로만 읽는다.
+# collect output fields holding **text written by others**. The agent reads them only as material to analyze.
 _COLLECT_UNTRUSTED = [
     "data.meta.description", "data.meta.homepage", "data.meta.topics", "data.root_entries",
     "data.labels.names", "data.readme.top", "data.readme.headings", "data.readme.media[].ref",

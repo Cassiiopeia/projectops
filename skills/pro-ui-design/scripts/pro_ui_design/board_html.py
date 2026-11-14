@@ -1,4 +1,4 @@
-"""보드 HTML 조립: 주제별 섹션, 출처·상태 표시, 그림 한 번만 싣기"""
+"""Board HTML assembly: per-topic sections, source and state badges, each image embedded once"""
 from __future__ import annotations
 
 import base64
@@ -11,19 +11,19 @@ from pro_ui_design.settings import _TEMPLATE
 
 
 # =========================================================================
-# board — 데이터 JSON → HTML (+ 주제별 PNG)
+# board — data JSON → HTML (+ per-topic PNG)
 # =========================================================================
 #
-# PIL 로 좌표를 계산해 합치던 방식은 글자 배치를 여러 번 고쳐야 했다(확대 영역 두 번 수정).
-# HTML 로 짜고 브라우저로 찍으면 글자 흐름은 브라우저가 맡는다.
+# Composing with PIL coordinates needed repeated text-layout fixes (zoom area fixed twice).
+# Building HTML and capturing it in a browser leaves text flow to the browser.
 
 TOPICS = [
     ("summary", "Summary"), ("current", "Current implementation"), ("states", "States"),
     ("alternatives", "Alternatives"), ("copy", "Copy"), ("ui", "UI elements"), ("impact", "Dev impact"),
 ]
 
-# 캡처가 어디서 왔는지. **렌더는 상태를 연출하는 수단이지 사실의 근거가 아니다** (#636) —
-# 렌더만 보고 쓴 주장 7건이 실기기와 달랐다(모달 가림막 · 오프라인 경로 · 자동 재시도 · 기기 폭 · 픽스처 값).
+# Where a capture came from. **A render stages a state; it is not evidence of fact** (#636) —
+# 7 claims written from renders alone differed from real devices (modal scrim, offline path, auto retry, device width, fixture values).
 SOURCE_TAG = {
     "render": ("Render · fake data", "src-render"),
     "mockup": ("HTML mockup · not real", "src-render"),
@@ -32,10 +32,10 @@ SOURCE_TAG = {
     "design": ("Design", "src-design"),
     "ascii": ("ASCII", "src-ascii"),
 }
-# 사실 주장의 근거로 인정하는 것. render 는 빠진다.
+# Sources accepted as evidence for factual claims. render is excluded.
 FACT_BASIS = {"device": "Real device", "server": "Production API/config", "code": "Code", "design": "Design"}
 
-# 상태가 지금 흐름에서 나오는가. 나오지 않는 상태를 요청하면 디자이너가 헛일을 한다 (#636 실측).
+# Whether the state occurs in the current flow. Requesting a state that never occurs wastes designer work (#636, observed).
 REACHABLE_TAG = {
     "yes": ("Reachable now", "done"),
     "old_data": ("Old data only", "none"),
@@ -50,14 +50,14 @@ def _e(v) -> str:
     return html.escape("" if v is None else str(v))
 
 
-# 같은 캡처를 여러 칸(현재 구현 · 상태 · 대안)에서 쓴다. 칸마다 base64 를 박으면
-# 한 장이 서너 번 실려 HTML 이 16MB 가 됐다 (실측). 그림은 한 번만 싣고 id 로 잇는다.
-_IMAGES: dict[str, tuple[str, str]] = {}   # 경로 → (id, data URI)
-EMBED_MAX_SIDE = 1440   # 보드에서 가장 크게 보이는 폭(360px)의 2배 배율 + 여유
+# One capture is used in several cells (current build, states, alternatives). Embedding base64 per cell
+# loaded one image 3-4 times and made a 16MB HTML (observed). Embed each image once and link by id.
+_IMAGES: dict[str, tuple[str, str]] = {}   # path → (id, data URI)
+EMBED_MAX_SIDE = 1440   # 2x the largest width shown on the board (360px) plus margin
 
 
 def _data_uri(p: Path) -> str:
-    """표시에 충분한 크기로 줄여 싣는다. Pillow 가 없으면 원본 그대로 — 무거울 뿐 깨지지 않는다."""
+    """Shrink to a size good enough for display. Without Pillow embed the original — heavier, not broken."""
     raw, mime = p.read_bytes(), mimetypes.guess_type(p.name)[0] or "image/png"
     try:
         from io import BytesIO
@@ -70,7 +70,7 @@ def _data_uri(p: Path) -> str:
                 im.save(buf, "PNG", optimize=True)
                 raw, mime = buf.getvalue(), "image/png"
     except Exception:
-        pass  # Pillow 없음·이미지 손상 — 줄이지 않고 원본을 싣는다
+        pass  # No Pillow or damaged image — embed the original unshrunk
     return f"data:{mime};base64,{base64.b64encode(raw).decode('ascii')}"
 
 
@@ -94,7 +94,7 @@ def _image_script() -> str:
 
 
 def _ascii_html(text: str) -> str:
-    """전각 글자를 두 칸 폭 칸에 넣는다. text_width 와 같은 규칙이라야 줄 끝이 맞는다."""
+    """Put full-width characters in two-column cells. Must follow the text_width rule so line ends align."""
     out = []
     for c in str(text):
         esc = html.escape(c)
@@ -130,7 +130,7 @@ def _section(topic: str, title: str, inner: str) -> str:
 
 
 def build_sections(data: dict, base: Path) -> list[tuple[str, str, str]]:
-    """(주제 id, 제목, HTML). 데이터에 없는 주제는 만들지 않는다 — 빈 칸을 보여 주지 않는다."""
+    """(topic id, title, HTML). Topics missing from the data are skipped — no empty sections."""
     out = []
     s = data.get("summary") or {}
     inner = ('<div class="banner">This is material to think with, not the answer. Feel free to change any alternative, copy or element.'
@@ -195,7 +195,7 @@ def build_sections(data: dict, base: Path) -> list[tuple[str, str, str]]:
             if a.get("zoom"):
                 pics += _figure({"image": a["zoom"], "label": "Zoom", "zoom": True}, base)
             if a.get("ascii"):
-                # 렌더할 코드가 아직 없는 안(새 화면 등) — 무엇이 어디 있는지만 전한다
+                # Alternative with no code to render yet (new screen, etc.) — describe only what goes where
                 pics += _figure({"ascii": a["ascii"], "label": "ASCII: cannot show fonts, spacing or colors"}, base)
             cards.append(f'<div class="alt"><h3>Option {_e(a.get("id"))} · {_e(a.get("name"))}{rec}</h3>'
                          f'<div class="grid">{pics}</div>'
@@ -239,7 +239,7 @@ def render_html(data: dict, base: Path) -> tuple[str, list[str]]:
     nav = "".join(f'<button type="button" data-show="{t}" aria-pressed="false">{_e(title)}</button>'
                   for t, title, _ in sections)
     body = "\n".join(_section(t, title, inner) for t, title, inner in sections)
-    # 자리표시는 **한 번만** 바꾼다 — 템플릿 주석에 같은 글자가 있으면 보드가 두 번 실린다 (실측)
+    # Replace each placeholder **once** — if a template comment has the same text the board is inserted twice (observed)
     doc = (tpl.replace("{{TITLE}}", _e(data.get("title") or "Design request"), 1)
               .replace("<!--NAV-->", nav, 1).replace("<!--SECTIONS-->", body, 1)
               .replace("</body>", _image_script() + "\n</body>", 1))

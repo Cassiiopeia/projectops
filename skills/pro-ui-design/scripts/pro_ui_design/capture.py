@@ -1,4 +1,4 @@
-"""capture 명령: 입력 검사 > 작업 파일 > 캡처 실행기 호출 (PNG, GIF)"""
+"""capture command: validate input > job file > call the capture runner (PNG, GIF)"""
 from __future__ import annotations
 
 import json
@@ -29,7 +29,7 @@ FAILURE_NEXT = {
 
 
 def _read_steps(steps_path: str | None) -> tuple[list | None, str | None]:
-    """단계 파일 검사: 목록, 알려진 action, 필수 값, 시간 범위"""
+    """Validate the steps file: list, known action, required values, time range"""
     if not steps_path:
         return None, "--gif needs --steps (a JSON list of steps)"
     try:
@@ -53,7 +53,7 @@ def _read_steps(steps_path: str | None) -> tuple[list | None, str | None]:
 
 
 def _run_worker(job_file: Path, timeout_seconds: float) -> dict:
-    """전용 가상환경 파이썬 우선. 없으면 현재 파이썬 (Playwright 없으면 browser_missing)"""
+    """Prefer the dedicated venv Python, else the current one (browser_missing without Playwright)"""
     interpreter = venv_python() or sys.executable
     try:
         output = subprocess.run([str(interpreter), str(WORKER_SCRIPT), "--job", str(job_file)], capture_output=True,
@@ -94,7 +94,7 @@ def cmd_capture(args) -> int:
     write_json_atomically(job_file, job)
     held_seconds = sum(step.get("ms", 500) for step in steps) / 1000 if steps else 0
     result = _run_worker(job_file, WORKER_BASE_TIMEOUT_SECONDS + held_seconds * 3)
-    job_file.unlink(missing_ok=True)   # 접속 키가 들어 있으므로 남기지 않음
+    job_file.unlink(missing_ok=True)   # Holds the access key, so do not leave it behind
 
     if not result.get("ok"):
         code = result.get("code")

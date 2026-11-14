@@ -1,5 +1,5 @@
-"""덱 폴더 읽기: deck.json · 장 폴더 · 녹화 > 화면과 검사가 쓰는 한 덩어리 dict
-읽기만 한다. 한 장이 깨져도 그 장에 error 를 달고 나머지는 그대로 돌려준다
+"""Read a deck folder: deck.json · slide folders · recordings > one dict used by the screen and checks
+Read-only. If one slide is broken, it gets an error and the rest is returned as is
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pro_presentation.settings import (DECK_FILE_NAME, DEFAULT_CHARACTERS_PER_SE
 
 SECTION_HEADING_PATTERN = re.compile(r"^##\s+(.*)$")
 TRANSCRIPT_LINE_PATTERN = re.compile(r"^\[(\d+):(\d+)\]\s*(.*)$")
-# 시간 계산에서 빼는 것: 무대 지시 ( ) · 공백 · 문장부호
+# Excluded from time estimates: stage directions ( ) · whitespace · punctuation
 STAGE_DIRECTION_PATTERN = re.compile(r"\([^)]*\)")
 NOT_SPOKEN_PATTERN = re.compile(r"[\s.,!?·'\"‘’“”~:;\-]")
 SPOKEN_LABEL = "spoken:"
@@ -26,7 +26,7 @@ SAFE_SLIDE_ID_PATTERN = re.compile(r"^[^/\\]+$")
 
 
 def read_text(path: Path) -> str:
-    """없는 파일은 빈 글. 깨진 인코딩은 대체 문자로"""
+    """Missing file is empty text. Broken encoding becomes replacement characters"""
     try:
         return path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -34,7 +34,7 @@ def read_text(path: Path) -> str:
 
 
 def split_sections(markdown: str) -> list[dict]:
-    """'## 제목' 하나 > {title, body}. 첫 제목 앞 글은 버림"""
+    """One '## title' > {title, body}. Text before the first title is dropped"""
     sections: list[dict] = []
     for line in markdown.splitlines():
         heading = SECTION_HEADING_PATTERN.match(line)
@@ -46,7 +46,7 @@ def split_sections(markdown: str) -> list[dict]:
 
 
 def parse_takes(markdown: str) -> list[dict]:
-    """takes.md (차수마다 '## 라벨' > 'Spoken:' 문단 > 'Feedback:' 목록) > 최신 차수 먼저"""
+    """takes.md (per take '## label' > 'Spoken:' paragraph > 'Feedback:' list) > newest take first"""
     takes = []
     for section in split_sections(markdown):
         spoken_lines: list[str] = []
@@ -70,7 +70,7 @@ def parse_takes(markdown: str) -> list[dict]:
 
 
 def parse_table(body: str) -> list[list[str]]:
-    """마크다운 표 > 칸 목록 (머리줄·구분줄 제외)"""
+    """Markdown table > cell lists (header and separator rows excluded)"""
     rows = [line.strip() for line in body.splitlines() if line.strip().startswith("|")]
     cells = [[cell.strip() for cell in row.strip("|").split("|")] for row in rows]
     return [row for row in cells[1:] if not all(set(cell) <= set("-: ") for cell in row)]
@@ -85,7 +85,7 @@ def estimate_seconds(script: str, characters_per_second: float) -> int:
 
 
 def read_memory(deck_dir: Path) -> dict:
-    """memory.md > 용어 표(쓰지 않는다 | 대신 | 이유) · 받아쓰기 보정 표(들린 말 | 실제 말)"""
+    """memory.md > term table (do not use | instead | reason) · transcription fix table (heard | actual)"""
     sections = {section["title"].lower(): section["body"] for section in split_sections(read_text(deck_dir / MEMORY_FILE_NAME))}
     glossary = [{"avoid": row[0], "instead": row[1] if len(row) > 1 else "", "why": row[2] if len(row) > 2 else ""}
                 for row in parse_table(sections.get("glossary", "")) if row and row[0]]
@@ -94,7 +94,7 @@ def read_memory(deck_dir: Path) -> dict:
 
 
 def read_deck_settings(deck_dir: Path) -> tuple[dict, list[str]]:
-    """deck.json > 설정. 장 목록은 문자열 또는 {id, kind}"""
+    """deck.json > settings. Slide list entries are strings or {id, kind}"""
     try:
         settings = json.loads((deck_dir / DECK_FILE_NAME).read_text(encoding="utf-8"))
     except OSError:
@@ -115,7 +115,7 @@ def slide_entries(settings: dict) -> list[dict]:
 
 
 def slide_body_version(folder: Path) -> int:
-    """장 본체(slide.html · 그림 등)의 가장 늦은 수정 시각 + 파일 수. 대본 · 카드 · 메모 글은 뺌"""
+    """Latest modification time + file count of the slide body (slide.html, images, etc.). Script, card and note text excluded"""
     latest = count = 0
     try:
         for entry in os.scandir(folder):
@@ -128,7 +128,7 @@ def slide_body_version(folder: Path) -> int:
 
 
 def load_slide(deck_dir: Path, entry: dict, number: int, characters_per_second: float) -> dict:
-    """장 폴더 하나 > SlideView (없거나 깨지면 error)"""
+    """One slide folder > SlideView (error if missing or broken)"""
     slide = {"id": entry["id"], "number": number, "kind": entry["kind"], "title": entry["id"], "html": None,
              "image": None, "script": "", "notes": [], "takes": [], "memo": "", "estimate_seconds": 0, "error": None,
              "version": 0}
@@ -162,7 +162,7 @@ def load_slide(deck_dir: Path, entry: dict, number: int, characters_per_second: 
 
 
 def read_transcript(path: Path, fixes: list[tuple[str, str]]) -> list[dict]:
-    """'[mm:ss] 문장' 줄 > [{at, text}] (받아쓰기 보정 적용)"""
+    """'[mm:ss] sentence' lines > [{at, text}] (transcription fixes applied)"""
     lines = []
     for raw_line in read_text(path).splitlines():
         match = TRANSCRIPT_LINE_PATTERN.match(raw_line.strip())
@@ -176,7 +176,7 @@ def read_transcript(path: Path, fixes: list[tuple[str, str]]) -> list[dict]:
 
 
 def load_recordings(deck_dir: Path, fixes: list[tuple[str, str]]) -> list[dict]:
-    """recordings/<label>/ > [{label, url, lines, ranges}] (폴더 이름 순)"""
+    """recordings/<label>/ > [{label, url, lines, ranges}] (by folder name)"""
     root = deck_dir / RECORDINGS_DIR_NAME
     recordings = []
     for folder in sorted(path for path in root.iterdir() if path.is_dir()) if root.is_dir() else []:
@@ -193,7 +193,7 @@ def load_recordings(deck_dir: Path, fixes: list[tuple[str, str]]) -> list[dict]:
 
 
 def measure_speaking_rate(recordings: list[dict]) -> float:
-    """녹화 글자 수 ÷ 말한 시간 (구간 있는 녹화만, 최신 녹화 우선). 없으면 기본값"""
+    """Recorded characters ÷ speaking time (recordings with ranges only, newest first). Default if none"""
     for recording in reversed(recordings):
         characters = seconds = 0
         for start, end in recording["ranges"].values():
@@ -206,7 +206,7 @@ def measure_speaking_rate(recordings: list[dict]) -> float:
 
 
 def load_deck(deck_dir: Path) -> dict:
-    """덱 폴더 전체 > {title, language, time_limit_seconds, characters_per_second, slides, recordings, problems}"""
+    """Whole deck folder > {title, language, time_limit_seconds, characters_per_second, slides, recordings, problems}"""
     deck_dir = Path(deck_dir)
     settings, problems = read_deck_settings(deck_dir)
     memory = read_memory(deck_dir)
@@ -231,8 +231,8 @@ def _modified_at(path: Path) -> int:
 
 
 def deck_version(deck_dir: Path) -> int:
-    """덱 안 파일 · 폴더의 가장 늦은 수정 시각(ns) + 개수. 지우기·추가도 잡는다
-    scandir: 폴더를 읽을 때 받은 정보로 수정 시각을 알아 파일마다 다시 묻지 않음 (2초마다 도는 검사)"""
+    """Latest modification time (ns) + count of files and folders in the deck. Catches deletions and additions too
+    scandir: uses the info returned while reading the folder, so no per-file stat (this check runs every 2 seconds)"""
     latest = count = 0
     pending = [(str(deck_dir), True)]
     while pending:

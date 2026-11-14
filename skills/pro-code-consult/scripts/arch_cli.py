@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""arch_cli: pro-code-consult 사실 수집 CLI — 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
+"""arch_cli: pro-code-consult fact-collection CLI — the agent judges; output is always JSON (ok, code, summary, next)
 
-scripts/common 을 쓰지 않는다 (표준 라이브러리 전용, 스킬 폴더만으로 동작).
+Does not use scripts/common (standard library only, runs from the skill folder alone).
 """
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from arch import (assets, cochange, copies, deps, detect, diff_review, installer, ledger, rule_documents,  # noqa: E402
                   scan)
 
-# 범주별 목록 최대 개수 기본값 (전체 수는 truncated 에 남는다)
+# Default max items per category list (the full count stays in truncated)
 DEFAULT_LIST_LIMIT = 50
-# 넓게 보기 명령(cochange·copies) 목록 기본값 (에이전트가 읽는 출력 4KB 안팎 목표)
+# Default list size for wide-view commands (cochange, copies) (target ~4KB of output for the agent)
 WIDE_VIEW_LIST_LIMIT = 10
 
 
@@ -28,7 +28,7 @@ class _BadArgumentsExit(Exception):
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
-    """인자 오류를 stderr 대신 JSON 으로 돌려주기 위한 파서"""
+    """Parser that returns argument errors as JSON instead of stderr"""
 
     def error(self, message):
         raise _BadArgumentsExit(self, message)
@@ -39,7 +39,7 @@ def emit(payload: dict) -> int:
     payload.setdefault("code", "ok" if payload["ok"] else "error")
     payload.setdefault("summary", None)
     payload.setdefault("next", None)
-    # UTF-8 아닌 콘솔(Windows cp1252 등) > \u 이스케이프 (비ASCII 경로 출력 중 크래시 방지)
+    # Non-UTF-8 console (Windows cp1252, etc.) > \u escapes (avoid crashing on non-ASCII paths)
     is_utf8_stdout = (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") == "utf8"
     sys.stdout.write(json.dumps(payload, ensure_ascii=not is_utf8_stdout) + "\n")
     sys.stdout.flush()
@@ -51,7 +51,7 @@ def _project_root(raw: str) -> Path | None:
     return path if path.is_dir() else None
 
 
-# 서브커맨드: 경로 확인 > 모듈 호출 > next 힌트
+# Subcommands: check path > call module > next hint
 
 def cmd_detect(args, root):
     return {**detect.detect_project(root), "next": f"scan {root}"}
@@ -197,7 +197,7 @@ def main(argv=None) -> int:
                      "next": "Pass the target project root path"})
     try:
         return emit(args.handler(args, root))
-    except Exception as error:  # noqa: BLE001 — 어떤 실패도 JSON 으로
+    except Exception as error:  # noqa: BLE001 — any failure becomes JSON
         return emit({"ok": False, "code": "handler_error", "summary": f"{type(error).__name__}: {error}",
                      "next": "Check the input and run again. If it keeps failing, report the error to the user"})
 

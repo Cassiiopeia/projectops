@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""report_cli — report skill 전용 CLI.
+"""report_cli — CLI for the report skill.
 
-구현 보고서 출력 경로 계산 + PR 댓글 포스팅.
-서브커맨드: get-output-path, add-comment
+Computes the implementation report output path + posts PR comments.
+Subcommands: get-output-path, add-comment
 
-사용법:
+Usage:
     cd skills/pro-report/scripts
     python report_cli.py <subcommand> [args]
 """
@@ -31,7 +31,7 @@ from common.report_comment import with_report_marker  # noqa: E402
 
 def _resolve_output_path(skill_id: str, forced_title: str | None,
                          root: str | None = None, issue: int | None = None) -> dict:
-    """경로 규칙은 Layer 1(common/paths.py)이 단일 소유 — 여기서 재구현하지 않는다 (#525)."""
+    """Path rules are owned solely by Layer 1 (common/paths.py) — not reimplemented here (#525)."""
     from common.paths import resolve_output_path
     return resolve_output_path(skill_id, forced_title, root=root, issue=issue)
 
@@ -49,7 +49,7 @@ def cmd_add_comment(args) -> int:
     body_path = Path(args.body_file)
     if not body_path.exists():
         return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} not found"})
-    # 표식 — finish-issue 가 제목 언어·형식과 상관없이 보고서 댓글을 찾게
+    # Marker — lets finish-issue find the report comment regardless of title language or format
     body = with_report_marker(body_path.read_text(encoding="utf-8"))
     try:
         result = add_comment(args.owner, args.repo, args.number, body, pat)

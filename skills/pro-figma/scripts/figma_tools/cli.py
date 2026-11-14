@@ -1,4 +1,4 @@
-"""figma_cli 파서 조립 + 실행"""
+"""figma_cli parser assembly + run"""
 from __future__ import annotations
 
 from common.cli_parser import JSONArgumentParser, run_cli
@@ -23,7 +23,7 @@ from figma_tools.conform_probes import _ALL_CHECKS
 
 
 def build_parser() -> JSONArgumentParser:
-    # 인자 오류도 JSON(bad_args)으로 — 에이전트는 stdout JSON 만 읽는다 (#708)
+    # Argument errors also go out as JSON (bad_args) — the agent reads only stdout JSON (#708)
     p = JSONArgumentParser(prog="figma_cli",
                            description="Compare a Figma design with the implemented screen")
     sub = p.add_subparsers(dest="command")
@@ -96,7 +96,7 @@ def build_parser() -> JSONArgumentParser:
                    help="Shift the render by ± this many pixels to tell whether the whole area is offset (0 = off)")
     d.set_defaults(func=cmd_diff)
 
-    # 시안 가져오기 · 변경 확인 (#1017)
+    # Fetch design · check for changes (#1017)
     ig = sub.add_parser("ingest", help="Save a get_figma_data result file as a dump and record its lastModified")
     ig.add_argument("--source", required=True, help="File the harness saved the get_figma_data result to")
     ig.add_argument("--file-key", dest="file_key", required=True, help="Figma file key from the link")
@@ -138,7 +138,7 @@ def build_parser() -> JSONArgumentParser:
     tk.add_argument("--name", default=None, help="Credential name to save as (default: the existing figma entry)")
     tk.set_defaults(func=cmd_token)
 
-    # 스토어 이미지 하네스 (#884): 규격 정본 출력 / 폴더 판정
+    # Store image harness (#884): print the spec source / judge a folder
     ss = sub.add_parser("store-specs", help="Print the store image specs (sizes, counts, formats, sources)")
     ss.add_argument("--store", choices=STORE_IDS, default=None, help="Only this store (omit for all)")
     ss.set_defaults(func=cmd_store_specs)
@@ -150,7 +150,7 @@ def build_parser() -> JSONArgumentParser:
     sc.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
     sc.set_defaults(func=cmd_store_check)
 
-    # 스토어 이미지 합성 (#1021): 장면 파일 > 언어별 HTML + 렌더 스크립트
+    # Store image composition (#1021): scene file > per-language HTML + render script
     sp = sub.add_parser("store-compose", help="Build per-locale store image HTML and a render script from scenes.json")
     sp.add_argument("--run-dir", dest="run_dir", required=True,
                     help="run_dir printed by get-output-path (everything is written under <run_dir>/store)")
@@ -161,7 +161,7 @@ def build_parser() -> JSONArgumentParser:
     sp.add_argument("--root", default=".", help="Project root holding version.yml (default: current directory)")
     sp.set_defaults(func=cmd_store_compose)
 
-    # 언어별 랜딩 페이지 (#1021): pages.json > site/ (hreflang · sitemap)
+    # Per-language landing pages (#1021): pages.json > site/ (hreflang · sitemap)
     pg = sub.add_parser("store-pages", help="Build per-locale landing pages with hreflang links and a sitemap")
     pg.add_argument("--run-dir", dest="run_dir", required=True,
                     help="run_dir printed by get-output-path (pages go to <run_dir>/store/site)")
@@ -169,7 +169,7 @@ def build_parser() -> JSONArgumentParser:
     pg.add_argument("--root", default=".", help="Project root (default: current directory)")
     pg.set_defaults(func=cmd_store_pages)
 
-    # 콘솔 업로드 체크리스트 (#1021): 업로드는 pro-launch web, 진행 기록만 여기서
+    # Console upload checklist (#1021): upload is done by pro-launch web, only progress is tracked here
     up = sub.add_parser("store-upload-plan", help="Make the console upload checklist from a store-check ready folder")
     up.add_argument("--dir", required=True, help="Store image folder that passes store-check")
     up.add_argument("--locales", default=None, help="Comma-separated target locales (same as store-check)")

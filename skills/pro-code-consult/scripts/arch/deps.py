@@ -1,8 +1,8 @@
-"""deps: import 그래프 계층 분류 > 역방향 간선, 모듈 간 저장소 직접 사용, Gradle 모듈 그래프 > 순환
+"""deps: classify the import graph into layers > reverse edges, direct repository use across modules, Gradle module graph > cycles
 
-계층 4개 + 공통: presentation > application > domain <- infrastructure, common(예외·상수 — 방향 규칙 밖)
-분류 순서: Java·Kotlin 파일 이름 접미사 > 예외·상수 폴더 > 폴더 이름(가장 깊은 것) > Next app 라우터
-테스트 파일의 import 는 위반 목록에 넣지 않고 수만 센다 (test_violation_count).
+4 layers + common: presentation > application > domain <- infrastructure, common (exceptions, constants — outside direction rules)
+Classification order: Java/Kotlin file name suffix > exception/constant folders > folder name (deepest) > Next app router
+Imports in test files are only counted, not listed as violations (test_violation_count).
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ LAYER_BY_DIRECTORY_NAME = {
     **dict.fromkeys(("data", "datasources", "sources", "repositories", "repository", "infrastructure", "infra",
                      "clients", "network", "persistence", "dao", "adapters"), "infrastructure"),
 }
-# 언어별 추가 폴더 이름 (JS api 폴더는 HTTP 클라이언트, Java object·vo 는 엔티티 — Spring api 패키지는 컨트롤러라 공통 표에 넣지 않음)
+# Extra folder names per language (JS api folder is the HTTP client, Java object/vo are entities — Spring api packages are controllers, so not in the shared table)
 LANGUAGE_LAYER_BY_DIRECTORY_NAME = {
     "javascript": {"api": "infrastructure", "apis": "infrastructure", "http": "infrastructure", "fetchers": "infrastructure",
                    "hooks": "application"},
@@ -28,18 +28,18 @@ LANGUAGE_LAYER_BY_DIRECTORY_NAME = {
 }
 LANGUAGE_LAYER_BY_DIRECTORY_NAME["typescript"] = LANGUAGE_LAYER_BY_DIRECTORY_NAME["javascript"]
 LANGUAGE_LAYER_BY_DIRECTORY_NAME["kotlin"] = LANGUAGE_LAYER_BY_DIRECTORY_NAME["java"]
-# Java·Kotlin 파일 이름 접미사 > 계층 (폴더보다 먼저: application/exception/XxxExceptionHandler 는 표현 계층)
+# Java/Kotlin file name suffix > layer (before folders: application/exception/XxxExceptionHandler is presentation)
 JVM_LAYER_BY_SUFFIX = (
     (re.compile(r"(?:Controller|ControllerAdvice|ExceptionHandler|ControllerDocs|RestController)$"), "presentation"),
     (re.compile(r"(?:Repository|RepositoryImpl|RepositoryCustom|Dao|Mapper)$"), "infrastructure"),
     (re.compile(r"(?:Service|ServiceImpl|UseCase|Facade)$"), "application"),
 )
 COMMON_DIRECTORY_NAMES = {"exception", "exceptions", "error", "errors", "constant", "constants"}
-# 타입 선언 폴더 (JS·TS 순수 타입 — 하위 폴더 이름이 api 여도 인프라가 아니라 도메인 형태)
+# Type declaration folders (pure JS/TS types — domain shapes, not infrastructure, even under an api subfolder)
 TYPE_DECLARATION_DIRECTORY_NAMES = {"types", "typings", "interfaces", "dto", "dtos", "schemas"}
-# 상태 계층 (Flutter provider·notifier — 데이터 계층 import 허용 여부는 팀 결정, 스택 문서 참고)
+# State layer (Flutter provider/notifier — whether it may import the data layer is a team decision; see the stack doc)
 STATE_DIRECTORY_NAMES = {"providers", "provider", "notifiers", "controllers", "blocs", "bloc", "viewmodels", "stores"}
-# 금지 방향 (from 계층 > 가면 안 되는 계층)
+# Forbidden directions (from layer > layers it must not reach)
 FORBIDDEN_LAYER_TARGETS = {
     "presentation": {"infrastructure"},
     "application": {"presentation"},
@@ -47,7 +47,7 @@ FORBIDDEN_LAYER_TARGETS = {
     "infrastructure": {"presentation"},
     "common": set(),
 }
-# 경로에서 이 폴더 뒤부터만 계층 판정 (레포 최상위 폴더 이름 오분류 방지: 예 client/ 프로젝트)
+# Classify layers only from after this folder in the path (avoids misclassifying top-level folder names, e.g. a client/ project)
 SOURCE_ROOT_DIRECTORY_NAMES = {"lib", "src", "java", "kotlin", "app"}
 
 IMPORT_PATTERNS = {
@@ -97,13 +97,13 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
     def layer(path, language):
         return layer_of(path, language, any(path.startswith(prefix) for prefix in next_modules))
 
-    # 계층 간선 수집 > 금지 방향만 위반으로 (테스트는 수만)
+    # Collect layer edges > only forbidden directions are violations (tests are only counted)
     violations, edge_counts, test_violation_count, cross_module = [], {}, 0, []
     unclassified = {}
     aggregators = _aggregator_modules(modules)
     for relative, (language, text) in sources.items():
         from_layer = layer(relative, language)
-        # 미분류 영역 (JVM 은 파일 접미사로 분류하고 패키지가 깊어 영역 집계가 의미 없다)
+        # Unclassified areas (JVM is classified by file suffix and packages are deep, so area tallies are meaningless)
         if not from_layer and relative not in test_files and language not in ("java", "kotlin"):
             area = _source_area(relative)
             unclassified[area] = unclassified.get(area, 0) + 1
@@ -125,7 +125,7 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
                 violation["from_role"] = "state"
             violations.append(violation)
 
-    # 위반 후보 먼저: 공통 모듈 저장소·조합 모듈에서 오는 것은 뒤로 (설계상 정상인 경우가 많다)
+    # Violation candidates first: those from shared-module repositories or composition modules go last (often normal by design)
     cross_module.sort(key=lambda c: (c["is_to_common_module"], c["is_from_aggregator_module"]))
     boundary_count = sum(1 for c in cross_module if not c["is_to_common_module"] and not c["is_from_aggregator_module"])
     truncated = {k: len(v) for k, v in (("layer_violations", violations), ("cross_module_repository_imports", cross_module))
@@ -146,7 +146,7 @@ def analyze_dependencies(root: Path, limit: int, is_including_all: bool = False)
 
 
 def _source_area(relative: str) -> str:
-    """소스 루트(src·lib 등) 바로 아래 폴더 (계층 분류가 안 된 영역 집계용)"""
+    """Folder directly under a source root (src, lib, etc.) (for tallying unclassified areas)"""
     parts = relative.split("/")[:-1]
     for index in range(len(parts) - 1, -1, -1):
         if parts[index] in SOURCE_ROOT_DIRECTORY_NAMES:
@@ -155,7 +155,7 @@ def _source_area(relative: str) -> str:
 
 
 def _aggregator_modules(modules: dict) -> set:
-    """조합 모듈: 다른 모듈 절반 넘게(3개 이상) 의존하는 모듈 (응용·진입점 — 여러 도메인 저장소 사용이 설계일 수 있다)"""
+    """Composition module: depends on more than half of the other modules (3+) (application/entry point — using several domain repositories may be by design)"""
     outgoing = {}
     for edge in modules["edges"]:
         outgoing.setdefault(edge["from"], set()).add(edge["to"])
@@ -165,7 +165,7 @@ def _aggregator_modules(modules: dict) -> set:
 
 
 def _collect_cross_module(relative, line_number, target, module_directories, aggregators, found):
-    """다른 Gradle 모듈의 Repository 를 직접 import (그 모듈의 서비스·공개 API 를 거쳐야 하는 자리)"""
+    """Direct import of another Gradle module's Repository (should go through that module's service or public API)"""
     if not re.search(r"(?:Repository|RepositoryCustom|Dao)$", Path(target).stem):
         return
     from_module, to_module = _module_of(relative, module_directories), _module_of(target, module_directories)
@@ -195,7 +195,7 @@ def _next_module_prefixes(root: Path) -> list:
 
 
 def gradle_module_graph(root: Path) -> dict:
-    """settings.gradle(.kts) include + 각 모듈 project(':x') 의존 > 간선·순환"""
+    """settings.gradle(.kts) include + each module's project(':x') dependencies > edges and cycles"""
     edges, module_directories, module_names_by_directory = [], [], {}
     for relative, absolute in walk_files(root):
         if not relative.endswith(("settings.gradle", "settings.gradle.kts")):
@@ -214,7 +214,7 @@ def gradle_module_graph(root: Path) -> dict:
                     build_text = build_file.read_text(encoding="utf-8", errors="replace")
                     for configuration, target in re.findall(r"(\w+)\s*\(?\s*project\s*\(\s*['\"]:?([\w\-:]+)['\"]", build_text):
                         edges.append({"from": name, "to": target, "configuration": configuration})
-    # 테스트 범위 의존(testImplementation 등)은 운영 클래스패스가 아니라 순환 판정에서 제외
+    # Test-scope dependencies (testImplementation, etc.) are not on the production classpath, so excluded from cycle detection
     production_edges = [e for e in edges if not e["configuration"].lower().startswith("test")]
     return {"edges": production_edges, "test_edges": [e for e in edges if e not in production_edges],
             "cycles": _find_cycles(production_edges), "module_directories": module_directories,
@@ -244,7 +244,7 @@ def _find_cycles(edges: list[dict]) -> list[list[str]]:
 
 
 class _ImportResolver:
-    """import 문자열 > 레포 안 파일 상대경로 (못 찾으면 버림 — 외부 패키지)"""
+    """Import string > relative path of a file in the repo (dropped if not found — external package)"""
 
     def __init__(self, root: Path, sources: dict):
         self.root = root

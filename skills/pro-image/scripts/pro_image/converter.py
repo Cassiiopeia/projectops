@@ -1,5 +1,5 @@
-"""형식 변환·크기 맞춤: 변환은 Pillow > sips(macOS) > ImageMagick, 크기는 Pillow > 표준 라이브러리
-fit 모드 2개: cover 비율 유지 후 넘치는 부분 가운데 기준 자르기, contain 비율 유지 후 투명 여백
+"""Format conversion and size fitting: conversion via Pillow > sips (macOS) > ImageMagick, size via Pillow > stdlib
+2 fit modes: cover keeps ratio then center-crops the overflow, contain keeps ratio with transparent padding
 """
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from . import png_codec, resample
 
 def _pillow():
     try:
-        from PIL import Image  # noqa: PLC0415 — 선택 의존성
+        from PIL import Image  # noqa: PLC0415 — optional dependency
     except ImportError:
         return None
     return Image
 
 
 def available_tool() -> str:
-    """JPEG·WebP 변환 도구 (PNG 만이면 표준 라이브러리로 충분)"""
+    """Converter for JPEG/WebP (stdlib is enough for PNG only)"""
     if _pillow():
         return "pillow"
     if shutil.which("sips"):
@@ -34,7 +34,7 @@ def _run(command: list[str]) -> None:
 
 
 def to_png(source: Path, target: Path) -> str:
-    """아무 형식 > 8비트 RGBA PNG > 사용한 도구 이름"""
+    """Any format > 8-bit RGBA PNG > name of tool used"""
     image_module = _pillow()
     if image_module:
         with image_module.open(source) as image:
@@ -55,7 +55,7 @@ def _cover_box(source_size: tuple[int, int], target_size: tuple[int, int]) -> tu
 
 
 def fit(source: Path, target: Path, size: tuple[int, int], mode: str) -> str:
-    """크기 맞춤 > 사용한 도구 이름"""
+    """Fit size > name of tool used"""
     width, height = size
     image_module = _pillow()
     if image_module:
@@ -75,7 +75,7 @@ def fit(source: Path, target: Path, size: tuple[int, int], mode: str) -> str:
 
 
 def _fit_stdlib(source: Path, target: Path, size: tuple[int, int], mode: str) -> str:
-    """Pillow 없을 때: PNG 로 맞춘 뒤 표준 라이브러리 크기 조절 (JPEG·WebP 는 sips·ImageMagick 로 먼저 변환)"""
+    """Without Pillow: normalize to PNG then resize with stdlib (JPEG/WebP converted first via sips or ImageMagick)"""
     png_source = source
     if source.read_bytes()[:8] != png_codec.PNG_SIGNATURE:
         png_source = target.with_name(target.stem + "_source.png")

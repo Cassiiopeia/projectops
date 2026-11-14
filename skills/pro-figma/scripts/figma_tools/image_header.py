@@ -1,7 +1,7 @@
-"""이미지 헤더 판독: PNG IHDR·JPEG SOF > 형식·크기·알파 (표준 라이브러리만)
+"""Image header reading: PNG IHDR·JPEG SOF > format·size·alpha (standard library only)
 
-Pillow 가 없는 내부망에서도 store-check 가 돌아야 해서 imaging.py(Pillow) 를 쓰지 않는다.
-픽셀은 읽지 않는다 — 헤더와 PNG 보조 청크(tRNS)까지만.
+store-check must run on internal networks without Pillow, so imaging.py (Pillow) is not used.
+Pixels are not read — only the header and the PNG ancillary chunk (tRNS).
 """
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ import struct
 from pathlib import Path
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-# PNG color type: 0 회색, 2 RGB, 3 팔레트, 4 회색+알파, 6 RGBA
+# PNG color type: 0 gray, 2 RGB, 3 palette, 4 gray+alpha, 6 RGBA
 _PNG_ALPHA_COLOR_TYPES = (4, 6)
-# JPEG SOF 마커 (C4 허프만·C8 예약·CC 산술 조건은 SOF 아님)
+# JPEG SOF markers (C4 Huffman·C8 reserved·CC arithmetic conditioning are not SOF)
 _JPEG_SOF_MARKERS = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7,
                      0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF}
-# 길이 필드 없는 단독 마커 (RST0~7, SOI, TEM)
+# Standalone markers without a length field (RST0~7, SOI, TEM)
 _JPEG_STANDALONE_MARKERS = set(range(0xD0, 0xD8)) | {0x01, 0xD8}
 
 
 def read_image_header(path: Path) -> dict:
-    """파일 > {format, width, height, has_alpha, bit_depth?, color_type?} 또는 {error}"""
+    """File > {format, width, height, has_alpha, bit_depth?, color_type?} or {error}"""
     try:
         data = path.read_bytes()
     except OSError as e:
@@ -32,12 +32,12 @@ def read_image_header(path: Path) -> dict:
 
 
 def _read_png(data: bytes) -> dict:
-    """IHDR(크기·비트 깊이·color type) + IDAT 전 tRNS 유무 > 알파 판정"""
+    """IHDR (size·bit depth·color type) + tRNS before IDAT > alpha verdict"""
     if len(data) < 33 or data[12:16] != b"IHDR":
         return {"error": "PNG without a valid IHDR chunk"}
     width, height, bit_depth, color_type = struct.unpack(">IIBB", data[16:26])
     has_transparency_chunk = False
-    # 청크 순회: 길이(4) 타입(4) 데이터 CRC(4)
+    # Walk chunks: length(4) type(4) data CRC(4)
     offset = 8
     while offset + 8 <= len(data):
         length = struct.unpack(">I", data[offset:offset + 4])[0]
@@ -54,13 +54,13 @@ def _read_png(data: bytes) -> dict:
 
 
 def _read_jpeg(data: bytes) -> dict:
-    """마커 순회 > 첫 SOF 의 높이·너비 (JPEG 은 알파 없음)"""
+    """Walk markers > height·width of the first SOF (JPEG has no alpha)"""
     offset = 2
     while offset + 4 <= len(data):
         if data[offset] != 0xFF:
             return {"error": "JPEG marker stream is broken"}
         marker = data[offset + 1]
-        if marker == 0xFF:                       # 채움 바이트
+        if marker == 0xFF:                       # fill byte
             offset += 1
             continue
         if marker in _JPEG_STANDALONE_MARKERS:

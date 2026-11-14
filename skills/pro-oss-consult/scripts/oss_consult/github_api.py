@@ -1,5 +1,5 @@
-"""GitHub API 통로: 오류 분류, HTTP 호출 단일 통로(_call), 목록·파일·라벨·README 조회, PAT 조회
-테스트는 이 모듈의 _call·_pat 을 대체한다 (명령 모듈은 모듈 속성으로 불러 대체가 반영됨)
+"""GitHub API access: error classification, single HTTP gateway (_call), listing/file/label/README lookups, PAT lookup
+Tests replace this module's _call·_pat (command modules reach them as module attributes, so the replacement applies)
 """
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ import urllib.parse
 from common import gh_client
 
 _API = "https://api.github.com"
-# 망이 끊기면 무한 대기하지 않도록 모든 HTTP 호출에 건다
+# Applied to every HTTP call so a dropped connection never waits forever
 _TIMEOUT = 20
 
-# ── 오류 분류 (순수 — 테스트 대상) ───────────────────────────────────────
+# ── Error classification (pure — under test) ───────────────────────────────────────
 
 def _reset_when(reset: str | None) -> str | None:
     try:
@@ -23,7 +23,7 @@ def _reset_when(reset: str | None) -> str | None:
 
 
 def classify_api_error(e: Exception) -> dict:
-    """GitHub 오류를 code/summary/next 로 풀어 준다. rate limit 과 권한 오류를 구분한다."""
+    """Unpack a GitHub error into code/summary/next. Tells rate limits apart from permission errors."""
     if isinstance(e, gh_client.GitHubNetworkError):
         return {"code": "network", "summary": f"Network error: {e}",
                 "next": "Check the network connection and run the same command again"}
@@ -46,10 +46,10 @@ def classify_api_error(e: Exception) -> dict:
     return {"code": f"http_{status}", "summary": f"{msg}", "next": nxt}
 
 
-# ── 네트워크 ─────────────────────────────────────────────────────────────
+# ── Network ─────────────────────────────────────────────────────────────
 
 def _call(method: str, path: str, pat: str, data: dict | None = None):
-    """모든 HTTP 호출의 단일 통로 — timeout·네트워크 오류 분리. 테스트는 이 함수를 대체한다."""
+    """Single gateway for every HTTP call — separates timeouts and network errors. Tests replace this function."""
     return gh_client.request_json(method, f"{_API}{path}", data, pat, timeout=_TIMEOUT)
 
 
@@ -86,7 +86,7 @@ _LABEL_PAGES = 5
 
 
 def _label_records(owner: str, repo: str, pat: str) -> tuple[list[dict], bool]:
-    """라벨 전체 레코드. 페이지 상한(500개)에 닿으면 capped=True."""
+    """All label records. capped=True when the page cap (500) is hit."""
     rows: list[dict] = []
     for page in range(1, _LABEL_PAGES + 1):
         items = _get(f"/repos/{owner}/{repo}/labels?per_page=100&page={page}", pat)

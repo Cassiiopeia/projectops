@@ -1,7 +1,7 @@
-"""자리 검사 · 시스템 노드: 상자가 시안 선 위에 있나 / OS 가 그리는 노드(상태바·키보드) 찾기
+"""Placement check · system nodes: is the box on the design lines / find OS-drawn nodes (status bar·keyboard)
 
-자리를 모서리보다 먼저 본다. 상자가 통째로 밀리면 모서리 탐침이 면 안쪽을 찍어 "각졌다"고 거짓말한다
-(elum 카드확인 화면 실측).
+Placement is checked before corners. If a box shifts as a whole, the corner probe hits inside the face and falsely reports "각짐"
+(measured on the elum card-confirm screen).
 """
 from __future__ import annotations
 
@@ -9,19 +9,19 @@ import re
 
 from figma_tools.conform_probes import _GLYPH_TYPES, _color_under, _is_covered, _label, _solid_rgb
 
-# OS 가 그리는 노드 이름 (앱이 안 그림). 키보드는 자판 30여 개가 오탐으로 쏟아짐
+# Names of OS-drawn nodes (not drawn by the app). The keyboard floods 30-odd keys as false positives
 SYSTEM_NODE_NAME = re.compile(r"status\s*bar|home\s*indicator|keyboard|키보드|상태\s*바", re.IGNORECASE)
-# 자리 검사를 하기엔 작은 상자 (논리 px)
+# Box too small for a placement check (logical px)
 MIN_PLACEMENT_SIZE = 20
-# 면 안쪽 · 바깥쪽 탐침 거리 (논리 px)
+# Probe distance inside · outside the face (logical px)
 INNER_PROBE_INSET = 2
 OUTER_PROBE_OFFSET = 3
-# 변마다 찍는 위치 (변 길이 비율)
+# Probe positions per edge (ratio of edge length)
 SIDE_PROBE_FRACTIONS = (0.35, 0.5, 0.65)
 
 
 def system_node_ids(data: dict) -> set[str]:
-    """이름이 시스템 노드인 것과 그 자손 id 전부"""
+    """Ids of nodes named as system nodes and all their descendants"""
     found: set[str] = set()
 
     def walk(node, is_inside_system: bool) -> None:
@@ -42,18 +42,18 @@ def system_node_ids(data: dict) -> set[str]:
 
 
 def _distance(color_a, color_b) -> float:
-    """색 거리 (유클리드). 채널 최대차는 흰 시트 <-> 연한 배경을 너무 가깝게 봄"""
+    """Color distance (Euclidean). Max channel difference rates white sheet <-> light background as too close"""
     return sum((a - b) ** 2 for a, b in zip(color_a, color_b)) ** 0.5
 
 
 def check_placement(sample, rect: dict, above: list[dict], below: list[dict], tolerance: int):
-    """네 변이 시안 선 위에 있나 > finding 목록 · 판정(True / False / None 판정 불가)"""
+    """Are all four edges on the design lines > finding list · verdict (True / False / None undecidable)"""
     face = _solid_rgb(rect)
     x, y, width, height = rect["x"], rect["y"], rect["width"], rect["height"]
-    # 면을 채우는 도형만 (글자·아이콘 칠은 획에만 있음)
+    # Only shapes that fill a face (text·icon fills are strokes only)
     if face is None or rect.get("type") in _GLYPH_TYPES or min(width, height) < MIN_PLACEMENT_SIZE:
         return [], None
-    # 테두리는 면을 갉아먹음 > 그 두께만큼 더 안쪽
+    # A border eats into the face > that much further inside
     inset = INNER_PROBE_INSET + rect.get("stroke_width", 0)
     sides = {
         "top": [((x + width * f, y + inset), (x + width * f, y - OUTER_PROBE_OFFSET))
@@ -69,7 +69,7 @@ def check_placement(sample, rect: dict, above: list[dict], below: list[dict], to
     for side, probes in sides.items():
         votes = []
         for inner, outer in probes:
-            # 위 겹이 덮은 자리 · 바깥이 같은 색 면(맞닿은 이웃)인 자리는 판정 불가
+            # Spots covered by an upper layer · with a same-colored face outside (touching neighbor) are undecidable
             if _is_covered(*inner, above) or _is_covered(*outer, above):
                 continue
             behind = _color_under(*outer, below)

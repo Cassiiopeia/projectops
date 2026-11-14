@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""changelog_cli — changelog-deploy skill 전용 CLI.
+"""changelog_cli — CLI for the changelog-deploy skill.
 
-deploy PR 자동화 + Actions/CodeRabbit 상태 종합.
-서브커맨드: actions, deploy-status, list-prs, update-pr, create-pr, sync-base, detect-release-context
+deploy PR automation + combined Actions/CodeRabbit status.
+Subcommands: actions, deploy-status, list-prs, update-pr, create-pr, sync-base, detect-release-context
 
-사용법:
+Usage:
     cd skills/pro-changelog-deploy/scripts
     python changelog_cli.py <subcommand> [args]
 """
@@ -29,7 +29,7 @@ from common.gh_client import (  # noqa: E402
     get_run, get_job_log, list_failed_runs, resolve_pr_runs, resolve_branch_runs,
 )
 
-# 파일 경로로 불러와도(테스트·하네스) 옆 모듈을 찾게 한다
+# Find sibling modules even when loaded by file path (tests, harness)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from deploy_status import cmd_deploy_status  # noqa: E402,F401
 from release_tools import branches_check, cmd_sync_base, detect_release_shape, wrap_release_notes  # noqa: E402,F401
@@ -103,7 +103,7 @@ def cmd_update_pr(args) -> int:
     if args.body_file:
         body_path = _resolve_body_file(args.body_file)
         body = body_path.read_text(encoding="utf-8") if body_path else None
-    # 바꿀 값이 없으면 PATCH 하지 않고 알린다 — "수정 완료" 로 오보하지 않는다 (#699)
+    # Nothing to change: skip the PATCH and say so — never misreport "updated" (#699)
     if args.title is None and body is None and args.state is None:
         return emit({
             "ok": False,
@@ -121,24 +121,24 @@ def cmd_update_pr(args) -> int:
 
 
 def _normalize_provider(provider: str, project_root: Path) -> str:
-    """provider 미설정·종료값을 워크플로우와 같은 규칙으로 정리한다 (#821).
+    """Normalize unset/retired provider values with the same rules as the workflow (#821).
 
-    미설정 판정은 워크플로우(RELEASE-CHANGELOG)와 같은 3단 규칙이어야 한다:
-    명시값 → (.coderabbit.yaml 있으면) coderabbit → commit. 어긋나면 스킬과 워크플로우 판단이 갈린다."""
+    The unset rule must match the workflow (RELEASE-CHANGELOG) 3-step rule:
+    explicit value → (if .coderabbit.yaml exists) coderabbit → commit. If they differ, skill and workflow decide differently."""
     if not provider:
         provider = "coderabbit" if (project_root / ".coderabbit.yaml").is_file() else "commit"
     if provider == "github-ai":
-        # 서비스 종료(2026-07-30) — ladder.py와 같게 commit으로 흡수한다 (#821).
-        # 그대로 넘기면 스킬이 종료된 생성기를 정상 provider로 안내한다.
+        # Service retired (2026-07-30) — absorbed into commit, same as ladder.py (#821).
+        # Passing it through would make the skill present a retired generator as a valid provider.
         provider = "commit"
     return provider
 
 
 def _parse_release_branches(project_root: Path) -> tuple[dict, dict]:
-    """version.yml을 읽어 (값, 명시 여부)를 돌려준다.
+    """Read version.yml and return (value, explicit).
 
-    명시 여부(explicit)는 version.yml에 키가 실제로 적혀 있었는지다 — 폴백값과 config 값이
-    어긋날 때 "version.yml이 정말 그렇게 말하는지"를 agent가 구분할 수 있게 한다 (#842)."""
+    explicit means the key was actually written in version.yml — so when a fallback and the config value
+    disagree, the agent can tell whether "version.yml really says so" (#842)."""
     vy = project_root / "version.yml"
     text = ""
     if vy.exists():
@@ -151,7 +151,7 @@ def _parse_release_branches(project_root: Path) -> tuple[dict, dict]:
         m = re.search(pattern, text, re.MULTILINE)
         return m.group(1) if m else None
 
-    # 개발 브랜치 키: development_branch(정본) > deploy_branch(구 이름) (#915)
+    # Development branch key: development_branch (canonical) > deploy_branch (old name) (#915)
     head = (_find(r"^\s*development_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
             or _find(r"^\s*deploy_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)"))
     base = _find(r"^\s*default_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)")
@@ -166,23 +166,23 @@ def _parse_release_branches(project_root: Path) -> tuple[dict, dict]:
 
 
 def _read_release_branches(project_root: Path) -> dict:
-    """version.yml에서 릴리스 브랜치·changelog provider를 읽는다 (#456, SSOT).
+    """Read release branches and changelog provider from version.yml (#456, SSOT).
 
-    - head = metadata.development_branch (릴리스 PR head) > 구 키 deploy_branch > 'develop' 폴백.
-    - base = metadata.default_branch (레포 기본) — 없으면 'main' 폴백.
-    - provider = metadata.template.options.changelog.provider — 없으면 레포 루트에
-      .coderabbit.yaml 이 있을 때 'coderabbit', 아니면 'commit' (#821, 워크플로우와 동일).
-      종료된 'github-ai' 저장값은 'commit' 으로 돌려준다.
-    yaml 의존 없이 정규식으로만 파싱한다 (폐쇄망·표준 라이브러리 우선)."""
+    - head = metadata.development_branch (release PR head) > old key deploy_branch > 'develop' fallback.
+    - base = metadata.default_branch (repo default) — 'main' fallback if missing.
+    - provider = metadata.template.options.changelog.provider — if missing, 'coderabbit' when
+      .coderabbit.yaml exists in the repo root, otherwise 'commit' (#821, same as the workflow).
+      A stored retired 'github-ai' value is returned as 'commit'.
+    Parsed with regexes only, no yaml dependency (offline networks, standard library first)."""
     return _parse_release_branches(project_root)[0]
 
 
-# branches 키 ↔ config changelog_deploy 키. config 는 사람이 읽는 이름(head_branch)을 쓴다.
+# branches key ↔ config changelog_deploy key. config uses human-readable names (head_branch).
 _BRANCH_CONFIG_KEYS = (("head", "head_branch"), ("base", "base_branch"), ("provider", "provider"))
 
 
 def _detect_owner_repo(project_root: Path) -> tuple[str | None, str | None]:
-    """origin URL에서 owner/repo를 뽑는다. 실패하면 (None, None) — config 대조만 건너뛴다."""
+    """Extract owner/repo from the origin URL. On failure (None, None) — only the config comparison is skipped."""
     import subprocess
     try:
         url = subprocess.run(
@@ -196,10 +196,10 @@ def _detect_owner_repo(project_root: Path) -> tuple[str | None, str | None]:
 
 
 def _release_config_view(config: dict | None, owner: str | None, repo: str | None) -> dict:
-    """config에서 이 레포의 브랜치·provider 기록과, 더는 읽지 않는 전역 키를 뽑는다 (#842).
+    """Extract this repo's branch/provider record from config, plus global keys no longer read (#842).
 
-    전역 `github.changelog_deploy.{head_branch,base_branch,provider}`는 레포 지식을 컴퓨터
-    전체에 둔 것이라 다른 레포의 version.yml을 덮어썼다. 값은 쓰지 않고 '남아 있다'는 사실만 알린다."""
+    Global `github.changelog_deploy.{head_branch,base_branch,provider}` put repo knowledge machine-wide
+    and overrode other repos' version.yml. Its values are not used; only the fact that it remains is reported."""
     gh = (config or {}).get("github") if isinstance(config, dict) else None
     gh = gh if isinstance(gh, dict) else {}
     glob = gh.get("changelog_deploy") if isinstance(gh.get("changelog_deploy"), dict) else {}
@@ -223,13 +223,13 @@ def _release_config_view(config: dict | None, owner: str | None, repo: str | Non
 
 
 def cmd_detect_release_context(args) -> int:
-    """이 레포가 앱 스토어 심사에 직결되는지 '신호'를 모아 JSON으로 반환한다.
+    """Collect 'signals' of whether this repo leads straight to app store review, returned as JSON.
 
-    판단(앱 심사 레포 확정·사용자 확인·config 갱신)은 agent가 한다. py는 사실(signals)과
-    약한 hint만 준다. GitHub API를 쓰지 않으므로 PAT가 필요 없다 (로컬 파일만 스캔)."""
+    The decision (confirming an app review repo, asking the user, updating config) is the agent's. py gives only facts (signals)
+    and a weak hint. No GitHub API, so no PAT needed (scans local files only)."""
     project_root = Path(args.project_root).resolve() if args.project_root else Path.cwd()
     if not project_root.is_dir():
-        # 없는 경로를 빈 신호로 성공 처리하면 "앱 심사 레포 아님" 으로 오판한다 (#713)
+        # Treating a missing path as empty signals would misjudge it as "not an app review repo" (#713)
         return emit({"ok": False, "code": "not_found",
                      "summary": "the --project-root path does not exist",
                      "error": f"the --project-root path does not exist: {project_root}"})
@@ -242,8 +242,8 @@ def cmd_detect_release_context(args) -> int:
         else "agent: backend_only; pass quietly, no warnings or questions"
     )
 
-    # 릴리스 브랜치·provider (#456) — 스킬이 develop/main 하드코딩 대신 이 값을 쓴다.
-    # 정본은 version.yml이다 (#842). 워크플로우와 같은 곳을 읽어야 스킬과 워크플로우 판단이 안 갈린다.
+    # Release branches · provider (#456) — the skill uses these instead of hardcoded develop/main.
+    # The canonical source is version.yml (#842). Reading the same place as the workflow keeps skill and workflow in agreement.
     branches, explicit = _parse_release_branches(project_root)
     has_version_yml = (project_root / "version.yml").is_file()
 
@@ -255,7 +255,7 @@ def cmd_detect_release_context(args) -> int:
 
     conflict = []
     if has_version_yml:
-        # version.yml 이 이긴다. 레포별 config 값은 낡은 캐시일 수 있으니 다르면 알리기만 한다.
+        # version.yml wins. Per-repo config values may be a stale cache, so a mismatch is only reported.
         source = "version.yml"
         for key, cfg_key in _BRANCH_CONFIG_KEYS:
             if cfg_key in repo_values and repo_values[cfg_key] != branches[key]:
@@ -266,7 +266,7 @@ def cmd_detect_release_context(args) -> int:
                     "version_yml_explicit": explicit[key],
                 })
     elif repo_values:
-        # version.yml 이 없는 레포만 레포별 config 기록을 쓴다. 빠진 키는 폴백 규칙으로 채운다.
+        # Only repos without version.yml use the per-repo config record. Missing keys use the fallback rules.
         source = "config"
         for key, cfg_key in _BRANCH_CONFIG_KEYS:
             if cfg_key in repo_values:
@@ -283,7 +283,7 @@ def cmd_detect_release_context(args) -> int:
                      + next_hint)
 
     check = branches_check(project_root, branches["head"], branches["base"])
-    # 개발 브랜치 없이 main > deploy 로 릴리스하는 레포 (#970)
+    # Repos that release main > deploy without a development branch (#970)
     shape = detect_release_shape(project_root, branches, check)
     if shape["release_shape"] == "deploy_branch":
         next_hint = ("agent: deploy-branch repo; follow release_steps with the head/base of release_branches "
@@ -294,7 +294,7 @@ def cmd_detect_release_context(args) -> int:
 
     return emit({
         "ok": True,
-        # 항상 문자열 (#970)
+        # Always a string (#970)
         "summary": (f"release {branches['head']} > {branches['base']} ({source}), app review hint={hint}"
                     if shape["release_shape"] == "standard" else
                     f"three-tier repo: release {branches['head']} > {branches['base']}, deploy "
@@ -304,19 +304,19 @@ def cmd_detect_release_context(args) -> int:
                     f"{shape['release_branches']['base']}, app review hint={hint}"),
         "project_root": str(project_root),
         "signals": signals,
-        "branches": branches,   # {head, base, provider} — head→base로 릴리스 PR 생성
-        # version.yml(정본) | config(version.yml 없는 레포의 레포별 기록) | fallback(아무것도 없음)
+        "branches": branches,   # {head, base, provider} — release PR from head→base
+        # version.yml (canonical) | config (per-repo record for repos without version.yml) | fallback (nothing found)
         "branches_source": source,
-        "conflict": conflict,   # version.yml ≠ 레포별 config 일 때만 채워진다
+        "conflict": conflict,   # filled only when version.yml ≠ per-repo config
         "config": {
             "owner": owner,
             "repo": repo,
             "repo_entry": view["repo_entry"],
-            # 더는 읽지 않는 전역 키 — 남아 있으면 사용자에게 정리 대상이다
+            # Global keys no longer read — if present, the user should clean them up
             "ignored_global_keys": view["ignored_global_keys"],
         },
         "hint": hint,
-        # 노트 언어·제목·스토어 언어·고정 스토어 문구 (#977) — 노트를 쓰기 전에 본다
+        # Note language · title · store languages · fixed store text (#977) — read before writing notes
         "release_language": collect_release_language(project_root),
         "branches_check": check,
         **shape,
@@ -372,7 +372,7 @@ def build_parser() -> JSONArgumentParser:
     p_cp.add_argument("base")
     p_cp.add_argument("--allow-empty", action="store_true",
                       help="create the PR even if head has no commits ahead of base (default: refuse with nothing_to_deploy)")
-    # 앱 심사 승인 게이트 (#970): 앱 신호 판정 위치와 사용자 승인 표시
+    # App review approval gate (#970): where app signals were judged and the user's approval marker
     p_cp.add_argument("--project-root", help="repo root to check for app review signals (default: cwd)")
     p_cp.add_argument("--user-approved", action="store_true",
                       help="add only when the user reviewed and approved the release notes in an app review repo (otherwise needs_user_approval)")
@@ -384,10 +384,10 @@ def build_parser() -> JSONArgumentParser:
     p_sb.add_argument("--project-root", help="repo root (default: cwd)")
     p_sb.set_defaults(func=cmd_sync_base)
 
-    # 앱 스토어 심사 연관 레포인지 '신호'를 수집한다 (판단·확인은 agent). PAT 불필요 — 로컬 파일만 스캔.
+    # Collect 'signals' of app store review relevance (judgement and confirmation by the agent). No PAT — scans local files only.
     p_drc = sub.add_parser("detect-release-context", help="collect signals that the repo feeds app store review (signals/hint JSON)")
     p_drc.add_argument("--project-root", help="absolute repo root path (default: cwd)")
-    # config 대조용 (#842) — 생략하면 origin URL·고정 config 경로를 쓴다. config는 읽기만 한다.
+    # For config comparison (#842) — when omitted, uses the origin URL and fixed config path. config is read only.
     p_drc.add_argument("--owner", help="repo owner (default: taken from the origin URL)")
     p_drc.add_argument("--repo", help="repo name (default: taken from the origin URL)")
     p_drc.add_argument("--config", help="config.json path (default: ~/.projectops/config/config.json)")

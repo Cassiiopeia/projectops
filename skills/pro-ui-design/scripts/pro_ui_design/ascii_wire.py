@@ -1,4 +1,4 @@
-"""ascii: 박스 문자 와이어 (한글 두 칸 폭 보정)"""
+"""ascii: box-drawing wireframe (wide characters take two columns)"""
 from __future__ import annotations
 
 import json
@@ -10,16 +10,16 @@ from common.emit import emit
 
 
 # =========================================================================
-# ascii — 등폭 · 박스 문자 · 한글 폭 보정
+# ascii — monospace, box-drawing characters, wide-character width fix
 # =========================================================================
 
 def text_width(s: str) -> int:
-    """화면에 차지하는 칸 수. 한글·전각은 두 칸 — 안 세면 오른쪽 선이 어긋난다."""
+    """Columns taken on screen. Hangul and full-width take two — otherwise the right border drifts."""
     return sum(2 if unicodedata.east_asian_width(c) in "WF" else 1 for c in s)
 
 
 def _fit(s: str, width: int, align: str) -> str:
-    # s 가 비었는데 width 가 음수면 영원히 안 끝난다 — s 가 있을 때만 줄인다 (#709)
+    # Empty s with negative width never ends — shrink only while s is non-empty (#709)
     while s and text_width(s) > width:
         s = s[:-1]
     gap = width - text_width(s)
@@ -35,7 +35,7 @@ _ASCII_KEYS = ("title", "rows", "width", "caption")
 
 
 def _ascii_width(spec: dict) -> int:
-    """width 는 1 이상 정수만 받는다. 없으면 30. 아니면 ValueError (#709)."""
+    """width must be an integer >= 1. Defaults to 30. Otherwise ValueError (#709)."""
     raw = spec.get("width")
     if raw is None or raw == "":
         return 30
@@ -73,7 +73,7 @@ def cmd_ascii(args) -> int:
     try:
         spec_f = Path(args.spec)
         is_file = spec_f.is_file()
-    except OSError:      # 긴 JSON 문자열은 파일 이름으로 쓸 수 없다
+    except OSError:      # A long JSON string cannot be used as a file name
         is_file = False
     try:
         spec = json.loads(spec_f.read_text(encoding="utf-8")) if is_file else json.loads(args.spec)
@@ -97,7 +97,7 @@ def cmd_ascii(args) -> int:
            "summary": f"{len(body)}-line wireframe"}
     unknown = sorted(k for k in spec if k not in _ASCII_KEYS)
     if unknown:
-        # 모르는 키는 조용히 무시되어 빈 박스만 나온다 — 알려 준다
+        # Unknown keys are silently ignored and yield an empty box — report them
         out["warnings"] = [f"Ignored unknown keys {unknown} (allowed keys: {', '.join(_ASCII_KEYS)})"]
     if args.out:
         try:

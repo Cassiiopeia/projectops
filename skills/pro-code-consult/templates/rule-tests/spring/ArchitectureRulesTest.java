@@ -23,17 +23,17 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 /**
- * 아키텍처 규칙 테스트: docs/architecture/rules/<id>.rule 위반 <-> <id>.allow 대조
- * 규칙은 rules 폴더에서 고친다 (이 파일은 pro-code-consult 템플릿 — 판정 로직만)
+ * Architecture rule test: docs/architecture/rules/<id>.rule violations <-> <id>.allow
+ * Edit rules in the rules folder (this file is a pro-code-consult template — verdict logic only)
  */
 class ArchitectureRulesTest {
 
-  // 탐색 제외 폴더 (다른 스택 템플릿과 같은 목록)
+  // Excluded folders (same list as the other stack templates)
   static final Set<String> SKIPPED_DIRECTORY_NAMES = Set.of(
       ".git", "build", "dist", "node_modules", ".dart_tool", "Pods", ".gradle",
       "venv", ".venv", "__pycache__", ".next", "out", "target", ".idea");
   static final Set<String> LIST_KEYS = Set.of("paths", "extensions", "exclude");
-  // 규칙 파일 자신은 판정 대상에서 늘 제외
+  // Rule files themselves are always excluded
   static final String ALWAYS_EXCLUDED_PREFIX = "docs/architecture/";
 
   @TestFactory
@@ -50,26 +50,26 @@ class ArchitectureRulesTest {
     }
   }
 
-  /** 새 위반 없음 + 고쳐진 항목이 동결 목록에 남지 않음 */
+  /** No new violations + no fixed entries left in the freeze list */
   static void assertRule(Path repositoryRoot, Path rulesDirectory, Path ruleFile) {
     Map<String, Object> rule = parseRule(ruleFile);
     String ruleId = (String) rule.get("id");
-    assertFalse(((String) rule.get("pattern")).isEmpty(), ruleId + ".rule: pattern 키가 없다");
+    assertFalse(((String) rule.get("pattern")).isEmpty(), ruleId + ".rule: missing pattern key");
     Set<String> violating = new TreeSet<>(findViolatingFiles(repositoryRoot, rule));
     Set<String> allowed = new TreeSet<>(readAllowEntries(rulesDirectory.resolve(ruleId + ".allow")));
 
-    // 새 위반 (동결 목록에 없는 파일) > 코드를 고친다
+    // New violations (files not in the freeze list) > fix the code
     Set<String> newViolations = new TreeSet<>(violating);
     newViolations.removeAll(allowed);
-    assertEquals(Collections.emptySet(), newViolations, "[" + ruleId + "] 새 위반: " + newViolations);
-    // 고쳐진 항목 > 동결 목록에서 지운다 (목록이 느슨해지지 않게)
+    assertEquals(Collections.emptySet(), newViolations, "[" + ruleId + "] new violations: " + newViolations);
+    // Fixed entries > remove them from the freeze list (keeps the list from loosening)
     Set<String> fixedEntries = new TreeSet<>(allowed);
     fixedEntries.removeAll(violating);
     assertEquals(Collections.emptySet(), fixedEntries,
-        "[" + ruleId + "] 고쳐졌으니 " + ruleId + ".allow 에서 지운다: " + fixedEntries);
+        "[" + ruleId + "] fixed, so remove from " + ruleId + ".allow: " + fixedEntries);
   }
 
-  /** 현재 폴더부터 위로 docs/architecture/rules 탐색 (Gradle 은 모듈 폴더에서 테스트를 돌린다) */
+  /** Search upward from the current folder for docs/architecture/rules (Gradle runs tests from the module folder) */
   static Path findRulesDirectory(Path start) {
     for (Path directory = start; directory != null; directory = directory.getParent()) {
       Path candidate = directory.resolve("docs").resolve("architecture").resolve("rules");
@@ -80,7 +80,7 @@ class ArchitectureRulesTest {
     return null;
   }
 
-  /** key=value (첫 = 에서만 자름, # 주석) > 규칙 — Properties 는 정규식 백슬래시를 먹어서 직접 파싱 */
+  /** key=value (split on the first = only, # comments) > rule — parsed by hand because Properties eats regex backslashes */
   static Map<String, Object> parseRule(Path ruleFile) {
     String fileName = ruleFile.getFileName().toString();
     Map<String, Object> rule = new HashMap<>();

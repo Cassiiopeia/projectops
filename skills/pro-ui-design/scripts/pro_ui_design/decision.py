@@ -1,4 +1,4 @@
-"""결정 기록: decide 저장, decision 조회. 다음 스킬(구현, 보고서, 테스트, 디자이너 요청)이 이어받는 유일한 약속
+"""Decision record: decide saves, decision reads. The only contract later skills (build, report, test, designer request) pick up
 {run_dir}/decision.json: title, issue, chosen, chosen_name, reason, screen, captures, tokens, comment_url, run_dir
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ def _newest_screen(session: Session) -> str | None:
 
 
 def _find_clicked_event(session: Session, choice: str) -> dict | None:
-    """터미널로만 고른 경우 없음"""
+    """None when picked only in the terminal"""
     return next((event for event in reversed(read_events(session)) if event.get("choice") == choice), None)
 
 
@@ -30,7 +30,7 @@ def _list_captures(session: Session, screen: str | None) -> list[str]:
     if not screen:
         return []
     captures = Path(session.run_dir) / CAPTURES_FOLDER_NAME
-    stem = glob.escape(Path(screen).stem)   # layout 이 layout-v2 까지 잡지 않게 구분자로 한정
+    stem = glob.escape(Path(screen).stem)   # Anchor on the separator so layout does not also match layout-v2
     return sorted(str(path) for pattern in (f"{stem}.*", f"{stem}__*") for path in captures.glob(pattern) if path.is_file())
 
 
@@ -53,7 +53,7 @@ def cmd_decide(args) -> int:
 
 
 def find_latest_decision(root: Path) -> tuple[dict | None, bool]:
-    """(결정, 현재 세션의 것인지). 현재 세션 우선, 없으면 이 프로젝트의 가장 최근 결정"""
+    """(decision, is from current session). Current session first, else the latest decision in this project"""
     current = find_current_session(root)
     files = [Path(session.run_dir) / DECISION_FILE_NAME for session in list_project_sessions(root)]
     files = sorted((path for path in files if path.is_file()), key=lambda path: path.stat().st_mtime, reverse=True)

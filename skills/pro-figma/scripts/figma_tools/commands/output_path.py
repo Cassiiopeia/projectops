@@ -1,4 +1,4 @@
-"""get-output-path: 대조 산출물 자리 + 에셋 폴더 후보"""
+"""get-output-path: comparison output location + asset folder candidates"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,14 +7,14 @@ from common.emit import emit
 
 
 # =========================================================================
-# get-output-path — 산출물 자리를 도구가 정한다
+# get-output-path — the tool decides where outputs go
 #
-# 어디에 둘지 정해 주지 않으면 매번 다른 곳에 쌓인다. 실제로 다른 스킬에서
-# 8MB 스크린샷이 엉뚱한 폴더에 추적되는 채로 쌓인 적이 있다 (#611).
+# Without a fixed location, outputs pile up in a different place every time. In another skill
+# 8MB screenshots once piled up tracked in the wrong folder (#611).
 # =========================================================================
 
-# 실제 에셋이 갈 곳 후보. 프로젝트 마커로 프레임워크를 짐작한다.
-# **고르는 것은 agent 다** — 레포마다 관례가 달라 여기서 단정하지 않는다.
+# Candidate destinations for real assets. The framework is guessed from project markers.
+# **The agent picks** — conventions differ per repo, so nothing is decided here.
 _ASSET_HINTS = (
     ("pubspec.yaml", ("assets/images", "assets/icons", "assets")),
     ("app.json", ("assets/images", "assets")),
@@ -23,7 +23,7 @@ _ASSET_HINTS = (
 
 
 def _asset_dirs(root: Path) -> list[str]:
-    """이 프로젝트에서 에셋이 갈 만한 곳. 실재하는 것을 앞에 둔다."""
+    """Where assets would likely go in this project. Existing ones come first."""
     out: list[str] = []
     for marker, candidates in _ASSET_HINTS:
         if not (root / marker).is_file():
@@ -36,10 +36,10 @@ def _asset_dirs(root: Path) -> list[str]:
 
 
 def cmd_output_path(args) -> int:
-    """이번 대조의 산출물 자리를 만들고 알려준다.
+    """Create and report this comparison's output location.
 
-    경로 규칙은 common/paths.py 가 단일 소유한다 (#525) — 여기서 재구현하지
-    않고 파일명만 빌려 폴더 이름으로 쓴다.
+    Path rules are owned solely by common/paths.py (#525) — not reimplemented
+    here; only the file name is borrowed as the folder name.
     """
     try:
         from common.paths import resolve_output_path
@@ -52,7 +52,7 @@ def cmd_output_path(args) -> int:
     if r.get("ok") is False:
         return emit(r)
 
-    md = Path(r["path"])          # <우산>/figma/{날짜}_{번호}_{제목}.md
+    md = Path(r["path"])          # <umbrella>/figma/{date}_{number}_{title}.md
     run_dir = md.parent / md.stem
     subs = {name: run_dir / name for name in ("dump", "design", "render", "diff")}
     try:
@@ -70,7 +70,7 @@ def cmd_output_path(args) -> int:
         "design": str(subs["design"]),
         "render": str(subs["render"]),
         "diff": str(subs["diff"]),
-        "gitignore": r.get("gitignore"),   # 공통(common/paths)이 심는다
+        "gitignore": r.get("gitignore"),   # planted by common/paths
         "asset_dir_candidates": candidates,
         "output_root": r.get("output_root"),
         "summary": (f"Comparison folder {run_dir} (not tracked)"

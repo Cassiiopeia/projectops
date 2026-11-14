@@ -1,5 +1,5 @@
-"""비교판: 후보 그림 여러 장 > 번호 붙은 한 장 (사용자가 번호로 고름)
-Pillow 있으면 번호 글자 표시, 없으면 표준 라이브러리로 격자만 (번호는 왼쪽 위부터 순서)
+"""Comparison board: several candidate images > one numbered sheet (user picks by number)
+With Pillow, draws number labels; without it, grid only via stdlib (numbered from top-left)
 """
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 from . import png_codec
 
-# 칸 하나 크기 (픽셀), 칸 사이 여백, 바탕색 (투명 그림이 보이도록 중간 회색)
+# Cell size (pixels), gap between cells, background (mid gray so transparent images show)
 CELL_PIXELS = 512
 GAP_PIXELS = 16
 BOARD_COLOR = (58, 58, 64, 255)
@@ -18,9 +18,9 @@ def _columns(count: int) -> int:
 
 
 def _pillow_modules():
-    """Pillow (Image, ImageDraw), 없으면 None"""
+    """Pillow (Image, ImageDraw), or None"""
     try:
-        from PIL import Image, ImageDraw  # noqa: PLC0415 — 선택 의존성
+        from PIL import Image, ImageDraw  # noqa: PLC0415 — optional dependency
     except ImportError:
         return None
     return Image, ImageDraw
@@ -46,7 +46,7 @@ def _build_with_pillow(images: list[Path], target: Path, Image, ImageDraw) -> No
 
 
 def _build_with_stdlib(images: list[Path], target: Path) -> None:
-    """최근접 축소 + 격자 배치 (PNG 입력만)"""
+    """Nearest-neighbor shrink + grid layout (PNG input only)"""
     columns = _columns(len(images))
     rows = (len(images) + columns - 1) // columns
     width = columns * (CELL_PIXELS + GAP_PIXELS) + GAP_PIXELS
@@ -71,7 +71,7 @@ def _build_with_stdlib(images: list[Path], target: Path) -> None:
 
 
 def build(images: list[Path], target: Path) -> str:
-    """비교판 저장 > 사용한 방식 이름"""
+    """Save comparison board > name of method used"""
     modules = _pillow_modules()
     if modules:
         _build_with_pillow(images, target, *modules)

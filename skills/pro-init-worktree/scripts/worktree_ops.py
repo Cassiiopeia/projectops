@@ -1,7 +1,7 @@
-"""worktree_cli 의 실행 서브커맨드: create(브랜치 > worktree), copy(기억한 로컬 파일 복사), remove(안전 제거) (#944).
+"""worktree_cli run subcommands: create (branch > worktree), copy (remembered local files), remove (safe removal) (#944).
 
-손으로 치던 의식(임시 파이썬 스크립트, `git branch --no-track`, `cp`, `git worktree remove --force`)을
-한 명령과 JSON verdict 로 바꾼다.
+Replaces the hand-typed ritual (throwaway Python scripts, `git branch --no-track`, `cp`, `git worktree remove --force`)
+with one command and a JSON verdict.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
 
 
 def _worktree_path_of(root: Path, branch: str) -> str | None:
-    """git worktree list --porcelain 에서 브랜치가 체크아웃된 경로"""
+    """Path where the branch is checked out, from git worktree list --porcelain"""
     blocks = _git(root, "worktree", "list", "--porcelain").stdout.split("\n\n")
     for block in blocks:
         fields = dict(line.split(" ", 1) for line in block.splitlines() if " " in line)
@@ -33,7 +33,7 @@ def _worktree_path_of(root: Path, branch: str) -> str | None:
 
 
 def cmd_create(args, toplevel) -> int:
-    """브랜치명 > (없으면 --base 에서 분기) > worktree 생성 > 로컬 파일 복사. 기존 worktree_manager 를 그대로 쓴다."""
+    """Branch name > (branch from --base if missing) > create worktree > copy local files. Uses the existing worktree_manager as is."""
     root = toplevel(args.root)
     manager = _SCRIPTS_ROOT / "worktree_manager.py"
     env = {**os.environ, "GIT_BRANCH_NAME": args.branch, "PYTHONIOENCODING": "utf-8"}
@@ -53,7 +53,7 @@ def cmd_create(args, toplevel) -> int:
 
 
 def cmd_copy(args, toplevel, split, clean, memory_file, load) -> int:
-    """기억한 복사 세트(또는 --files)를 worktree 로 복사. 기존 파일은 --overwrite 없이는 건드리지 않는다."""
+    """Copy the remembered copy set (or --files) into the worktree. Existing files are left alone without --overwrite."""
     root = toplevel(args.root)
     dest = Path(args.to).expanduser().resolve()
     if not dest.is_dir():
@@ -89,7 +89,7 @@ def cmd_copy(args, toplevel, split, clean, memory_file, load) -> int:
 
 
 def _is_untouched_local_copy(relative_path: str, root: Path, target: Path, copied: list[str]) -> bool:
-    """미추적 파일이 기억한 복사 세트(파일·`폴더/`) 안에 있고 원본과 내용이 같은가"""
+    """Is the untracked file inside the remembered copy set (files · `folder/`) and identical to the original"""
     is_in_copied_set = any(
         relative_path == copied_entry.rstrip("/")
         or (copied_entry.endswith("/") and relative_path.startswith(copied_entry))
@@ -100,15 +100,15 @@ def _is_untouched_local_copy(relative_path: str, root: Path, target: Path, copie
 
 
 def _split_dirty(root: Path, target: Path, copied: list[str]) -> tuple[list[str], list[str]]:
-    """status > (진짜 변경, 원본과 같은 복사본). 복사본은 copy 가 깐 것이라 지워도 잃는 것이 없다"""
-    # -z: 한글 경로가 따옴표·8진수로 바뀌지 않게, untracked=all: 폴더 대신 파일 단위로 비교
+    """status > (real changes, copies identical to the original). Copies were laid down by copy, so deleting them loses nothing"""
+    # -z: keeps non-ASCII paths from turning into quoted octal; untracked=all: compare per file, not per folder
     status = _git(target, "status", "--porcelain", "-z", "--untracked-files=all").stdout
     changes, local_copies = [], []
     entries = iter(status_entry for status_entry in status.split("\0") if status_entry.strip())
     for entry in entries:
         status_code, relative_path = entry[:2], entry[3:]
         if status_code[0] in "RC":
-            next(entries, None)  # -z 의 rename·copy 는 원래 경로가 다음 칸에 따로 온다
+            next(entries, None)  # with -z, rename/copy sends the original path in the next field
         if status_code == "??" and _is_untouched_local_copy(relative_path, root, target, copied):
             local_copies.append(relative_path)
         else:
@@ -117,9 +117,9 @@ def _split_dirty(root: Path, target: Path, copied: list[str]) -> tuple[list[str]
 
 
 def cmd_remove(args, toplevel, memory_file, load) -> int:
-    """worktree 제거: 미커밋 변경이 있으면 거절(dirty), --force 는 사용자가 정한 뒤에만.
+    """Remove a worktree: refuse (dirty) with uncommitted changes; --force only after the user decides.
 
-    기억한 복사 세트 중 원본과 같은 미추적 파일은 변경으로 세지 않는다 (#974).
+    Untracked files in the remembered copy set that match the original are not counted as changes (#974).
     """
     root = toplevel(args.root)
     path = args.path or (_worktree_path_of(root, args.branch) if args.branch else None)
@@ -136,7 +136,7 @@ def cmd_remove(args, toplevel, memory_file, load) -> int:
                      "ignored_local_copies": local_copies,
                      "error": f"{len(dirty)} uncommitted changes",
                      "next": "Preserve the changes you need, then retry with --force only if the user decides they can be discarded"})
-    # 남은 미추적이 원본과 같은 복사본뿐이면 git 이 거절하지 않게 --force (잃는 것 없음)
+    # If the only untracked files left are copies identical to the original, --force so git does not refuse (nothing lost)
     should_force_git = bool(args.force or local_copies)
     args_git = ["worktree", "remove", *(["--force"] if should_force_git else []), str(target)]
     res = _git(root, *args_git)

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""image_cli: pro-image 실행·사실 수집 CLI — 프롬프트 작성과 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
-이미지 도구는 우선순위 순(기본 codex > antigravity > claude-vector), 표준 라이브러리 전용 (Pillow 는 있으면 사용)
+"""image_cli: pro-image run and fact-gathering CLI — the agent writes prompts and decides; output is always JSON (ok, code, summary, next)
+Image tools in priority order (default codex > antigravity > claude-vector), stdlib only (uses Pillow if present)
 """
 from __future__ import annotations
 
@@ -21,23 +21,23 @@ class _BadArgumentsExit(Exception):
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
-    """인자 오류를 stderr 대신 JSON 으로 돌려주기 위한 파서"""
+    """Parser that returns argument errors as JSON instead of stderr"""
 
     def error(self, message):
         raise _BadArgumentsExit(message)
 
 
-# 전역 출력 옵션 (scripts/common/emit.py 와 같은 계약, #1181) — 이 CLI 는 common 을 쓰지 않아 작은 사본
-# --brief 에서 남기는 안내 키 / 목록 행의 식별 키
+# Global output options (same contract as scripts/common/emit.py, #1181) — this CLI does not use common, so a small copy
+# Guidance keys kept by --brief / identity keys of list rows
 _BRIEF_GUIDE_KEYS = ("ok", "code", "summary", "next", "error", "hint", "usage", "example", "count", "warning", "warnings")
 _BRIEF_ROW_KEYS = ("number", "id", "run_id", "job_id", "title", "name", "state", "status", "conclusion")
-# --field a.b: 값 그대로 / --fields a,b: 항상 {경로: 값} JSON
+# --field a.b: raw value / --fields a,b: always {path: value} JSON
 _FIELD_OPTIONS = ("--field", "--fields")
 _output_options: dict = {"brief": False, "field": None, "should_return_object": False}
 
 
 def _extract_output_options(argv: list[str]) -> list[str]:
-    """argv 에서 --brief · --field(s) 를 꺼내 _output_options 에 담고 나머지 argv 반환"""
+    """Pull --brief and --field(s) out of argv into _output_options, return the rest of argv"""
     rest, skip_next = [], False
     for position, token in enumerate(argv):
         option_name, has_inline_value, inline_value = token.partition("=")
@@ -55,7 +55,7 @@ def _extract_output_options(argv: list[str]) -> list[str]:
 
 
 def _lookup(payload, dotted_path: str):
-    """a.b.0 경로 > 값 (없으면 KeyError·IndexError·ValueError)"""
+    """a.b.0 path > value (KeyError, IndexError, ValueError if missing)"""
     current = payload
     for part in dotted_path.split("."):
         current = current[int(part)] if isinstance(current, list) else current[part]
@@ -63,7 +63,7 @@ def _lookup(payload, dotted_path: str):
 
 
 def _shape_output(payload: dict):
-    """성공 응답에 --field(s) 적용, 그 외 --brief 적용 (오류 응답은 --field 로 가리지 않음)"""
+    """Apply --field(s) to success responses, --brief otherwise (error responses are not filtered by --field)"""
     field = _output_options["field"]
     if field and payload["ok"]:
         paths = [path.strip() for path in field.split(",") if path.strip()]
@@ -92,12 +92,12 @@ def emit(payload: dict) -> int:
     payload.setdefault("summary", None)
     payload.setdefault("next", None)
     shaped = _shape_output(payload)
-    # --field 값이 문자열이면 글자 그대로 (common 과 같음)
+    # String --field values print verbatim (same as common)
     if isinstance(shaped, str):
         sys.stdout.write(shaped + "\n")
         sys.stdout.flush()
         return 0
-    # UTF-8 아닌 콘솔(Windows cp949·cp1252): 한글 경로를 \uXXXX 로 (? 치환은 경로를 망가뜨림, JSON 은 그대로 복원)
+    # Non-UTF-8 console (Windows cp949, cp1252): non-ASCII paths as \uXXXX (? replacement breaks paths; JSON restores them)
     is_utf8_stdout = (getattr(sys.stdout, "encoding", "") or "").lower().replace("-", "") == "utf8"
     sys.stdout.write(json.dumps(shaped, ensure_ascii=not is_utf8_stdout, default=str) + "\n")
     sys.stdout.flush()
@@ -116,7 +116,7 @@ def _add_generation_commands(commands_parser) -> None:
     run.add_argument("--prompt", required=True, help="prompt file the agent wrote")
     run.add_argument("--size", required=True, help="final size, e.g. 1536x1024")
     run.add_argument("--alpha", action="store_true", help="transparent background required")
-    # extend: --ref 반복 시 앞의 목록을 덮지 않고 누적 (#1183)
+    # extend: repeated --ref accumulates instead of overwriting the earlier list (#1183)
     run.add_argument("--ref", nargs="+", action="extend", help="reference images to attach (repeatable)")
     run.add_argument("--provider", help="tool to use (default: first ready one in image.priority)")
     run.add_argument("--key-color", help="background key for tools without transparency (default #00FF00)")
@@ -195,7 +195,7 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         return emit({"ok": False, "code": "interrupted", "summary": "Stopped by the user"})
     except (RuntimeError, OSError, ValueError) as error:
-        # 변환 도구 없음·읽을 수 없는 이미지·지원 안 하는 PNG 형식 (UnsupportedPng 는 ValueError)
+        # No converter, unreadable image, unsupported PNG format (UnsupportedPng is a ValueError)
         return emit({"ok": False, "code": "image_tool_failed", "summary": str(error)[-400:],
                      "next": "install Pillow (pip install pillow) for JPEG/WebP input, or pass a PNG"})
 

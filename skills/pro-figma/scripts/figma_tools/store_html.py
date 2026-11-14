@@ -1,7 +1,7 @@
-"""스토어 이미지 1장의 HTML 생성 (#1021)
+"""HTML for one store image (#1021)
 
-기기 틀은 CSS 로 그린 중립 사각형 — 서드파티 기기 이미지를 쓰지 않는다.
-크기 기준값은 캔버스 너비(W)·높이(H) 비율로 계산해 어느 슬롯 크기에서도 같은 모양이 나온다.
+The device frame is a neutral CSS-drawn rectangle — no third-party device images.
+Sizes derive from canvas width (W)·height (H) ratios, so the shape is the same at any slot size.
 """
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from pathlib import Path
 
 from figma_tools.store_scenes import BANNER_LAYOUT
 
-# 글자 넘침 검사 대상 표시 (렌더 스크립트가 이 속성을 찾는다)
+# Marks text-overflow check targets (the render script looks for this attribute)
 FIT_ATTRIBUTE = "data-fit"
 DEVICE_FRAME_COLOR = "#101418"
 
 
 def _text_html(text: str) -> str:
-    """이스케이프 후 줄바꿈만 <br> 로 (제목에 \\n 허용)"""
+    """Escape, then only line breaks become <br> (\\n allowed in titles)"""
     return html.escape(text).replace("\n", "<br>")
 
 
@@ -50,7 +50,7 @@ def build_html(job: dict, theme: dict) -> str:
 
 
 def _caption_parts(job: dict, theme: dict) -> tuple[str, str]:
-    """문구 + 기기 틀(앱 캡처). caption-top 은 문구가 위, caption-bottom 은 아래"""
+    """Caption + device frame (app capture). caption-top puts the caption above, caption-bottom below"""
     width, height = job["width"], job["height"]
     side_pad = round(width * 0.07)
     margin = round(height * 0.05)
@@ -83,7 +83,7 @@ def _caption_parts(job: dict, theme: dict) -> tuple[str, str]:
 
 
 def _banner_parts(job: dict, theme: dict) -> tuple[str, str]:
-    """문구만(+ 선택 아이콘) 있는 가로 배너 (Play 그래픽 이미지 등)"""
+    """Horizontal banner with caption only (+ optional icon) (Play feature graphic etc.)"""
     width, height = job["width"], job["height"]
     pad = round(height * 0.12)
     icon_size = round(height * 0.52)

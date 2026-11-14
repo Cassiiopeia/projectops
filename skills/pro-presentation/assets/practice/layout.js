@@ -1,17 +1,17 @@
-// 연습 화면 배치: 글자 크기(A- A+) · 경계 끌기(오른쪽 열 너비, 슬라이드 높이) > 덱에 저장 (.presentation/layout.json)
-// practice.js 의 전역(elements)과 slides.js 의 fitSlideFrame 을 씀. 바뀌면 "layout-changed" 이벤트 (popout.js 가 다른 창에 전달)
+// Practice screen layout: font size (A- A+) · border drag (right column width, slide height) > saved to the deck (.presentation/layout.json)
+// Uses practice.js globals (elements) and slides.js fitSlideFrame. Fires a "layout-changed" event on change (popout.js relays it to other windows)
 "use strict";
 
-// 글자 배율 한 번에 10%
+// Font scale step: 10%
 const SCALE_STEP = 0.1;
 const SCALE_RANGE = [0.5, 2.5];
 const PANEL_WIDTH_RANGE_PIXELS = [200, 2400];
-// 오른쪽 열 최대 너비 (창 너비 대비, practice.css main 의 70vw 와 같은 값)
+// Max right column width (relative to window width, same as 70vw in practice.css main)
 const PANEL_WIDTH_MAXIMUM_RATIO = 0.7;
 const SLIDE_HEIGHT_RATIO_RANGE = [0.1, 0.9];
 const SLIDE_ASPECT_RATIO = 16 / 9;
 const LAYOUT_SAVE_DELAY_MILLISECONDS = 300;
-// 배치 값 > CSS 변수 (값이 없으면 변수를 지워 practice.css 기본값)
+// Layout values > CSS variables (a missing value removes the variable, falling back to practice.css defaults)
 const LAYOUT_CSS_VARIABLES = {
   script_scale: ["--script-scale", (scale) => String(scale)],
   panel_scale: ["--panel-scale", (scale) => String(scale)],
@@ -24,7 +24,7 @@ let layoutSaveTimer = null;
 
 const clampToRange = (number, [minimum, maximum]) => Math.min(maximum, Math.max(minimum, number));
 
-// 배치 > 화면 (CSS 변수 + 배율 표시)
+// Layout > screen (CSS variables + scale display)
 function applyLayout(nextLayout) {
   layout = nextLayout;
   for (const [name, [property, formatValue]] of Object.entries(LAYOUT_CSS_VARIABLES)) {
@@ -36,7 +36,7 @@ function applyLayout(nextLayout) {
   }
 }
 
-// 값 하나 바꾸기 (null = 기본값): 화면 반영 > 다른 창에 알림 > 잠시 뒤 저장 (끄는 동안 요청이 몰리지 않게)
+// Change one value (null = default): apply on screen > notify other windows > save shortly after (so dragging does not flood requests)
 function changeLayout(name, nextValue) {
   const nextLayout = { ...layout };
   if (nextValue == null) delete nextLayout[name];
@@ -50,10 +50,10 @@ function changeLayout(name, nextValue) {
 async function saveLayout() {
   try {
     await fetch("/api/layout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(layout) });
-  } catch { /* 저장 실패: 화면 배치는 그대로, 다음 변경 때 다시 저장 */ }
+  } catch { /* Save failed: keep the on-screen layout, retry on the next change */ }
 }
 
-// 글자 크기 단추: data-step -1 작게 · 0 기본값 · 1 크게
+// Font size buttons: data-step -1 smaller · 0 default · 1 larger
 for (const group of document.querySelectorAll("[data-scale]")) {
   group.addEventListener("click", (event) => {
     const button = event.target.closest("[data-step]");
@@ -64,7 +64,7 @@ for (const group of document.querySelectorAll("[data-scale]")) {
   });
 }
 
-// 경계 끌기: 누른 채 움직이면 값 계산, 두 번 누르면 기본값
+// Border drag: compute value while held and moved, double-click resets to default
 function enableSplitter(splitter, name, readValueAtPointer) {
   splitter.addEventListener("pointerdown", (event) => {
     event.preventDefault();
@@ -80,7 +80,7 @@ function enableSplitter(splitter, name, readValueAtPointer) {
   splitter.addEventListener("dblclick", () => changeLayout(name, null));
 }
 
-// 오른쪽 열 너비: 열 오른쪽 끝 <-> 손잡이 가운데 (손잡이와 열 사이 간격 제외)
+// Right column width: column right edge <-> handle center (excluding the gap between handle and column)
 enableSplitter(elements.columnSplitter, "panel_width_pixels", (event) => {
   const panelRight = elements.sidePanel.getBoundingClientRect().right;
   const gapPixels = elements.sidePanel.getBoundingClientRect().left - elements.columnSplitter.getBoundingClientRect().right;
@@ -89,7 +89,7 @@ enableSplitter(elements.columnSplitter, "panel_width_pixels", (event) => {
   return Math.round(clampToRange(widthPixels, [PANEL_WIDTH_RANGE_PIXELS[0], maximumPixels]));
 });
 
-// 슬라이드 높이: 슬라이드 위 끝 <-> 손잡이 (사이의 이전·다음 줄 높이 제외). 무대 너비가 허락하는 높이까지만
+// Slide height: slide top edge <-> handle (excluding the prev/next row in between). Only up to the height the stage width allows
 enableSplitter(elements.rowSplitter, "slide_height_ratio", (event) => {
   const frame = elements.slideFrame.getBoundingClientRect();
   const navigationPixels = elements.rowSplitter.getBoundingClientRect().top - frame.bottom;
@@ -98,7 +98,7 @@ enableSplitter(elements.rowSplitter, "slide_height_ratio", (event) => {
   return Math.round(clampToRange(heightPixels / window.innerHeight, [SLIDE_HEIGHT_RATIO_RANGE[0], maximumRatio]) * 1000) / 1000;
 });
 
-// 슬라이드 칸 크기가 바뀌면 (경계 끌기 · 창 분리 · 창 크기) iframe 배율 다시 맞춤
+// When the slide cell size changes (border drag · pop-out · window size), refit the iframe scale
 new ResizeObserver(fitSlideFrame).observe(elements.slideFrame);
 
 (async function loadLayout() {

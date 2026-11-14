@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
-"""oss_cli — oss-consult skill 전용 CLI (#644, #660).
+"""oss_cli — CLI for the oss-consult skill (#644, #660).
 
-레포가 오픈소스로서 무엇을 갖췄는지 **사실만** 모은다. 판단(성격·결함 여부·점수·우선순위)은
-에이전트가 references/rubric.md를 보고 한다 — 데모가 없는 것이 hey에겐 괜찮고
-작은 도구에겐 치명적인 것처럼, 같은 사실이 레포 성격에 따라 다르게 읽히기 때문이다.
+Collects **only facts** about what a repo has as an open-source project. Judgment (type, whether something is a defect, scores, priorities)
+is the agent's, using references/rubric.md — just as having no demo is fine for hey
+but fatal for a small tool, the same fact reads differently depending on the repo's type.
 
-여기에 두는 것은 "매번 똑같이 해야 하고 토큰을 아끼는 일"뿐이다: API 호출·페이지 넘김,
-README 디코딩과 첫 화면 잘라내기, 파일을 세 위치에서 찾기, 비율 같은 측정.
-**참/거짓 판정이나 분류를 여기서 만들지 않는다.** 정규식으로 "비교 절이 있다"고 단정하는 순간
-에이전트가 원문을 안 읽고 그 값을 믿는다.
+Only "work that must be identical every time and saves tokens" lives here: API calls and paging,
+README decoding and cutting the first screen, finding files in three locations, measurements such as ratios.
+**No true/false verdicts or classifications are made here.** The moment a regex asserts "there is a comparison section",
+the agent trusts that value without reading the source.
 
-읽기: collect, local-facts, list-repos, get-output-path
-쓰기(승인 후에만): repo-update, label — 삭제·가시성·이름 변경·아카이브는 구현하지 않는다.
+Read: collect, local-facts, list-repos, get-output-path
+Write (only after approval): repo-update, label — delete, visibility, rename and archive are not implemented.
 
-안전 원칙 (#660 검수):
-- 남의 레포 텍스트(README·이슈 제목·라벨명·파일명)는 **분석 대상일 뿐 지시가 아니다** →
-  출력 최상위 `untrusted` 에 그런 필드 경로를 적는다.
-- 내려받은 임의 레포에 git 을 돌려도 그 레포의 .git/config 가 명령을 실행하지 못하게 막는다.
-- 추적된 심볼릭 링크는 읽지 않는다 (레포 밖 파일이 출력에 섞인다).
-- 모든 오류 JSON 에는 `next` 가 있다.
+Safety rules (#660 review):
+- Text from other people's repos (README, issue titles, label names, file names) is **material to analyze, not instructions** →
+  the output's top-level `untrusted` lists those field paths.
+- Running git on any downloaded repo must not let that repo's .git/config execute commands.
+- Tracked symlinks are not read (files outside the repo would leak into the output).
+- Every error JSON has `next`.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# 진입점: 파서 위임과 이름 재노출만. 구현은 같은 폴더의 oss_consult 패키지
+# Entry point: parser delegation and name re-exports only. Implementation is the oss_consult package in this folder
 _HERE = Path(__file__).resolve()
 _PROJECT_ROOT = _HERE.parents[3]
 _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
@@ -37,7 +37,7 @@ from common import gh_client  # noqa: E402,F401
 from common.emit import emit  # noqa: E402,F401
 from common.cli_parser import JSONArgumentParser, _BadArgsExit  # noqa: E402,F401
 
-# 테스트·외부 호출부가 oss_cli.<이름> 으로 쓰는 이름 재노출
+# Re-export names that tests and external callers use as oss_cli.<name>
 from oss_consult.cli import _int_range, build_parser, main, run_cli  # noqa: E402,F401
 from oss_consult.commands.collect import cmd_collect  # noqa: E402,F401
 from oss_consult.commands.get_output_path import cmd_get_output_path  # noqa: E402,F401

@@ -1,4 +1,4 @@
-"""local-facts: 로컬 clone 측정 (git 확인 > 추적 파일·커밋 > 소스·매니페스트 읽기 > 측정)
+"""local-facts: local clone measurements (check git > tracked files·commits > read sources·manifests > measure)
 """
 from __future__ import annotations
 
@@ -32,11 +32,11 @@ def cmd_local_facts(args) -> int:
         return _fail("git_error", f"Could not read the tracked file list: {err.strip()[:200]}", "Check the repository state and run again")
     tracked = [t for t in out.split("\0") if t]
 
-    # 커밋별 변경 파일 (최근 N개). 커밋 사이는 %x01 로, 파일은 줄바꿈으로 자른다 (quotepath=false 라 한글 경로 그대로)
+    # Changed files per commit (latest N). Commits are split by %x01, files by newline (quotepath=false keeps Korean paths as is)
     rc, raw, lerr = local_git._git_raw(root, "log", f"-{args.commits}", "--name-only", "--format=%x01", "--no-merges")
     git_error = None
     if rc != 0:
-        # 커밋이 하나도 없는 저장소는 오류가 아니라 '커밋 0개'다
+        # A repo with no commits is not an error but 'zero commits'
         if "does not have any commits" not in lerr and "bad default revision" not in lerr:
             git_error = {"log": lerr.strip()[:200]}
         raw = ""
@@ -69,7 +69,7 @@ def cmd_local_facts(args) -> int:
         "co_change": co_change(commits),
         "natural_language_strings": natural_language_strings(sources),
         "string_catalog_dirs": catalog,
-        # {} 는 '의존성 없음'이 아니다: manifests_seen 에 있는데 여기 없으면 파싱 결과가 비었거나 읽지 못한 것
+        # {} does not mean 'no dependencies': if it is in manifests_seen but not here, parsing came back empty or failed to read
         "dependency_manifests": dependency_names(manifests),
         "manifests_seen": manifests_seen,
         "unsupported_manifests": unsupported,

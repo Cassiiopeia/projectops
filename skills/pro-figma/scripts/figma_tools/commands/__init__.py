@@ -1,1 +1,1 @@
-"""figma_cli 서브커맨드: 모듈 하나에 명령 하나"""
+"""figma_cli subcommands: one command per module"""

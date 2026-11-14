@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-ssh_connect.py — paramiko 기반 범용 SSH 접속 스크립트  [사용 중단 예정 — 호환용]
+ssh_connect.py — general SSH script built on paramiko  [to be deprecated — kept for compatibility]
 
-정본은 `pro-launch` 의 `launch_cli.py ssh --cred <서버> --command '…'` 다 (#841).
-그쪽은 서버 이름으로 접속하고, 비밀번호를 명령줄에 싣지 않으며, 출력의 비밀을 가리고,
-서버별 기억(OS · docker 경로)을 응답에 싣는다. 이 스크립트는 launch 를 쓸 수 없는 환경
-(sshpass 가 없는 Windows 등)을 위한 대체 경로로만 남긴다.
+The canonical path is `pro-launch`'s `launch_cli.py ssh --cred <server> --command '…'` (#841).
+It connects by server name, keeps the password off the command line, masks secrets in output,
+and adds per-server memory (OS · docker path) to the response. This script stays only as a fallback
+for environments that cannot use launch (e.g. Windows without sshpass).
 
-  - 비밀번호는 `--password` 대신 환경변수 SSH_PASSWORD 로 받는 것을 권장한다 (argv 는 ps 로 보인다).
-  - 출력에 비밀번호가 섞이면 `***` 로 가린다.
+  - Prefer passing the password through the SSH_PASSWORD env var instead of `--password` (argv is visible in ps).
+  - If the password shows up in output, it is masked as `***`.
 
-지원:
-  - 비밀번호 인증 (auth=password)
-  - PEM 키 인증 (auth=key, AWS EC2 등)
-  - macOS / Linux / Windows (PowerShell 5.x 포함) 크로스플랫폼
+Supports:
+  - Password auth (auth=password)
+  - PEM key auth (auth=key, AWS EC2 etc.)
+  - macOS / Linux / Windows (including PowerShell 5.x) cross-platform
 
-사용법:
+Usage:
   python ssh_connect.py --host HOST --port PORT --user USER
                         --auth password --password PASS
                         --command "CMD"
@@ -26,25 +26,25 @@ ssh_connect.py — paramiko 기반 범용 SSH 접속 스크립트  [사용 중�
                         --command "CMD"
 """
 
-from __future__ import print_function  # Python 2 하위 호환 (만약을 위해)
+from __future__ import print_function  # Python 2 compatibility (just in case)
 
 import sys
 import os
 import argparse
 
-# cp949 콘솔에서 인코딩 못 하는 글자 하나로 도움말까지 죽지 않게 한다
+# Keep one character the cp949 console cannot encode from killing even the help output
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(errors="replace")
 
 # ──────────────────────────────────────────────
-# paramiko 는 실제 접속 직전에 불러온다 (--help·인자 오류는 paramiko 없이도 동작)
+# paramiko is imported right before connecting (--help and argument errors work without paramiko)
 # ──────────────────────────────────────────────
 paramiko = None
 
 
 def _require_paramiko():
-    """paramiko 를 지연 import 한다. 없으면 설치 안내 후 종료."""
+    """Lazily import paramiko. If missing, print install instructions and exit."""
     global paramiko
     try:
         import paramiko as _paramiko
@@ -60,14 +60,14 @@ import traceback
 
 
 def _expand_path(path):
-    """~ 및 환경변수를 포함한 경로를 절대 경로로 변환한다."""
+    """Turn a path containing ~ and env vars into an absolute path."""
     if path is None:
         return None
     return os.path.expandvars(os.path.expanduser(path))
 
 
 def _new_client():
-    """StrictHostKeyChecking=accept-new 와 같다: 처음 보는 키는 known_hosts 에 저장, 바뀐 키는 BadHostKeyException."""
+    """Same as StrictHostKeyChecking=accept-new: store unseen keys in known_hosts, changed keys raise BadHostKeyException."""
     known_hosts = os.path.join(os.path.expanduser("~"), ".ssh", "known_hosts")
     client = paramiko.SSHClient()
     try:
@@ -82,7 +82,7 @@ def _new_client():
 
 
 def _connect_password(host, port, user, password, timeout=15):
-    """비밀번호 인증으로 SSH 클라이언트를 연결하고 반환한다."""
+    """Connect an SSH client with password auth and return it."""
     client = _new_client()
     client.connect(
         hostname=host,
@@ -90,14 +90,14 @@ def _connect_password(host, port, user, password, timeout=15):
         username=user,
         password=password,
         timeout=timeout,
-        look_for_keys=False,   # 키 파일 자동 탐색 비활성화
-        allow_agent=False,     # SSH 에이전트 비활성화 (비밀번호 전용 보장)
+        look_for_keys=False,   # disable automatic key file lookup
+        allow_agent=False,     # disable the SSH agent (password only)
     )
     return client
 
 
 def _connect_key(host, port, user, key_path, timeout=15):
-    """PEM 키 인증으로 SSH 클라이언트를 연결하고 반환한다."""
+    """Connect an SSH client with PEM key auth and return it."""
     key_path = _expand_path(key_path)
     if not os.path.isfile(key_path):
         print("[ERROR] PEM key file not found: " + key_path)
@@ -118,14 +118,14 @@ def _connect_key(host, port, user, key_path, timeout=15):
 
 def run_command(client, command):
     """
-    SSH 채널로 명령을 실행하고 stdout/stderr/exit_code를 반환한다.
-    타임아웃 없이 명령 완료까지 대기한다 (get_pty=True로 sudo 대화형 대체).
+    Run a command over an SSH channel and return stdout/stderr/exit_code.
+    Waits until the command finishes with no timeout (get_pty=True stands in for interactive sudo).
     """
-    # get_pty=True: sudo 등 터미널 필요한 명령 지원
+    # get_pty=True: supports commands that need a terminal, such as sudo
     stdin, stdout, stderr = client.exec_command(command, get_pty=False)
     exit_code = stdout.channel.recv_exit_status()
 
-    # 바이트 스트림을 UTF-8로 디코딩 (오류 문자는 replace 처리)
+    # Decode the byte stream as UTF-8 (bad characters replaced)
     out = stdout.read().decode("utf-8", errors="replace").rstrip()
     err = stderr.read().decode("utf-8", errors="replace").rstrip()
     return out, err, exit_code
@@ -154,12 +154,12 @@ def main():
     )
 
     args = parser.parse_args()
-    # 비밀번호는 환경변수가 우선 — argv 에 남기지 않는 경로
+    # The env var wins for the password — the path that keeps it out of argv
     if args.password is None:
         args.password = os.environ.get("SSH_PASSWORD") or None
     print("[NOTICE] ssh_connect.py is kept for compatibility. Use launch_cli.py ssh --cred <server>.", file=sys.stderr)
 
-    # ── 인자 검증 ──────────────────────────────────
+    # ── Validate arguments ──────────────────────────────────
     if args.auth == "password" and not args.password:
         print("[ERROR] --auth password requires --password.")
         sys.exit(1)
@@ -167,7 +167,7 @@ def main():
         print("[ERROR] --auth key requires --key-path.")
         sys.exit(1)
 
-    # ── 접속 ───────────────────────────────────────
+    # ── Connect ───────────────────────────────────────
     _require_paramiko()
     client = None
     try:
@@ -200,7 +200,7 @@ def main():
         traceback.print_exc()
         sys.exit(1)
 
-    # ── 명령 실행 ──────────────────────────────────
+    # ── Run the command ──────────────────────────────────
     try:
         out, err, exit_code = run_command(client, args.command)
     except Exception as e:
@@ -210,15 +210,15 @@ def main():
     finally:
         client.close()
 
-    # ── 결과 출력 ──────────────────────────────────
-    # 서버가 환경변수 등을 되풀이해 찍으면 비밀번호가 화면에 남는다 — 가린다
+    # ── Print the result ──────────────────────────────────
+    # If the server echoes env vars and such, the password stays on screen — mask it
     if args.password and len(args.password) >= 4:
         out = out.replace(args.password, "***")
         err = err.replace(args.password, "***")
     if out:
         print(out)
     if err:
-        # stderr는 구분을 위해 접두어 표시
+        # Prefix stderr to tell it apart
         for line in err.splitlines():
             print("[STDERR] " + line)
 

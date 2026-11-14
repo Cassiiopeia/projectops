@@ -1,4 +1,4 @@
-"""Actions 서브커맨드: actions (진단: show-run|joblog|list-failed|resolve-pr|resolve-branch, 실행: runs|dispatch|rerun|wait|cancel)."""
+"""Actions subcommand: actions (diagnose: show-run|joblog|list-failed|resolve-pr|resolve-branch, run: runs|dispatch|rerun|wait|cancel)."""
 from __future__ import annotations
 
 from common.emit import emit
@@ -9,10 +9,10 @@ from pro_github.responses import api_error, missing_pat
 
 
 def read_numeric_argument(args, name: str):
-    """위치 인자를 숫자로 읽는다. 없거나 숫자가 아니면 그 사실을 말해 준다.
+    """Read a positional argument as a number. If missing or not a number, say so.
 
-    파서에서 `type=int` 로 걸면 argparse 가 무엇이 잘못됐는지 못 알려준 채
-    죽는다 (#622 에서 `invalid int value: 'develop'` 이 그랬다).
+    With `type=int` on the parser, argparse dies without saying what was wrong
+    (that is what `invalid int value: 'develop'` did in #622).
     """
     raw = args.arg
     if raw is None:
@@ -27,16 +27,16 @@ def read_numeric_argument(args, name: str):
                            "hint": f"actions {args.sub} {args.owner} {args.repo} <{name}>"})
 
 
-# 한 번 호출로 기다릴 수 있는 최대 시간 (하네스의 명령 시간 상한 안에서 끝나게)
+# Maximum wait for one call (so it finishes within the harness command time limit)
 _WAIT_MAX_SECONDS = 540
 
-# actions 의 동작 이름 (첫 위치 인자)
+# actions operation names (first positional argument)
 ACTIONS_SUBCOMMANDS = ("show-run", "joblog", "list-failed", "resolve-pr", "resolve-branch",
                        "runs", "dispatch", "rerun", "wait", "cancel")
 
 
 def _misplaced_subcommand_response(args) -> int:
-    """첫 인자가 동작 이름이 아님 > 뒤에 동작 이름이 있으면 올바른 순서 안내, 없으면 목록 안내"""
+    """First argument is not an operation name > if one comes later, show the right order; otherwise list them"""
     import difflib
     given = [args.sub, args.owner, args.repo, args.arg, *args.extra_values]
     given = [value for value in given if value is not None]
@@ -56,7 +56,7 @@ def _misplaced_subcommand_response(args) -> int:
 
 
 def _read_run_ids(args) -> tuple:
-    """wait 대상 run id 여러 개 > ([정수], None) / (None, 오류 응답)"""
+    """Several run ids for wait > ([int], None) / (None, error response)"""
     first_run_id, err = read_numeric_argument(args, "run_id")
     if err is not None:
         return None, err
@@ -70,7 +70,7 @@ def _read_run_ids(args) -> tuple:
 
 
 def _parse_inputs(pairs):
-    """["a=1", "b=x=y"] > ({"a": "1", "b": "x=y"}, None). 형식이 틀리면 (None, 틀린 값)"""
+    """["a=1", "b=x=y"] > ({"a": "1", "b": "x=y"}, None). On a bad format (None, bad value)"""
     parsed = {}
     for pair in pairs or []:
         key, separator, value = pair.partition("=")
@@ -81,7 +81,7 @@ def _parse_inputs(pairs):
 
 
 def cmd_actions(args, api) -> int:
-    # 인자 순서 오류는 PAT 없이도 알려 준다
+    # Argument order errors are reported even without a PAT
     if args.sub not in ACTIONS_SUBCOMMANDS:
         return _misplaced_subcommand_response(args)
     pat = api.get_github_pat(args.owner, args.repo)
@@ -121,7 +121,7 @@ def cmd_actions(args, api) -> int:
                 "next": None if result.get("matched_count") else "no matches; pass --grep, or save the full log with --out and read it",
             })
         elif args.sub == "runs":
-            # 워크플로 파일: 위치 인자 또는 --workflow (#1009)
+            # Workflow file: positional argument or --workflow (#1009)
             workflow_file = args.arg or args.workflow
             result = api.list_runs(args.owner, args.repo, pat, workflow=workflow_file, branch=args.on_branch,
                                    status=args.status, limit=args.limit, event=args.event, created=args.created)
@@ -135,7 +135,7 @@ def cmd_actions(args, api) -> int:
             inputs, bad = _parse_inputs(args.input)
             if bad:
                 return emit({"ok": False, "code": "bad_argument", "error": f"--input must be key=value: {bad}"})
-            # 고정 checkout ref 가 --ref 와 다르면 막는다 (다른 브랜치 빌드·버전 소모 방지, #1185)
+            # Block when a fixed checkout ref differs from --ref (avoids building another branch and burning a version, #1185)
             fixed_refs = None if args.force else check_dispatch_ref(api, args.owner, args.repo, args.arg, args.ref, pat)
             if fixed_refs:
                 refs = sorted({item["ref"] for item in fixed_refs})
@@ -217,7 +217,7 @@ def cmd_actions(args, api) -> int:
 
 
 def _is_run_id(api, args, value: int, pat: str) -> bool:
-    """job 로그 404 일 때: 그 숫자가 run id 인지 (run 조회가 되면 run id)"""
+    """When the job log is 404: whether that number is a run id (run id if the run lookup works)"""
     try:
         api.get_run(args.owner, args.repo, value, pat)
         return True
@@ -226,7 +226,7 @@ def _is_run_id(api, args, value: int, pat: str) -> bool:
 
 
 def _emit_failed_jobs_of_run(args, api, pat: str) -> int:
-    """list-failed <run_id>: 그 run 의 실패 job 만"""
+    """list-failed <run_id>: only the failed jobs of that run"""
     run_id, err = read_numeric_argument(args, "run_id")
     if err is not None:
         return err
@@ -241,7 +241,7 @@ def _emit_failed_jobs_of_run(args, api, pat: str) -> int:
 
 
 def _emit_wait_many(args, api, run_ids: list, pat: str, timeout_seconds: int) -> int:
-    """여러 run 을 모두 끝날 때까지 기다린 결과"""
+    """Result of waiting until all runs finish"""
     result = api.wait_for_runs(args.owner, args.repo, run_ids, pat, timeout_seconds)
     failed_job_ids = [job_id for run in result["runs"] for job_id in run.get("failed_job_ids", [])]
     if not result["finished"]:
@@ -257,18 +257,18 @@ def _emit_wait_many(args, api, run_ids: list, pat: str, timeout_seconds: int) ->
                  "next": next_step})
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_actions(parser) -> None:
-    # choices 를 걸지 않는다: 인자 순서를 바꿔 부른 경우 argparse 대신 핸들러가 올바른 순서를 안내한다
+    # No choices here: when arguments are swapped, the handler (not argparse) explains the right order
     parser.add_argument("sub", metavar="{" + ",".join(ACTIONS_SUBCOMMANDS) + "}")
     parser.add_argument("owner")
     parser.add_argument("repo")
-    # ⚠️ 위치 인자는 **하나**여야 한다 (#622). argparse 는 값을 **왼쪽부터** 채우므로
-    # run_id·job_id·pr_number·branch 를 각자 선택 인자로 두면 어떤 서브커맨드든 첫 값이 run_id 가 된다.
+    # ⚠️ There must be **one** positional argument (#622). argparse fills values **from the left**, so
+    # with run_id·job_id·pr_number·branch as separate optional arguments, the first value always becomes run_id for every subcommand.
     parser.add_argument("arg", nargs="?",
                       help="run_id, job_id, pr_number or branch, depending on the action")
-    # wait 에 run id 를 더 줄 때만 쓰는 뒤쪽 값 (첫 값은 언제나 arg)
+    # Extra trailing values used only to give wait more run ids (the first value is always arg)
     parser.add_argument("extra_values", nargs="*", help="wait: more run_ids to wait for together")
     parser.add_argument("--grep", default=None,
                         help="joblog search regex (case-insensitive). Default: ##[error] lines and the output lines before them (script source excluded)")

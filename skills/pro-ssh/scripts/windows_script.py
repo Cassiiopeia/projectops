@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Windows 호스트에서 PowerShell·Python 스크립트 실행: 인코딩 > (작으면 한 번 / 크면 나눠 올림) > launch_cli ssh (#1189)
-따옴표·cmd 파싱 없음: 원격 명령은 `powershell -EncodedCommand <base64>` 하나 (cmd·PowerShell 기본 셸 공통)
+Run PowerShell·Python scripts on a Windows host: encode > (small: one call / large: upload in chunks) > launch_cli ssh (#1189)
+No quoting or cmd parsing: the remote command is a single `powershell -EncodedCommand <base64>` (works with cmd or PowerShell as default shell)
 
   python windows_script.py run --cred <server> --file check.py
   python windows_script.py run --cred <server> --lang powershell --code 'Get-Service sshd'
-  python windows_script.py run --cred <server> --file big.ps1 --dry-run   # 접속 없이 명령만
+  python windows_script.py run --cred <server> --file big.ps1 --dry-run   # print commands only, no connection
 """
 from __future__ import annotations
 
@@ -26,22 +26,22 @@ for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(errors="replace")
 
-# cmd.exe 명령줄 한도 8191자 (Windows OpenSSH 가 cmd /c 로 실행) > 여유 두고 8000
+# cmd.exe command line limit is 8191 chars (Windows OpenSSH runs via cmd /c) > 8000 with headroom
 MAX_REMOTE_COMMAND_CHARS = 8000
-# 나눠 올리기 1회분 base64 글자 수 (UTF-16 base64 로 약 2.7배 + 앞뒤 코드 > 8000 안쪽)
+# base64 chars per upload chunk (about 2.7x as UTF-16 base64 + wrapper code > stays under 8000)
 UPLOAD_CHUNK_CHARS = 2700
 POWERSHELL_LAUNCH = "powershell -NoProfile -NonInteractive -EncodedCommand "
 LANGUAGE_BY_SUFFIX = {".ps1": "powershell", ".py": "python"}
-# 원격 임시 폴더: %TEMP%\projectops-ssh-{토큰} (실행 후 삭제, 성공·실패 공통)
+# Remote temp folder: %TEMP%\projectops-ssh-{token} (deleted after running, on success or failure)
 REMOTE_FOLDER_PREFIX = "projectops-ssh-"
-# python 못 찾음 종료 코드 (ssh 가 하위 8비트만 전달 > 9009 는 49 로 보임)
+# Exit code when python is not found (ssh passes only the low 8 bits > 9009 shows up as 49)
 PYTHON_NOT_FOUND_EXIT_CODE = 127
 
-# 진행 표시(CLIXML progress) 끔 — 매 호출 stderr 에 '모듈 준비 중' 이 섞이는 원인
+# Turn off progress output (CLIXML progress) — the reason a 'preparing modules' line lands in stderr on every call
 _POWERSHELL_PRELUDE = "$ProgressPreference='SilentlyContinue'\n"
 
-# Python 찾기 순서: --python > PATH(python·python3, Store 스텁 제외) > 설치 폴더 > py 런처
-# (py 런처는 ssh 계정에 등록된 Python 이 없으면 'No installed Python found!' 로 실패)
+# Python lookup order: --python > PATH (python·python3, excluding the Store stub) > install folders > py launcher
+# (the py launcher fails with 'No installed Python found!' when the ssh account has no registered Python)
 _FIND_PYTHON = r"""
 $py=$null
 foreach($n in 'python','python3'){
@@ -55,14 +55,14 @@ if(-not $py){
 if(-not $py){ $c=Get-Command py -CommandType Application -ErrorAction SilentlyContinue; if($c){ $py=$c.Source } }
 """
 
-# Python 출력 UTF-8 고정 (cp949 콘솔에서 한글·이모지 깨짐 방지)
+# Pin Python output to UTF-8 (avoids garbled Korean and emoji on a cp949 console)
 _PYTHON_ENVIRONMENT = (
     "$u=New-Object System.Text.UTF8Encoding $false; [Console]::OutputEncoding=$u; $OutputEncoding=$u\n"
     "$env:PYTHONIOENCODING='utf-8'; $env:PYTHONUTF8='1'\n"
 )
 
-# PowerShell 오류 > 평문 stderr (리다이렉트된 stderr 는 CLIXML 로 나가기 때문)
-# 스크립트 오류는 종료 코드 1, 외부 프로그램 stderr 줄은 그대로 옮기기만 함
+# PowerShell errors > plain-text stderr (redirected stderr goes out as CLIXML)
+# Script errors exit with code 1; stderr lines from external programs are only passed through
 _POWERSHELL_RUNNER = r"""
 $rc=0
 try {
@@ -80,25 +80,25 @@ try {
 
 
 def quote_powershell_literal(text: str) -> str:
-    """임의 문자열 > PowerShell 작은따옴표 리터럴"""
+    """Any string > PowerShell single-quoted literal"""
     return "'" + text.replace("'", "''") + "'"
 
 
 def to_encoded_command(powershell_source: str) -> str:
-    """PowerShell 소스 > `powershell -EncodedCommand` 원격 명령 (UTF-16LE base64)"""
+    """PowerShell source > `powershell -EncodedCommand` remote command (UTF-16LE base64)"""
     return POWERSHELL_LAUNCH + base64.b64encode(powershell_source.encode("utf-16-le")).decode("ascii")
 
 
 def to_deflated_base64(text: str) -> str:
-    """UTF-8 텍스트 > raw deflate > base64 (.NET DeflateStream 과 같은 형식)"""
+    """UTF-8 text > raw deflate > base64 (same format as .NET DeflateStream)"""
     compressor = zlib.compressobj(9, zlib.DEFLATED, -15)
     return base64.b64encode(compressor.compress(text.encode("utf-8")) + compressor.flush()).decode("ascii")
 
 
 def build_python_locator(python_path: str | None) -> str:
-    """$py 정하기 (없으면 127 로 끝냄)"""
+    """Set $py (ends with 127 if none)"""
     locator = f"$py={quote_powershell_literal(python_path)}\n" if python_path else _FIND_PYTHON
-    # 실행 안 되는 경로면 127 로 끝나게 (LASTEXITCODE 비면 exit 0 이 됨)
+    # End with 127 if the path does not run (with an empty LASTEXITCODE it would become exit 0)
     locator += "if($py -and -not (Get-Command $py -ErrorAction SilentlyContinue)){ $py=$null }\n"
     return locator + (
         "if(-not $py){ [Console]::Error.WriteLine('[windows script] python not found: pass --python <path to python.exe>'); "
@@ -106,10 +106,10 @@ def build_python_locator(python_path: str | None) -> str:
 
 
 def build_inline_source(language: str, script_text: str, python_path: str | None) -> str:
-    """스크립트를 명령 안에 담는 PowerShell 소스 (작은 스크립트)"""
+    """PowerShell source that embeds the script in the command (small scripts)"""
     if language == "python":
         payload = to_deflated_base64(script_text)
-        # -c 인자에 큰따옴표·공백 없음 > PowerShell 5.1 의 인자 따옴표 제거 문제를 피함
+        # No double quotes or spaces in the -c argument > avoids PowerShell 5.1's argument quote stripping
         python_code = ("import base64,zlib;exec(compile(zlib.decompress(base64.b64decode('"
                        + payload + "'),-15).decode('utf-8'),'<script>','exec'))")
         return (_POWERSHELL_PRELUDE + _PYTHON_ENVIRONMENT + build_python_locator(python_path)
@@ -123,15 +123,15 @@ def build_remote_folder_expression(token: str) -> str:
 
 
 def build_upload_chunk_source(token: str, chunk: str) -> str:
-    """base64 조각 1개를 원격 임시 파일에 이어 붙임"""
+    """Append one base64 chunk to the remote temp file"""
     return (_POWERSHELL_PRELUDE + build_remote_folder_expression(token)
             + "[void](New-Item -ItemType Directory -Force -Path $d)\n"
             + f"[IO.File]::AppendAllText((Join-Path $d 'payload.b64'),{quote_powershell_literal(chunk)})\n")
 
 
 def build_upload_run_source(language: str, token: str, python_path: str | None) -> str:
-    """올린 조각 > 스크립트 파일 복원 > 실행 > 임시 폴더 삭제 (성공·실패 공통)"""
-    # .ps1 은 BOM 있는 UTF-8 이어야 PowerShell 5.1 이 한글을 읽음, .py 는 BOM 없이
+    """Uploaded chunks > restore the script file > run > delete the temp folder (on success or failure)"""
+    # .ps1 must be UTF-8 with BOM for PowerShell 5.1 to read Korean; .py goes without BOM
     file_name, has_bom = ("script.py", "$false") if language == "python" else ("script.ps1", "$true")
     if language == "python":
         run = _PYTHON_ENVIRONMENT + build_python_locator(python_path) + "  & $py $f\n  $rc=$LASTEXITCODE\n"
@@ -155,7 +155,7 @@ def build_cleanup_source(token: str) -> str:
 
 def plan_remote_commands(language: str, script_text: str, python_path: str | None,
                          should_force_upload: bool) -> dict:
-    """원격 명령 목록: 한 번에 담기면 inline 1개, 아니면 upload (조각 n개 + 실행 1개)"""
+    """Remote command list: one inline command if it fits, otherwise upload (n chunks + 1 run)"""
     inline_command = to_encoded_command(build_inline_source(language, script_text, python_path))
     if len(inline_command) <= MAX_REMOTE_COMMAND_CHARS and not should_force_upload:
         return {"mode": "inline", "commands": [inline_command], "token": None}
@@ -168,7 +168,7 @@ def plan_remote_commands(language: str, script_text: str, python_path: str | Non
 
 
 def strip_clixml(stderr_text: str) -> str:
-    """PowerShell CLIXML stderr > 오류 줄만 평문 (잘린 XML 도 처리)"""
+    """PowerShell CLIXML stderr > only the error lines as plain text (also handles truncated XML)"""
     if not stderr_text.lstrip().startswith("#< CLIXML"):
         return stderr_text
     pieces = re.findall(r'<S S="Error">(.*?)</S>', stderr_text, flags=re.DOTALL)
@@ -177,14 +177,14 @@ def strip_clixml(stderr_text: str) -> str:
 
 
 def find_launch_cli(override: str | None) -> Path | None:
-    """pro-launch 의 launch_cli.py (스킬 폴더가 형제로 설치됨)"""
+    """pro-launch's launch_cli.py (the skill folder is installed as a sibling)"""
     candidate = Path(override).expanduser() if override else (
         Path(__file__).resolve().parents[2] / "pro-launch" / "scripts" / "launch_cli.py")
     return candidate if candidate.is_file() else None
 
 
 def run_launch_ssh(launch_cli: Path, connection_arguments: list[str], remote_command: str, timeout_seconds: int) -> dict:
-    """launch_cli ssh 1회 > 응답 JSON"""
+    """One launch_cli ssh call > response JSON"""
     environment = dict(os.environ, PYTHONIOENCODING="utf-8")
     completed = subprocess.run(
         [sys.executable, str(launch_cli), "ssh", *connection_arguments, "--timeout", str(timeout_seconds),
@@ -198,7 +198,7 @@ def run_launch_ssh(launch_cli: Path, connection_arguments: list[str], remote_com
 
 
 def read_script(args) -> tuple[str | None, str | None, dict | None]:
-    """(스크립트 본문, 언어, 오류 응답)"""
+    """(script body, language, error response)"""
     if bool(args.file) == bool(args.code):
         return None, None, {"ok": False, "code": "bad_args", "error": "Give exactly one of --file or --code"}
     language = args.lang
@@ -207,7 +207,7 @@ def read_script(args) -> tuple[str | None, str | None, dict | None]:
         if not path.is_file():
             return None, None, {"ok": False, "code": "file_not_found", "error": f"No such file: {path}"}
         language = language or LANGUAGE_BY_SUFFIX.get(path.suffix.lower())
-        # utf-8-sig: 메모장 BOM 제거
+        # utf-8-sig: strips a Notepad BOM
         script_text = path.read_text(encoding="utf-8-sig")
     else:
         script_text = args.code
@@ -218,14 +218,14 @@ def read_script(args) -> tuple[str | None, str | None, dict | None]:
 
 
 def build_connection_arguments(args) -> list[str]:
-    """launch_cli ssh 에 그대로 넘길 접속 인자 (비밀번호 값은 받지 않음 — --password-env 만)"""
+    """Connection arguments passed straight to launch_cli ssh (no password value accepted — only --password-env)"""
     pairs = (("--cred", args.cred), ("--host", args.host), ("--port", args.port), ("--user", args.user),
              ("--password-env", args.password_env), ("--key-path", args.key_path))
     return [item for flag, value in pairs if value not in (None, "") for item in (flag, str(value))]
 
 
 def emit(response: dict) -> int:
-    """JSON 출력 (필수 4필드: ok·code·summary·next)"""
+    """JSON output (4 required fields: ok·code·summary·next)"""
     response.setdefault("summary", response.get("error") or response.get("code"))
     response.setdefault("next", None)
     print(json.dumps(response, ensure_ascii=False))
@@ -233,7 +233,7 @@ def emit(response: dict) -> int:
 
 
 def cmd_run(args) -> int:
-    """스크립트 1개 실행: 읽기 > 명령 계획 > (dry-run 이면 끝) > 단계별 ssh > 결과 정리"""
+    """Run one script: read > plan commands > (stop here on dry-run) > ssh per step > tidy up the result"""
     script_text, language, error = read_script(args)
     if error:
         return emit(error)
@@ -256,7 +256,7 @@ def cmd_run(args) -> int:
         response = run_launch_ssh(launch_cli, connection_arguments, remote_command, args.timeout)
         is_last_step = step_index == len(plan["commands"])
         if not response.get("ok") and not is_last_step:
-            # 올리다 실패: 남은 조각 정리 (실패해도 결과에 영향 없음)
+            # Upload failed: clean up leftover chunks (failure here does not affect the result)
             run_launch_ssh(launch_cli, connection_arguments, to_encoded_command(build_cleanup_source(plan["token"])),
                            args.timeout)
             response.update(failed_step=f"upload {step_index}/{len(plan['commands']) - 1}")

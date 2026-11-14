@@ -1,5 +1,5 @@
-"""SVG > PNG (claude-vector 경로): 설치된 Chrome·Edge·Chromium 헤드리스 스크린샷, 투명 배경 유지
-브라우저 찾기 순서: PATH 의 명령 > OS별 기본 설치 경로 (macOS·Windows·Linux)
+"""SVG > PNG (claude-vector path): headless screenshot with installed Chrome/Edge/Chromium, keeps transparent background
+Browser lookup order: command on PATH > default install paths per OS (macOS, Windows, Linux)
 """
 from __future__ import annotations
 
@@ -9,10 +9,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-# PATH 에서 찾을 브라우저 명령
+# Browser commands to look up on PATH
 BROWSER_COMMANDS = ("google-chrome", "google-chrome-stable", "chromium", "chromium-browser", "microsoft-edge", "chrome",
                     "msedge")
-# OS별 기본 설치 경로
+# Default install paths per OS
 BROWSER_PATHS = (
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
@@ -42,7 +42,7 @@ def find_browser() -> str | None:
 
 
 def render(svg_path: Path, target: Path, size: tuple[int, int]) -> str:
-    """SVG 를 지정 크기 PNG 로 > 사용한 브라우저 경로"""
+    """SVG to PNG at the given size > browser path used"""
     browser = find_browser()
     if not browser:
         raise RuntimeError("no Chrome, Edge or Chromium found to render SVG")

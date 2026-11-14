@@ -1,4 +1,4 @@
-"""화면 대상 기록: '라벨=종류:값' 해석(픽셀 거절), 성적 기록, 누르기 안내"""
+"""Screen target records: parse 'label=kind:value' (pixels rejected), record scores, press guidance"""
 from __future__ import annotations
 
 import re
@@ -10,7 +10,7 @@ from pro_agent_test.notes.store import (_LOCATORS, _SIZE, _fmt_ratio, _locator, 
                                         _variant_key)
 
 
-# ── 화면 대상 (#838) ────────────────────────────────────────────────────
+# ── Screen targets (#838) ────────────────────────────────────────────────────
 
 class _TargetError(ValueError):
     def __init__(self, code: str, message: str, hint: str | None = None):
@@ -19,10 +19,10 @@ class _TargetError(ValueError):
 
 
 def _parse_target(spec: str, size: str | None) -> tuple[str, dict]:
-    """'라벨=text:문구' · '라벨=id:x|index=1' · '라벨=at:0.5,0.8' → (라벨, 대상).
+    """'label=text:phrase' · 'label=id:x|index=1' · 'label=at:0.5,0.8' → (label, target).
 
-    픽셀은 받지 않는다 — app tap 이 픽셀을 거절하므로 저장해 봐야 쓸 수 없다(#826).
-    해상도를 알면 비율로 바꾼 값을 안내한다.
+    Pixels are not accepted — app tap rejects pixels, so storing them is useless (#826).
+    If the resolution is known, the converted ratio is suggested.
     """
     label, sep, rest = spec.partition("=")
     label = label.strip()
@@ -63,7 +63,7 @@ def _parse_target(spec: str, size: str | None) -> tuple[str, dict]:
 
 
 def _tap_hint(t: dict) -> str:
-    """이 대상을 누르는 launch_cli 인자."""
+    """launch_cli arguments to press this target."""
     if "at" in t:
         return f"app tap --at {t['at']}"
     k = next(k for k in _LOCATORS if k in t)
@@ -72,10 +72,10 @@ def _tap_hint(t: dict) -> str:
 
 
 def _note_screen(args, notes: dict, today: str) -> dict:
-    """화면 기록을 쓰거나(--target 라벨=…) 성적을 남긴다(--result + --target 라벨). 실패면 ok=False 결과."""
+    """Write a screen record (--target label=…) or record a score (--result + --target label). Returns ok=False on failure."""
     if not args.name:
         return {"ok": False, "code": "args_required", "error": "--name is required"}
-    # 쓰레기 값이 learned.json 에 남으면 다음 실행마다 그대로 읽힌다 — 쓰기 전에 거른다 (#706)
+    # Junk left in learned.json is read on every later run — filter before writing (#706)
     if args.screen_size and not _SIZE.fullmatch(args.screen_size):
         return {"ok": False, "code": "bad_screen_size",
                 "error": f"--screen-size '{args.screen_size}' must be widthxheight in numbers",
@@ -84,7 +84,7 @@ def _note_screen(args, notes: dict, today: str) -> dict:
     existing = screens.get(args.name)
 
     if args.result:
-        # 성적 기록 — app tap 으로 눌러서 화면이 바뀌었으면 ok, 못 찾았거나 그대로면 fail
+        # Score — ok if pressing with app tap changed the screen, fail if not found or unchanged
         labels = [t.split("=", 1)[0].strip() for t in (args.target or []) if t.strip()]
         if not labels:
             return {"ok": False, "code": "args_required",
@@ -114,7 +114,7 @@ def _note_screen(args, notes: dict, today: str) -> dict:
         return {"ok": True, "graded": graded}
 
     if args.taps:
-        # 옛 입력. 픽셀은 저장하지 않는다 — 바꾼 비율을 알려 준다 (#838)
+        # Old input. Pixels are not stored — report the converted ratio (#838)
         conv = [f"{t.split('=', 1)[0]}=at:{_px_to_at(t.split('=', 1)[1], args.screen_size)}"
                 for t in args.taps if "=" in t and _px_to_at(t.split("=", 1)[1], args.screen_size)]
         return {"ok": False, "code": "pixels_rejected",
@@ -137,18 +137,18 @@ def _note_screen(args, notes: dict, today: str) -> dict:
 
     entry = _promote_screen(screens.setdefault(args.name, {}))
     if args.anchor:
-        entry["anchor"] = args.anchor          # 이 화면임을 알아보는 단서
+        entry["anchor"] = args.anchor          # clue that identifies this screen
     variant = entry["variants"].setdefault(key, {})
     targets = variant.setdefault("targets", {})
     for label, t in parsed.items():
         cur = targets.get(label)
         if isinstance(cur, dict) and _locator(cur) == t:
-            continue                           # 같은 대상이면 성적을 지킨다
-        targets[label] = t                     # 대상이 바뀌면 옛 성적을 물려받지 않는다
+            continue                           # same target keeps its score
+        targets[label] = t                     # a changed target does not inherit the old score
     if args.screen_size:
         variant["measured_on"] = args.screen_size
     if args.build:
-        # 빌드가 바뀌면 화면도 바뀔 수 있다. 막지 않고 꺼낼 때 알려 준다.
+        # A new build may change the screen. Do not block; report it when read.
         variant["build"] = args.build
     variant["updated"] = today
     entry["updated"] = today

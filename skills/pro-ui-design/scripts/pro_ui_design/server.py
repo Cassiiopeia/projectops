@@ -1,5 +1,5 @@
-"""시안 서버 (표준 라이브러리 전용, 분리 프로세스로 실행)
-요청 처리: Host 확인 > 키 확인 > 경로별 처리. 127.0.0.1 전용, 세션 폴더 밖 접근 차단
+"""Mockup server (standard library only, runs as a detached process)
+Request handling: check Host > check key > route. 127.0.0.1 only, access outside the session folder blocked
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import time
 import urllib.parse
 from pathlib import Path
 
-# 분리 실행 시 같은 폴더의 모듈을 불러옴 (이 파일: scripts/pro_ui_design/server.py)
+# When run detached, import modules from this folder (this file: scripts/pro_ui_design/server.py)
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from session_state import SessionState  # noqa: E402
@@ -26,11 +26,11 @@ KEY_HEADER = "X-UI-Design-Key"
 MAX_EVENT_BYTES = 64 * 1024
 MAX_EVENT_TEXT_LENGTH = 500
 IDLE_CHECK_MAX_SECONDS = 30
-# 쉬는 연결을 닫는 시간 (초) · 응답을 모아 한 번에 보내는 크기 (64KB)
+# Idle connection close time (seconds), response buffer size sent at once (64KB)
 IDLE_CONNECTION_SECONDS = 120
 RESPONSE_BUFFER_BYTES = 64 * 1024
 TOKENS_FILE_NAME = "tokens.css"
-# skills/pro-ui-design/assets/ (이 파일: skills/pro-ui-design/scripts/pro_ui_design/)
+# skills/pro-ui-design/assets/ (this file: skills/pro-ui-design/scripts/pro_ui_design/)
 ASSETS_DIR = Path(__file__).resolve().parents[2] / "assets"
 SERVED_ASSETS = {"shell.js": "text/javascript; charset=utf-8", "viewer.js": "text/javascript; charset=utf-8", "viewer.css": "text/css; charset=utf-8",
                  "viewer-i18n.ko.json": "application/json; charset=utf-8"}
@@ -45,7 +45,7 @@ HEAD_END_PATTERN = re.compile(r"</head\s*>", re.IGNORECASE)
 
 
 def render_screen_html(state: SessionState, screen_file: Path) -> str:
-    """시안 파일 > 응답 HTML: 전체 문서는 viewer.js 만 삽입, 조각은 틀로 감쌈"""
+    """Mockup file > response HTML: full documents get only viewer.js injected, fragments get wrapped in the frame"""
     content = screen_file.read_bytes().decode("utf-8", errors="replace")
     viewer_script = '<script src="/assets/viewer.js"></script>'
     if FULL_DOCUMENT_PATTERN.match(content):
@@ -62,14 +62,14 @@ def render_screen_html(state: SessionState, screen_file: Path) -> str:
 
 def render_shell_html(state: SessionState) -> str:
     settings = {**state.viewer, "title": state.title}
-    embedded = json.dumps(settings, ensure_ascii=False).replace("<", "\\u003c")   # 인라인 script 탈출 방지
+    embedded = json.dumps(settings, ensure_ascii=False).replace("<", "\\u003c")   # Prevent escaping the inline script
     return (ASSETS_DIR / "shell.html").read_text(encoding="utf-8").replace("__UI_DESIGN_SETTINGS__", embedded)
 
 
 class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
     server_version = "ui-design"
     sys_version = ""
-    # 연결 재사용 + 응답을 모아 한 번에 보냄: 요청마다 새로 연결하면 수십 ms 씩 늦음 (Windows 에서 특히 큼, #1112)
+    # Reuse connections + send buffered responses: a new connection per request costs tens of ms (worst on Windows, #1112)
     protocol_version = "HTTP/1.1"
     timeout = IDLE_CONNECTION_SECONDS
     disable_nagle_algorithm = True
@@ -79,7 +79,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
     def state(self) -> SessionState:
         return self.server.session_state
 
-    def log_message(self, format, *args):  # noqa: A002  (표준 라이브러리 서명)
+    def log_message(self, format, *args):  # noqa: A002  (standard library signature)
         return
 
     def _respond(self, status: int, body: bytes = b"", content_type: str = "text/plain; charset=utf-8",
@@ -92,7 +92,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header("Content-Security-Policy", "frame-ancestors 'self'")
         if status >= 400:
-            # 거부한 요청은 본문을 읽지 않았을 수 있음 > 연결을 닫아 남은 본문이 다음 요청으로 읽히지 않게
+            # A rejected request may have an unread body > close the connection so leftovers are not read as the next request
             self.close_connection = True
             self.send_header("Connection", "close")
         for name, value in (extra_headers or {}).items():
@@ -105,7 +105,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         self._respond(200, json.dumps(payload, ensure_ascii=False).encode("utf-8"), "application/json; charset=utf-8")
 
     def _is_allowed_host(self) -> bool:
-        """다른 사이트가 DNS 로 localhost 를 가장하는 요청 차단"""
+        """Block requests from other sites posing as localhost via DNS"""
         host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
         return host in ALLOWED_HOST_NAMES
 
@@ -118,7 +118,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
     def _has_valid_key(self) -> bool:
         if self._is_key_match(self.headers.get(KEY_HEADER)):
             return True
-        # 직접 파싱: localhost 의 다른 앱 쿠키가 비표준이어도 이 쿠키는 읽혀야 함 (쿠키는 포트별로 안 나뉨)
+        # Parse by hand: this cookie must be readable even if other localhost apps set non-standard cookies (cookies are not per port)
         for pair in (self.headers.get("Cookie") or "").split(";"):
             name, _, value = pair.strip().partition("=")
             if name == self._cookie_name():
@@ -129,7 +129,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         origin = urllib.parse.urlparse(self.headers.get("Origin") or "")
         return origin.scheme == "http" and origin.hostname in ALLOWED_HOST_NAMES and origin.port == self.state.port
 
-    def do_GET(self):  # noqa: N802  (표준 라이브러리 서명)
+    def do_GET(self):  # noqa: N802  (standard library signature)
         if not self._is_allowed_host():
             return self._respond(403, b"forbidden")
         parsed = urllib.parse.urlparse(self.path)
@@ -143,7 +143,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         if route == "/api/state":
             return self._respond_json(self.state.read_state())
         self.state.touch()
-        if route == "/favicon.ico":   # 브라우저 자동 요청: 콘솔 404 방지
+        if route == "/favicon.ico":   # Automatic browser request: avoid a console 404
             return self._respond(204)
         if route == "/":
             return self._respond(200, render_shell_html(self.state).encode("utf-8"), CONTENT_TYPES[".html"])
@@ -164,7 +164,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         self._respond(200, (ASSETS_DIR / name).read_bytes(), content_type)
 
     def _serve_screen(self, name: str) -> None:
-        if not name.lower().endswith(".html"):   # 시안의 상대 경로 자원 (src="logo.png")
+        if not name.lower().endswith(".html"):   # Relative-path resources of a mockup (src="logo.png")
             return self._serve_file(name)
         if "/" in name:
             return self._respond(404, b"not found")
@@ -173,7 +173,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
             return self._respond(404, b"not found")
         try:
             html = render_screen_html(self.state, screen_file)
-        except OSError:   # 쓰는 중이거나 지워진 파일: 다음 확인에서 다시 받음
+        except OSError:   # File being written or deleted: picked up on the next poll
             return self._respond(404, b"not found")
         self._respond(200, html.encode("utf-8"), CONTENT_TYPES[".html"])
 
@@ -189,12 +189,12 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         except OSError:
             self._respond(404, b"not found")
 
-    def do_POST(self):  # noqa: N802  (표준 라이브러리 서명)
+    def do_POST(self):  # noqa: N802  (standard library signature)
         if not self._is_allowed_host() or not self._has_valid_key():
             return self._respond(403, b"forbidden")
         route = urllib.parse.urlparse(self.path).path
         if route == "/api/stop":
-            if not self._is_key_match(self.headers.get(KEY_HEADER)):   # 다른 페이지가 끌 수 없게 헤더만 인정
+            if not self._is_key_match(self.headers.get(KEY_HEADER)):   # Accept only the header so other pages cannot shut it down
                 return self._respond(403, b"forbidden")
             self._respond(204)
             return threading.Thread(target=self.server.shutdown, daemon=True).start()
@@ -203,7 +203,7 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
         return self._respond(404, b"not found")
 
     def _record_event(self) -> None:
-        """클릭 기록: 같은 Origin 만, 크기 제한, 허용 키만 저장"""
+        """Click log: same Origin only, size limit, allowed keys only"""
         if not self._is_same_origin():
             return self._respond(403, b"forbidden")
         try:
@@ -231,11 +231,11 @@ class ViewerRequestHandler(http.server.BaseHTTPRequestHandler):
 
 class ViewerServer(http.server.ThreadingHTTPServer):
     daemon_threads = True
-    allow_reuse_address = os.name != "nt"   # Windows 는 사용 중인 포트까지 공유되므로 끔
+    allow_reuse_address = os.name != "nt"   # Off on Windows, where it would share ports already in use
 
 
 def bind_server(state: SessionState) -> ViewerServer:
-    """지난 포트 우선(열린 탭 유지), 쓰이고 있으면 새 포트"""
+    """Prefer the previous port (keeps open tabs), new port if taken"""
     try:
         return ViewerServer((BIND_HOST, state.preferred_port), ViewerRequestHandler)
     except OSError as error:
@@ -244,11 +244,11 @@ def bind_server(state: SessionState) -> ViewerServer:
 
 
 def watch_idle(server: ViewerServer, state: SessionState) -> None:
-    """유휴 시간 초과 시 종료. 탭의 주기적 확인은 활동으로 치지 않음"""
+    """Exit after idle timeout. Periodic tab polling does not count as activity"""
     interval = min(max(state.idle_seconds / 4, 0.2), IDLE_CHECK_MAX_SECONDS)
     while True:
         time.sleep(interval)
-        state.read_state()   # 탭이 없어도 새 시안 파일은 활동으로 인정
+        state.read_state()   # A new mockup file counts as activity even with no tab open
         if time.monotonic() - state.last_activity >= state.idle_seconds:
             print("[ui-design server] stopped : idle timeout", file=sys.stderr, flush=True)
             server.shutdown()

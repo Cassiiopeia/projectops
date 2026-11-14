@@ -1,4 +1,4 @@
-"""세션 명령: start, status, stop, choices"""
+"""Session commands: start, status, stop, choices"""
 from __future__ import annotations
 
 import http.client
@@ -40,13 +40,13 @@ def _request_server(session: Session, method: str, path: str) -> dict | None:
                 request, timeout=HEALTH_REQUEST_TIMEOUT_SECONDS) as response:
             body = response.read()
         parsed = json.loads(body) if body else {}
-    except (OSError, urllib.error.URLError, http.client.HTTPException, ValueError):   # 포트의 다른 서비스 포함
+    except (OSError, urllib.error.URLError, http.client.HTTPException, ValueError):   # Includes other services on the port
         return None
     return parsed if isinstance(parsed, dict) else None
 
 
 def read_server_state(session: Session) -> dict | None:
-    """살아 있고 이 세션의 서버일 때만 상태 반환 (같은 포트의 다른 프로세스 구분)"""
+    """Return status only if alive and this session's server (tells apart other processes on the same port)"""
     if not session.port:
         return None
     state = _request_server(session, "GET", "/api/state")
@@ -56,7 +56,7 @@ def read_server_state(session: Session) -> dict | None:
 
 
 def _spawn_server(session: Session) -> None:
-    """터미널을 닫아도 살아 있게 분리 실행"""
+    """Run detached so it survives closing the terminal"""
     detach = ({"creationflags": 0x00000008 | 0x00000200} if sys.platform == "win32"   # DETACHED_PROCESS | NEW_GROUP
               else {"start_new_session": True})
     log_file = session.state_dir / SERVER_LOG_FILE_NAME
@@ -77,7 +77,7 @@ def _wait_for_server_info(session: Session) -> dict | None:
 
 
 def _start_server(session: Session) -> dict | None:
-    """서버 실행 > 준비 대기 > 포트와 식별값 저장"""
+    """Start server > wait until ready > save port and identity"""
     (session.state_dir / SERVER_INFO_FILE_NAME).unlink(missing_ok=True)
     save_session(session)
     _spawn_server(session)
@@ -90,7 +90,7 @@ def _start_server(session: Session) -> dict | None:
 
 
 def _read_language(root: Path) -> str | None:
-    """뷰어 문구 언어: 개인 설정 language"""
+    """Viewer copy language: personal setting language"""
     owner, repo = detect_repo(str(root))
     return resolve_preferences(SKILL_FOLDER_NAME, owner, repo, load=True)["values"].get("language")
 
@@ -108,7 +108,7 @@ def cmd_start(args) -> int:
     root = Path(args.root).resolve()
     if not root.is_dir():
         return emit({"ok": False, "code": "root_not_found", "error": f"Folder not found: {root}"})
-    # 같은 제목은 날짜가 바뀌어도 이어 하기 (시안, 키, 포트 유지)
+    # Same title resumes even on a later date (keeps mockups, key, port)
     existing = find_session_by_title(root, args.title)
     run_dir, location = (Path(existing.run_dir), {}) if existing else resolve_run_dir(root, args.title, args.issue)
     if run_dir is None:
@@ -162,7 +162,7 @@ def cmd_status(args) -> int:
 
 
 def _stop_server(session: Session) -> bool:
-    """HTTP 로만 종료: 저장된 PID 를 믿고 다른 프로세스를 죽이지 않음"""
+    """Stop via HTTP only: never kill another process by trusting a saved PID"""
     if read_server_state(session) is None:
         return False
     _request_server(session, "POST", "/api/stop")
@@ -173,7 +173,7 @@ def _stop_server(session: Session) -> bool:
 
 
 def cmd_stop(args) -> int:
-    """기본은 이 세션만: 같은 레포의 다른 에이전트 세션을 끄지 않음. --all 은 프로젝트 전체"""
+    """This session only by default: leaves other agent sessions in the same repo running. --all stops the whole project"""
     root = Path(args.root).resolve()
     if args.all:
         targets = list_project_sessions(root)

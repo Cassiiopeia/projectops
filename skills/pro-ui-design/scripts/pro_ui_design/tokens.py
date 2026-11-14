@@ -1,5 +1,5 @@
-"""디자인 후보 파일 찾기 + 프로젝트 지식(레포 범위 하네스 ui-design) 저장과 읽기
-스크립트는 후보와 근거만 낸다. 값 해석과 tokens.css 작성은 에이전트 몫
+"""Find design candidate files + save and read project knowledge (repo-scoped harness ui-design)
+The script returns only candidates and evidence. Interpreting values and writing tokens.css is the agent's job
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ IGNORED_FOLDERS = {".git", "node_modules", "build", "dist", "out", ".next", ".nu
                    ".vscode", "Pods", "DerivedData", "vendor", "target", ".venv", "venv", "__pycache__", "coverage",
                    ".superpowers", ".claude", ".projectops"}
 SOURCE_SUFFIXES = r"(dart|ts|tsx|js|jsx|mjs|swift|kt|css|scss|sass|less|json)"
-# 규칙 표: (종류, 소문자 상대 경로 정규식, 이유). 위에서부터 첫 일치만 적용. 스택 추가 = 줄 추가
+# Rule table: (kind, lowercase relative-path regex, reason). First match from the top wins. New stack = new row
 CANDIDATE_RULES = tuple((kind, re.compile(pattern), reason) for kind, pattern, reason in (
     ("font", r"\.(ttf|otf|woff2?)$", "font file"),
     ("document", r"(^|/)(design|brand)\.md$|(^|/)[^/]*design[-_]?system[^/]*\.md$", "design guide document"),
@@ -68,7 +68,7 @@ README_TEMPLATE = """# ui-design: this project's design notes
 
 
 def find_candidates(root: Path) -> tuple[list[dict], bool]:
-    """레포 훑기 > (후보, 잘림 여부): 무시 폴더, 산출물 폴더(세션 자신의 tokens.css, 글꼴) 제외, 종류별 상한"""
+    """Scan the repo > (candidates, is truncated): skip ignored folders and output folders (the session's own tokens.css, fonts), cap per kind"""
     candidates, per_kind, walked, is_truncated = [], {}, 0, False
     output_root = Path(resolve_output_root(root)).resolve()
     for folder, subfolders, files in os.walk(root):
@@ -108,7 +108,7 @@ def _has_flutter_fonts(path: Path) -> bool:
 
 
 def _harness_dir(root: Path) -> Path:
-    """pro-launch 레포 범위 하네스와 같은 자리: harness list, show 로도 보임"""
+    """Same location as the pro-launch repo-scoped harness: also visible via harness list, show"""
     return state_dir("launch", root) / "harness" / HARNESS_NAME
 
 
@@ -120,7 +120,7 @@ def _hash_file(path: Path) -> str | None:
 
 
 def save_project_profile(root: Path, candidates: list[dict]) -> dict:
-    """근거 파일 해시 저장 + 안내서 뼈대 생성(이미 있으면 그대로)"""
+    """Save evidence file hashes + create the guide skeleton (left as is if present)"""
     folder = _harness_dir(root)
     folder.mkdir(parents=True, exist_ok=True)
     files = [{"path": item["path"], "sha256": _hash_file(root / item["path"])} for item in candidates]
@@ -139,7 +139,7 @@ def _read_excerpt(readme: Path) -> str:
 
 
 def read_project_profile(root: Path) -> dict:
-    """start 응답용: 저장된 안내서 요약 + 바뀐 근거 파일"""
+    """For the start response: saved guide summary + changed evidence files"""
     folder = _harness_dir(root)
     readme = folder / README_FILE_NAME
     if not readme.is_file():

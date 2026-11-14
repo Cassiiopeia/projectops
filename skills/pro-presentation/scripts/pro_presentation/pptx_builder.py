@@ -1,5 +1,5 @@
-"""PPT 조립기: layout.json > 글자를 고칠 수 있는 PPT (글 상자 · 도형 · 그림 · 표, 대본은 발표자 노트)
-python-pptx 가 있는 파이썬으로 단독 실행. 결과 JSON 한 줄 (장마다 PPT 에 들어간 글)
+"""PPT builder: layout.json > PPT with editable text (text boxes, shapes, images, tables; script as presenter notes)
+Run standalone with a python-pptx-equipped Python. One JSON result line (text placed in the PPT per slide)
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ BLANK_LAYOUT_INDEX = 6
 
 
 def parse_color(value: str | None) -> RGBColor | None:
-    """'rgb(1, 2, 3)' > 색 (투명은 None)"""
+    """'rgb(1, 2, 3)' > color (None for transparent)"""
     match = RGB_PATTERN.match(value or "")
     if not match or (match.group(4) is not None and float(match.group(4)) == 0):
         return None
@@ -95,7 +95,7 @@ def add_shape(slide, piece: dict) -> None:
 
 
 def resolve_image(src: str, deck_dir: Path) -> Path | None:
-    """렌더 주소(/deck/...) > 덱 안 파일"""
+    """Render URL (/deck/...) > file in the deck"""
     path = urllib.parse.unquote(urllib.parse.urlsplit(src).path)
     if "/deck/" not in path:
         return None
@@ -124,7 +124,7 @@ def build(layout: dict, deck_dir: Path, out_dir: Path, scripts: dict, output: Pa
     for slide_layout in layout["slides"]:
         slide = presentation.slides.add_slide(presentation.slide_layouts[BLANK_LAYOUT_INDEX])
         missing_images = []
-        # 조각 아닌 부분(배경 등) 먼저 그림으로 > 조각을 문서 순서대로
+        # Non-piece parts (background etc.) as images first > then pieces in document order
         for picture in slide_layout["pictures"]:
             slide.shapes.add_picture(str(out_dir / picture["file"]), *emu_box(picture["box"]))
         for piece in slide_layout["pieces"]:

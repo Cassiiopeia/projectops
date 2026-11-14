@@ -1,4 +1,4 @@
-"""check-fresh: ingest 때 기록한 lastModified 와 Figma 의 현재 값을 비교"""
+"""check-fresh: compare the lastModified recorded at ingest with Figma's current value"""
 from __future__ import annotations
 
 import json
@@ -12,7 +12,7 @@ from figma_tools.rest_dump import node_fingerprint
 
 
 def _token_problem(code: str, error: str) -> dict:
-    """토큰이 없거나 거부됐을 때 — 에이전트가 사용자에게 방식을 묻도록 선택지를 싣는다."""
+    """When the token is missing or rejected — include choices so the agent asks the user how to proceed."""
     return {"ok": False, "code": code, "verdict": "unknown", "error": error,
             "options": TOKEN_MISSING_OPTIONS,
             "next": "Ask the user which option to take. Do not read or print any token yourself"}
@@ -48,7 +48,7 @@ def cmd_check_fresh(args) -> int:
             return emit({"ok": False, "code": code, "verdict": "unknown",
                          "error": f"Figma file {meta['file_key']} not found for this token",
                          "next": "Check the file key and that the token's account can open the file"})
-        # 네트워크 문제로 작업을 막지 않는다 — 모른다고만 알린다
+        # Do not block the work on a network problem — just report unknown
         return emit({"verdict": "unknown", "recorded": recorded, "reason": code,
                      "summary": "Could not reach Figma; the design may or may not have changed",
                      "next": "Retry later, or continue and say the change check was skipped"})
@@ -57,7 +57,7 @@ def cmd_check_fresh(args) -> int:
     is_changed = (current["last_modified"] != recorded["last_modified"]
                   or (recorded["version"] and current["version"] and current["version"] != recorded["version"]))
     if is_changed and meta.get("node_fingerprint") and meta.get("node_id"):
-        # 파일은 바뀜 > 이 화면만 다시 받아 지문 비교 (다른 화면 수정으로 다시 작업하지 않게)
+        # File changed > refetch only this screen and compare fingerprints (no rework for edits to other screens)
         response = fetch_json(f"/files/{meta['file_key']}/nodes?ids={quote(meta['node_id'])}", token, 120)
         body = response.get("json") if response.get("ok") and response.get("status") == 200 else None
         current_fingerprint = node_fingerprint(body, meta["node_id"]) if isinstance(body, dict) else None

@@ -1,13 +1,13 @@
-"""이미지 사실 수집 (표준 라이브러리만): PNG·JPEG·WebP > 형식·크기·알파 채널 + 요청 규격 대조"""
+"""Image facts (stdlib only): PNG, JPEG, WebP > format, size, alpha channel + check against the requested spec"""
 from __future__ import annotations
 
 import struct
 from pathlib import Path
 
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
-# PNG 색 형식 중 알파 채널 포함: 4 회색+알파, 6 RGBA
+# PNG color types with an alpha channel: 4 gray+alpha, 6 RGBA
 PNG_ALPHA_COLOR_TYPES = (4, 6)
-# JPEG 크기가 담긴 SOF 마커 (SOF0~SOF15, DHT·JPG·DAC 제외)
+# SOF markers that hold JPEG size (SOF0-SOF15, excluding DHT, JPG, DAC)
 JPEG_SIZE_MARKERS = set(range(0xC0, 0xD0)) - {0xC4, 0xC8, 0xCC}
 
 
@@ -74,7 +74,7 @@ def parse_size(text: str | None) -> tuple[int, int] | None:
 
 
 def find_problems(facts: dict, expected_size: tuple[int, int] | None, is_alpha_required: bool) -> list[str]:
-    """요청 규격 대조 > 어긋난 항목 목록 (빈 목록이면 통과)"""
+    """Check against requested spec > list of mismatches (empty list passes)"""
     if not facts.get("readable"):
         return ["unreadable file"]
     problems = []

@@ -1,12 +1,12 @@
-"""pro-presentation 구현 패키지: HTML 덱 폴더 + 연습 서버 + 녹화·검사·내보내기. 판단(코칭·구간)은 agent
-진입점 scripts/presentation_cli.py. 이 파일은 공용 common import 경로만 맞춤
+"""pro-presentation implementation package: HTML deck folder + practice server + recording, checks, export. Judgment (coaching, ranges) is the agent's
+Entry point scripts/presentation_cli.py. This file only sets the shared common import path
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# <repo>/scripts — 모든 스킬이 공유하는 common/ 이 있는 곳
+# <repo>/scripts — where the common/ shared by all skills lives
 COMMON_ROOT = Path(__file__).resolve().parents[4] / "scripts"
 
 if str(COMMON_ROOT) not in sys.path:

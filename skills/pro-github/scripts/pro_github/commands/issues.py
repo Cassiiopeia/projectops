@@ -1,4 +1,4 @@
-"""이슈 서브커맨드: 조회·여러 건 조회·생성·목록·수정·닫기·다시 열기·제목 검색."""
+"""Issue subcommands: get, get several, create, list, edit, close, reopen, search titles."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -26,7 +26,7 @@ def cmd_get_issue(args, api) -> int:
             "url": issue["url"],
             "html_url": issue["url"],
             "state": issue["state"],
-            # 라벨 교체 전에 issue.labels 를 짐작하지 않게 최상위에도 둔다
+            # Also put it at the top level so nobody guesses issue.labels before swapping labels
             "labels": issue.get("labels", []),
             "assignees": issue.get("assignees", []),
             "body": issue.get("body", ""),
@@ -52,7 +52,7 @@ def cmd_get_issues(args, api) -> int:
             issues.append({"number": number, "error": str(e), "code": f"github_api_{e.status_code}"})
     failed = [i for i in issues if "error" in i]
     if issues and len(failed) == len(issues):
-        # 전부 실패했는데 ok:true 면 호출자가 없는 이슈를 있는 것으로 오인한다 (#699)
+        # If all fail but ok:true, the caller mistakes a missing issue for an existing one (#699)
         return emit({
             "ok": False,
             "code": "all_failed",
@@ -68,8 +68,8 @@ def cmd_get_issues(args, api) -> int:
 
 
 def cmd_create_issue(args, api) -> int:
-    # 입력을 자격증명보다 먼저 본다. 파일명 오타는 PAT 없이도 알려줄 수 있는데,
-    # PAT 를 먼저 보면 "PAT 없음"만 나와 PAT 를 채운 뒤에야 오타를 알게 된다.
+    # Check input before credentials. A file name typo can be reported without a PAT,
+    # but checking the PAT first only says "no PAT", and the typo shows up after the PAT is filled in.
     body_path = Path(args.body_file)
     if not body_path.exists():
         return emit({
@@ -82,7 +82,7 @@ def cmd_create_issue(args, api) -> int:
     if not pat:
         return missing_pat()
     body = body_path.read_text(encoding="utf-8")
-    # 위치 인자와 --labels 둘 다 받음 (다른 명령과 같은 --labels 형식도 통하게)
+    # Accept both a positional argument and --labels (so the same --labels form as other commands works)
     labels = split_csv(",".join(filter(None, (args.labels, args.labels_option))))
     assignees = split_csv(args.assignees) if args.assignees else []
     try:
@@ -104,7 +104,7 @@ def cmd_create_issue(args, api) -> int:
 
 
 def _add_created_issue_followups(out: dict, args, body_path: Path) -> None:
-    """생성 직후 할 일: 로컬 문서 번호 맞추기(--rename-body-file) > 브랜치명·커밋 틀 > next"""
+    """After creation: align the local doc number (--rename-body-file) > branch name and commit template > next"""
     if args.rename_body_file:
         renamed, warning = rename_body_file_to_issue_number(body_path, out["number"])
         out["body_file_renamed_to"] = str(renamed) if renamed else None
@@ -112,9 +112,9 @@ def _add_created_issue_followups(out: dict, args, body_path: Path) -> None:
             out["rename_warning"] = warning
     try:
         out.update(build_work_start_hints(out.get("title") or args.title, out["number"], out["url"]))
-    except Exception as error:  # 이슈는 이미 생성됨: 보조 정보 실패로 생성 응답을 잃지 않는다
+    except Exception as error:  # the issue is already created: a failing extra step must not lose the create response
         out.update({"branch": None, "commit_template": None, "hints_warning": f"{type(error).__name__}: {error}"})
-    # 작업중 전환은 상태 라벨만 바꾸는 finish-issue (set-labels 는 type·area 라벨까지 지운다)
+    # Moving to in-progress uses finish-issue, which only swaps the status label (set-labels also wipes type·area labels)
     out["next"] = (f"create branch {out['branch'] or '(build it with create-branch-name)'} > "
                    f"finish-issue {args.owner} {args.repo} {out['number']} --outcome in-progress")
 
@@ -125,7 +125,7 @@ def cmd_list_issues(args, api) -> int:
         return missing_pat()
     try:
         issues = api.list_issues(args.owner, args.repo, pat, state=args.state, labels=args.labels, limit=args.limit)
-        # label/assignee 필터는 API 재호출 없이 여기서 후처리 (list_issues에 필드 있음)
+        # label/assignee filters are applied here without another API call (list_issues has the fields)
         return emit({
             "count": len(issues),
             "issues": issues,
@@ -136,7 +136,7 @@ def cmd_list_issues(args, api) -> int:
 
 
 def cmd_update_issue(args, api) -> int:
-    # 입력 먼저, 자격증명 나중 (cmd_create_issue 와 같은 이유).
+    # Input first, credentials later (same reason as cmd_create_issue).
     body = None
     body_file = args.body_file or args.body_file_positional
     if body_file:
@@ -156,7 +156,7 @@ def cmd_update_issue(args, api) -> int:
     labels = split_csv(args.labels) if args.labels else None
     assignees = split_csv(args.assignees) if args.assignees else None
 
-    # 바꿀 값이 하나도 없으면 PATCH 하지 않고 알린다 — "수정 완료" 로 오보하지 않는다 (#699)
+    # If there is nothing to change, do not PATCH; say so — never misreport it as "updated" (#699)
     if all(v is None for v in (args.title, body, args.state, labels, assignees)):
         return emit({
             "ok": False,
@@ -179,7 +179,7 @@ def cmd_close_issue(args, api) -> int:
     if not pat:
         return missing_pat()
     try:
-        # 완료(completed)와 취소(not_planned)를 GitHub 에서도 구분해 남긴다 (#819)
+        # Record completed vs cancelled (not_planned) on GitHub too (#819)
         result = api.update_issue(args.owner, args.repo, args.number, pat,
                               state="closed", state_reason=args.reason)
         return emit({**result, "state_reason": args.reason,
@@ -215,7 +215,7 @@ def cmd_search_issues(args, api) -> int:
         return api_error(e)
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_get_issue(parser) -> None:
     parser.add_argument("owner")
@@ -235,7 +235,7 @@ def _configure_create_issue(parser) -> None:
     parser.add_argument("repo")
     parser.add_argument("title")
     parser.add_argument("body_file")
-    # 라벨을 생략해도 된다 (템플릿 기본 라벨만 붙는다): 필수 위치 인자라 빠뜨리면 bad_args 가 났다 (#940)
+    # Labels may be omitted (only the template's default labels apply): as a required positional it caused bad_args when left out (#940)
     parser.add_argument("labels", nargs="?", default="", help="csv")
     parser.add_argument("--labels", dest="labels_option", default="", help="csv (same as the labels positional argument)")
     parser.add_argument("--assignees", help="assignees csv")
@@ -255,7 +255,7 @@ def _configure_update_issue(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
-    # 본문 파일은 위치 인자로도 받는다 (add-comment 와 같은 모양)
+    # The body file is also accepted positionally (same shape as add-comment)
     parser.add_argument("body_file_positional", nargs="?", metavar="body_file", help="body file path")
     parser.add_argument("--title")
     parser.add_argument("--state", choices=["open", "closed"])

@@ -1,4 +1,4 @@
-"""token: Figma 토큰 상태 보기 · 등록 (값은 어디에도 출력하지 않는다)"""
+"""token: show · register Figma token status (the value is never printed anywhere)"""
 from __future__ import annotations
 
 import getpass
@@ -16,7 +16,7 @@ def _read_token(args) -> tuple[str | None, dict | None]:
             return None, {"ok": False, "code": "env_empty", "error": f"Environment variable {args.from_env} is empty or unset"}
         return value, None
     if not sys.stdin.isatty():
-        # 채팅이나 인자로 토큰을 받으면 대화 기록·셸 기록에 남는다
+        # A token received via chat or arguments stays in the conversation·shell history
         return None, {"ok": False, "code": "no_tty",
                       "error": "Hidden input needs a terminal",
                       "hint": f"Run it in your own terminal, or put the token in an environment variable "

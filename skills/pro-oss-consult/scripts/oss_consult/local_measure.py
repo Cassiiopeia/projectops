@@ -1,4 +1,4 @@
-"""로컬 clone 측정 (순수 함수): 함께 바뀐 파일 쌍, 문구 하드코딩, 의존성 이름, 추적 중인 비밀 파일
+"""Local clone measurements (pure functions): co-changed file pairs, hardcoded copy, dependency names, tracked secret files
 """
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import re
 from collections import Counter
 from pathlib import Path
 
-# ── 로컬 clone 측정 (2차: 코드 확장성·의존성·비밀 파일) ──────────────────
-# 여기도 사실만 낸다. "확장성이 낮다"·"라이선스가 위험하다"는 에이전트가 성격을 보고 판단한다.
+# ── Local clone measurements (round 2: code extensibility, dependencies, secret files) ──────────────────
+# Facts only here too. "Low extensibility" or "risky license" is for the agent to judge given the repo's type.
 
 _SOURCE_EXT = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".dart", ".go", ".rs", ".rb", ".php", ".swift", ".vue"}
 _CATALOG_DIRS = {"i18n", "locales", "locale", "l10n", "lang", "translations", "messages"}
@@ -17,15 +17,15 @@ _SECRET_PATTERNS = (
     re.compile(r"(^|/)\.env(\.[^/]+)?$"), re.compile(r"\.(pem|p12|pfx|jks|keystore|p8)$"),
     re.compile(r"(^|/)id_(rsa|ed25519|ecdsa)$"), re.compile(r"(^|/)(google-services\.json|GoogleService-Info\.plist)$"),
 )
-# 예시·템플릿 파일은 비밀이 아니다 — 목록에서 뺀다
+# Example and template files are not secrets — drop them from the list
 _SECRET_SAFE = re.compile(r"\.(example|sample|template|dist)$|(^|/)\.env\.(example|sample|template)$", re.I)
-# 따옴표 안에 한글·CJK가 들어 있는 문자열 리터럴 (사용자 노출 문구 후보)
+# String literals with Korean or other CJK inside quotes (candidates for user-facing copy)
 _NL_STRING = re.compile(r"""(["'`])(?:(?!\1)[^\n\\]|\\.)*[가-힣぀-ヿ一-鿿](?:(?!\1)[^\n\\]|\\.)*\1""")
-# 주석 줄은 사용자 노출 문구가 아니다 (docstring 여러 줄은 줄 단위로 못 거르니 한계로 남는다)
+# Comment lines are not user-facing copy (multi-line docstrings cannot be filtered per line; a known limit)
 _COMMENT_LINE = re.compile(r"^\s*(#|//|\*|/\*|--)")
 _TEST_DIRS = {"test", "tests", "__tests__", "spec", "specs", "__mocks__", "testdata", "fixtures"}
 _TEST_FILE = re.compile(r"(^test_|_test\.|\.test\.|\.spec\.|Test\.[a-z]+$|Tests\.[a-z]+$)")
-# 버전 동기화·잠금·생성 파일은 같이 바뀌는 게 당연해서 co_change 를 오염시킨다
+# Version sync, lock and generated files naturally change together and pollute co_change
 _NOISE_FILE = re.compile(
     r"(^|/)(CHANGELOG[^/]*|CHANGES[^/]*|version\.ya?ml|plugin\.json|marketplace\.json|package\.json|"
     r"package-lock\.json|pubspec\.lock|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|Gemfile\.lock)$"
@@ -38,10 +38,10 @@ def _is_test_path(path: str) -> bool:
 
 
 def co_change(commits: list[list[str]], top: int = 10, big: int = 30) -> dict:
-    """커밋별 변경 파일 목록에서 함께 바뀐 파일 쌍을 센다. 커밋 단위 근사이며 PR 단위가 아니다.
+    """Count file pairs changed together from per-commit changed files. A per-commit approximation, not per PR.
 
-    버전 동기화·잠금 파일과 대량 변경(포맷팅·초기 커밋)은 쌍을 부풀리므로 쌍 계산에서 빼되,
-    얼마나 뺐는지 `excluded` 로 알린다 — 에이전트가 "쌍이 적다"를 "결합이 없다"로 오해하지 않게.
+    Version sync and lock files and bulk changes (formatting, initial commit) inflate pairs, so they are left out of pair counting,
+    but `excluded` reports how many — so the agent does not read "few pairs" as "no coupling".
     """
     sizes = sorted(len(c) for c in commits if c)
     pairs: Counter = Counter()
@@ -67,7 +67,7 @@ def co_change(commits: list[list[str]], top: int = 10, big: int = 30) -> dict:
 
 
 def natural_language_strings(files: dict[str, str], top: int = 10) -> dict:
-    """소스 파일별 한글·CJK 문자열 리터럴 수. 카탈로그 폴더·테스트 파일·주석 줄은 세지 않는다."""
+    """Count of Korean/CJK string literals per source file. Catalog folders, test files and comment lines are not counted."""
     per_file = {}
     excluded_tests = 0
     for path, text in files.items():
@@ -88,11 +88,11 @@ def natural_language_strings(files: dict[str, str], top: int = 10) -> dict:
 
 
 def committed_secret_paths(tracked: list[str]) -> list[str]:
-    """추적 중인 파일 중 비밀일 수 있는 경로. 예시 파일은 제외. 내용은 읽지 않는다."""
+    """Tracked paths that may be secrets. Example files excluded. Contents are not read."""
     return [t for t in tracked if any(p.search(t) for p in _SECRET_PATTERNS) and not _SECRET_SAFE.search(t)]
 
 
-# 의존성 이름을 읽어 주는 매니페스트 / 있다는 것만 알리는 매니페스트
+# Manifests whose dependency names are read / manifests only reported as present
 _MANIFEST_EXACT = {"package.json", "pubspec.yaml", "go.mod", "pyproject.toml", "Cargo.toml", "Gemfile",
                    "composer.json", "build.gradle", "build.gradle.kts", "pom.xml"}
 _UNSUPPORTED_EXACT = {"Package.swift", "Podfile", "build.sbt", "mix.exs", "Pipfile", "setup.py",
@@ -114,7 +114,7 @@ def is_unsupported_manifest(path: str) -> bool:
 
 
 def _toml_section_keys(text: str, header: str) -> list[str]:
-    """`[header]` 절의 키 이름들 (다음 `[` 절 전까지). 값은 읽지 않는다."""
+    """Key names in the `[header]` section (until the next `[` section). Values are not read."""
     keys: list[str] = []
     inside = False
     for line in text.splitlines():
@@ -130,7 +130,7 @@ def _toml_section_keys(text: str, header: str) -> list[str]:
 
 
 def dependency_names(manifests: dict[str, str]) -> dict:
-    """매니페스트에서 선언된 의존성 이름만 뽑는다 (라이선스 조회는 에이전트가 배포물 기준으로)."""
+    """Extract only the declared dependency names from a manifest (license lookup is the agent's job, against the shipped artifact)."""
     out: dict[str, list[str]] = {}
     for path, text in manifests.items():
         name = Path(path).name

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""review_cli — review skill 전용 CLI.
+"""review_cli — CLI for the review skill.
 
-코드 리뷰 결과 출력 경로 계산.
-서브커맨드: get-output-path
+Computes the code review output path.
+Subcommands: get-output-path
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 
 
 def cmd_get_output_path(args) -> int:
-    # 경로 규칙은 Layer 1(common/paths.py)이 단일 소유 — 여기서 재구현하지 않는다 (#525)
+    # Path rules are owned solely by Layer 1 (common/paths.py) — not reimplemented here (#525)
     from common.paths import resolve_output_path
     return emit(resolve_output_path(args.skill_id, args.title, root=args.root, issue=args.issue))
 

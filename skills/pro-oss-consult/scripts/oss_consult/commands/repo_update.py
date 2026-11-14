@@ -1,5 +1,5 @@
-"""repo-update: 레포 About·topics·Discussions 변경 (before 읽기 > 계획·검증 > --dry-run 이면 계획만 > 적용 > after 검증)
-승인 후에만 호출. 구현하지 않는 것: 가시성 변경, 레포 삭제·이름 변경·아카이브, 기본 브랜치 변경
+"""repo-update: change repo About, topics and Discussions (read before > plan and validate > plan only on --dry-run > apply > verify after)
+Call only after approval. Not implemented: visibility changes, repo delete/rename/archive, default branch changes
 """
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from oss_consult import github_api
 from oss_consult.github_api import _get
 from oss_consult.output import _api_fail, _bad_slug, _fail, _no_pat, _out, _split
 
-# 공식 문서 확인: 토픽은 소문자·숫자·하이픈, 50자 이하, 레포당 20개 이하
-# (docs.github.com/.../classifying-your-repository-with-topics). About 설명 350자는 검색으로만 확인 — 확인 필요.
+# Per the official docs: topics are lowercase letters, digits and hyphens, 50 chars max, 20 per repo max
+# (docs.github.com/.../classifying-your-repository-with-topics). The 350-char About limit was only found via search — needs confirming.
 _TOPIC_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,49}$")
 MAX_TOPICS = 20
 MAX_DESCRIPTION = 350
@@ -26,7 +26,7 @@ def _write_repo_state(owner: str, repo: str, pat: str) -> dict:
 
 
 def plan_repo_update(before: dict, args) -> tuple[dict, str | None]:
-    """바꿀 값만 계획으로 돌려준다. 검증 실패면 (빈 계획, 오류 메시지)."""
+    """Return only the values to change as a plan. On validation failure (empty plan, error message)."""
     plan: dict = {}
     if args.description is not None:
         if not args.description.strip():
@@ -94,13 +94,13 @@ def cmd_repo_update(args) -> int:
             github_api._call("PUT", f"/repos/{owner}/{repo}/topics", pat, {"names": plan["topics"]})
             applied.append("topics")
     except (gh_client.GitHubAPIError, gh_client.GitHubNetworkError) as e:
-        # 일부만 적용됐을 수 있다 — before 로 되돌릴 수 있게 알린다
+        # It may be partly applied — report it so it can be rolled back with before
         return _api_fail(e, pat, before=before, applied=applied)
     try:
         after = _write_repo_state(owner, repo, pat)
     except (gh_client.GitHubAPIError, gh_client.GitHubNetworkError) as e:
         return _api_fail(e, pat, before=before, applied=applied)
-    # has_discussions 는 공식 PATCH 문서에서 확인하지 못했다(확인 필요) — 반영됐는지 다시 읽어 검증한다
+    # has_discussions was not confirmed in the official PATCH docs (needs confirming) — re-read to verify it took effect
     warnings = [f"{k} is still {after.get(k)!r} after applying — the API may not apply this field"
                 for k in plan if k != "topics" and after.get(k) != plan[k]
                 and not (k in ("description", "homepage") and (after.get(k) or "") == plan[k])]

@@ -1,4 +1,4 @@
-"""보드 > 주제별 PNG (pro-launch 가 받아 둔 Chromium)"""
+"""Board > per-topic PNG (Chromium downloaded by pro-launch)"""
 from __future__ import annotations
 
 import sys
@@ -21,7 +21,7 @@ def _require_playwright():
 
 
 def shoot_topics(html_file: Path, out_dir: Path, topics: list[str], scale: int = 2) -> tuple[list[str], str | None]:
-    """주제(섹션)마다 PNG 한 장. pro-launch 규칙으로 고른 브라우저를 쓴다 — 따로 설치하지 않는다."""
+    """One PNG per topic (section). Uses the browser picked by pro-launch rules — installs nothing."""
     sync_playwright = _require_playwright()
     if sync_playwright is None:
         return [], "browser_missing"
@@ -33,7 +33,7 @@ def shoot_topics(html_file: Path, out_dir: Path, topics: list[str], scale: int =
             page.goto(html_file.resolve().as_uri())
             page.evaluate("document.fonts.ready")
             page.wait_for_function("[...document.images].every(i => i.complete)", timeout=30000)
-            page.add_style_tag(content="nav{display:none!important}")   # 목차는 그림에 필요 없다
+            page.add_style_tag(content="nav{display:none!important}")   # The table of contents is not needed in the image
             for n, topic in enumerate(topics, 1):
                 el = page.locator(f"section#{topic}")
                 box = el.bounding_box()
@@ -43,7 +43,7 @@ def shoot_topics(html_file: Path, out_dir: Path, topics: list[str], scale: int =
                 el.screenshot(path=str(f))
                 files.append(str(f))
             browser.close()
-    except Exception as e:  # 브라우저 파일이 없거나 실행이 막힌 경우
+    except Exception as e:  # Browser binary missing or launch blocked
         return files, f"browser_failed: {str(e).splitlines()[0][:200]}"
     return files, None
 

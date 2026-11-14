@@ -1,4 +1,4 @@
-"""detect: 스택·모듈 루트, 규칙 문서, 이어받을 것(기존 감사 문서·예외 목록·규칙 테스트)"""
+"""detect: stacks and module roots, rule documents, things to carry over (previous audits, exception lists, rule tests)"""
 from __future__ import annotations
 
 import json
@@ -9,20 +9,20 @@ from .source_files import walk_files
 
 RULE_DOCUMENT_NAMES = {"CLAUDE.md", "claude.md", "AGENTS.md", "GEMINI.md", ".cursorrules", "copilot-instructions.md"}
 RULE_DOCUMENT_DIRECTORY_PARTS = ("/.claude/rules/", "/.cursor/rules/", "/docs/architecture/")
-# 이 스킬의 감사 보고서 폴더 (get-output-path 가 쓰는 곳 — 규칙 문서가 아니라 지난 감사)
+# This skill's audit report folder (where get-output-path writes — past audits, not rule documents)
 AUDITS_DIRECTORY = "docs/architecture/audits"
-# 에이전트 설정 폴더 바로 아래 문서도 팀 규칙 (.cursor/가이드.md 같은 자리)
+# Docs directly under agent config folders are team rules too (e.g. .cursor/guide.md)
 RULE_DOCUMENT_TOP_DIRECTORIES = {".cursor", ".claude", ".agents"}
 RULE_DOCUMENT_EXTENSIONS = (".md", ".mdc")
-# 설치한 스킬·플러그인·명령 문서는 레포 규칙이 아니다 (외부 도구 설명서)
+# Installed skill/plugin/command docs are not repo rules (external tool manuals)
 NOT_RULE_DOCUMENT_DIRECTORY_NAMES = {"skills", "plugins", "commands", "agents", "node_modules"}
 PRIOR_AUDIT_PATTERN = re.compile(r"audit", re.IGNORECASE)
-# setup.py 가 패키지 루트일 때의 본문 (같은 이름의 일반 모듈 제외)
+# Content that marks setup.py as a package root (excludes ordinary modules with the same name)
 PACKAGING_SETUP_PATTERN = re.compile(r"^\s*(?:from|import)\s+(?:setuptools|distutils)\b", re.MULTILINE)
 ALLOWLIST_PATTERN = re.compile(r"(?:allow(?:ed|list)?|baseline|frozen)[\w.-]*\.(?:txt|allow|json)$|\.allow$", re.IGNORECASE)
-# 예외 목록이 아닌 같은 이름 파일 (projectops 설치 기록)
+# Same-named files that are not exception lists (projectops install records)
 NOT_ALLOWLIST_PATHS = (".github/.projectops/",)
-# 규칙 테스트 흔적 (파일 경로 또는 본문)
+# Rule test traces (file path or content)
 RULE_TEST_PATH_PATTERN = re.compile(r"(?:^|/)(?:test|tests|spec)/.*(?:architecture|layer|arch_|rules?_test|design_token)", re.IGNORECASE)
 RULE_TEST_CONFIG_NAMES = {".importlinter", ".dependency-cruiser.js", ".dependency-cruiser.cjs", "importlinter.ini"}
 MAXIMUM_LISTED = 40
@@ -37,12 +37,12 @@ def detect_project(root: Path) -> dict:
         if name in ("settings.gradle", "settings.gradle.kts"):
             gradle_settings_directories.add(str(Path(relative).parent.as_posix()))
 
-        # 스택 표식
+        # Stack markers
         stack = _stack_of_marker(name, absolute)
         if stack:
             stacks.append({"stack": stack[0], "module": str(Path(relative).parent.as_posix()), "marker": name, **stack[1]})
 
-        # 규칙 문서 · 이어받을 자료
+        # Rule documents and material to carry over
         if _is_rule_document(relative, name, probe):
             rule_documents.append(relative)
         if name.endswith(".md") and relative.startswith(AUDITS_DIRECTORY + "/"):
@@ -57,10 +57,10 @@ def detect_project(root: Path) -> dict:
             if _mentions_rule_tool(absolute):
                 rule_tests.append(relative)
 
-    # 이 스킬이 남긴 감사 먼저 (최신순), 그 밖의 audit 문서는 뒤
+    # This skill's audits first (newest first), other audit docs after
     prior_audits = sorted(skill_audits, reverse=True) + other_audits
     stacks = _collapse_gradle_submodules(stacks, gradle_settings_directories)
-    # Flutter 앱의 android/ 는 별도 스택이 아니라 호스트 (감사 대상은 flutter 모듈)
+    # A Flutter app's android/ is a host, not a separate stack (the flutter module is audited)
     flutter_modules = {s["module"] for s in stacks if s["stack"] == "flutter"}
     for stack in stacks:
         parent = str(Path(stack["module"]).parent.as_posix())
@@ -73,7 +73,7 @@ def detect_project(root: Path) -> dict:
         "prior_audits": prior_audits[:MAXIMUM_LISTED],
         "allowlists": allowlists[:MAXIMUM_LISTED],
         "rule_tests": rule_tests[:MAXIMUM_LISTED],
-        # 이 스킬이 설치한 것이 있을 때만 참 (빈 audits 폴더만으로는 이어받을 것이 없다)
+        # True only when this skill installed something (an empty audits folder has nothing to carry over)
         "has_architecture_folder": (root / "docs" / "architecture" / "rules").is_dir()
                                    or (root / "docs" / "architecture" / "CONVENTIONS.md").is_file(),
         "summary": f"stacks {sorted({s['stack'] for s in stacks})}, rule documents {len(rule_documents)}, "
@@ -98,7 +98,7 @@ def _is_rule_document(relative: str, name: str, probe: str) -> bool:
 
 
 def _stack_of_marker(name: str, absolute: Path):
-    """표식 파일 > (스택, 부가 정보) 또는 None"""
+    """Marker file > (stack, extra info) or None"""
     if name == "pubspec.yaml":
         text = _read(absolute)
         return ("flutter" if re.search(r"^\s*flutter\s*:", text, re.MULTILINE) else "dart"), {}
@@ -123,7 +123,7 @@ def _stack_of_marker(name: str, absolute: Path):
 
 
 def _collapse_gradle_submodules(stacks: list[dict], settings_directories: set) -> list[dict]:
-    """settings.gradle 루트 아래 Gradle 하위 모듈 > 루트 항목의 modules 로 묶기"""
+    """Gradle submodules under a settings.gradle root > grouped into the root entry's modules"""
     def owner_of(module: str):
         owners = [d for d in settings_directories if d != module and (d == "." or module.startswith(d + "/"))]
         return max(owners, key=len) if owners else None
@@ -141,7 +141,7 @@ def _collapse_gradle_submodules(stacks: list[dict], settings_directories: set) -
             stack["modules"] = [c["module"] for c in children]
             if any(c["stack"] == "spring" for c in children):
                 stack["stack"] = "spring"
-    for owner, children in submodules.items():  # 루트에 build.gradle 이 없는 멀티모듈
+    for owner, children in submodules.items():  # multi-module with no build.gradle at the root
         stack_name = "spring" if any(c["stack"] == "spring" for c in children) else "jvm"
         collapsed.append({"stack": stack_name, "module": owner, "marker": "settings.gradle",
                           "modules": [c["module"] for c in children]})

@@ -1,4 +1,4 @@
-"""설정: ~/.projectops/config/config.json 의 image 섹션 (없으면 기본값) + 레포 위치 판별"""
+"""Settings: image section of ~/.projectops/config/config.json (defaults if missing) + repo location"""
 from __future__ import annotations
 
 import json
@@ -8,9 +8,9 @@ import time
 from pathlib import Path
 
 CONFIG_SECTION = "image"
-# 레포 하네스 위치 (레포 루트 기준 상대경로)
+# Repo harness location (relative to repo root)
 DEFAULT_HARNESS_DIR = "docs/image-harness"
-# 후보 그림 보관: ~/.projectops/image/{owner__repo}/runs/{yyyyMMdd_HHmmss}_{이름}
+# Candidate image storage: ~/.projectops/image/{owner__repo}/runs/{yyyyMMdd_HHmmss}_{name}
 RUNS_PARTS = (".projectops", "image")
 
 
@@ -30,7 +30,7 @@ def configured_providers() -> dict:
 
 
 def configured_priority() -> list[str] | None:
-    """image.priority (사용자가 정한 도구 순서), 없으면 None > 처음 쓸 때 사용자에게 물음"""
+    """image.priority (user-chosen tool order), None if unset > ask the user on first use"""
     priority = _section().get("priority")
     if isinstance(priority, list) and priority and all(isinstance(item, str) for item in priority):
         return list(priority)
@@ -38,7 +38,7 @@ def configured_priority() -> list[str] | None:
 
 
 def is_subscription_required() -> bool:
-    # require_subscription: 기본 true, 명시적 false 일 때만 Codex API 키 로그인 허용
+    # require_subscription: default true; only an explicit false allows Codex API-key login
     return _section().get("require_subscription") is not False
 
 
@@ -57,7 +57,7 @@ def repository_root() -> Path:
 
 
 def repository_key(root: Path) -> str:
-    """origin 주소 > owner__repo, 없으면 폴더 이름 (프로젝트별 후보 폴더 분리)"""
+    """origin URL > owner__repo, or the folder name if none (separates candidate folders per project)"""
     origin = _git("-C", str(root), "remote", "get-url", "origin")
     matched = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?/?$", origin)
     if matched:

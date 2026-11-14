@@ -1,5 +1,5 @@
-"""캡처 실행기: 작업 JSON > 브라우저로 PNG, GIF 저장 > 결과 JSON 출력
-pro-launch 가상환경 파이썬으로 실행 (Playwright, Pillow 는 시스템 파이썬에 없을 수 있음)
+"""Capture runner: job JSON > save PNG, GIF via browser > print result JSON
+Run with the pro-launch venv Python (system Python may lack Playwright, Pillow)
 """
 from __future__ import annotations
 
@@ -46,10 +46,10 @@ def build_screen_url(job: dict) -> str:
 def open_screen(browser, job: dict, scale: int):
     context = browser.new_context(viewport={"width": job.get("width") or VIEWPORT_WIDTH, "height": VIEWPORT_HEIGHT},
                                   device_scale_factor=scale)
-    # 헤더 대신 쿠키: 시안이 외부 자원을 불러도 키가 다른 호스트로 안 나감
+    # Cookie instead of header: the key never reaches other hosts even if the mockup loads external resources
     context.add_cookies([{"name": f"ui_design_key_{job['port']}", "value": job["key"], "url": f"http://127.0.0.1:{job['port']}"}])
     page = context.new_page()
-    # 녹화용 클릭을 사용자 선택으로 기록하지 않음
+    # Do not record recording clicks as user choices
     page.route("**/api/events", lambda route: route.fulfill(status=204))
     page.goto(build_screen_url(job), wait_until="load")
     # A full-document mockup has no .ui-device frame and its media queries read the viewport: narrow it like the viewer does
@@ -62,7 +62,7 @@ def open_screen(browser, job: dict, scale: int):
 
 
 def output_path(job: dict, suffix: str, extension: str) -> Path:
-    """이름: 시안__안__기기__테마.확장자 (지정한 값만)"""
+    """Name: mockup__option__device__theme.ext (given values only)"""
     parts = [Path(job["screen"]).stem, suffix, job.get("device"), job.get("theme")]
     return Path(job["out_dir"]) / ("__".join(part for part in parts if part) + extension)
 
@@ -85,7 +85,7 @@ def capture_png(browser, job: dict) -> list[dict]:
         return [describe_file(path, job)]
     files = []
     for option_id in option_ids:
-        choice = json.dumps(str(option_id), ensure_ascii=False)   # CSS 선택자: 유니코드 이스케이프는 다른 뜻이라 한글 그대로
+        choice = json.dumps(str(option_id), ensure_ascii=False)   # CSS selector: unicode escapes mean something else, so keep non-ASCII as is
         card = page.locator(f".ui-option:has([data-choice={choice}]), .ui-option[data-choice={choice}]").first
         if card.count() == 0:
             raise CaptureFailure("option_not_found", error=f"No option {option_id} in this mockup")
@@ -96,7 +96,7 @@ def capture_png(browser, job: dict) -> list[dict]:
 
 
 class GifRecorder:
-    """프레임 수집: 스크린샷 + 실제 시각 (재생 속도를 실제 시간에 맞춤)"""
+    """Collect frames: screenshot + real timestamp (playback speed matches real time)"""
 
     def __init__(self, page, clip: dict | None, max_frames: int):
         self.page, self.clip, self.max_frames = page, clip, max_frames
@@ -120,7 +120,7 @@ class GifRecorder:
 
 
 def _find_recording_region(page) -> dict | None:
-    """움직임이 보이는 영역만: 용량 절약. 없으면 화면 전체"""
+    """Only the area that moves: saves size. Whole screen if none"""
     scroll_height = page.evaluate("document.documentElement.scrollHeight")
     viewport = page.viewport_size
     page.set_viewport_size({"width": viewport["width"], "height": min(max(scroll_height, VIEWPORT_HEIGHT), MAX_VIEWPORT_HEIGHT)})
@@ -209,14 +209,14 @@ def run_job(job: dict) -> dict:
         return {"ok": False, "code": "browser_missing", "error": "Playwright is not installed"}
     if job.get("gif"):
         try:
-            import PIL  # noqa: F401  (GIF 저장 전에 미리 확인)
+            import PIL  # noqa: F401  (check before saving the GIF)
         except ImportError:
             return {"ok": False, "code": "pillow_missing", "error": "Pillow is not installed"}
     Path(job["out_dir"]).mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
         try:
             browser = playwright.chromium.launch(executable_path=find_browser_executable(playwright))
-        except Exception as error:  # 브라우저 파일 없음, 실행 차단
+        except Exception as error:  # Browser binary missing, launch blocked
             return {"ok": False, "code": "browser_missing", "error": str(error).splitlines()[0][:300]}
         try:
             return {"ok": True, "files": capture_gif(browser, job) if job.get("gif") else capture_png(browser, job)}

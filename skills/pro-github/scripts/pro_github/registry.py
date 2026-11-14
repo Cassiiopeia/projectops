@@ -1,4 +1,4 @@
-"""서브커맨드 선언(Command)과 의존 조회 창구(Dependencies)."""
+"""Subcommand declarations (Command) and the dependency lookup gateway (Dependencies)."""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 @dataclass(frozen=True)
 class Command:
-    """서브커맨드 하나: 이름·도움말·실행 함수 run(args, api)·인자 등록 configure(parser)."""
+    """One subcommand: name, help, run function run(args, api), argument setup configure(parser)."""
 
     name: str
     help: str
@@ -17,9 +17,9 @@ class Command:
 
 
 class Dependencies:
-    """진입 모듈 전역(gh_client 함수·get_github_pat)을 호출 시점에 읽는 창구.
+    """Gateway that reads the entry module's globals (gh_client functions, get_github_pat) at call time.
 
-    테스트가 github_cli 모듈 속성을 바꿔 끼우면 핸들러에도 그대로 반영 (값을 복사해 두지 않음)
+    When tests swap github_cli module attributes, handlers see the change too (values are not copied)
     """
 
     def __init__(self, namespace: dict[str, Any]) -> None:

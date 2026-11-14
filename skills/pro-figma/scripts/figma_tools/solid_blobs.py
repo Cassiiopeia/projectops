@@ -1,21 +1,21 @@
-"""한쪽에만 있는 색면: 다른 픽셀 덩어리 중 글자가 아니라 색면이 다른 것
+"""Color fills on one side only: differing pixel blobs that are color fills, not text
 
-글자 뭉개짐은 양쪽 다 가장자리가 촘촘하다. 한쪽에만 있는 그림 조각은 양쪽이 매끈하고 색만 다르다.
-1px 밀린 실루엣은 상자 안이 거의 비어(채움률 ~0.1) 걸러진다.
-수치가 1.66%까지 내려간 화면에서도 앱에만 남은 에셋 조각(부리 13px)을 이것으로 찾았다 (elum).
+Garbled text has dense edges on both sides. An image piece on one side only is smooth on both sides and differs only in color.
+A silhouette shifted by 1px is nearly empty inside its box (fill ratio ~0.1), so it is filtered out.
+Even on a screen whose score dropped to 1.66%, this found an asset piece left only in the app (a 13px beak) (elum).
 """
 from __future__ import annotations
 
-# 가장자리 밀도 상한: 이보다 촘촘하면 글자로 봄
+# Edge density cap: denser than this counts as text
 MAX_EDGE_DENSITY = 0.10
-# 시안 색 <-> 렌더 색 평균 차 하한
+# Minimum mean difference design color <-> render color
 MIN_COLOR_GAP = 40
-# 덩어리가 상자를 채운 비율 하한
+# Minimum ratio of the box filled by the blob
 MIN_FILL_RATIO = 0.30
 
 
 def _edge_density(image, threshold: int) -> float:
-    """가로 이웃과 크게 다른 픽셀 비율 (글자면 높고 색면이면 0 근처)"""
+    """Ratio of pixels differing strongly from the horizontal neighbor (high for text, near 0 for fills)"""
     if image.shape[1] < 2:
         return 0.0
     import numpy as np
@@ -24,9 +24,9 @@ def _edge_density(image, threshold: int) -> float:
 
 
 def connected_components(mask, min_area: int) -> list[dict]:
-    """다른 픽셀을 연결 덩어리(4-이웃)로 (행 구간 > 위 행과 겹치면 union-find)
+    """Differing pixels into connected blobs (4-neighbor) (row runs > union-find when overlapping the row above)
 
-    diff 의 행 단위 상자는 한 행의 글자와 그림을 한 상자로 합쳐, 색면인지 글자인지 못 가린다.
+    diff's row boxes merge a row's text and image into one box, so they cannot tell fill from text.
     """
     import numpy as np
     parent: dict[int, int] = {}
@@ -42,7 +42,7 @@ def connected_components(mask, min_area: int) -> list[dict]:
         xs = np.nonzero(mask[y])[0]
         current_runs = []
         if len(xs):
-            # 연속 구간 나누기
+            # Split contiguous runs
             breaks = np.nonzero(np.diff(xs) != 1)[0]
             starts = np.concatenate(([0], breaks + 1))
             ends = np.concatenate((breaks, [len(xs) - 1]))
@@ -70,7 +70,7 @@ def connected_components(mask, min_area: int) -> list[dict]:
 
 
 def find_solid_blobs(design, render, mask, min_area: int, threshold: int) -> list[dict]:
-    """다른 픽셀 연결 덩어리 > 색면 차이만 (넓은 것부터)"""
+    """Differing pixel connected blobs > color-fill differences only (largest first)"""
     blobs = []
     for cluster in connected_components(mask, min_area):
         x0, y0 = cluster["x"], cluster["y"]

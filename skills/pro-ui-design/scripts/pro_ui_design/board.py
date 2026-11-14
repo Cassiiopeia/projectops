@@ -1,4 +1,4 @@
-"""board: 데이터 JSON > 보드 HTML (+ PNG · markdown)"""
+"""board: data JSON > board HTML (+ PNG, markdown)"""
 from __future__ import annotations
 
 import json
@@ -24,7 +24,7 @@ def cmd_board(args) -> int:
                      "next": "Follow the board data format in SKILL.md (summary, screens, alternatives, ...)"})
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
-    base = data_f.parent   # 데이터 안의 상대 그림 경로는 데이터 파일 기준
+    base = data_f.parent   # Relative image paths in the data resolve against the data file
     doc, topics = render_html(data, base)
     html_f = out_dir / "board.html"
     html_f.write_text(doc, encoding="utf-8")
@@ -38,7 +38,7 @@ def cmd_board(args) -> int:
         if too_wide:
             payload["too_wide"] = too_wide
         if err:
-            # 브라우저가 없으면 멈추지 않는다 — md 표 + 원본 캡처로 낸다 (설계 §6)
+            # No browser is not fatal — fall back to md tables + raw captures (design §6)
             payload.update({"ok": False, "code": "browser_missing" if err == "browser_missing" else "png_failed",
                             "error": err,
                             "next": ("Continue without PNGs: use the board HTML as is (markdown/html output) "

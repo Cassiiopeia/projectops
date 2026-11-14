@@ -1,11 +1,11 @@
-"""시나리오 모양: 타겟별 본보기, 타겟·기대 결과 규칙, 실행 가능 여부 검증"""
+"""Scenario shape: per-target templates, target and expected-result rules, runnability validation"""
 from __future__ import annotations
 
 import re
 
 
 # =========================================================================
-# 부트스트랩 — 이 앱이 어떻게 생겼는지 코드에서 읽어낸다
+# Bootstrap — read from the code what this app looks like
 # =========================================================================
 
 _SHARED_DIR = "_shared"
@@ -15,23 +15,23 @@ _FLOWS_DIR = "flows"
 
 
 def _template_for(target: str) -> dict:
-    """타겟에 맞는 시나리오 본보기. 타겟마다 밟는 단위와 판정 근거가 다르다."""
+    """Scenario template for the target. Each target has its own step unit and evidence."""
     base = {
         "name": "{one line on what this walks}",
         "description": "{why this path matters}",
         "target": target,
-        "precondition": None,   # 예: "_shared/login-kakao" — 앞에 붙일 흐름
+        "precondition": None,   # e.g. "_shared/login-kakao" — flow to prepend
         "steps": [dict(_STEP_TEMPLATES[target])],
     }
     if target == "app":
-        # 참가자가 둘 이상일 때만 채운다. 비워 두면 기존처럼 기기 한 대로 밟는다.
-        # 키는 device 서브커맨드의 --role 과 같은 값을 쓴다 (#583).
+        # Fill only when there are two or more participants. Left empty, it runs on one device as before.
+        # Keys use the same value as the device subcommand's --role (#583).
         base["roles"] = {}
         base["reset"] = {
             "device": "pm clear",
             "server": "{command that deletes the test account. null if none}",
         }
-        # 환경 조건은 기기에서만 바꿀 수 있다
+        # Environment conditions can only be changed on a device
         base["conditions"] = [
             {"name": "Large text", "apply": "settings put system font_scale 1.3",
              "revert": "settings put system font_scale 1.0"},
@@ -55,7 +55,7 @@ def _template_for(target: str) -> dict:
 
 _REQUIRED_STEP_KEYS = ("screen", "do")
 
-# 타겟별 단계 본보기. 같은 틀을 주면 웹·서버 쓰는 사람이 절반을 지우고 다시 써야 한다.
+# Per-target step templates. One shared template would make web and server users delete half and rewrite it.
 _STEP_TEMPLATES = {
     "app": {
         "screen": "{screen name}",
@@ -94,40 +94,40 @@ _STEP_TEMPLATES = {
     },
 }
 
-# ── 타겟 = 무엇으로 조작하나 ─────────────────────────────────────────────
+# ── Target = what drives the steps ─────────────────────────────────────────────
 #
-# **target이 정하는 것은 `do`를 누가 실행하느냐뿐이다.** expect_* 는 타겟과 무관하게 붙는다.
-# 그래서 "웹에서 밟으며 서버 DB를 확인"하는 조합이 자연스럽게 표현된다 —
-# 조작 대상과 판정 근거는 다른 이야기다.
+# **target only decides who runs `do`.** expect_* applies regardless of target.
+# So "drive the web while checking the server DB" is expressed naturally —
+# what you drive and what you judge by are separate things.
 TARGETS = ("app", "web", "server", "other")
-# 값이 없는 예전 시나리오는 여기로 떨어진다 — 기존 파일을 한 글자도 고치지 않기 위해서다.
+# Old scenarios without a value fall here — so existing files need no change at all.
 DEFAULT_TARGET = "app"
 
-# 타겟별로 인정하는 기대 결과. 하나도 없으면 "화면이 떴으니 통과"로 끝나므로 막는다.
+# Expected results accepted per target. With none, it ends as "the screen showed, so pass", so it is blocked.
 _EXPECT_KEYS = {
     "app": ("expect_screen", "expect_device", "expect_server"),
     "web": ("expect_screen", "expect_url", "expect_text", "expect_server"),
     "server": ("expect_status", "expect_json", "expect_server"),
-    # other 는 화면도 응답도 없다. 남는 것은 **무엇이 만들어졌나**다.
-    # expect_absent 가 특히 중요하다 — 지금까지 스킬은 "있어야 할 것"만 봤고,
-    # 나오면 안 되는 것(테스트 코드 유출·임시 파일 잔존·구 파일)은 볼 눈이 없었다.
+    # other has no screen and no response. What is left is **what was produced**.
+    # expect_absent matters most — so far the skill only checked "what must exist",
+    # with no eye for what must not appear (leaked test code, leftover temp files, old files).
     "other": ("expect_exit", "expect_output", "expect_file", "expect_absent"),
 }
 
 
 def scenario_target(data: dict) -> str:
-    """시나리오의 조작 대상. 모르는 값이면 기본값으로 떨어뜨리지 않고 그대로 돌려준다
-    — _validate가 잡아서 사용자에게 알려야 조용히 엉뚱한 것을 밟지 않는다."""
+    """The scenario's drive target. An unknown value is returned as is, not replaced by the default
+    — _validate must catch it and tell the user, so the wrong thing is never driven silently."""
     return data.get("target") or DEFAULT_TARGET
 
 def _validate(data: dict) -> list[str]:
-    """시나리오가 실행 가능한 모양인지 본다. 밟기 전에 걸러야 중간에 안 멈춘다."""
+    """Check the scenario is runnable. Filter before driving so it does not stop midway."""
     problems = []
     if not data.get("name"):
         problems.append("name is empty")
 
-    # 축을 먼저 확정한다. 모르는 값이면 조용히 기본값으로 밟지 않고 여기서 막는다 —
-    # 오타 하나로 웹 시나리오가 adb를 타면 원인을 찾기 어렵다.
+        # Settle the axis first. An unknown value is blocked here instead of silently using the default —
+        # if one typo sends a web scenario through adb, the cause is hard to find.
     target = scenario_target(data)
     if target not in TARGETS:
         problems.append(f"Unknown target '{target}' — must be one of {'·'.join(TARGETS)}")
@@ -145,9 +145,9 @@ def _validate(data: dict) -> list[str]:
         for k in _REQUIRED_STEP_KEYS:
             if not st.get(k):
                 problems.append(f"step {i} has no {k}")
-        # ⚠️ falsy 검사를 하면 안 된다. `expect_exit: 0` 은 **가장 흔한 기대값**인데
-        #    0 은 falsy 라 "기대 결과가 없다"로 읽혀 멀쩡한 시나리오가 거부된다.
-        #    빈 문자열·빈 목록은 안 적은 것으로 본다.
+        # ⚠️ Do not use a falsy check. `expect_exit: 0` is **the most common expected value**,
+        #    but 0 is falsy, so it reads as "no expected result" and a valid scenario is rejected.
+        #    Empty strings and empty lists count as not written.
         if not any(st.get(k) not in (None, "", [], {}) for k in expect_keys):
             problems.append(
                 f"step {i} ({st.get('screen','?')}) has no expected result — "
@@ -158,17 +158,17 @@ def _validate(data: dict) -> list[str]:
     return problems
 
 
-# 값 전달은 ${이름} 으로 쓴다. 시나리오 틀이 이미 {중괄호} 를 "여기를 채워라" 표시로
-# 쓰고 있어서, 같은 기호를 쓰면 검증기가 둘을 구분하지 못한다 (#583).
+# Values are passed as ${name}. The scenario template already uses {braces} as a "fill this in" marker,
+# so using the same symbol would leave the validator unable to tell them apart (#583).
 _CAPTURE_REF = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
 
 
 def _validate_roles(data: dict, steps: list, target: str) -> list[str]:
-    """참가자가 둘 이상인 시나리오가 실제로 실행 가능한 모양인지 본다.
+    """Check a scenario with two or more participants is actually runnable.
 
-    - `device` 가 선언 안 된 역할을 가리키면 어느 기기로 갈지 정해지지 않는다.
-    - `${이름}` 을 앞선 단계가 만들지 않았으면 빈 값을 입력하게 된다. "A에서 만든
-      값을 B에 넣는다"가 이 검증 없이는 조용히 빈칸으로 밟힌다.
+    - If `device` points at an undeclared role, the target device is undetermined.
+    - If no earlier step produced `${name}`, an empty value gets typed. "Put the value made in A
+      into B" would silently run with a blank without this check.
     """
     problems: list[str] = []
     roles = data.get("roles") or {}

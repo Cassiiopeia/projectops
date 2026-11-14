@@ -1,20 +1,20 @@
-"""글줄 맞대기: 시안 · 렌더의 글줄 y범위 > 짝짓기 > 어긋남(논리 px) · 짝 없는 줄
+"""Text row matching: design · render text row y-ranges > pairing > offset (logical px) · unpaired rows
 
-배경이 움직이는 화면(오로라·로딩)은 다른 픽셀 %가 배경에 먹혀 쓸모없다.
-글자가 어느 높이에 있는지는 숫자로 볼 수 있다 (elum 에서 제목이 넷째 줄로 꺾인 것을 찾음).
+On screens with a moving background (aurora·loading), the differing pixel % is swamped by the background and useless.
+Which height text sits at can be read as numbers (found a title wrapping to a fourth line in elum).
 """
 from __future__ import annotations
 
-# 밝기 합(R+G+B)이 이 값 미만이면 글자 잉크로 침
+# Brightness sum (R+G+B) below this counts as text ink
 INK_BRIGHTNESS_SUM = 300
-# 이보다 낮은 줄 높이(px)는 잡음
+# Row height (px) below this is noise
 MIN_ROW_HEIGHT_PIXELS = 3
-# 이보다 멀면(논리 px) 같은 줄로 짝짓지 않음
+# Farther than this (logical px) is not paired as the same row
 MAX_ROW_OFFSET_LOGICAL = 40
 
 
 def ink_rows(image, top: int, bottom: int) -> list[tuple[int, int]]:
-    """잉크가 있는 가로 구간 [(y0, y1)] (상하 띠 제외)"""
+    """Horizontal runs with ink [(y0, y1)] (top·bottom bands excluded)"""
     dark = image.sum(axis=2) < INK_BRIGHTNESS_SUM
     if top:
         dark[:top] = False
@@ -35,10 +35,10 @@ def ink_rows(image, top: int, bottom: int) -> list[tuple[int, int]]:
 
 
 def match_rows(design_rows: list, render_rows: list, scale: float) -> list[tuple]:
-    """순서를 지키며 짝을 최대로, 같은 수면 어긋남 합이 작게 (한 줄 어긋나도 뒤가 통째로 밀리지 않게)"""
+    """Maximize pairs while keeping order, smaller offset sum on ties (one off row does not shift everything after it)"""
     design_count, render_count = len(design_rows), len(render_rows)
     infinity = float("inf")
-    # cost[i][j] = (못 맺은 줄 수, 어긋남 합) — 사전식 비교
+    # cost[i][j] = (unpaired row count, offset sum) — lexicographic comparison
     cost = [[(infinity, infinity)] * (render_count + 1) for _ in range(design_count + 1)]
     back = [[None] * (render_count + 1) for _ in range(design_count + 1)]
     cost[0][0] = (0, 0)
@@ -74,7 +74,7 @@ def match_rows(design_rows: list, render_rows: list, scale: float) -> list[tuple
 
 
 def compare_rows(design, render, top: int, bottom: int, scale: float) -> dict:
-    """글줄 비교 결과: rows [{design, render, offset | only}] · 어긋난 줄 · 짝 없는 줄 수"""
+    """Text row comparison result: rows [{design, render, offset | only}] · offset rows · unpaired row count"""
     pairs = match_rows(ink_rows(design, top, bottom), ink_rows(render, top, bottom), scale)
 
     def logical(run):

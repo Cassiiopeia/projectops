@@ -1,4 +1,4 @@
-// pro-ui-design 시안 공통 도구 window.UIDesign: 셸 설정 수신, 클릭 기록, 애니메이션, 공유 상태, 제스처
+// pro-ui-design shared mockup tools window.UIDesign: shell settings, click log, animation, shared state, gestures
 (() => {
   const DEFAULT_LONG_PRESS_MILLISECONDS = 450;
   const LONG_PRESS_MOVE_TOLERANCE_PIXELS = 8;
@@ -29,10 +29,10 @@
     fetch("/api/events", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...event, screen: screenName }), keepalive: true,
-    }).catch(() => { /* 서버가 멈춰도 시안 조작은 계속 */ });
+    }).catch(() => { /* Mockup interaction keeps working even if the server stops */ });
   }
 
-  // 애니메이션: 시간 값에 속도 배율 적용, 처음부터 할 때 취소되도록 추적
+  // Animation: apply speed multiplier to durations, track so restart can cancel
   function animate(element, keyframes, timing) {
     const scaled = typeof timing === "number" ? { duration: timing } : { ...timing };
     for (const key of ["duration", "delay", "endDelay"]) {
@@ -43,7 +43,7 @@
     return animation;
   }
 
-  // 감쇠 스프링: 위치 0 > 1 을 매 프레임 콜백으로 전달 (dampingRatio 1 미만이면 끝에서 튕김)
+  // Damped spring: pass position 0 > 1 to a per-frame callback (bounces at the end when dampingRatio < 1)
   function spring(onFrame, { dampingRatio = 0.6, frequency = 14 } = {}) {
     const damping = Math.min(dampingRatio, 0.999);
     const dampedFrequency = frequency * Math.sqrt(1 - damping * damping);
@@ -76,7 +76,7 @@
     playTimers.clear();
   }
 
-  // 안 등록: play 는 안 하나 재생, reset 은 처음 모습으로
+  // Register an option: play runs one option, reset restores the initial look
   function registerOption(id, { play, reset = () => {} }) {
     options.set(String(id), { play, reset });
   }
@@ -98,7 +98,7 @@
     });
   }
 
-  // 공유 상태: 여러 화면이 함께 읽고 구독
+  // Shared state: read and subscribed by several screens
   function createStore(initial) {
     const initialCopy = structuredClone(initial);
     let current = structuredClone(initial);
@@ -125,7 +125,7 @@
     return store;
   }
 
-  // 처음부터: 움직임 취소 > 안 복원 > 상태 복원 > 안내 복원 > 시안의 추가 복원
+  // Restart: cancel motion > restore options > restore state > restore hints > mockup's own extra restore
   function reset() {
     cancelRunningMotion();
     options.forEach((option) => option.reset());
@@ -157,7 +157,7 @@
       return { screen, element };
     });
     container.append(wrapper);
-    // "따라 해 보기" 안내는 화면 옆에 배치
+    // Place the "try it" hints beside the screen
     const stepsPanel = document.querySelector(".ui-steps");
     if (stepsPanel) wrapper.prepend(stepsPanel);
     const renderAll = (state) => rendered.forEach(({ screen, element }) => screen.render(element, state));
@@ -219,7 +219,7 @@
     element.addEventListener("pointerup", cancel);
     element.addEventListener("pointercancel", cancel);
     element.addEventListener("pointerleave", cancel);
-    // 길게 누른 뒤 손을 뗄 때 일반 누름으로 처리되지 않게
+    // Keep a long-press release from counting as a normal press
     element.addEventListener("click", (event) => {
       if (hasFired) { event.stopPropagation(); event.preventDefault(); hasFired = false; }
     }, true);
@@ -256,7 +256,7 @@
     element.addEventListener("pointercancel", finish);
   }
 
-  // 위임 처리: [data-play] 재생, [data-choice] 선택 기록
+  // Delegated handling: [data-play] plays, [data-choice] records a choice
   document.addEventListener("click", (domEvent) => {
     const playButton = domEvent.target.closest?.("[data-play]");
     if (playButton) play(playButton.dataset.play);

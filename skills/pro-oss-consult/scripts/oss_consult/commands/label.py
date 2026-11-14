@@ -1,5 +1,5 @@
-"""label: 라벨 생성·이름 변경·색 변경 (입력 검증 > 기존 라벨 읽기 > 계획 > --dry-run 이면 계획만 > 적용)
-승인 후에만 호출. 라벨 삭제·이슈 닫기는 구현하지 않음
+"""label: create, rename or recolor labels (validate input > read existing labels > plan > plan only on --dry-run > apply)
+Call only after approval. Deleting labels and closing issues are not implemented
 """
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from oss_consult.github_api import _label_records
 from oss_consult.output import _api_fail, _bad_slug, _fail, _no_pat, _out, _split
 
 MAX_LABEL_DESCRIPTION = 100
-# projectops 한글 상태 라벨은 Projects 보드 동기화가 이름에 묶여 있다 — 코드 차원에서 건드리지 않는다
+# projectops Korean status labels drive Projects board sync by name — never touched at the code level
 PROTECTED_LABELS = {"작업전", "작업중", "담당자확인", "피드백", "작업완료", "보류", "취소", "긴급", "문서",
-                    # 영문 표준(#776) — 전환 기간에는 한글과 영문을 둘 다 보호한다
+                    # English standard (#776) — during the transition both Korean and English are protected
                     "status: todo", "status: in progress", "status: needs review", "status: feedback",
                     "status: done", "status: on hold", "status: cancelled", "priority: urgent", "documentation"}
 _COLOR_RE = re.compile(r"^[0-9a-f]{6}$")
@@ -66,7 +66,7 @@ def cmd_label(args) -> int:
             return _fail("label_not_found", f"Label not found: {name}", "Check the label name (labels.names in collect)", pat)
         if action == "rename":
             clash = by_lower.get(new_name.lower())
-            # 대소문자만 바꾸는 이름 변경은 같은 라벨이므로 허용한다
+            # A rename that only changes case is the same label, so it is allowed
             if clash and clash["name"].lower() != old["name"].lower():
                 return _fail("label_exists", f"The new name already exists: {clash['name']}",
                              "Use another name. To merge, the user moves the issue labels and cleans up by hand", pat, before=old)

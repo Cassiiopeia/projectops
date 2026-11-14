@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""commit_cli — commit skill 전용 CLI.
+"""commit_cli — CLI for the commit skill.
 
-브랜치명 → 이슈 번호 추출, 이슈 제목 조회, 커밋 템플릿 생성.
-서브커맨드: get-issue-number, get-issue, normalize-title, get-commit-template,
+Branch name → issue number, issue title lookup, commit template generation.
+Subcommands: get-issue-number, get-issue, normalize-title, get-commit-template,
 resolve-style, sanitize-message, commit
 
-사용법:
+Usage:
     cd skills/pro-commit/scripts
     python commit_cli.py <subcommand> [args]
 """
@@ -54,7 +54,7 @@ def cmd_get_issue(args) -> int:
             "issue": issue,
             "title": issue["title"],
             "url": issue["url"],
-            "html_url": issue["url"],  # 에이전트가 GitHub 원본 키 이름으로 짐작하는 별칭
+            "html_url": issue["url"],  # alias for agents guessing the original GitHub key name
             "summary": f"#{issue['number']} — {issue['title']}",
         })
     except GitHubAPIError as e:
@@ -73,7 +73,7 @@ def _commit_type_arg(value: str) -> str:
 
 
 def _non_empty_path_arg(value: str) -> str:
-    """경로 인자: 빈 값·공백만이면 거부 (비어 있는 $VAR 가 현재 폴더 레포에 커밋하던 문제, #1187)"""
+    """Path argument: reject empty or whitespace-only values (an empty $VAR used to commit to the current folder's repo, #1187)"""
     if not value.strip():
         import argparse
         raise argparse.ArgumentTypeError(
@@ -82,7 +82,7 @@ def _non_empty_path_arg(value: str) -> str:
 
 
 def _style(args) -> tuple:
-    """개인 preferences + 팀 version.yml 을 합쳐 커밋 형식을 정한다."""
+    """Decide the commit format from personal preferences + team version.yml."""
     from common.commit_style import resolve_for_repo
     return resolve_for_repo(getattr(args, "repo_root", None))
 
@@ -92,7 +92,7 @@ def cmd_resolve_style(args) -> int:
     from common.repo_language import read_team_language
     prefs, style = _style(args)
     v = prefs["values"]
-    # 말 언어: 개인 설정 > 팀 version.yml language (#977) > 없음(기본 동작)
+    # Language: personal setting > team version.yml language (#977) > none (default behaviour)
     team_language = read_team_language(getattr(args, "repo_root", None) or _toplevel())
     language = v.get("language") or team_language
     language_source = "preferences" if v.get("language") else ("version.yml" if team_language else None)
@@ -104,7 +104,7 @@ def cmd_resolve_style(args) -> int:
 def cmd_get_commit_template(args) -> int:
     from common.commit_style import render_for_issue
     _, style = _style(args)
-    # 타입 생략 시 팀 commit_type_map 까지 반영 — 이슈 헬퍼 댓글과 같은 타입이 나오게
+    # When the type is omitted, apply the team commit_type_map too — so the type matches the issue helper comment
     template = render_for_issue(style, issue_title=args.issue_title, issue_url=args.issue_url,
                                 commit_type=getattr(args, "commit_type", None),
                                 scope=getattr(args, "scope", None) or "")
@@ -113,19 +113,19 @@ def cmd_get_commit_template(args) -> int:
 
 
 def cmd_sanitize_message(args) -> int:
-    """커밋 메시지 끝의 @mention trailer를 제거한다 (AI 흔적 방지 최후 방어선).
+    """Remove @mention trailers at the end of a commit message (last line of defence against AI traces).
 
-    왜 파이썬인가 — 과거 이 로직은 셸 sed 한 줄이었는데 `:a;$!N;$!ba` 라벨 구문이
-    GNU sed 전용이라 macOS(BSD sed)에서 **종료 코드 0으로 조용히 통과**하며
-    입력을 그대로 흘려보냈다. 안전망이 켜져 있다고 믿는 상태에서 실제로는 꺼져 있었다.
-    OS별 도구 구현 차이를 타지 않도록 파이썬으로 처리 (#523).
+    Why Python — this used to be a one-line shell sed, but the `:a;$!N;$!ba` label syntax
+    is GNU sed only, so on macOS (BSD sed) it **passed silently with exit code 0**
+    and let the input through unchanged. The safety net was believed on while it was actually off.
+    Done in Python to avoid per-OS tool differences (#523).
 
-    본문 어디에 있든이 아니라 **끝에 붙은** mention만 제거한다 —
-    "@projectops build app 관련 수정" 처럼 본문에 의미 있게 등장한 mention은 보존해야 한다.
+    Only mentions **attached at the end** are removed, not anywhere in the body —
+    a mention used meaningfully in the body like "@projectops build app related fix" must be kept.
     """
     cleaned, removed = _strip_trailing_mentions(args.message)
     if getattr(args, "raw", False):
-        # 셸이 JSON 을 풀지 않아도 되게 정리된 메시지만 그대로 (#940)
+        # Only the cleaned message as is, so the shell need not unpack JSON (#940)
         sys.stdout.write(cleaned)
         return 0
     return emit({
@@ -136,20 +136,20 @@ def cmd_sanitize_message(args) -> int:
 
 
 def _strip_trailing_mentions(raw: str) -> tuple:
-    """(정리된 메시지, 제거했는지). 끝에 연속으로 붙은 @mention 들 (+ 그 앞뒤 공백/개행)만 제거"""
+    """(cleaned message, whether removed). Removes only consecutive trailing @mentions (+ surrounding whitespace/newlines)"""
     import re
     cleaned = re.sub(r"\s*(@[A-Za-z0-9_-]+(?:\s+@[A-Za-z0-9_-]+)*)\s*$", "", raw).rstrip()
     return cleaned, raw.rstrip() != cleaned
 
 
 def _paths_to_add(git, root: str, paths: list) -> list:
-    """--paths > git add 대상: 공백·줄바꿈으로 붙은 값 분리 (zsh `$P`, #1184), 이미 스테이징된 삭제 경로 제외 (#971)
-    스테이징된 삭제 경로를 다시 add 하면 pathspec 오류로 커밋 전체가 멈춘다"""
+    """--paths > git add targets: split values joined by spaces or newlines (zsh `$P`, #1184), exclude already-staged deleted paths (#971)
+    Re-adding a staged deleted path stops the whole commit with a pathspec error"""
     split_paths = []
     for value in paths:
         for line in value.splitlines():
             line = line.strip()
-            # 디스크에 그 이름이 없을 때만 공백으로 나눈다 (공백 든 실제 경로 보존)
+            # Split on spaces only when no file by that name exists on disk (keeps real paths with spaces)
             if line and any(character.isspace() for character in line) and not (Path(root) / line).exists():
                 split_paths.extend(line.split())
             elif line:
@@ -157,14 +157,14 @@ def _paths_to_add(git, root: str, paths: list) -> list:
     missing = {path for path in split_paths if not (Path(root) / path).exists()}
     if not missing:
         return split_paths
-    # 레포 루트 기준 상대경로 · 한글 경로 원문 그대로 (quotePath 끔)
+    # Paths relative to the repo root · non-ASCII paths kept verbatim (quotePath off)
     listed = git("-c", "core.quotePath=false", "diff", "--cached", "--name-only", "--relative", "-z").stdout
     already_staged = set(filter(None, listed.split("\0")))
     return [path for path in split_paths if path not in missing or path not in already_staged]
 
 
 def cmd_commit(args) -> int:
-    """커밋 한 번에: 메시지 정리 > 내가 지정한 경로만 스테이징 > 커밋. push 는 하지 않는다 (#940)."""
+    """Commit in one step: clean the message > stage only the given paths > commit. Never pushes (#940)."""
     import subprocess
     root = args.root or os.getcwd()
     if args.message_file:
@@ -184,13 +184,13 @@ def cmd_commit(args) -> int:
                               encoding="utf-8", errors="replace")
 
     to_add = _paths_to_add(git, root, args.paths)
-    # .gitignore 대상 경로 (예: docs/superpowers/) — add 가 "ignored" 로 전체를 멈추므로 원인을 짚어 준다
+    # .gitignore'd paths (e.g. docs/superpowers/) — add stops everything with "ignored", so point out the cause
     ignored = [line for line in git("check-ignore", "--", *to_add).stdout.splitlines() if line] if to_add else []
     if ignored:
         return emit({"ok": False, "code": "path_ignored", "error": "paths this repo does not track (.gitignore)",
                      "paths": ignored, "next": "remove these paths from --paths and call again"})
     if to_add:
-        staged = git("add", "--", *to_add)  # git add -A 는 쓰지 않는다: 다른 세션의 변경이 섞인다
+        staged = git("add", "--", *to_add)  # never git add -A: other sessions' changes would mix in
         if staged.returncode != 0:
             return emit({"ok": False, "code": "stage_failed", "error": staged.stderr.strip()[:300],
                          "paths": to_add,
@@ -241,8 +241,8 @@ def build_parser() -> JSONArgumentParser:
     p_gct = sub.add_parser("get-commit-template", help="commit message template")
     p_gct.add_argument("issue_title")
     p_gct.add_argument("issue_url")
-    # 생략하면 제목 태그에서 유도한다. 이슈는 기능인데 실제 작업이 버그 수정인
-    # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
+    # When omitted, derived from the title tag. Set it explicitly only when tag and content differ,
+    # e.g. the issue is a feature but the actual work is a bug fix.
     p_gct.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="commit type (fix, docs, chore, ...). Default: inferred from the title tag")
     p_gct.add_argument("--scope", default=None, help="value for the {scope} placeholder")

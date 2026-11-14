@@ -1,4 +1,4 @@
-"""note tidy: 범위가 섞인 함정 > 이 컴퓨터 범위 · launch knowledge 로 옮기기"""
+"""note tidy: move mixed-scope pitfalls > machine scope · launch knowledge"""
 from __future__ import annotations
 
 import hashlib
@@ -13,27 +13,27 @@ from pro_agent_test.notes.store import _machine_note_path, _note_path, _read_not
 from pro_agent_test.storage import _MACHINE_SCOPES, _SHOW_CHARS, _repo_key
 
 
-# ── note tidy — 범위가 섞인 기록을 제자리로 옮긴다 (#837) ────────────────
+# ── note tidy — move mixed-scope records to where they belong (#837) ────────────────
 #
-# 실측(어느 앱): 함정 39건 중 flutter/platform 18건이 "스킬로 올려라"는 안내만 받고 레포에
-# 쌓였고, 도구 사용법(ASC 로그인 등)은 launch knowledge 와 겹쳤다. 옮기기만 하고 지우지 않는다.
+# Measured (one app): of 39 pitfalls, 18 flutter/platform ones only got a "promote to the skill" hint and piled up
+# in the repo, and tool usage (ASC login etc.) overlapped launch knowledge. Only moves, never deletes.
 
-# 도구 사용법으로 보이는 말 → launch knowledge 의 영역
+# Wording that looks like tool usage → launch knowledge area
 _TOOL_AREAS = (
     ("web", re.compile(r"(?i)\bgstack\b|\bplaywright\b|\bchromium\b|\bCDP\b|App Store Connect"
                        r"|\bheaded\b|\bbrowse\b")),
     ("ios", re.compile(r"(?i)\bmaestro\b|\bsimctl\b|\bxcrun\b|\btestflight\b")),
-    # uiautomator·AVD 같은 말은 QA 판단(이 화면을 결함으로 적지 마라 등)에도 나와 넣지 않는다
+    # Words like uiautomator·AVD also appear in QA judgements (don't log this screen as a defect etc.), so excluded
     ("android", re.compile(r"(?i)\bscreenrecord\b")),
 )
-# 부정 단정("X 는 안 된다")은 기억하지 않는 것이 원칙이다 — 옮기지 않고 다시 볼 목록에만 올린다
+# Negative assertions ("X does not work") are not remembered by principle — not moved, only listed for review
 _NEGATIVE = re.compile(r"안 ?된다|수 없다|불가")
 _TOOL_ANY = re.compile(r"(?i)\blaunch_cli\b|\be2e_cli\b")
-_LAUNCH_HOW_MAX = 200     # pro-launch knowledge.MAX_HOW — 넘으면 잘려 저장되므로 옮기지 않는다
+_LAUNCH_HOW_MAX = 200     # pro-launch knowledge.MAX_HOW — longer entries get truncated on save, so not moved
 
 
 def _tool_area(text: str) -> tuple[bool, str | None]:
-    """(도구 사용법인가, launch 영역)."""
+    """(is it tool usage, launch area)."""
     for area, pat in _TOOL_AREAS:
         if pat.search(text):
             return True, area
@@ -41,7 +41,7 @@ def _tool_area(text: str) -> tuple[bool, str | None]:
 
 
 def _launch_key(text: str) -> str:
-    """launch knowledge 키. 영문 단어 몇 개 + 짧은 해시 — 같은 키면 기존 항목을 덮으므로 겹치지 않게 한다."""
+    """launch knowledge key. A few English words + a short hash — the same key overwrites the existing entry, so keep keys distinct."""
     ascii_words = re.findall(r"[A-Za-z][A-Za-z0-9_.-]+", text)[:3]
     digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:4]
     return "-".join([*(w.lower() for w in ascii_words), digest])[:60] or f"pitfall-{digest}"
@@ -116,7 +116,7 @@ def _note_tidy(args, root: Path, notes: dict, today: str) -> dict:
         p = pits[row["index"]]
         hit, _ = _find_dup(p["text"], {"machine": machine["pitfalls"]})
         if hit:
-            # 같은 지식이 이미 있다 — 성적을 합치고 더 최근 문장을 남긴다
+            # The same knowledge already exists — merge scores and keep the more recent sentence
             m = machine["pitfalls"][hit[1]]
             ok, fail, last = _memory.stats(m)
             pok, pfail, plast = _memory.stats(p)
@@ -127,7 +127,7 @@ def _note_tidy(args, root: Path, notes: dict, today: str) -> dict:
         else:
             machine["pitfalls"].append({**p, "from": _repo_key(root)})
         moved.add(row["index"])
-    # 이 컴퓨터 범위를 먼저 쓴다 — 중간에 멈춰도 사라지지 않고 겹칠 뿐이다
+    # Write machine scope first — stopping midway only duplicates, never loses
     if plan["to_machine"]:
         _save_notes(mf, machine)
     if moved:

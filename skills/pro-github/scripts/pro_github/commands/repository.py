@@ -1,4 +1,4 @@
-"""레포 서브커맨드: explore (list-repos|repo-detail|readme|languages|commits), create-repo."""
+"""Repo subcommands: explore (list-repos|repo-detail|readme|languages|commits), create-repo."""
 from __future__ import annotations
 
 from common.emit import emit
@@ -55,13 +55,13 @@ def cmd_explore(args, api) -> int:
 
 
 def cmd_create_repo(args, api) -> int:
-    """새 레포 1개: 이미 있으면 repo_exists > dry-run 이면 계획만 > 생성 (#1007)"""
+    """One new repo: repo_exists if it already exists > plan only on dry-run > create (#1007)"""
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
     full_name = f"{args.owner}/{args.repo}"
     try:
-        # 중복 확인 (404 만 "없음")
+        # Duplicate check (only 404 means "absent")
         try:
             existing = api.get_repo_detail(args.owner, args.repo, pat)
             return emit({"ok": False, "code": "repo_exists", "repo": existing,
@@ -85,7 +85,7 @@ def cmd_create_repo(args, api) -> int:
         return api_error(e)
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_explore(parser) -> None:
     parser.add_argument("sub", choices=["list-repos", "repo-detail", "readme", "languages", "commits"])

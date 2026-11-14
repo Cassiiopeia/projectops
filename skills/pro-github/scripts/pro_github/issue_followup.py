@@ -1,17 +1,17 @@
-"""이슈 생성 직후 이어지는 일: 로컬 이슈 문서 번호 맞추기, 브랜치명·커밋 틀 (#969 A14)."""
+"""Follow-up right after issue creation: align the local issue doc number, branch name and commit template (#969 A14)."""
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-# get-output-path 가 등록 전에 붙이는 이름: YYYYMMDD_일련번호3자리_제목
+# Name get-output-path gives before registration: YYYYMMDD_3-digit serial_title
 _DRAFT_BODY_FILE_NAME = re.compile(r"^(\d{8})_\d{3}_(.+)$")
 
 
 def rename_body_file_to_issue_number(body_path: Path, issue_number: int) -> tuple:
-    """20261021_001_제목.md > 20261021_{번호}_제목.md (같은 폴더) > (새 경로 | None, 경고 | None)
+    """20261021_001_title.md > 20261021_{number}_title.md (same folder) > (new path | None, warning | None)
 
-    이름 형식이 다르거나 같은 이름 파일이 이미 있으면 바꾸지 않고 경고만 돌려준다.
+    If the name format differs or a file with the same name already exists, nothing is renamed and only a warning is returned.
     """
     matched = _DRAFT_BODY_FILE_NAME.match(body_path.name)
     if not matched:
@@ -24,7 +24,7 @@ def rename_body_file_to_issue_number(body_path: Path, issue_number: int) -> tupl
 
 
 def build_work_start_hints(issue_title: str, issue_number: int, issue_url: str) -> dict:
-    """create-branch-name · get-commit-template 와 같은 해석 경로로 {branch, commit_template}"""
+    """{branch, commit_template} via the same resolution path as create-branch-name · get-commit-template"""
     from common.commit_style import render_for_issue, resolve_for_repo
     from common.gh_branch import create_branch_name
     _, style = resolve_for_repo(None)

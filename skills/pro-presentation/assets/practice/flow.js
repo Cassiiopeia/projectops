@@ -1,5 +1,5 @@
-// 흐름 보기: 전체 장 카드를 격자로, 끌어서 순서 바꾸기 > deck.json 저장
-// practice.js 의 전역(deck · text · elements · showSlide · fetchDeck · createElement)과 slides.js 의 thumbnailUrl · slideBodyKey 를 씀
+// Flow view: all slide cards in a grid, drag to reorder > save deck.json
+// Uses practice.js globals (deck · text · elements · showSlide · fetchDeck · createElement) and slides.js thumbnailUrl · slideBodyKey
 "use strict";
 
 let draggedSlideId = null;

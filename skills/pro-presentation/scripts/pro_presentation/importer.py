@@ -1,6 +1,6 @@
-"""import: 기존 PPT·PDF > 장마다 slide.html (모든 장을 HTML 로) + 원본 글(notes.md) + deck.json 장 목록
-PPT: 글 상자·도형·그림·표를 위치 그대로 조각으로 · 그림 한 장짜리 장은 그 그림을 담음 (다시 지을 장으로 표시)
-PDF: 쪽 그림을 담음 (pdftoppm > PyMuPDF)
+"""import: existing PPT/PDF > slide.html per slide (every slide as HTML) + source text (notes.md) + deck.json slide list
+PPT: text boxes, shapes, images and tables as pieces at their positions · single-image slides hold that image (marked for rebuild)
+PDF: holds the page image (pdftoppm > PyMuPDF)
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ REBUILD_NOTE = ("## Rebuild\nImported as one picture: the text is not editable y
 
 
 def load_python_pptx():
-    """python-pptx > 없으면 사용자 영역 설치 1회 시도 > 그래도 없으면 None"""
+    """python-pptx > else one user-site install attempt > else None"""
     try:
         import pptx
         return pptx
@@ -58,7 +58,7 @@ def _is_single_picture(slide) -> bool:
 
 
 def render_pdf(pdf_file: Path, work_dir: Path) -> list[Path] | None:
-    """PDF > 쪽마다 jpg (pdftoppm > PyMuPDF). 도구가 없으면 None"""
+    """PDF > jpg per page (pdftoppm > PyMuPDF). None if no tool"""
     if shutil.which("pdftoppm"):
         subprocess.run(["pdftoppm", "-jpeg", "-r", str(PDF_RENDER_DPI), str(pdf_file), str(work_dir / "page")],
                        capture_output=True, encoding="utf-8", errors="replace", timeout=TOOL_TIMEOUT_SECONDS)
@@ -87,7 +87,7 @@ def _pdf_texts(pdf_file: Path) -> list[str]:
 
 
 class DeckWriter:
-    """장 폴더 만들기 (deck.json 에 덧붙임, 같은 id 는 피함)"""
+    """Create slide folder (appended to deck.json, avoids duplicate ids)"""
 
     def __init__(self, deck_dir: Path):
         self.deck_dir = deck_dir

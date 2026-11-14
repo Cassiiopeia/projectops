@@ -1,4 +1,4 @@
-"""note: 이 프로젝트에서 알아낸 것 쌓기 (show · target · constraint · screen · pitfall · run · tidy · forget)"""
+"""note: accumulate what was learned about this project (show · target · constraint · screen · pitfall · run · tidy · forget)"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -17,10 +17,10 @@ from pro_agent_test.storage import _MACHINE_SCOPES, _SHOW_CHARS, _SHOW_MAX
 
 
 def cmd_note(args) -> int:
-    """밟으면서 알아낸 것을 프로젝트에 남긴다.
+    """Record in the project what was learned while driving.
 
-    같은 앱을 다음에 밟을 때 좌표를 처음부터 찾거나 같은 함정에 다시 빠지지 않게
-    한다. skill은 어느 프로젝트에나 같지만, 이 파일은 프로젝트마다 다르게 자란다.
+    So the next run on the same app does not search coordinates from scratch or fall into
+    the same pitfall. The skill is the same everywhere, but this file grows differently per project.
     """
     from datetime import date
 
@@ -45,7 +45,7 @@ def cmd_note(args) -> int:
                 "runs": notes.get("runs", [])[-30:],
             }
         else:
-            # 요약 — 23KB 를 통째로 주면 아무도 다 읽지 않는다 (#837 실측)
+            # Summary — nobody reads all of a 23KB dump (#837, measured)
             body = {
                 "constraints": [_brief(i, e, _SHOW_CHARS, today) for i, e in _ranked(cons, today)[:_SHOW_MAX]],
                 "pitfalls": [_brief(i, e, _SHOW_CHARS, today) for i, e in _ranked(pits, today)[:_SHOW_MAX]],
@@ -99,7 +99,7 @@ def cmd_note(args) -> int:
         entries = target.setdefault(kind, [])
 
         if args.result:
-            # 이미 있는 항목의 성적 — 다시 겪었으면 ok, 틀린 기억이었으면 fail
+            # Score of an existing entry — ok if hit again, fail if the memory was wrong
             if args.index is None or not (0 <= args.index < len(entries)):
                 return emit({"ok": False, "code": "bad_index",
                              "error": f"--result needs a {kind} --index (0~{len(entries) - 1})",
@@ -128,7 +128,7 @@ def cmd_note(args) -> int:
         fields = {"scope": args.scope} if args.action == "pitfall" else {"check": args.check}
 
         if args.merge_into is not None:
-            # agent 가 같은 지식이라고 판단한 것 — 문장을 새것으로 바꾸고 성적은 이어 간다
+            # The agent judged it the same knowledge — replace the sentence, keep the score
             if not (0 <= args.merge_into < len(entries)):
                 return emit({"ok": False, "code": "bad_index",
                              "error": f"--merge-into must be 0~{len(entries) - 1}"})
@@ -140,7 +140,7 @@ def cmd_note(args) -> int:
             return emit({"file": str(target_file), "entry": e,
                          "summary": f"merged into #{args.merge_into} (ok={e['ok']})", "next": None})
 
-        # 쓰기 전에 비슷한 것을 찾는다 — 이 범위 먼저, 그다음 다른 범위 (원칙 3)
+        # Look for similar entries before writing — this scope first, then other scopes (principle 3)
         docs = {("machine" if machine_scope else "repo"): (target, target_file)}
         if args.action == "pitfall":
             if machine_scope:
@@ -181,7 +181,7 @@ def cmd_note(args) -> int:
         })
 
     elif args.action == "forget":
-        # 지우는 것은 agent·사람의 명시적 판단으로만 (원칙 4) — 번호를 꼭 받는다
+        # Deletion only by explicit agent or human decision (principle 4) — a number is required
         if args.kind not in ("pitfall", "constraint") or args.index is None:
             return emit({"ok": False, "code": "args_required",
                          "error": "--kind pitfall|constraint and --index are required",
@@ -219,7 +219,7 @@ def cmd_note(args) -> int:
 
     elif args.action == "run":
         if not (args.name or args.text):
-            # 인자 없이 부르면 "(지정 안 함)/(기록 없음)" 쓰레기 줄만 쌓인다 (#706)
+            # Called without arguments it only piles up "(not specified)/(no record)" junk lines (#706)
             return emit({"ok": False, "code": "args_required",
                          "error": "--name (scenario) or --text (result summary) is required"})
         notes.setdefault("runs", []).append({
@@ -227,7 +227,7 @@ def cmd_note(args) -> int:
             "scenario": args.name or "(not set)",
             "result": args.text or "(not recorded)",
         })
-        notes["runs"] = notes["runs"][-30:]   # 오래된 것은 버린다
+        notes["runs"] = notes["runs"][-30:]   # drop old entries
 
     _save_notes(f, notes)
     return emit({

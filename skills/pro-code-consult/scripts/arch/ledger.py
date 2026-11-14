@@ -1,8 +1,8 @@
-"""동결 목록(ledger): docs/architecture/rules/<id>.rule 위반 <-> <id>.allow 대조
+"""Freeze list (ledger): docs/architecture/rules/<id>.rule violations <-> <id>.allow
 
-판정 2종 (규칙 테스트 템플릿 4종과 동일):
-- 위반 - 허용 = 새 위반 > 실패
-- 허용 - 위반 = 고쳐진 항목 > 목록에서 지우라고 실패 (목록이 느슨해지지 않게)
+2 verdicts (same as the 4 rule test templates):
+- violations - allowed = new violations > fail
+- allowed - violations = fixed entries > fail asking to remove them (keeps the list from loosening)
 """
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from .source_files import walk_files
 RULES_DIRECTORY_PARTS = ("docs", "architecture", "rules")
 RULE_SUFFIX = ".rule"
 ALLOW_SUFFIX = ".allow"
-# .rule 필수 키: pattern / 선택: description, paths, extensions, exclude (값 구분자 쉼표)
+# .rule required key: pattern / optional: description, paths, extensions, exclude (comma-separated values)
 LIST_KEYS = ("paths", "extensions", "exclude")
 LIST_DELIMITER = ","
-# 규칙 파일 자신은 판정 대상에서 늘 제외 (패턴 예시가 자기 자신에 걸리지 않게)
+# Rule files themselves are always excluded (so pattern examples do not match themselves)
 ALWAYS_EXCLUDED_PREFIX = "docs/architecture/"
 
 
@@ -26,7 +26,7 @@ def rules_directory(root: Path) -> Path:
 
 
 def parse_rule_file(path: Path) -> dict:
-    """key=value (첫 = 에서만 자름, # 주석) > 규칙 dict"""
+    """key=value (split on the first = only, # comments) > rule dict"""
     rule = {"id": path.stem, "description": "", "pattern": "", "paths": [], "extensions": [], "exclude": []}
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
@@ -59,7 +59,7 @@ def load_rules(root: Path) -> list[dict]:
 
 
 def find_violations(root: Path, rule: dict) -> dict[str, int]:
-    """위반 파일 > 첫 위반 줄 번호"""
+    """Violating file > first violating line number"""
     pattern = re.compile(rule["pattern"], re.MULTILINE)
     violations: dict[str, int] = {}
     for prefix in rule["paths"] or [""]:
@@ -95,7 +95,7 @@ def check_rules(root: Path) -> dict:
 
 
 def freeze_rule(root: Path, rule_id: str) -> dict:
-    """최초 동결: 현재 위반을 허용 목록으로 (목록이 이미 있으면 거부 — 줄을 더하는 경로는 없다)"""
+    """Initial freeze: current violations become the allow list (refused if the list exists — there is no way to add lines)"""
     rule_path = rules_directory(root) / f"{rule_id}{RULE_SUFFIX}"
     if not rule_path.exists():
         return {"ok": False, "code": "rule_not_found", "summary": f"Rule file not found: {rule_path}"}
@@ -113,7 +113,7 @@ def freeze_rule(root: Path, rule_id: str) -> dict:
 
 
 def tighten_rules(root: Path) -> dict:
-    """고쳐진 항목을 허용 목록에서 삭제 (주석 줄은 유지)"""
+    """Remove fixed entries from the allow list (comment lines kept)"""
     removed = {}
     for rule in load_rules(root):
         allow_path = _allow_path(root, rule["id"])

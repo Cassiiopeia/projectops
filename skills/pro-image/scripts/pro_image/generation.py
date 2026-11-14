@@ -1,4 +1,4 @@
-"""생성 1회: 도구 확인 > 실행 폴더 준비 > 도구 실행 > 결과 수거 > 후처리(변환·배경·크기) > 판정"""
+"""One generation: check tool > prepare run folder > run tool > collect result > postprocess (convert, background, size) > verdict"""
 from __future__ import annotations
 
 import shutil
@@ -9,14 +9,14 @@ from pathlib import Path
 from . import (background, codex_runner, converter, harness, image_facts, png_codec, postprocess, provider_runner,
                providers, quota, settings)
 
-# 투명 배경을 못 만드는 도구에 쓰는 기본 키 컬러 (참조 그림이 있으면 그 색과 먼 것을 자동 선택)
+# Default key color for tools that cannot make transparent backgrounds (with references, the color farthest from them is picked)
 DEFAULT_KEY_COLOR = "#00FF00"
-# 수거 대기: 도구가 끝난 뒤 새 그림이 생길 때까지 최대 대기 (초), 새 그림이 멈춘 뒤 안정화 대기 (초)
+# Collection wait: max wait for a new image after the tool ends (seconds), settle wait after new images stop (seconds)
 HARVEST_WAIT_SECONDS = 300
 HARVEST_SETTLE_SECONDS = 25
 HARVEST_POLL_SECONDS = 5
 
-# 모든 프롬프트 뒤에 붙는 규칙 (영어: 이미지 모델 지시 정확도)
+# Rules appended to every prompt (English: image models follow it more precisely)
 COMMON_RULES = """
 
 ## Output rules (always apply)
@@ -58,7 +58,7 @@ def build_prompt(prompt_text: str, definition: dict, file_name: str, size: tuple
 
 
 def check_ready(definition: dict | None, name: str) -> dict | None:
-    """실행 전 확인 > 문제 없으면 None"""
+    """Pre-run checks > None if no problem"""
     if definition is None:
         return {"ok": False, "code": "unknown_provider", "known": providers.known_names(),
                 "summary": f"No provider named '{name}'", "next": "providers"}
@@ -79,8 +79,8 @@ def check_ready(definition: dict | None, name: str) -> dict | None:
 
 
 def reference_copy_names(references: list[Path]) -> list[str]:
-    """참조 > ref/ 안 파일 이름. 이름이 겹치는 것만 순번 접두사 (01-face.png, #1192)
-    안 겹치면 원래 이름 유지 (프롬프트의 ref/<파일> 표기가 그대로 맞게)"""
+    """References > file names inside ref/. Only clashing names get a sequence prefix (01-face.png, #1192)
+    Otherwise keep the original name (so ref/<file> in the prompt still matches)"""
     name_counts = Counter(reference.name for reference in references)
     return [f"{position:02d}-{reference.name}" if name_counts[reference.name] > 1 else reference.name
             for position, reference in enumerate(references, start=1)]
@@ -101,7 +101,7 @@ def _prepare(run_dir: Path, references: list[Path], harness_dir: Path) -> list[P
 
 
 def _choose_key_color(references: list[Path], run_dir: Path) -> str:
-    """참조 그림의 대표색 > 그 색들과 가장 먼 키 컬러 (참조 없으면 초록, 읽기 실패한 참조는 건너뜀)"""
+    """Dominant colors of reference images > key color farthest from them (green without references; unreadable references skipped)"""
     colors = []
     for reference in references:
         try:
@@ -117,7 +117,7 @@ def _choose_key_color(references: list[Path], run_dir: Path) -> str:
 
 
 def _harvest(definition: dict, started_at: float) -> Path | None:
-    """도구 저장 폴더에서 실행 이후 생긴 그림 > 마지막 것 (도구가 스스로 다시 그리면 최종본)"""
+    """Images created in the tool's save folder since the run started > the last one (final version if the tool redrew)"""
     deadline, newest, last_change = time.time() + HARVEST_WAIT_SECONDS, None, time.time()
     while time.time() < deadline:
         fresh = [path for path in providers.expand_globs(definition["harvest_globs"])
@@ -165,7 +165,7 @@ def generate(provider_name: str, name: str, prompt_text: str, references: list[P
 
 def _judge(definition: dict, name: str, run_dir: Path, raw: Path, size: tuple[int, int], is_alpha_required: bool,
            key_color: str | None, result: dict) -> dict:
-    """결과 > code (ok · spec_mismatch · timeout · image_unavailable · no_image · postprocess_failed)"""
+    """Result > code (ok · spec_mismatch · timeout · image_unavailable · no_image · postprocess_failed)"""
     base = {"provider": definition["name"], "name": name, "run_dir": str(run_dir),
             "prompt_file": str(run_dir / "prompt.md"), **result}
     if not raw.is_file():

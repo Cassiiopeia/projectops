@@ -1,6 +1,6 @@
-"""cochange: git 이력 > 함께 바뀌는 파일 (대상별 짝 · 묶음 · 서로 참조 없는 숨은 결합)
+"""cochange: git history > files that change together (pairs per target, clusters, hidden coupling without mutual references)
 
-판정은 하지 않는다 — 횟수와 비율만 낸다. 같이 고쳐야 했는지는 에이전트가 원문을 보고 정한다.
+No verdicts — only counts and ratios. The agent reads the source to decide whether they had to change together.
 """
 from __future__ import annotations
 
@@ -11,20 +11,20 @@ from .origins import is_test_path
 from .source_files import (MAXIMUM_SOURCE_BYTES, SKIPPED_DIRECTORY_NAMES, is_generated_file, tracked_files,
                            write_outside_repo)
 
-# 기본 읽을 커밋 수
+# Default number of commits to read
 DEFAULT_COMMIT_COUNT = 300
-# 이보다 많은 파일을 바꾼 커밋은 일괄 작업(포맷·이동·이름 바꾸기)으로 보고 뺀다
+# Commits touching more files than this are bulk work (format, move, rename) and are skipped
 MAXIMUM_FILES_PER_COMMIT = 30
-# 짝으로 볼 최소 함께 바뀐 횟수
+# Minimum co-change count to count as a pair
 DEFAULT_MINIMUM_TOGETHER = 3
-# 숨은 결합·묶음으로 볼 최소 비율 (함께 바뀐 수 / 둘 중 덜 바뀐 쪽 변경 수)
+# Minimum ratio for hidden coupling and clusters (co-changes / changes of the less-changed file)
 STRONG_RATIO = 0.5
-# 릴리스 자동 커밋 표식 (버전 확정·README 버전 동기화)
+# Automated release commit markers (version finalize, README version sync)
 SKIPPED_SUBJECT_MARKERS = ("[skip ci]",)
-# 거의 모든 변경에 끼는 파일 (짝으로 의미 없음)
+# Files present in almost every change (meaningless as pairs)
 NOISE_FILE_NAMES = {"CHANGELOG.md", "CHANGELOG.json", "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
                     "pubspec.lock", "poetry.lock", "Podfile.lock", "Cargo.lock", "go.sum", "version.yml"}
-# 묶음 하나에 보여 줄 최대 파일 수 (변경 많은 순, 전체 수는 size)
+# Max files shown per cluster (most-changed first; the full count is size)
 MAXIMUM_CLUSTER_FILES_SHOWN = 8
 RECORD_SEPARATOR = "\x1e"
 
@@ -56,7 +56,7 @@ def analyze_cochange(root: Path, targets: list, commit_count: int, minimum_toget
         return result
     strong_pairs = _strong_pairs(change_counts, pair_counts, minimum_together)
     result["clusters"] = _clusters(strong_pairs, change_counts)[:limit]
-    # 테스트 ↔ 운영 짝은 원래 함께 바뀐다 > 숨은 결합 후보에서 뺌
+    # Test ↔ production pairs naturally change together > excluded from hidden-coupling candidates
     result["hidden_coupling"] = [p for p in strong_pairs if not any(is_test_path(f) for f in p["files"])
                                  and _is_hidden(root, p["files"])][:limit]
     result["summary"] = (f"{used} commits used, {len(strong_pairs)} strong pairs, "
@@ -66,7 +66,7 @@ def analyze_cochange(root: Path, targets: list, commit_count: int, minimum_toget
 
 
 def _read_commits(root: Path, commit_count: int) -> list | None:
-    """[(제목, [파일...])] — 실패 시 None"""
+    """[(subject, [files...])] — None on failure"""
     try:
         completed = subprocess.run(
             ["git", "-C", str(root), "-c", "core.quotePath=false", "log", "--no-merges", f"-n{commit_count}", "--name-only", "--relative",
@@ -84,7 +84,7 @@ def _read_commits(root: Path, commit_count: int) -> list | None:
 
 
 def _count(commits: list, existing: set):
-    """파일별 변경 수, 짝별 함께 바뀐 수 (지금도 추적 중인 파일만, 잡음 커밋·파일 제외)"""
+    """Change count per file and co-change count per pair (only files still tracked; noise commits and files excluded)"""
     change_counts, pair_counts, used = {}, {}, 0
     for subject, files in commits:
         if any(marker in subject for marker in SKIPPED_SUBJECT_MARKERS) or len(files) > MAXIMUM_FILES_PER_COMMIT:
@@ -134,7 +134,7 @@ def _strong_pairs(change_counts: dict, pair_counts: dict, minimum_together: int)
 
 
 def _clusters(strong_pairs: list, change_counts: dict) -> list:
-    """강한 짝을 이어 묶음 (union-find) > 크기·변경 수 큰 순"""
+    """Join strong pairs into clusters (union-find) > largest size and change count first"""
     parent = {}
 
     def find(node):
@@ -158,14 +158,14 @@ def _clusters(strong_pairs: list, change_counts: dict) -> list:
 
 
 def _is_hidden(root: Path, files) -> bool:
-    """두 파일이 서로 이름(확장자 뺀 파일 이름)을 언급하지 않으면 숨은 결합"""
+    """Hidden coupling when neither file mentions the other's name (file name without extension)"""
     first, second = files
     return not (_mentions(root / first, Path(second).stem) or _mentions(root / second, Path(first).stem))
 
 
 def _mentions(path: Path, stem: str) -> bool:
     if len(stem) < 3:
-        return True   # 너무 짧은 이름은 판단 불가 > 숨은 결합으로 올리지 않음
+        return True   # names too short to judge > not reported as hidden coupling
     try:
         if path.stat().st_size > MAXIMUM_SOURCE_BYTES:
             return True

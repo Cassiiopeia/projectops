@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""testcase_cli — testcase skill 전용 CLI.
+"""testcase_cli — CLI for the testcase skill.
 
-산출물 md 출력 경로 계산.
-서브커맨드: get-output-path
+Computes the output md path.
+Subcommands: get-output-path
 
-경로 규칙 자체는 Layer 1(`scripts/common/paths.py`)이 단일 소유한다.
-이 파일은 그 규칙을 호출만 한다 — 스킬마다 규칙이 갈라지지 않게 하기 위함이다 (#525).
-SKILL.md 가 경로를 직접 조립하면 산출물 루트를 옮긴 팀에서 **엉뚱한 곳에 조용히 쓰인다** (#623).
+The path rules themselves are owned solely by Layer 1 (`scripts/common/paths.py`).
+This file only calls them — so rules never diverge per skill (#525).
+If SKILL.md assembled the path itself, teams that moved the output root would **write silently to the wrong place** (#623).
 """
 from __future__ import annotations
 

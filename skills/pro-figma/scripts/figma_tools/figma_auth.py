@@ -1,7 +1,7 @@
-"""Figma 토큰 찾기·저장·REST 조회: FIGMA_TOKEN > config launch.credentials 의 provider figma 항목
+"""Find·save Figma token and query REST: FIGMA_TOKEN > provider figma entry in config launch.credentials
 
-새 저장소를 만들지 않는다 — 토큰 원본은 pro-launch cred 가 쓰는 config.json 한 곳이다.
-토큰 값은 반환·출력 어디에도 싣지 않는다 (출처 이름만 알린다).
+No new store — the single token source is the config.json used by pro-launch cred.
+The token value is never returned or printed (only the source name is reported).
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ TOKEN_ENV_NAME = "FIGMA_TOKEN"
 DEFAULT_CRED_NAME = "projectops-pro-figma"
 FIGMA_API = "https://api.figma.com/v1"
 FIGMA_PROVIDER = "figma"
-# 토큰이 없을 때 에이전트가 사용자에게 보여 줄 선택지 (check-fresh 와 ingest 가 같이 쓴다)
+# Choices the agent shows the user when there is no token (shared by check-fresh and ingest)
 TOKEN_MISSING_OPTIONS = [
     {"id": "register", "label": "Register a Figma token now (saved once, never asked again)",
      "command": "figma_cli.py token --prompt   # hidden input in your own terminal, or --from-env NAME"},
@@ -24,7 +24,7 @@ TOKEN_MISSING_OPTIONS = [
 
 
 def find_token() -> tuple[str | None, str | None]:
-    """(토큰, 출처). 출처는 'env:FIGMA_TOKEN' 또는 'cred:<이름>' — 값은 밖으로 내지 않는다."""
+    """(token, source). Source is 'env:FIGMA_TOKEN' or 'cred:<name>' — the value never leaves."""
     env_value = os.environ.get(TOKEN_ENV_NAME, "").strip()
     if env_value:
         return env_value, f"env:{TOKEN_ENV_NAME}"
@@ -37,10 +37,10 @@ def find_token() -> tuple[str | None, str | None]:
 
 
 def save_token(token: str, cred_name: str | None = None) -> tuple[str | None, dict | None]:
-    """(저장한 항목 이름, None) 또는 (None, 오류 payload). 기존 figma 항목이 있으면 토큰만 바꾼다."""
+    """(saved entry name, None) or (None, error payload). If a figma entry exists, only its token is replaced."""
     data, status = config.load_with_status()
     if status == "unreadable":
-        # 깨진 config 를 덮어쓰면 다른 섹션이 날아간다
+        # Overwriting a broken config would wipe other sections
         return None, {"ok": False, "code": "config_unreadable",
                       "error": "config.json exists but cannot be read; not overwriting it",
                       "hint": "Fix or restore ~/.projectops/config/config.json first"}
@@ -59,14 +59,14 @@ def save_token(token: str, cred_name: str | None = None) -> tuple[str | None, di
 
 
 def fetch_json(path: str, token: str, timeout: int = 20) -> dict:
-    """GET {FIGMA_API}{path}. request() 결과를 그대로 돌려준다 (4xx·5xx 도 결과다)."""
+    """GET {FIGMA_API}{path}. Returns the request() result as is (4xx·5xx are results too)."""
     return request("GET", f"{FIGMA_API}{path}", headers={"X-Figma-Token": token}, timeout=timeout)
 
 
 def fetch_file_state(file_key: str, token: str) -> dict:
-    """파일의 현재 lastModified · version. depth=1 이라 본문은 거의 안 받는다.
+    """The file's current lastModified · version. depth=1, so almost no body is fetched.
 
-    반환: ok · lastModified · version · name  /  실패면 ok False + code (figma_token_rejected ·
+    Returns: ok · lastModified · version · name  /  on failure ok False + code (figma_token_rejected ·
     figma_file_not_found · request_failed)
     """
     r = fetch_json(f"/files/{file_key}?depth=1", token)

@@ -1,4 +1,4 @@
-"""Figma 덤프 읽기: 스타일 항목 나열 · 참조 해소 · 에셋 노드 수집"""
+"""Figma dump reading: list style entries · resolve references · collect asset nodes"""
 from __future__ import annotations
 
 import json
@@ -7,11 +7,11 @@ from pathlib import Path
 
 
 # =========================================================================
-# coverage — 덤프의 스타일 항목을 전부 나열한다
+# coverage — lists every style entry in the dump
 # =========================================================================
 
-# 시안에서 화면으로 옮겨져야 하는 것들. 덤프마다 키 이름이 조금씩 다르므로
-# 별칭을 함께 본다 — 못 찾으면 "항목 0개"로 조용히 통과해 버린다.
+# Things that must move from the design to the screen. Key names vary slightly per dump,
+# so aliases are checked too — if nothing is found it silently passes as "0 entries".
 _STYLE_KEYS = {
     "fills": ("fills", "fill", "background", "backgroundColor"),
     "strokes": ("strokes", "stroke", "border", "borders"),
@@ -23,11 +23,11 @@ _STYLE_KEYS = {
 }
 
 
-# 그림자는 **한 문자열 안에 여러 줄**이 쉼표로 이어져 온다. 실측:
+# Shadows arrive as **several rows in one string**, joined by commas. Measured:
 #   boxShadow: '0px 4px 20px 0px rgba(...), inset 0px 8px 24px -16px rgba(...),
 #               inset 0px -24px 32px 0px rgba(...), inset 0px 0px 10px 2px rgba(...)'
-# 이걸 한 줄로 세면 네 줄 중 세 줄이 빠져도 드러나지 않는다 — 실제 사고가 그랬다.
-# rgba(...) 안의 쉼표는 건드리면 안 되므로 괄호 깊이를 센다.
+# Counted as one row, three of four rows can be missing unnoticed — that was the actual incident.
+# Commas inside rgba(...) must be left alone, so parenthesis depth is tracked.
 def _split_shadows(css: str) -> list[str]:
     out, depth, cur = [], 0, ""
     for ch in css:
@@ -46,7 +46,7 @@ def _split_shadows(css: str) -> list[str]:
     return out
 
 
-# 종류를 이름 붙여 준다. **자꾸 빠지는 것이 어떤 종류인지** 알아야 눈에 띈다.
+# Name the kind. You notice **which kind keeps getting dropped** only if it is named.
 _NO_OFFSET = re.compile(r"^(inset\s+)?0(px)?\s+0(px)?\s")
 
 
@@ -59,13 +59,13 @@ def _effect_kind(prop: str, value: str) -> str:
     if v.startswith("inset"):
         return "inner shadow"
     if _NO_OFFSET.match(v):
-        # 치우침 없이 번지기만 하는 것 — 흔히 "글로우"라 부른다
+        # Spread with no offset — commonly called a "glow"
         return "glow"
     return "shadow"
 
 
 def _describe(value) -> str:
-    """항목 하나를 사람이 읽을 한 줄로. 값을 줄이되 **버리지 않는다.**"""
+    """One entry as one human-readable line. Values are shortened but **never dropped.**"""
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, (int, float, bool)) or value is None:
@@ -83,28 +83,28 @@ def _describe(value) -> str:
     return str(value)
 
 
-# 에셋은 덤프 안에 **그림이 아니라 노드로만** 들어 있다. 값을 아무리 잘 옮겨도
-# 이 노드들을 따로 내려받지 않으면 화면에 아이콘이 없다.
+# Assets are in the dump **only as nodes, not images**. However well values are ported,
+# the screen has no icons unless these nodes are downloaded separately.
 _ASSET_TYPES = {"IMAGE-SVG", "IMAGE", "VECTOR"}
 
-# download_figma_images 의 fileName 은 ^[a-zA-Z0-9_.-]+\.(png|svg)$ 만 받는다.
-# 실측: 어느 실제 파일의 에셋 609개 중 281개(46%)가 한글·공백·'/' 를 담은 이름이라
-# 레이어 이름을 그대로 넘기면 거부된다. 게다가 592개가 45종 이름에 몰려 있어
-# 이름으로 저장하면 **서로 덮어쓴다**. 그래서 여기서 안전한 이름을 만들어 준다.
+# download_figma_images fileName accepts only ^[a-zA-Z0-9_.-]+\.(png|svg)$.
+# Measured: in one real file, 281 of 609 assets (46%) had names with Korean·spaces·'/', so
+# passing layer names as is gets rejected. Also 592 were crowded into 45 names, so
+# saving by name **overwrites each other**. So a safe name is made here.
 def _slug(name, node_id: str) -> tuple[str, bool]:
     raw = re.sub(r"[^A-Za-z0-9]+", "-", str(name or "")).strip("-").lower()
     if raw:
         return raw[:48], False
-    # 한글처럼 ASCII 가 하나도 안 남는 이름 — 뜻을 잃었다는 표시를 함께 준다
+    # Names with no ASCII left, like Korean — flag that the meaning was lost
     return "asset-" + re.sub(r"[^0-9]+", "-", str(node_id)).strip("-"), True
 
 
 def _image_ref(node: dict, styles: dict):
-    """사진 칠을 찾아 내려받기 인자를 돌려준다.
+    """Find photo fills and return download arguments.
 
-    **칠도 참조로 온다.** 노드에는 `fills: fill_JJ816G` 만 있고 imageRef 는
-    globalVars 쪽 값 안에 있다 — 참조를 안 풀면 사진 에셋을 통째로 놓친다.
-    덤프가 `imageDownloadArguments` 로 필요한 인자까지 알려주므로 그대로 쓴다.
+    **Fills come as references too.** The node only has `fills: fill_JJ816G` and imageRef
+    lives in the globalVars value — without resolving the reference, photo assets are missed entirely.
+    The dump gives the needed arguments in `imageDownloadArguments`, so they are used as is.
     """
     for key in ("fills", "fill", "background"):
         blob = node.get(key)
@@ -126,10 +126,10 @@ def _image_ref(node: dict, styles: dict):
 
 
 def _is_hidden(node: dict) -> bool:
-    """화면에 안 그려지는 노드인가.
+    """Is this node not drawn on screen.
 
-    덤프에는 **꺼 둔 레이어도 섞여 나온다.** 그것까지 세면 "분류할 항목 40개"
-    같은 숫자가 나와 사람이 보다 지쳐 포기한다 — 그러면 세는 의미가 없다.
+    **Hidden layers are mixed into the dump.** Counting them gives numbers like "40 entries
+    to classify" and people give up reviewing — then counting is pointless.
     """
     if node.get("visible") is False:
         return True
@@ -138,17 +138,17 @@ def _is_hidden(node: dict) -> bool:
             return True
     except (TypeError, ValueError):
         pass
-    # 도구마다 이름이 다르다. 모르는 표기는 보이는 것으로 친다 —
-    # 잘못 걸러 빠뜨리는 것보다 한 줄 더 세는 편이 낫다.
+    # Tools name it differently. Unknown notation counts as visible —
+    # counting one extra row beats wrongly filtering and dropping one.
     return node.get("isVisible") is False or node.get("hidden") is True
 
 
 def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=None,
           styles=None, assets=None):
-    """덤프를 훑어 스타일 항목을 모은다.
+    """Walk the dump and collect style entries.
 
-    덤프 모양이 도구·버전마다 달라서 키 이름을 고정하지 않고 재귀로 찾는다.
-    구조를 단정하면 다음 버전에서 **조용히 0건**이 된다.
+    The dump shape differs per tool·version, so key names are found recursively, not fixed.
+    Assuming a structure makes it **silently 0 items** in the next version.
     """
     if hidden is None:
         hidden = []
@@ -166,7 +166,7 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
     if not isinstance(node, dict):
         return
 
-    # 꺼 둔 레이어는 자식까지 통째로 건너뛴다. 부모가 안 보이면 자식도 안 보인다.
+    # Hidden layers are skipped with all children. If the parent is invisible, so are the children.
     if _is_hidden(node):
         hidden.append(node.get("id") or node.get("name") or "?")
         return
@@ -177,24 +177,24 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
 
     if here and (node_id or node_name):
         label = node_id or node_name
-        # 스타일만 세면 **요소가 통째로 빠진 것**은 안 보인다. 시안에 있는데
-        # 화면에 아예 없는 경우가 실제로 있었다 — 그건 스타일 문제가 아니다.
+        # Counting styles alone misses **elements missing entirely**. Things in the design
+        # that were absent from the screen did happen — that is not a style problem.
         #
-        # id 가 있는 것만 요소로 친다. 컴포넌트 속성 선언(`Dark Mode` 같은 VARIANT)도
-        # name 을 갖고 있어서, name 만 보면 화면 요소가 아닌 것이 목록에 섞인다.
+        # Only nodes with id count as elements. Component property declarations (VARIANTs like `Dark Mode`)
+        # also have a name, so going by name alone mixes non-screen elements into the list.
         node_type = node.get("type") or node.get("nodeType")
         if node_id and node_type != "VARIANT":
             elements.append({"ref": node_id, "name": node_name, "type": node_type})
             if node_type in _ASSET_TYPES:
-                # 덤프에는 아이콘의 **모양이 없다**. 크기조차 layout 참조 뒤에 있다.
-                # 그래서 신원 근거를 모아 두고, 묶을 때 증거가 있는 것만 묶는다.
+                # The dump has **no icon shape**. Even the size sits behind a layout reference.
+                # So identity evidence is collected, and only evidenced ones are grouped.
                 layout = node.get("layout")
                 box = styles.get(layout) if isinstance(layout, str) else layout
                 dims = (box or {}).get("dimensions") if isinstance(box, dict) else None
-                # 효과가 붙은 에셋은 **받은 그림이 더 크게 온다** — 번짐이
-                # 그림 안에 필터로 박혀 오기 때문이다. 실측: layout 36x34 인
-                # 글로우 도형이 96x94 로 왔다. 미리 알려주지 않으면 레이아웃
-                # 크기로 넣어 도형을 쪼그라뜨리거나 효과를 코드로 또 넣는다.
+                # Assets with effects **arrive larger than drawn** — the blur is
+                # baked into the image as a filter. Measured: a glow shape with layout 36x34
+                # came as 96x94. Without warning, it gets placed at layout size, shrinking
+                # the shape, or the effect is added again in code.
                 fx = node.get("effects")
                 fx = styles.get(fx) if isinstance(fx, str) else fx
                 assets.append({
@@ -204,7 +204,7 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
                     "baked_effect": _describe(fx) if fx else None,
                     "image": _image_ref(node, styles),
                     "component_id": node.get("componentId"),
-                    # 같은 그림이라는 **증거**. 모양 정보가 없으니 이게 최선이다.
+                    # **Evidence** of the same image. With no shape info, this is the best available.
                     "_print": json.dumps(
                         {k: v for k, v in node.items() if k not in ("id", "children")},
                         sort_keys=True, ensure_ascii=False),
@@ -214,21 +214,21 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
                 if key not in node:
                     continue
                 value = node[key]
-                # 참조면 실제 값으로 바꾼다. 안 바꾸면 "fill_B16QZY" 가 값이 되어
-                # 분류할 수 없고, 여러 줄짜리 효과가 한 줄로 뭉개진다.
+                # Replace references with real values. Otherwise "fill_B16QZY" becomes the value,
+                # cannot be classified, and multi-row effects collapse into one row.
                 if isinstance(value, str) and value in styles:
                     value = styles[value]
                 if value in (None, [], {}, ""):
                     continue
-                # 배열은 **원소마다 한 줄**로 쪼갠다. 통째로 한 줄이면
-                # 네 줄짜리 effects 에서 한 줄이 빠져도 티가 안 난다.
+                # Split arrays into **one row per element**. As one row,
+                # a missing row in a four-row effects list goes unnoticed.
                 if isinstance(value, list):
                     for i, item in enumerate(value):
                         out.append({"ref": f"{label}/{key}[{i}]", "kind": kind,
                                     "name": node_name, "value": _describe(item)})
                 elif isinstance(value, dict) and kind == "effects":
-                    # 효과는 키 하나가 곧 하나의 연출이고(그림자·블러…),
-                    # 그 안에서 **또 쉼표로 여러 줄**이 이어진다. 둘 다 쪼갠다.
+                    # For effects each key is one treatment (shadow·blur…),
+                    # and inside it **more rows joined by commas**. Both are split.
                     for k2, v2 in value.items():
                         lines = _split_shadows(str(v2)) if isinstance(v2, str) else [v2]
                         many = len(lines) > 1
@@ -247,9 +247,9 @@ def _walk(node, path, out, want_id=None, inside=False, hidden=None, elements=Non
 
 
 def _load_dump(path: Path):
-    """덤프를 읽는다. **실제 MCP 는 YAML 을 돌려준다** — JSON 만 받으면 못 쓴다.
+    """Read the dump. **The real MCP returns YAML** — JSON-only would not work.
 
-    도구·버전에 따라 JSON 일 수도 있으므로 JSON 을 먼저 시도하고 YAML 로 내려간다.
+    It may be JSON depending on tool·version, so JSON is tried first, then YAML.
     """
     text = path.read_text(encoding="utf-8")
     try:
@@ -269,13 +269,13 @@ def _load_dump(path: Path):
 
 
 def _style_table(data) -> dict:
-    """`globalVars.styles` — 노드는 스타일을 **참조로만** 갖는다.
+    """`globalVars.styles` — nodes hold styles **only as references**.
 
-        nodes:  {fills: fill_B16QZY}          ← 이것만 보면 "fill_B16QZY" 가 값이 된다
-        globalVars.styles: {fill_B16QZY: ['#737373']}   ← 진짜 값은 여기
+        nodes:  {fills: fill_B16QZY}          ← read alone, "fill_B16QZY" becomes the value
+        globalVars.styles: {fill_B16QZY: ['#737373']}   ← the real value is here
 
-    해소하지 않으면 효과 네 줄이 **참조 문자열 한 줄**로 세어져, 한 줄이 빠져도
-    드러나지 않는다 — 이 도구가 막으려던 바로 그 일이다.
+    Unresolved, four effect rows count as **one reference-string row**, so a missing row
+    goes unnoticed — exactly what this tool is meant to prevent.
     """
     if not isinstance(data, dict):
         return {}

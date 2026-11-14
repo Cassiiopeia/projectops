@@ -1,6 +1,6 @@
-"""store-specs: 스토어 규격 정본 출력 / store-check: 이미지 폴더 > 슬롯·언어별 판정 (#884)
+"""store-specs: print the store spec source / store-check: image folder > per-slot·language verdict (#884)
 
-사실만 돌려준다. 어디서 다시 내보낼지·무엇을 고칠지는 에이전트가 판단한다.
+Returns facts only. Where to re-export and what to fix is the agent's call.
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ def load_store_specs() -> dict:
 
 
 def cmd_store_specs(args) -> int:
-    """정본 그대로 (--store 면 그 스토어만)"""
+    """Source as is (--store limits to that store)"""
     specs = load_store_specs()
     stores = specs["stores"]
     if args.store:
@@ -41,11 +41,11 @@ def cmd_store_specs(args) -> int:
 
 
 # =========================================================================
-# 목표 언어: --locales > version.yml store_locales_{store} > store_locales > 폴더
+# Target languages: --locales > version.yml store_locales_{store} > store_locales > folders
 # =========================================================================
 
 def _read_inline_list(version_yml_text: str, key: str) -> list[str] | None:
-    """options.<key>: [a, b] 인라인 배열 (.github/scripts/store_notes.py 와 같은 표기). 없으면 None"""
+    """options.<key>: [a, b] inline array (same notation as .github/scripts/store_notes.py). None if absent"""
     for line in version_yml_text.splitlines():
         if line.lstrip().startswith("#"):
             continue
@@ -58,7 +58,7 @@ def _read_inline_list(version_yml_text: str, key: str) -> list[str] | None:
 
 def resolve_target_locales(store: str, cli_locales: str | None, project_root: Path,
                            folder_locales: list[str]) -> tuple[list[str], str]:
-    """(목표 언어 목록, 출처) — 출처: cli / version.yml:<키> / folder"""
+    """(target language list, source) — source: cli / version.yml:<key> / folder"""
     if cli_locales:
         return [v.strip() for v in cli_locales.split(",") if v.strip()], "cli"
     version_yml = project_root / "version.yml"
@@ -76,7 +76,7 @@ def _language_part(locale: str) -> str:
 
 
 def _locale_code_mismatches(store: str, targets: list[str], folder_locales: list[str]) -> list:
-    """폴더 이름이 목표와 언어만 같고 코드가 다름 (ko <-> ko-KR) > 경고. 변환은 하지 않음"""
+    """Folder name matches a target in language but differs in code (ko <-> ko-KR) > warning. No conversion"""
     warnings = []
     for folder_locale in folder_locales:
         if folder_locale in targets:
@@ -100,7 +100,7 @@ def cmd_store_check(args) -> int:
 
 
 def check_store_folder(folder: str, cli_locales: str | None, project_root_arg: str) -> dict:
-    """폴더 훑기 > 스토어별 판정 > verdict 응답 (store-check · store-upload-plan 공용)"""
+    """Scan folders > verdict per store > verdict response (shared by store-check · store-upload-plan)"""
     root = Path(folder).resolve()
     if not root.is_dir():
         return {"ok": False, "code": "dir_not_found", "error": f"Folder not found: {folder}",
@@ -137,7 +137,7 @@ def check_store_folder(folder: str, cli_locales: str | None, project_root_arg: s
 
 def _judge_store(store: str, store_spec: dict, store_found: dict, cli_locales: str | None,
                  project_root: Path, root: Path) -> dict:
-    """스토어 1개 > 언어별·슬롯별 판정 + 빠진 필수 슬롯"""
+    """One store > verdict per language·slot + missing required slots"""
     folder_locales = [loc for loc in store_found if loc != GLOBAL_LOCALE]
     targets, source = resolve_target_locales(store, cli_locales, project_root, folder_locales)
     base_locale = targets[0] if targets and source != "folder" else None
@@ -145,7 +145,7 @@ def _judge_store(store: str, store_spec: dict, store_found: dict, cli_locales: s
 
     issues, warnings = [], _locale_code_mismatches(store, targets, folder_locales)
     matrix: dict = {}
-    # 판정 대상: 목표 언어 + 폴더에만 있는 언어(파일 검사만) + _global
+    # Judged: target languages + languages only in folders (file checks only) + _global
     judged_locales = targets + [loc for loc in folder_locales if loc not in targets] + [GLOBAL_LOCALE]
     for locale in judged_locales:
         is_global = locale == GLOBAL_LOCALE

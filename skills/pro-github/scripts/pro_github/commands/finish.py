@@ -1,4 +1,4 @@
-"""finish-issue: 상태 라벨 교체 + 닫기를 한 명령으로. 중간에 실패해도 어디까지 됐는지 알려 준다 (#941)."""
+"""finish-issue: swap the status label and close in one command. Reports how far it got even if a step fails (#941)."""
 from __future__ import annotations
 
 import urllib.error
@@ -9,10 +9,10 @@ from common.report_comment import REPORT_COMMENT_MARKER
 from pro_github.registry import Command
 from pro_github.responses import missing_pat
 
-# 표식 없는 옛 보고서 댓글 판별: 출력 틀의 고정 제목 2개 (휴리스틱)
+# Detect old report comments without the marker: the 2 fixed headings of the output template (heuristic)
 _REPORT_TEMPLATE_HEADINGS = ("## 개요", "## 변경 사항")
 
-# 결과별: (붙일 상태 라벨, 닫을 때 사유 | None=닫지 않음)
+# Per outcome: (status label to apply, close reason | None=do not close)
 _OUTCOMES = {
     "done": ("status: done", "completed"),
     "cancelled": ("status: cancelled", "not_planned"),
@@ -31,7 +31,7 @@ def cmd_finish_issue(args, api) -> int:
     except GitHubAPIError as e:
         return emit({"ok": False, "code": f"github_api_{e.status_code}", "error": str(e), "steps": steps})
 
-    # 상태 라벨 교체 (상태 외 라벨은 유지)
+    # Swap the status label (other labels kept)
     wanted = [label for label in current if label not in STATUS_LABEL_NAMES] + [status_label]
     try:
         replaced = api.set_issue_labels(args.owner, args.repo, args.number, wanted, pat)
@@ -43,7 +43,7 @@ def cmd_finish_issue(args, api) -> int:
     except GitHubAPIError as e:
         steps.append({"step": "labels", "ok": False, "code": f"github_api_{e.status_code}", "detail": str(e)})
 
-    # 닫기 (라벨 단계가 실패해도 시도한다: 닫힌 이슈에 상태 라벨이 없는 것이 라벨만 바뀐 열린 이슈보다 낫다)
+    # Close (tried even if the label step failed: a closed issue missing a status label beats an open one with only the label changed)
     if close_reason:
         try:
             api.update_issue(args.owner, args.repo, args.number, pat, state="closed", state_reason=close_reason)
@@ -52,7 +52,7 @@ def cmd_finish_issue(args, api) -> int:
             steps.append({"step": "close", "ok": False, "code": f"github_api_{e.status_code}", "detail": str(e)})
 
     failed = [step["step"] for step in steps if not step["ok"]]
-    # 보고서 없이 닫는 일이 반복됐다 (40개 일괄 종료) — 막지는 않고 알린다
+    # Closing without a report kept happening (40 closed in one batch) — warn, do not block
     warnings = _report_warnings(args, api, pat) if args.outcome == "done" else []
     return emit({
         "ok": not failed,
@@ -67,13 +67,13 @@ def cmd_finish_issue(args, api) -> int:
 
 
 def is_report_comment(body: str) -> bool:
-    """pro-report 보고서 댓글인지: 표식 또는 출력 틀 제목(## 개요 · ## 변경 사항)이 모두 있음"""
+    """Whether it is a pro-report comment: has the marker or both template headings (## 개요 · ## 변경 사항)"""
     body = body or ""
     return REPORT_COMMENT_MARKER in body or all(heading in body for heading in _REPORT_TEMPLATE_HEADINGS)
 
 
 def _report_warnings(args, api, pat: str) -> list[str]:
-    """보고서 댓글이 없으면 경고 1줄. 댓글 조회 실패도 경고로 남긴다 (완료 처리는 그대로)"""
+    """One warning line if there is no report comment. A failed comment lookup is also a warning (completion still proceeds)"""
     try:
         comments = api.get_issue_comments(args.owner, args.repo, args.number, pat)
     except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:

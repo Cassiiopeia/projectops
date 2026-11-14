@@ -1,4 +1,4 @@
-"""이슈·PR 댓글 서브커맨드: 추가·목록·수정·삭제."""
+"""Issue/PR comment subcommands: add, list, edit, delete."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -69,13 +69,13 @@ def cmd_delete_comment(args, api) -> int:
         return api_error(e)
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_add_comment(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
-    # 위치 인자와 --body-file 둘 다 받는다 (update-issue 와 같은 모양)
+    # Accept both a positional argument and --body-file (same shape as update-issue)
     parser.add_argument("body_file", nargs="?")
     parser.add_argument("--body-file", dest="body_file_option", default=None, help="body file path")
 

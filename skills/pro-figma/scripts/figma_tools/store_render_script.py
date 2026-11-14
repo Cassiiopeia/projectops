@@ -1,7 +1,7 @@
-"""pro-launch `web script` 에 넘기는 렌더 스크립트 생성 (#1021)
+"""Build the render script passed to pro-launch `web script` (#1021)
 
-`web shot` 은 webp 로 줄여 저장하므로 쓰지 않는다. Playwright 의 page.screenshot 은
-뷰포트 그대로(예: 1320x2868) 알파 없는 PNG 로 저장한다 (실측).
+`web shot` is not used since it saves downsized webp. Playwright's page.screenshot saves
+the viewport as is (e.g. 1320x2868) as a PNG without alpha (measured).
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import json
 
 from figma_tools.store_html import FIT_ATTRIBUTE
 
-# 글꼴 로드 후 문구 상자가 넘치는지 / 모든 이미지가 실제로 읽혔는지
+# After fonts load: does a caption box overflow / did every image actually load
 _FIT_CHECK_JS = (f"[...document.querySelectorAll('[{FIT_ATTRIBUTE}]')]"
                  ".some(e => e.scrollHeight > e.clientHeight + 1 || e.scrollWidth > e.clientWidth + 1)")
 _IMAGES_LOADED_JS = "[...document.images].every(i => i.complete && i.naturalWidth > 0)"
@@ -43,7 +43,7 @@ result = {{"rendered": len(rendered), "text_overflow": overflowed, "failed": fai
 
 
 def build_render_script(manifest_path: str) -> str:
-    """json.dumps 로 경로를 따옴표·이스케이프된 파이썬 문자열 리터럴로 넣는다"""
+    """Embed paths as quoted·escaped Python string literals via json.dumps"""
     return _SCRIPT_TEMPLATE.format(manifest_path=json.dumps(manifest_path),
                                    images_loaded_js=json.dumps(_IMAGES_LOADED_JS),
                                    fit_check_js=json.dumps(_FIT_CHECK_JS))

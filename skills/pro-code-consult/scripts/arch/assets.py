@@ -1,6 +1,6 @@
-"""assets: 이미지·폰트 sha256 > 같은 내용 사본 묶음, 같은 이름·다른 내용 (낡은 사본 의심)
+"""assets: image/font sha256 > groups of same-content copies, same name with different content (suspected stale copy)
 
-같은 이름 비교는 확장자가 같고(svg ↔ png 는 형식 차이), PNG 는 픽셀 크기까지 같은 것끼리만 한다.
+Same-name comparison only pairs files with the same extension (svg ↔ png is a format difference), and PNGs only with the same pixel size.
 """
 from __future__ import annotations
 
@@ -13,18 +13,18 @@ from .source_files import git_ignored_paths, walk_files
 
 ASSET_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico",
                     ".ttf", ".otf", ".woff", ".woff2"}
-# 웹폰트 형식 묶음 (ttf·woff·woff2 를 함께 두는 것은 정상 — 형식 변형 후보에서 뺌)
+# Web font format group (keeping ttf/woff/woff2 together is normal — excluded from format-variant candidates)
 FONT_EXTENSIONS = {".ttf", ".otf", ".woff", ".woff2", ".eot"}
-# 자산 최대 크기 (20MB — 그 이상은 원본 작업 파일로 보고 건너뜀)
+# Max asset size (20MB — larger files are treated as source work files and skipped)
 MAXIMUM_ASSET_BYTES = 20 * 1024 * 1024
-# 이름 정규화: 배율·크기 접미사 제거 (logo@2x, app_icon_1024 > logo, app_icon)
+# Name normalization: strip scale/size suffixes (logo@2x, app_icon_1024 > logo, app_icon)
 SIZE_SUFFIX_PATTERN = re.compile(r"(?:@\d(?:\.\d)?x|[-_]\d{2,4}(?:x\d{2,4})?|[-_](?:xx?x?h|m|h)dpi)$", re.IGNORECASE)
 
-# 앱 아이콘 생성 도구가 만드는 영역 (flutter_launcher_icons 가 있으면 이 영역끼리의 사본은 생성 결과)
+# Areas written by app icon generators (with flutter_launcher_icons, copies between these areas are generated output)
 ICON_GENERATOR_AREAS = {"android_launcher", "ios_assets", "macos", "web_public", "windows"}
-# 모듈 이름을 앞에 붙일 일반 영역 (client/assets 와 app/assets 를 다른 영역으로)
+# Generic areas prefixed with the module name (client/assets and app/assets count as different areas)
 GENERIC_AREAS = {"app_assets", "other"}
-# 플랫폼 영역 판별 (경로 일부 > 영역 이름) — 앞에서부터 처음 맞는 것
+# Platform area detection (path fragment > area name) — first match wins
 PLATFORM_AREA_MARKERS = (
     ("/res/mipmap", "android_launcher"), ("/res/drawable", "android_drawable"),
     ("/macos/", "macos"), ("/windows/", "windows"), ("/linux/", "linux"),
@@ -38,7 +38,7 @@ def scan_assets(root: Path, limit: int) -> dict:
     files_by_hash: dict[str, list[str]] = {}
     sizes: dict[str, int] = {}
 
-    # 해시 수집 (gitignore 대상 제외 — 스크린샷·증거 폴더는 레포 자산이 아니다)
+    # Collect hashes (skip gitignored paths — screenshot/evidence folders are not repo assets)
     candidates = [(r, a) for r, a in walk_files(root) if Path(r).suffix.lower() in ASSET_EXTENSIONS]
     ignored = git_ignored_paths(root, [r for r, _ in candidates]) or set()
     for relative, absolute in candidates:
@@ -66,7 +66,7 @@ def scan_assets(root: Path, limit: int) -> dict:
         if any(p.startswith("docs/") or "/figma/" in "/" + p for p in paths):
             group["is_reference_copy"] = True
         copies.append(group)
-    # 판단할 것 먼저: 영역을 넘는 손복사 > 생성 결과·참고 자료 사본
+    # Items needing judgment first: hand copies across areas > generated output and reference-material copies
     copies.sort(key=lambda g: (g.get("is_generated_icon_set", False) or g.get("is_reference_copy", False),
                                -len(g["areas"]), -len(g["paths"])))
     drift, format_variants = _same_name_different_content(root, files_by_hash)
@@ -84,7 +84,7 @@ def scan_assets(root: Path, limit: int) -> dict:
 
 
 def file_sha256(path: Path) -> str:
-    """파일 내용 해시 (assets 사본 묶음과 copies --file 공통)"""
+    """File content hash (shared by assets copy groups and copies --file)"""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -105,9 +105,9 @@ def normalized_asset_name(relative: str) -> str:
 
 
 def _same_name_different_content(root: Path, files_by_hash: dict):
-    """같은 이름·같은 확장자(PNG 는 같은 픽셀 크기)가 2개 이상 영역에 다른 내용으로 있으면 의심
+    """Suspect when the same name and extension (same pixel size for PNG) exists in 2+ areas with different content
 
-    한 영역 안의 크기별 변형은 정상. 확장자만 다른 같은 이름은 format_variants 로 따로 (안 쓰는 사본 후보)
+    Size variants within one area are normal. Same name with only a different extension goes to format_variants (unused-copy candidates)
     """
     variants_by_key: dict[tuple, dict[str, list[str]]] = {}
     extensions_by_name: dict[str, set] = {}
@@ -136,7 +136,7 @@ def _same_name_different_content(root: Path, files_by_hash: dict):
 
 
 def _png_size(path: Path):
-    """PNG 머리(IHDR)의 가로·세로 (읽기 실패면 None)"""
+    """Width and height from the PNG header (IHDR); None if unreadable"""
     try:
         with path.open("rb") as handle:
             header = handle.read(24)

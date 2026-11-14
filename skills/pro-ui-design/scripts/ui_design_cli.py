@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""ui_design_cli — pro-ui-design 전용 CLI (projectops 3-layer 표준, Layer 2, #634).
+"""ui_design_cli — CLI for pro-ui-design (projectops 3-layer standard, Layer 2, #634).
 
-시안을 로컬에 띄워 고르고, 안 되면 디자이너에게 넘긴다. **판단은 agent, 스크립트는 실행과 기록만** 한다 —
-시안 내용 · 상태 목록 · 대안 · 문구 후보를 만드는 것은 agent 이고, 여기서는 서버를 띄우고 사실을 모으고
-기계적으로 검사할 수 있는 것만 검사한다.
+Serve mockups locally to pick one, or hand off to a designer. **The agent judges; the script only runs and records** —
+the agent writes mockup content, state lists, alternatives and copy candidates; this script runs the server, gathers facts
+and checks only what can be checked mechanically.
 
-서브커맨드:
-    start · status · stop · choices   로컬 시안 세션과 서버, 클릭 기록
-    tokens · check                    디자인 후보 파일 찾기, 시안 검사
-    capture                           시안 > PNG, 단계 실행 > GIF
-    decide · decision                 결정 기록 저장과 조회
-    config show|set|options           설정 해석(일치 항목 · 출처) / 저장 / 옵션 표
-    get-output-path                   이번 요청서의 산출물 자리
-    board                             데이터 JSON > 보드 HTML (+ --png 면 주제별 PNG)
-    copy-lint                         문구 후보의 기계적 검사 (em dash · 가운뎃점 · 금지어 · 번역투)
-    ascii                             박스 문자 와이어 (한글 폭 보정)
-    rewrite-images                    업로드 결과로 md 의 로컬 그림 경로 > URL (이슈 본문용)
+Subcommands:
+    start · status · stop · choices   local mockup session and server, click log
+    tokens · check                    find design candidate files, check mockups
+    capture                           mockup > PNG, run steps > GIF
+    decide · decision                 save and read the decision record
+    config show|set|options           resolve settings (matched entry, source) / save / option table
+    get-output-path                   output location for this request
+    board                             data JSON > board HTML (+ per-topic PNG with --png)
+    copy-lint                         mechanical checks on copy candidates (em dash, middle dot, banned words, translationese)
+    ascii                             box-drawing wireframe (wide-character width fix)
+    rewrite-images                    local image paths in md > uploaded URLs (for issue bodies)
 
-출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
+Output: MCP-style JSON (ok/code/summary/next always present).
 """
 from __future__ import annotations
 
@@ -25,12 +25,12 @@ import argparse
 import sys
 from pathlib import Path
 
-# 구현은 같은 폴더의 pro_ui_design 패키지에 있다 (공용 common 경로는 패키지가 맞춘다)
+# Implementation lives in the pro_ui_design package next to this file (the package sets up the shared common path)
 _HERE = Path(__file__).resolve()
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
-import pro_ui_design  # noqa: E402,F401  (common import 경로를 맞춘다)
+import pro_ui_design  # noqa: E402,F401  (sets up the common import path)
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.stable_entry import refresh_and_check  # noqa: E402
 
@@ -47,7 +47,7 @@ from pro_ui_design.session_commands import cmd_choices, cmd_start, cmd_status, c
 from pro_ui_design.settings import DESTINATIONS  # noqa: E402
 from pro_ui_design.tokens import cmd_tokens  # noqa: E402
 
-# 테스트가 ui_design_cli.<이름> 으로 직접 쓰는 함수·값 재노출
+# Re-export functions and values tests use directly as ui_design_cli.<name>
 from pro_ui_design.ascii_wire import _fit, text_width  # noqa: E402,F401
 from pro_ui_design.board_capture import _png_width, _require_playwright  # noqa: E402,F401
 from pro_ui_design.board_html import render_html  # noqa: E402,F401
@@ -58,11 +58,11 @@ from pro_ui_design.settings import MAX_PNG_WIDTH  # noqa: E402,F401
 
 
 # =========================================================================
-# 인자
+# Arguments
 # =========================================================================
 
 def build_parser() -> argparse.ArgumentParser:
-    # 공용 파서: bad_args JSON(usage 포함), 전역 --brief · --field(s) 를 다른 CLI 와 같게 (#1181)
+    # Shared parser: bad_args JSON (with usage), global --brief / --field(s) same as other CLIs (#1181)
     parser = JSONArgumentParser(prog="ui_design_cli", description="See and pick UI mockups locally; assemble a design request for a designer")
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -180,7 +180,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    refresh_and_check(__file__)   # 옛 고정 진입점이 이 스킬 이름을 몰라도 직접 호출 한 번으로 복구
+    refresh_and_check(__file__)   # One direct call recovers even if the old fixed entry point does not know this skill name
     return run_cli(build_parser(), argv)
 
 

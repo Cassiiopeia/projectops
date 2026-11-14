@@ -1,5 +1,5 @@
-"""PNG 읽기·쓰기 (표준 라이브러리 zlib): 8비트·비인터레이스 > RGBA 픽셀 바이트
-지원 색 형식 4개: 0 회색, 2 RGB, 4 회색+알파, 6 RGBA (팔레트·16비트·인터레이스는 미지원 > 변환 도구로 우회)
+"""PNG read/write (stdlib zlib): 8-bit, non-interlaced > RGBA pixel bytes
+Supported color types 4: 0 gray, 2 RGB, 4 gray+alpha, 6 RGBA (palette, 16-bit, interlaced unsupported > go through a converter)
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import zlib
 from pathlib import Path
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-# 색 형식 > 픽셀당 채널 수
+# Color type > channels per pixel
 CHANNELS_BY_COLOR_TYPE = {0: 1, 2: 3, 4: 2, 6: 4}
 
 
@@ -34,7 +34,7 @@ def _paeth(left: int, up: int, up_left: int) -> int:
 
 
 def _unfilter(raw: bytes, width: int, height: int, channels: int) -> bytearray:
-    """행별 필터 5종(None·Sub·Up·Average·Paeth) 복원"""
+    """Undo the 5 per-row filters (None, Sub, Up, Average, Paeth)"""
     stride = width * channels
     pixels = bytearray(stride * height)
     previous = bytearray(stride)
@@ -76,7 +76,7 @@ def _to_rgba(pixels: bytearray, color_type: int) -> bytearray:
 
 
 def read_rgba(path: Path) -> tuple[int, int, bytearray]:
-    """PNG > (너비, 높이, RGBA 바이트)"""
+    """PNG > (width, height, RGBA bytes)"""
     data = path.read_bytes()
     if data[:8] != PNG_SIGNATURE:
         raise UnsupportedPng("not a PNG file")
@@ -96,7 +96,7 @@ def read_rgba(path: Path) -> tuple[int, int, bytearray]:
 
 
 def write_rgba(path: Path, width: int, height: int, rgba: bytes) -> None:
-    """RGBA 바이트 > PNG (필터 0, 압축 6)"""
+    """RGBA bytes > PNG (filter 0, compression 6)"""
     stride = width * 4
     raw = b"".join(b"\x00" + bytes(rgba[row * stride:(row + 1) * stride]) for row in range(height))
 

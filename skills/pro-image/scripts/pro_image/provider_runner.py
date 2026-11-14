@@ -1,6 +1,6 @@
-"""이미지 도구 1회 실행: codex(전용 인자) 또는 command(자리표시자 치환) > 로그 파일 + 판정 재료
-command 자리표시자 7개: {prompt_file} {prompt_text} {run_dir} {out_dir} {out_file} {size} {timeout_seconds}
-단독 인자 "{refs}" 는 참조 경로 여러 개로 펼침
+"""One image tool run: codex (dedicated args) or command (placeholder substitution) > log file + verdict inputs
+7 command placeholders: {prompt_file} {prompt_text} {run_dir} {out_dir} {out_file} {size} {timeout_seconds}
+A standalone "{refs}" argument expands to several reference paths
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pathlib import Path
 from . import codex_runner
 
 REFS_PLACEHOLDER = "{refs}"
-# 로그에 남길 꼬리 길이 (글자)
+# Tail length kept in the log (characters)
 LOG_TAIL_CHARACTERS = 1500
 
 
@@ -38,7 +38,7 @@ def build_command(executable: str, invocation: dict, run_dir: Path, reference_fi
 
 
 def _environment(invocation: dict) -> dict:
-    # codex: API 키 환경변수 제거 (구독 경로 강제), 그 외 도구는 사용자 환경 그대로
+    # codex: remove API key env vars (forces the subscription path); other tools keep the user's environment
     return codex_runner.subscription_environment() if invocation["kind"] == "codex" else dict(os.environ)
 
 
@@ -52,7 +52,7 @@ def run_once(command: list[str], invocation: dict, run_dir: Path, prompt_text: s
     except subprocess.TimeoutExpired as expired:
         output, exit_code, is_timed_out = str(expired.stdout or ""), None, True
     log_path.write_text(output, encoding="utf-8")
-    # used_image_model: codex 만 로그로 판별 가능, 그 외 도구는 None (판정 불가)
+    # used_image_model: only codex can be judged from its log; other tools get None (unknown)
     used_image_model = codex_runner.GENERATED_IMAGES_MARKER in output if invocation["kind"] == "codex" else None
     return {"provider": invocation["name"], "exit_code": exit_code, "is_timed_out": is_timed_out, "log": str(log_path),
             "log_tail": output[-LOG_TAIL_CHARACTERS:], "used_image_model": used_image_model,

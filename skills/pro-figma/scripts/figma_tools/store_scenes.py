@@ -1,7 +1,7 @@
-"""scenes.json 읽기 > 검증 > 렌더 작업(job) 목록 (#1021)
+"""Read scenes.json > validate > render job list (#1021)
 
-규격 숫자는 store_specs.json 단독 소유 — 여기서는 장면 파일이 규격 안에 있는지만 본다.
-검증 실패는 예외가 아니라 issues 로 모아서 돌려준다 (한 번에 전부 고치게).
+Spec numbers are owned solely by store_specs.json — here only checks the scene file stays within spec.
+Validation failures are collected into issues, not raised (so everything is fixed at once).
 """
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from pathlib import Path
 
 from figma_tools.store_check import find_size_problems
 
-CAPTION_LAYOUTS = ("caption-top", "caption-bottom")   # 기기 틀 + 문구 (세로 슬롯)
-BANNER_LAYOUT = "banner"                              # 문구만 (+ 선택 아이콘, 가로 슬롯)
+CAPTION_LAYOUTS = ("caption-top", "caption-bottom")   # device frame + caption (portrait slots)
+BANNER_LAYOUT = "banner"                              # caption only (+ optional icon, landscape slots)
 LAYOUTS = CAPTION_LAYOUTS + (BANNER_LAYOUT,)
 LOCALE_PLACEHOLDER = "{locale}"
 
@@ -23,7 +23,7 @@ DEFAULT_THEME = {"background": "#0b1d3a", "foreground": "#ffffff", "accent": "#4
 
 
 def load_scenes(path: Path) -> tuple[dict | None, list]:
-    """scenes.json > (dict, issues). 읽기·구조 오류면 dict 는 None"""
+    """scenes.json > (dict, issues). dict is None on read·structure errors"""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -38,7 +38,7 @@ def load_scenes(path: Path) -> tuple[dict | None, list]:
 
 
 def resolve_theme(raw_theme: object) -> tuple[dict, list]:
-    """테마 병합 + CSS 로 들어가는 값 검증 (색·글꼴 이름은 허용 문자만)"""
+    """Merge theme + validate values going into CSS (color·font names allow only safe characters)"""
     theme = dict(DEFAULT_THEME, font_files=[])
     issues: list = []
     if not isinstance(raw_theme, dict):
@@ -66,7 +66,7 @@ def resolve_theme(raw_theme: object) -> tuple[dict, list]:
 
 
 def collect_scene_locales(scenes: list) -> list[str]:
-    """장면 문구에 등장하는 언어 (등장 순서). 목표 언어를 못 정할 때의 마지막 출처"""
+    """Languages appearing in scene captions (in order of appearance). Last resort when target languages are unknown"""
     locales: list[str] = []
     for scene in scenes:
         for locale in (scene.get("text") or {}):
@@ -76,7 +76,7 @@ def collect_scene_locales(scenes: list) -> list[str]:
 
 
 def build_jobs(data: dict, specs: dict, locales_by_store: dict, only_store: str | None) -> tuple[list, list]:
-    """outputs x 장면 x 언어 > 작업 목록 + issues. 문제 있는 조합은 작업에서 뺀다"""
+    """outputs x scenes x languages > job list + issues. Combinations with problems are left out"""
     scenes_by_id = {scene.get("id"): scene for scene in data["scenes"] if isinstance(scene, dict)}
     jobs: list = []
     issues: list = []
@@ -107,7 +107,7 @@ def build_jobs(data: dict, specs: dict, locales_by_store: dict, only_store: str 
 
 
 def _resolve_size(output: dict, slot_spec: dict, issues: list, store: str, slot_id: str) -> list | None:
-    """output.size 가 슬롯 규격 안인지 확인. 허용 목록이 하나뿐이면 생략 가능, 범위형은 필수"""
+    """Check output.size is within slot spec. Optional if the allowed list has one entry, required for range types"""
     size = output.get("size")
     exact_sizes = slot_spec["size"].get("exact")
     if size is None and exact_sizes and len(exact_sizes) == 1:

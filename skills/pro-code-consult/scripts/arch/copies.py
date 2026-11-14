@@ -1,6 +1,6 @@
-"""copies: 고치기 전 사본 전수 조사 — 같은 이름·같은 값·같은 파일 내용을 플랫폼 폴더까지 (코딩 규칙 §9.1)
+"""copies: find every copy before fixing — same name, same value, same file content, including platform folders (conventions §9.1)
 
-위치 종류 7개: code, native, web, asset, docs, config, test. 생성 파일과 제외 폴더만 뺀다.
+7 location kinds: code, native, web, asset, docs, config, test. Only generated files and excluded folders are skipped.
 """
 from __future__ import annotations
 
@@ -19,9 +19,9 @@ WEB_DIRECTORY_NAMES = {"web", "public", "static", "templates", "wwwroot"}
 WEB_EXTENSIONS = {".html", ".htm", ".css", ".scss"}
 DOCS_EXTENSIONS = {".md", ".mdx", ".txt", ".rst", ".adoc"}
 CONFIG_EXTENSIONS = {".json", ".yml", ".yaml", ".toml", ".properties", ".ini", ".xml", ".env", ".cfg", ".arb"}
-# 스토어 메타데이터 폴더 (fastlane 문구·스크린샷)
+# Store metadata folders (fastlane copy and screenshots)
 STORE_DIRECTORY_NAMES = {"fastlane", "metadata"}
-# 종류별 표본 줄 길이 (긴 줄은 잘라 토큰 절약)
+# Sample line length per kind (long lines are cut to save tokens)
 MAXIMUM_LINE_CHARACTERS = 160
 
 
@@ -44,7 +44,7 @@ def find_copies(root: Path, names: list, values: list, files: list, limit: int, 
 
 
 def _name_pattern(name: str):
-    """식별자 경계 기준 (getUser 가 getUserName 에 걸리지 않게)"""
+    """Identifier-boundary match (so getUser does not match getUserName)"""
     return re.compile(rf"(?<![A-Za-z0-9_]){re.escape(name)}(?![A-Za-z0-9_])")
 
 
@@ -77,7 +77,7 @@ def _search_text(root: Path, tracked: list, kind: str, term: str, pattern) -> di
                 continue
             text = path.read_text(encoding="utf-8", errors="strict")
         except (OSError, UnicodeDecodeError):
-            continue   # 바이너리·다른 인코딩
+            continue   # binary or another encoding
         if not pattern.search(text):
             continue
         for number, line in enumerate(text.splitlines(), 1):
@@ -121,7 +121,7 @@ def _result(kind: str, term: str, matches: list) -> dict:
 
 
 def _trim(result: dict, limit: int) -> dict:
-    """종류별로 돌아가며 표본을 골라 limit 개 (한 종류가 목록을 독차지하지 않게)"""
+    """Pick limit samples round-robin by kind (so one kind does not take over the list)"""
     queues = {kind: [m for m in result["matches"] if m["kind"] == kind] for kind in LOCATION_KINDS}
     picked = []
     while len(picked) < limit and any(queues.values()):

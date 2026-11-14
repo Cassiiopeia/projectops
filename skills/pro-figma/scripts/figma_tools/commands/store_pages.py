@@ -1,7 +1,7 @@
-"""store-pages: pages.json > 언어별 랜딩 페이지 + hreflang + sitemap.xml + robots.txt (#1021)
+"""store-pages: pages.json > per-language landing pages + hreflang + sitemap.xml + robots.txt (#1021)
 
-파일은 run_dir/store/site/ 아래에만 쓴다. 올리기(호스팅)는 하지 않는다.
-결과: site/index.html(언어 선택) · site/{folder}/index.html · site/{folder}/images/ · site/fonts/ · sitemap.xml · robots.txt
+Writes files only under run_dir/store/site/. Does not upload (host).
+Output: site/index.html (language picker) · site/{folder}/index.html · site/{folder}/images/ · site/fonts/ · sitemap.xml · robots.txt
 """
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ from figma_tools.store_site import (
 
 PAGES_FILE_NAME = "pages.json"
 SITE_SUBDIR = "site"
-# 언어 폴더 = 주소 경로 한 칸 (영문·숫자·하이픈만)
+# Language folder = one URL path segment (letters·digits·hyphens only)
 _FOLDER_PATTERN = re.compile(r"^[A-Za-z0-9-]{2,20}$")
-# hreflang: 언어(2~3자) + 선택 문자 체계(4자) + 선택 지역(2자 또는 숫자 3자)
+# hreflang: language (2-3 chars) + optional script (4 chars) + optional region (2 chars or 3 digits)
 _HREFLANG_PATTERN = re.compile(r"^[a-z]{2,3}(-[A-Z][a-z]{3})?(-([A-Z]{2}|\d{3}))?$")
 _IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 DEFAULT_IMAGE_COUNT = 5
@@ -44,7 +44,7 @@ def _load_pages(path: Path) -> tuple[dict | None, dict | None]:
 
 
 def _normalized_base_url(raw: object) -> str | None:
-    """https 절대 주소만 허용, 끝은 / 로 맞춘다"""
+    """Allow only absolute https URLs, end normalized to /"""
     if not isinstance(raw, str):
         return None
     parsed = urlparse(raw)
@@ -64,7 +64,7 @@ def _validate_app(app: dict) -> list:
 
 
 def _locale_images(images: dict | None, locale_entry: dict, folder: str) -> list[Path]:
-    """스토어 이미지 폴더 규약({dir}/{store}/{locale}/{slot}/)에서 이 언어 스크린샷, 이름 순 max 장"""
+    """This language's screenshots from the store image folder convention ({dir}/{store}/{locale}/{slot}/), up to max by name"""
     if not images:
         return []
     locale = locale_entry.get("image_locale") or folder
@@ -86,7 +86,7 @@ def _validate_images(images: object) -> tuple[dict | None, list]:
 
 
 def _build_pages(data: dict, images: dict | None) -> tuple[list, list, list]:
-    """locales > 페이지 목록 + issues + warnings. 문제 있는 언어는 페이지에서 뺀다"""
+    """locales > page list + issues + warnings. Languages with problems are left out of the pages"""
     pages, issues, warnings, seen_hreflang = [], [], [], set()
     for folder, entry in data["locales"].items():
         if not isinstance(entry, dict):
@@ -127,7 +127,7 @@ def _build_pages(data: dict, images: dict | None) -> tuple[list, list, list]:
 
 
 def _write_site(site_dir: Path, pages: list, site: dict) -> list[str]:
-    """페이지·이미지·글꼴·sitemap·robots 쓰기 > 쓴 파일 목록"""
+    """Write pages·images·fonts·sitemap·robots > list of written files"""
     written = []
 
     def write(path: Path, content: str) -> None:
@@ -155,7 +155,7 @@ def _write_site(site_dir: Path, pages: list, site: dict) -> list[str]:
 
 
 def cmd_store_pages(args) -> int:
-    """검증 > 언어별 페이지 + 언어 선택 + sitemap + robots 생성"""
+    """Validate > generate per-language pages + language picker + sitemap + robots"""
     store_dir, error = resolve_store_dir(args.run_dir, Path(args.root).resolve())
     if error:
         return emit(error)

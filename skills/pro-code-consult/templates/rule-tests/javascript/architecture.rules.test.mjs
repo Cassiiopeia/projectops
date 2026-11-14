@@ -1,21 +1,21 @@
-// 아키텍처 규칙 테스트: docs/architecture/rules/<id>.rule 위반 <-> <id>.allow 대조
-// 규칙은 rules 폴더에서 고친다 (이 파일은 pro-code-consult 템플릿 — 판정 로직만). 실행: node --test
+// Architecture rule test: docs/architecture/rules/<id>.rule violations <-> <id>.allow
+// Edit rules in the rules folder (this file is a pro-code-consult template — verdict logic only). Run: node --test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// 탐색 제외 폴더 (다른 스택 템플릿과 같은 목록)
+// Excluded folders (same list as the other stack templates)
 const SKIPPED_DIRECTORY_NAMES = new Set([
   '.git', 'build', 'dist', 'node_modules', '.dart_tool', 'Pods', '.gradle',
   'venv', '.venv', '__pycache__', '.next', 'out', 'target', '.idea',
 ]);
 const LIST_KEYS = new Set(['paths', 'extensions', 'exclude']);
-// 규칙 파일 자신은 판정 대상에서 늘 제외
+// Rule files themselves are always excluded
 const ALWAYS_EXCLUDED_PREFIX = 'docs/architecture/';
 
-/** 현재 폴더부터 위로 docs/architecture/rules 탐색 (모노레포 서브폴더에서도 동작) */
+/** Search upward from the current folder for docs/architecture/rules (works from monorepo subfolders) */
 function findRulesDirectory(start) {
   for (let directory = start; ; directory = path.dirname(directory)) {
     const candidate = path.join(directory, 'docs', 'architecture', 'rules');
@@ -24,7 +24,7 @@ function findRulesDirectory(start) {
   }
 }
 
-/** key=value (첫 = 에서만 자름, # 주석) > 규칙 */
+/** key=value (split on the first = only, # comments) > rule */
 function parseRule(file) {
   const rule = { id: path.basename(file, '.rule'), pattern: '', paths: [], extensions: [], exclude: [] };
   for (const raw of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
@@ -81,15 +81,15 @@ for (const ruleFileName of ruleFiles) {
   test(`architecture rule: ${ruleFileName}`, () => {
     const repositoryRoot = path.resolve(rulesDirectory, '..', '..', '..');
     const rule = parseRule(path.join(rulesDirectory, ruleFileName));
-    assert.ok(rule.pattern, `${ruleFileName}: pattern 키가 없다`);
+    assert.ok(rule.pattern, `${ruleFileName}: missing pattern key`);
     const violating = new Set(findViolatingFiles(repositoryRoot, rule));
     const allowed = new Set(readAllowEntries(path.join(rulesDirectory, `${rule.id}.allow`)));
 
-    // 새 위반 (동결 목록에 없는 파일) > 코드를 고친다
+    // New violations (files not in the freeze list) > fix the code
     const newViolations = [...violating].filter((file) => !allowed.has(file)).sort();
-    assert.deepEqual(newViolations, [], `[${rule.id}] 새 위반: ${newViolations.join(', ')}`);
-    // 고쳐진 항목 > 동결 목록에서 지운다 (목록이 느슨해지지 않게)
+    assert.deepEqual(newViolations, [], `[${rule.id}] new violations: ${newViolations.join(', ')}`);
+    // Fixed entries > remove them from the freeze list (keeps the list from loosening)
     const fixedEntries = [...allowed].filter((file) => !violating.has(file)).sort();
-    assert.deepEqual(fixedEntries, [], `[${rule.id}] 고쳐졌으니 ${rule.id}.allow 에서 지운다: ${fixedEntries.join(', ')}`);
+    assert.deepEqual(fixedEntries, [], `[${rule.id}] fixed, so remove from ${rule.id}.allow: ${fixedEntries.join(', ')}`);
   });
 }

@@ -1,4 +1,4 @@
-"""담당자 서브커맨드: 추가(기존 유지)·일부 제거."""
+"""Assignee subcommands: add (keeping existing), remove some."""
 from __future__ import annotations
 
 from common.emit import emit
@@ -36,7 +36,7 @@ def cmd_remove_assignees(args, api) -> int:
         return api_error(e)
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_add_assignees(parser) -> None:
     parser.add_argument("owner")

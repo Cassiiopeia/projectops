@@ -1,5 +1,5 @@
-"""연습 화면 녹음: 장 넘긴 시각(marks) > 장별 구간, 녹음 폴더 만들기
-서버(분리 프로세스)와 recording add 가 함께 씀 (common 의존 없음)
+"""Practice screen recording: slide change times (marks) > per-slide ranges, create recording folder
+Shared by the server (detached process) and recording add (no common dependency)
 """
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ from pathlib import Path
 from pro_presentation.settings import (MARKS_FILE_NAME, RANGES_FILE_NAME, RECORDING_AUDIO_STEM,
                                        RECORDING_META_FILE_NAME, RECORDINGS_DIR_NAME)
 
-# 브라우저 녹음 형식 > 저장 확장자 (Chrome·Firefox webm, Safari mp4)
+# Browser recording format > saved extension (Chrome/Firefox webm, Safari mp4)
 RECORDING_EXTENSIONS = ("webm", "mp4", "ogg")
 
 
 def next_take_label(recordings_dir: Path) -> str:
-    """take-<n>-<날짜> (이미 있는 이름은 건너뜀)"""
+    """take-<n>-<date> (skips names that already exist)"""
     count = len([path for path in recordings_dir.iterdir() if path.is_dir()]) if recordings_dir.is_dir() else 0
     while True:
         count += 1
@@ -25,7 +25,7 @@ def next_take_label(recordings_dir: Path) -> str:
 
 
 def marks_to_ranges(marks: list[dict], duration_seconds: float) -> dict[str, list[int]]:
-    """[{slide, at}] (보여 준 순서) > {slide: [시작, 끝]} 초. 같은 장을 여러 번 보면 가장 긴 방문"""
+    """[{slide, at}] (in shown order) > {slide: [start, end]} seconds. A slide visited several times keeps the longest visit"""
     ordered = sorted((mark for mark in marks if mark.get("slide")), key=lambda mark: float(mark["at"]))
     ranges: dict[str, list[int]] = {}
     for index, mark in enumerate(ordered):
@@ -39,7 +39,7 @@ def marks_to_ranges(marks: list[dict], duration_seconds: float) -> dict[str, lis
 
 
 def parse_marks(raw: str) -> tuple[list[dict], float]:
-    """브라우저가 보낸 JSON {marks:[{slide, at}], duration} > (marks, 길이). 형식이 틀리면 ValueError"""
+    """Browser JSON {marks:[{slide, at}], duration} > (marks, length). ValueError on bad format"""
     payload = json.loads(raw)
     duration = float(payload["duration"])
     marks = [{"slide": str(mark["slide"]), "at": max(0.0, min(float(mark["at"]), duration))}
@@ -51,7 +51,7 @@ def parse_marks(raw: str) -> tuple[list[dict], float]:
 
 def save_page_recording(deck_dir: Path, extension: str, audio_path: Path, marks: list[dict],
                         duration_seconds: float) -> dict:
-    """임시 오디오 파일 > recordings/<label>/ (audio.<ext> · marks.json · ranges.json · meta.json)"""
+    """Temp audio file > recordings/<label>/ (audio.<ext> · marks.json · ranges.json · meta.json)"""
     recordings_dir = deck_dir / RECORDINGS_DIR_NAME
     recordings_dir.mkdir(parents=True, exist_ok=True)
     label = next_take_label(recordings_dir)
@@ -70,7 +70,7 @@ def save_page_recording(deck_dir: Path, extension: str, audio_path: Path, marks:
 
 
 def find_page_audio(folder: Path) -> Path | None:
-    """녹음 폴더 안 연습 화면 녹음 파일 (audio.webm 등)"""
+    """Practice screen recording file in the recording folder (audio.webm etc.)"""
     for extension in RECORDING_EXTENSIONS:
         candidate = folder / f"{RECORDING_AUDIO_STEM}.{extension}"
         if candidate.is_file():

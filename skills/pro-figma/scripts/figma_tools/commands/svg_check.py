@@ -1,7 +1,7 @@
-"""svg-check: 받은 SVG 에셋 > 렌더러가 버리는 요소 찾기 (filter · style · text · gradientTransform)
+"""svg-check: downloaded SVG assets > find elements renderers drop (filter · style · text · gradientTransform)
 
-flutter_svg 는 이 요소를 그리지 않고 콘솔 경고(`unhandled element`)만 남긴다. 아무도 경고를 안 읽어
-후광 별이 선명한 띠로, 외부 SVG 가 검은 실루엣으로 배포됐다 (elum #297 · #469).
+flutter_svg does not draw these and only logs a console warning (`unhandled element`). Nobody read the warnings, so
+glowing stars shipped as hard bands and external SVGs as black silhouettes (elum #297 · #469).
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from common.emit import emit
 
-# 요소 > 렌더러에서 생기는 일 (실측 근거가 있는 것만)
+# Element > what happens in the renderer (only those with measured evidence)
 RISKY_FEATURES = {
     "filter": "blur, glow and shadow baked into the SVG are dropped",
     "style": "CSS in <style> is ignored, so fills fall back to black",

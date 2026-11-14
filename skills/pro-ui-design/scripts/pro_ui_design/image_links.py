@@ -1,8 +1,8 @@
-"""rewrite-images: 업로드 결과(로컬 그림 > URL)로 md 의 그림 경로를 바꾼다 (#974)
+"""rewrite-images: replace image paths in md using upload results (local image > URL) (#974)
 
-입력 2종 (--uploads 여러 번 가능):
-- upload-image 출력 JSON 그대로: `images[].file`(로컬 경로)로 먼저, 없으면 `images[].markdown` 의 `![원래 파일 stem](url)` 로 짝을 찾는다
-- 직접 만든 대응표: {"board/states.png": "https://..."} (md 기준 상대경로 · 절대경로 · 파일 이름)
+2 input kinds (--uploads may repeat):
+- upload-image output JSON as is: match by `images[].file` (local path) first, else by `![original file stem](url)` in `images[].markdown`
+- hand-made map: {"board/states.png": "https://..."} (path relative to md, absolute path, or file name)
 """
 from __future__ import annotations
 
@@ -12,16 +12,16 @@ from pathlib import Path
 
 from common.emit import emit
 
-# md 그림 2형식: ![alt](경로 "제목") · <img src="경로">
+# 2 md image forms: ![alt](path "title") and <img src="path">
 MARKDOWN_IMAGE_PATTERN = re.compile(r'(!\[[^\]]*\]\()([^)\s]+)((?:\s+"[^"]*")?\))')
 HTML_IMAGE_PATTERN = re.compile(r'(<img\b[^>]*?\bsrc=")([^"]+)(")', re.IGNORECASE)
-# upload-image 가 만든 마크다운: ![원래 stem](url)
+# Markdown produced by upload-image: ![original stem](url)
 UPLOADED_MARKDOWN_PATTERN = re.compile(r"^!\[([^\]]*)\]\((\S+)\)$")
 REMOTE_PREFIXES = ("http://", "https://", "data:")
 
 
 def _load_uploads(upload_files: list[str]) -> tuple[dict, dict, list]:
-    """업로드 결과 파일들 > (경로 대응표, stem 대응표, 실패 목록)"""
+    """Upload result files > (path map, stem map, failures)"""
     url_by_path, url_by_stem, failed = {}, {}, []
     for upload_file in upload_files:
         loaded = json.loads(Path(upload_file).expanduser().read_text(encoding="utf-8"))
@@ -30,7 +30,7 @@ def _load_uploads(upload_files: list[str]) -> tuple[dict, dict, list]:
                 matched = UPLOADED_MARKDOWN_PATTERN.match(str(image.get("markdown", "")))
                 if matched:
                     url_by_stem.setdefault(matched.group(1), set()).add(matched.group(2))
-                # upload-image 가 로컬 경로(file)를 주면 이름 대신 경로로 짝을 맞춘다
+                # When upload-image gives the local path (file), match by path instead of name
                 if image.get("file") and image.get("url"):
                     url_by_path[str(Path(image["file"]).expanduser().resolve())] = str(image["url"])
             failed += [f.get("file") for f in loaded.get("failed") or [] if isinstance(f, dict)]
@@ -42,7 +42,7 @@ def _load_uploads(upload_files: list[str]) -> tuple[dict, dict, list]:
 
 
 def _url_for(target: str, md_dir: Path, url_by_path: dict, url_by_stem: dict) -> str | None:
-    """로컬 그림 경로 > URL (경로 일치 > 절대경로 일치 > 이름 일치 > stem 일치 순). 겹치면 None"""
+    """Local image path > URL (path match > absolute path match > name match > stem match). None if ambiguous"""
     absolute = (md_dir / target).resolve()
     for key, url in url_by_path.items():
         if key == target or Path(key).expanduser().resolve() == absolute:
@@ -55,7 +55,7 @@ def _url_for(target: str, md_dir: Path, url_by_path: dict, url_by_stem: dict) ->
 
 
 def cmd_rewrite_images(args) -> int:
-    """md 읽기 > 로컬 그림마다 업로드 URL 로 치환 > 하나라도 못 찾으면 쓰지 않고 멈춤"""
+    """Read md > replace each local image with its upload URL > stop without writing if any is missing"""
     md_path = Path(args.md).expanduser()
     if not md_path.is_file():
         return emit({"ok": False, "code": "md_not_found", "error": f"md not found: {md_path}",
@@ -82,7 +82,7 @@ def cmd_rewrite_images(args) -> int:
 
     text = md_path.read_text(encoding="utf-8")
     rewritten = HTML_IMAGE_PATTERN.sub(replace, MARKDOWN_IMAGE_PATTERN.sub(replace, text))
-    # 일부만 바뀐 본문이 게시되면 깨진 그림이 디자이너 알림으로 나간다 — 쓰지 않는다
+    # A partly rewritten body would send broken images in designer notifications — do not write
     if unmatched:
         return emit({"ok": False, "code": "unmatched_images", "unmatched": sorted(set(unmatched)),
                      "upload_failed": upload_failed or None,

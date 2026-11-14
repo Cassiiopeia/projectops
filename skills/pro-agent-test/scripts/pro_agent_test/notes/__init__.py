@@ -1,1 +1,1 @@
-"""학습 노트(learned.json) — 이 프로젝트에서 알아낸 것을 쌓고 응답에 싣는다."""
+"""Learning notes (learned.json) — accumulate what was learned about this project and include it in responses."""

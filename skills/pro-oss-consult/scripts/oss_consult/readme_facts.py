@@ -1,5 +1,5 @@
-"""README·건강 파일·라벨 사실 정리 (순수 함수, 네트워크 없음)
-첫 화면 잘라내기·세 위치에서 파일 찾기·개수 측정만 하고 판정은 하지 않음
+"""Tidy facts about the README, health files and labels (pure functions, no network)
+Only cuts the first screen, finds files in three locations and counts; makes no verdicts
 """
 from __future__ import annotations
 
@@ -18,25 +18,25 @@ _MEDIA = re.compile(
 _TRANSLATION = re.compile(r"README[._-]([a-z]{2}(?:[-_][A-Za-z]{2,4})?)\.md", re.I)
 
 
-# 첫 화면으로 넘기는 줄 수. 에이전트가 원문을 직접 읽고 판단하되 전문을 싣지는 않는다(토큰).
+# Lines passed as the first screen. The agent reads the source itself but the full text is not included (tokens).
 TOP_LINES = 40
 MAX_TOP_LINES = 400
 HEAD_LINES = 15
 
 
 def analyze_readme(text: str | None, top_lines: int = TOP_LINES) -> dict:
-    """README를 에이전트가 읽기 좋게 줄인다. 판정은 하지 않는다.
+    """Trim the README for the agent to read. No verdicts.
 
-    - `top`: 첫 화면 원문 — 가치 제안·데모·설치 위치는 이걸 읽고 판단한다
-    - `headings`: 전체 구조 — 비교·벤치마크·"맞지 않는 경우" 절이 있는지는 이걸 보고 판단한다
-    - 나머지는 세기만 한 측정값. 잘린 목록은 `*_total`/`*_truncated` 로 알린다
+    - `top`: the first screen as is — read it to judge the value proposition, demo and install location
+    - `headings`: the overall structure — read it to judge whether comparison, benchmark or "when not to use" sections exist
+    - The rest are counts only. Truncated lists are flagged with `*_total`/`*_truncated`
     """
     if not text:
         return {"present": False}
     lines = text.splitlines()
     headings = [ln.strip() for ln in lines if re.match(r"^#{1,3}\s", ln)]
     first_code = next((i + 1 for i, ln in enumerate(lines) if ln.strip().startswith("```")), None)
-    # 비율은 사람이 읽는 본문으로만 잰다 — 코드 블록·URL·링크 주소·HTML 태그의 영문자는 뺀다
+    # Measure ratios on human-readable prose only — drop letters from code blocks, URLs, link targets and HTML tags
     prose = re.sub(r"```.*?```", "", text, flags=re.S)
     prose = re.sub(r"\]\([^)]*\)|https?://\S+|<[^>]+>", " ", prose)
     letters = re.findall(r"[A-Za-z가-힣぀-ヿ一-鿿]", prose)
@@ -54,7 +54,7 @@ def analyze_readme(text: str | None, top_lines: int = TOP_LINES) -> dict:
         "headings": headings[:60],
         "headings_total": len(headings),
         "headings_truncated": len(headings) > 60,
-        # URL 단위로 센다 — shields.io/badge/... 하나에 패턴 두 개가 걸려 두 번 세는 것을 막는다
+        # Count per URL — keeps one shields.io/badge/... matching two patterns from being counted twice
         "badges": sum(1 for u in re.findall(r"https?://[^\s)\"'<>]+", text) if _BADGE.search(u)),
         "media": media[:30],
         "media_total": len(media),
@@ -66,13 +66,13 @@ def analyze_readme(text: str | None, top_lines: int = TOP_LINES) -> dict:
 
 
 def text_head(text: str | None, n: int = HEAD_LINES) -> dict:
-    """문서의 앞 n줄과 총 줄 수. '빈 문서'인지는 에이전트가 원문을 보고 판단한다."""
+    """First n lines of a document and its total line count. Whether it is 'empty' is for the agent to judge from the source."""
     lines = (text or "").splitlines()
     return {"head": "\n".join(lines[:n]), "lines": len(lines)}
 
 
-# 찾는 파일 → 흔히 두는 위치. GitHub은 .github/ → 루트 → docs/ 순으로 찾는다.
-# 이름은 **대소문자·하이픈/언더스코어·확장자 변형을 무시**하고 맞춘다 (CODE-OF-CONDUCT.md, CHANGES.rst 등).
+# File to find → where it is usually kept. GitHub looks in .github/ → root → docs/ in that order.
+# Names match **ignoring case, hyphen/underscore and extension variants** (CODE-OF-CONDUCT.md, CHANGES.rst, etc.).
 _DOC_EXT = ("", ".md", ".markdown", ".rst", ".txt", ".adoc")
 _HEALTH_FILES = {
     "license": (("license", "licence", "copying", "unlicense"), _DOC_EXT),
@@ -103,14 +103,14 @@ def _stem_ext(name: str) -> tuple[str, str]:
 
 
 def match_health_name(key: str, name: str) -> bool:
-    """파일 이름이 건강 파일 `key` 의 변형인지 (대소문자·하이픈·확장자 무시)."""
+    """Whether a file name is a variant of health file `key` (ignoring case, hyphens and extension)."""
     stems, exts = _HEALTH_FILES[key]
     stem, ext = _stem_ext(name)
     return stem in stems and ext in exts
 
 
 def _find_in(listing: dict, key: str) -> dict | None:
-    """한 위치에서 첫 일치를 찾되, 같은 이름의 파일이 폴더보다 우선한다."""
+    """Find the first match in one location, with a file of the same name winning over a folder."""
     hits = [(n, t) for n, t in listing.items() if match_health_name(key, n)]
     hits.sort(key=lambda h: (h[1] != "file", h[0]))
     return {"name": hits[0][0], "type": hits[0][1]} if hits else None
@@ -118,11 +118,11 @@ def _find_in(listing: dict, key: str) -> dict | None:
 
 def detect_files(root: dict, github: dict, docs: dict, templates: list[str],
                  extra: dict[str, dict] | None = None) -> dict:
-    """루트·.github·docs 목록(name → type)에서 건강 파일을 찾는다.
+    """Find health files in the root, .github and docs listings (name → type).
 
-    "있다"와 "작동한다"를 구분한다 — LICENSE가 폴더면 GitHub이 인식하지 못한다(coursebook).
-    GitHub community profile API는 yml 이슈 폼을 인식하지 못하므로 폴더를 직접 본다.
-    `extra` 는 개인정보처리방침 탐색용 하위 폴더 목록 (경로 → 목록).
+    Tell "exists" apart from "works" — if LICENSE is a folder, GitHub does not recognize it (coursebook).
+    The GitHub community profile API does not recognize yml issue forms, so the folder is checked directly.
+    `extra` lists subfolders to search for a privacy policy (path → listing).
     """
     found: dict = {}
     for key in _HEALTH_FILES:
@@ -146,9 +146,9 @@ def detect_files(root: dict, github: dict, docs: dict, templates: list[str],
     found["docs_dir"] = "docs" in root or "website" in root
     found["examples_dir"] = "examples" in root or "example" in root
     found["skills_dir"] = "skills" in root
-    # 배포형 앱 점검용 (apps.md). 개인정보처리방침 파일은 이름이 제각각이라 소문자로 훑는다.
-    # fastlane 은 Flutter 앱이면 루트가 아니라 android/·ios/ 아래에 있으므로 여기서 단정하지 않고
-    # 모바일 폴더 존재만 알린다 — 하위 확인은 에이전트가 한다.
+    # For checking deployable apps (apps.md). Privacy policy file names vary, so scan them in lowercase.
+    # In a Flutter app fastlane lives under android/·ios/, not the root, so do not decide here;
+    # only report that mobile folders exist — the agent checks below them.
     places = [("root", root), ("docs", docs), (".github", github)] + sorted((extra or {}).items())
     priv = None
     for where, listing in places:
@@ -166,7 +166,7 @@ def detect_files(root: dict, github: dict, docs: dict, templates: list[str],
 
 
 def extra_privacy_dirs(root: dict, docs: dict) -> list[str]:
-    """개인정보처리방침을 한 단계 더 내려가 볼 폴더 (목록에 실제로 있는 것만 — API 호출 최소화)."""
+    """Folders to look one level deeper for a privacy policy (only ones actually in the listing — minimizes API calls)."""
     out = [f"docs/{d}" for d in ("store", "legal", "privacy") if docs.get(d) == "dir"]
     if root.get("store") == "dir":
         out.append("store")
@@ -176,6 +176,6 @@ def extra_privacy_dirs(root: dict, docs: dict) -> list[str]:
 
 
 def summarize_labels(names: list[str], capped: bool = False) -> dict:
-    """라벨 이름 전체와 개수만 준다. 체계가 좋은지는 에이전트가 이름을 보고 판단한다."""
+    """Return only all label names and their count. Whether the scheme is good is for the agent to judge from the names."""
     return {"count": len(names), "names": names[:150],
             "truncated": len(names) > 150, "capped": capped}

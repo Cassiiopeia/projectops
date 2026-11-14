@@ -1,13 +1,13 @@
-"""동작 옵션 정본: 이름, 타입, 허용값, 기본값, 설명 (옵션 추가 = 표 한 줄)"""
+"""Option source of truth: name, type, allowed values, default, description (new option = one table row)"""
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from typing import Any
 
-# config.json 섹션 이름
+# config.json section name
 CONFIG_SECTION = "presentation"
 
-# 값 타입 4개: text, bool, list(쉼표 구분 입력), int
+# 4 value types: text, bool, list (comma-separated input), int
 TYPE_TEXT = "text"
 TYPE_BOOL = "bool"
 TYPE_LIST = "list"
@@ -47,12 +47,12 @@ FALSE_WORDS = ("false", "0", "no", "off")
 
 
 def default_value(definition: OptionDefinition) -> Any:
-    """기본값 > 호출부가 고쳐도 표가 안 바뀌는 사본"""
+    """Defaults > a copy so callers editing it do not change the table"""
     return list(definition.default) if isinstance(definition.default, tuple) else definition.default
 
 
 def is_valid_option_value(name: str, value: Any) -> bool:
-    """저장값 검사: 타입, 허용값, 최솟값"""
+    """Validate stored value: type, allowed values, minimum"""
     definition = OPTIONS_BY_NAME[name]
     if definition.value_type == TYPE_BOOL:
         return isinstance(value, bool)
@@ -67,7 +67,7 @@ def is_valid_option_value(name: str, value: Any) -> bool:
 
 
 def parse_option_value(name: str, raw: str) -> Any:
-    """명령행 문자열 > 저장값 (잘못되면 ValueError)"""
+    """Command-line string > stored value (ValueError if invalid)"""
     definition = OPTIONS_BY_NAME[name]
     text = raw.strip()
     value: Any = text
@@ -89,6 +89,6 @@ def parse_option_value(name: str, raw: str) -> Any:
 
 
 def describe_options() -> list[dict]:
-    """config options 응답: 표 전체"""
+    """config options response: the whole table"""
     return [{**asdict(definition), "default": default_value(definition),
              "allowed_values": list(definition.allowed_values)} for definition in OPTION_DEFINITIONS]

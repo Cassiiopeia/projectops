@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
-"""github_cli — github skill 전용 CLI.
+"""github_cli — CLI for the github skill.
 
-GitHub API 직접 호출 도구.
-서브커맨드: get-issue, get-issues, update-issue, create-pr, list-prs,
+Calls the GitHub API directly.
+Subcommands: get-issue, get-issues, update-issue, create-pr, list-prs,
            update-pr, search-issues, add-comment, explore, secrets
 
-사용법:
+Usage:
     cd skills/pro-github/scripts
     python github_cli.py <subcommand> [args]
 
-구현은 같은 폴더의 pro_github 패키지 (cli.py 파서 조립, commands/ 주제별 서브커맨드).
-이 파일은 진입점이자 의존 창구 — 핸들러는 아래 import 한 이름을 호출 시점에 여기서 찾는다.
+Implemented in the pro_github package in this folder (cli.py builds the parser, commands/ holds subcommands by topic).
+This file is the entry point and dependency gateway — handlers look up the names imported below here at call time.
 
-출력 형식: 모든 서브커맨드는 stdout으로 MCP-style JSON 출력.
+Output: every subcommand prints MCP-style JSON to stdout.
     {"ok": true|false, "code": "...", "summary": "...", "next": "...", ...payload}
 """
 from __future__ import annotations
@@ -20,7 +20,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Bootstrap — scripts/common import 가능하게 sys.path 조작 (cwd 무관 동작)
+# Bootstrap — adjust sys.path so scripts/common can be imported (works from any cwd)
 _HERE = Path(__file__).resolve()
 _PROJECT_ROOT = _HERE.parents[3]
 _SCRIPTS_ROOT = _PROJECT_ROOT / "scripts"
@@ -29,12 +29,12 @@ if str(_SCRIPTS_ROOT) not in sys.path:
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
-from common.config import get_github_pat  # noqa: E402,F401  (핸들러 의존)
+from common.config import get_github_pat  # noqa: E402,F401  (handler dependency)
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from pro_github import cli as _cli  # noqa: E402
-from pro_github.commands.actions import read_numeric_argument as _actions_int  # noqa: E402,F401  (테스트가 이 이름으로 부른다)
+from pro_github.commands.actions import read_numeric_argument as _actions_int  # noqa: E402,F401  (tests call it by this name)
 from pro_github.registry import Dependencies  # noqa: E402
-from common.gh_client import (  # noqa: E402,F401  (핸들러 의존 — 테스트가 이 모듈 속성을 바꿔 끼운다)
+from common.gh_client import (  # noqa: E402,F401  (handler dependency — tests swap these module attributes)
     GitHubAPIError, PyNaClMissingError,
     get_issue, get_issue_comments, update_issue, create_issue, list_issues,
     add_comment, update_comment, delete_comment,

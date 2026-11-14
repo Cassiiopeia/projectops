@@ -1,4 +1,4 @@
-"""ingest: 하네스가 저장한 MCP 결과 파일 > 덤프 추출 > 저장 + 변경 확인용 메타 기록"""
+"""ingest: MCP result file saved by the harness > extract dump > save + record metadata for change checks"""
 from __future__ import annotations
 
 import hashlib
@@ -11,12 +11,12 @@ from figma_tools.dump_reader import _load_dump
 from figma_tools.figma_auth import fetch_file_state, find_token
 
 META_SUFFIX = ".meta.json"
-# 덤프 최상위에 이 키 중 하나는 있어야 덤프로 인정한다 (래퍼를 추측해 통과시키지 않는다)
+# The dump top level must have one of these keys to count as a dump (no guessing wrappers to let it pass)
 _DUMP_KEYS = ("nodes", "globalVars", "metadata")
 
 
 def _text_blocks(value) -> str | None:
-    """[{type: text, text}] 또는 {content: [...]} 래퍼의 본문을 이어 붙인다. 아니면 None."""
+    """Join the body of a [{type: text, text}] or {content: [...]} wrapper. None otherwise."""
     blocks = value.get("content") if isinstance(value, dict) else value
     if not isinstance(blocks, list) or not blocks:
         return None
@@ -31,7 +31,7 @@ def _is_dump(data) -> bool:
 
 
 def extract_dump(raw: str, scratch: Path) -> tuple[str | None, str | None, str | None]:
-    """(덤프 본문, 확장자, 실패 사유). 래퍼는 한 겹만 벗긴다 — 모르는 모양은 사유만 돌려준다."""
+    """(dump body, extension, failure reason). Peels only one wrapper layer — unknown shapes return only a reason."""
     text = raw
     try:
         parsed = json.loads(raw)
@@ -54,7 +54,7 @@ def extract_dump(raw: str, scratch: Path) -> tuple[str | None, str | None, str |
 
 
 def count_nodes(data) -> int:
-    """덤프의 노드 수 (id 를 가진 dict). nodes 아래 children 까지 센다."""
+    """Node count in the dump (dicts with id). Counts down into children under nodes."""
     def walk(value) -> int:
         if isinstance(value, dict):
             own = 1 if "id" in value and "name" in value else 0
@@ -89,7 +89,7 @@ def cmd_ingest(args) -> int:
 
 
 def _recorded_state(data: dict) -> tuple:
-    """덤프 안의 (lastModified, version): MCP 덤프는 metadata 아래, REST 응답은 최상위"""
+    """(lastModified, version) in the dump: under metadata for MCP dumps, top level for REST responses"""
     metadata = data.get("metadata") if isinstance(data.get("metadata"), dict) else {}
     last_modified = metadata.get("lastModified") or data.get("lastModified")
     version = metadata.get("version") or data.get("version")
@@ -98,7 +98,7 @@ def _recorded_state(data: dict) -> tuple:
 
 def save_dump(text: str, ext: str, file_key: str, node: str | None, dump_dir: Path,
               source_label: str, node_fingerprint: str | None = None) -> dict:
-    """덤프 저장 > lastModified 확보(덤프 > REST) > 메타 저장 > 응답 (ingest · fetch 공용)"""
+    """Save dump > get lastModified (dump > REST) > save metadata > respond (shared by ingest · fetch)"""
     node_slug = (node or "file").replace(":", "-")
     target = dump_dir / f"figma-{file_key}-{node_slug}.{ext}"
     target.write_text(text, encoding="utf-8")

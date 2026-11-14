@@ -1,4 +1,4 @@
-"""소스 파일 탐색 공통: 제외 폴더, 언어 판별, 주석 줄 분류"""
+"""Shared source file walking: excluded folders, language detection, comment line classification"""
 from __future__ import annotations
 
 import fnmatch
@@ -8,13 +8,13 @@ import re
 import subprocess
 from pathlib import Path
 
-# 탐색 제외 폴더 (규칙 테스트 템플릿 4종과 같은 목록 — ledger 판정이 같아야 한다)
+# Excluded folders (same list as the 4 rule test templates — ledger verdicts must match)
 SKIPPED_DIRECTORY_NAMES = {
     ".git", "build", "dist", "node_modules", ".dart_tool", "Pods", ".gradle",
     "venv", ".venv", "__pycache__", ".next", "out", "target", ".idea",
 }
 
-# 생성 파일 (scan·deps·diff에서만 제외 — 사람이 쓰지 않은 코드라 규칙 대상 아님)
+# Generated files (excluded only in scan, deps, diff — not human-written, so not subject to rules)
 GENERATED_FILE_PATTERN = re.compile(
     r"(\.g\.dart|\.freezed\.dart|\.gr\.dart|\.mocks\.dart|\.gen\.\w+|\.min\.js|\.pb\.\w+|_pb2\.py)$"
 )
@@ -24,7 +24,7 @@ LANGUAGE_BY_EXTENSION = {
     ".js": "javascript", ".mjs": "javascript", ".cjs": "javascript", ".jsx": "javascript",
     ".ts": "typescript", ".tsx": "typescript",
 }
-# CLI가 분석하지 못하는 언어 (파일 수만 세어 알린다 — 에이전트가 직접 표본을 읽어야 하는 영역)
+# Languages the CLI cannot analyze (only file counts are reported — the agent must read samples directly)
 NOT_ANALYZED_LANGUAGE_BY_EXTENSION = {
     ".go": "go", ".rs": "rust", ".swift": "swift", ".m": "objective-c", ".mm": "objective-c", ".cs": "csharp",
     ".php": "php", ".rb": "ruby", ".scala": "scala", ".c": "c", ".h": "c", ".cc": "cpp", ".cpp": "cpp",
@@ -32,12 +32,12 @@ NOT_ANALYZED_LANGUAGE_BY_EXTENSION = {
 }
 SLASH_COMMENT_LANGUAGES = {"dart", "java", "kotlin", "javascript", "typescript"}
 
-# 한 파일 최대 읽기 크기 (2MB — 그 이상은 생성물·데이터로 보고 건너뜀)
+# Max read size per file (2MB — larger files are treated as generated/data and skipped)
 MAXIMUM_SOURCE_BYTES = 2 * 1024 * 1024
 
 
 def walk_files(root: Path, start: Path | None = None):
-    """root 기준 상대경로(posix)와 절대경로 쌍을 낸다 (제외 폴더는 내려가지 않음)"""
+    """Yield (relative posix path from root, absolute path) pairs (no descent into excluded folders)"""
     base = start or root
     for directory, subdirectories, filenames in os.walk(base):
         subdirectories[:] = sorted(d for d in subdirectories if d not in SKIPPED_DIRECTORY_NAMES)
@@ -47,14 +47,14 @@ def walk_files(root: Path, start: Path | None = None):
 
 
 def git_ignored_paths(root: Path, relatives: list) -> set | None:
-    """무시 대상 경로. git 이 있으면 git check-ignore (하위 폴더 .gitignore 범위까지 git 규칙 그대로),
-    git 레포가 아니면 루트 .gitignore 패턴만으로 근사"""
+    """Ignored paths. With git, git check-ignore (exact git rules, including nested .gitignore scopes);
+    outside a git repo, approximated with root .gitignore patterns only"""
     if not relatives:
         return set()
     try:
         completed = subprocess.run(["git", "-C", str(root), "check-ignore", "--stdin"], input="\n".join(relatives),
                                    capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
-        # 종료 코드: 0 하나 이상 무시, 1 없음, 128 git 레포 아님
+        # Exit code: 0 at least one ignored, 1 none, 128 not a git repo
         if completed.returncode in (0, 1):
             return {line.strip() for line in completed.stdout.splitlines() if line.strip()}
     except (OSError, subprocess.SubprocessError):
@@ -77,7 +77,7 @@ def _ignored_by_root_gitignore(root: Path, relatives: list) -> set:
 
 
 def tracked_files(root: Path) -> list:
-    """git 추적 파일 상대경로 (git 레포가 아니면 제외 폴더를 뺀 전체 파일)"""
+    """Relative paths of git-tracked files (outside a git repo, all files except excluded folders)"""
     try:
         completed = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True, text=True,
                                    encoding="utf-8", errors="replace", timeout=60)
@@ -98,7 +98,7 @@ def is_generated_file(relative_path: str) -> bool:
 
 
 def iter_source_files(root: Path):
-    """사람이 쓴 소스만: (상대경로, 언어, 본문)"""
+    """Human-written sources only: (relative path, language, content)"""
     for relative, absolute in walk_files(root):
         language = language_of(relative)
         if not language or is_generated_file(relative):
@@ -113,9 +113,9 @@ def iter_source_files(root: Path):
 
 
 def classify_lines(text: str, language: str):
-    """줄마다 (번호, 종류, 주석 내용) — 종류: comment / code / blank
+    """Per line (number, kind, comment text) — kind: comment / code / blank
 
-    주석 2종: 줄 전체 주석, 블록 주석(/* */, 파이썬 docstring). 코드 뒤 주석은 code로 세고 내용만 넘긴다.
+    2 comment kinds: whole-line comments, block comments (/* */, Python docstrings). Trailing comments count as code; only their text is passed on.
     """
     result = []
     is_inside_block = False
@@ -142,7 +142,7 @@ def classify_lines(text: str, language: str):
             else:
                 result.append((number, "code", _trailing_slash_comment(raw)))
             continue
-        # 파이썬: # 주석, 줄 첫머리 삼중따옴표 = docstring(주석), 그 외 삼중따옴표 = 여러 줄 문자열(코드)
+        # Python: # comments; triple quotes at line start = docstring (comment), other triple quotes = multi-line string (code)
         opened_quote = next((q for q in ('"""', "'''") if stripped.count(q) % 2 == 1), None)
         if stripped.startswith("#") and not stripped.startswith("#!"):
             result.append((number, "comment", stripped))
@@ -159,7 +159,7 @@ def classify_lines(text: str, language: str):
 
 
 def _trailing_slash_comment(raw: str) -> str:
-    """코드 뒤 // 주석 내용 (문자열 안의 // 는 대충 거름: URL 제외)"""
+    """Text of a trailing // comment (// inside strings roughly filtered: URLs excluded)"""
     index = raw.find(" //")
     if index < 0 or "://" in raw[max(0, index - 6):index + 3]:
         return ""
@@ -167,7 +167,7 @@ def _trailing_slash_comment(raw: str) -> str:
 
 
 def comment_blocks(classified):
-    """연속된 주석 줄 묶음: [(시작 줄, 길이, 내용 목록)]"""
+    """Groups of consecutive comment lines: [(start line, length, text list)]"""
     blocks, current = [], []
     for number, kind, content in classified:
         if kind == "comment":
@@ -181,14 +181,14 @@ def comment_blocks(classified):
 
 
 def split_identifier_words(name: str) -> list[str]:
-    """camelCase·PascalCase·snake_case > 소문자 단어 목록"""
+    """camelCase/PascalCase/snake_case > list of lowercase words"""
     spaced = re.sub(r"([a-z0-9])([A-Z])", r"\1 \2", name.strip("_$"))
     spaced = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", spaced)
     return [w.lower() for w in re.split(r"[\s_$]+", spaced) if w]
 
 
 def write_outside_repo(root: Path, out: str, payload: dict) -> dict:
-    """전체 결과 파일 쓰기 (레포 밖만 허용 — 레포에 부산물을 남기지 않는다)"""
+    """Write the full result file (outside the repo only — leaves no byproducts in the repo)"""
     target = Path(out).expanduser().resolve()
     if target == root or root in target.parents:
         return {"ok": False, "code": "out_inside_repo", "summary": f"--out must be outside the repo: {target}",

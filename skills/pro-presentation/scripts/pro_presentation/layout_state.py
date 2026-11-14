@@ -1,5 +1,5 @@
-"""연습 화면 배치 기억: 글자 크기 · 패널 너비 · 슬라이드 높이 > 덱 안 .presentation/layout.json
-서버 포트가 실행마다 달라 브라우저 저장소로는 남지 않음 > 덱 상태 폴더에 저장 (덱 버전 계산에서 빠짐)
+"""Remember practice screen layout: font size · panel width · slide height > the deck's .presentation/layout.json
+The server port changes per run, so browser storage does not persist > saved in the deck state folder (excluded from deck version)
 """
 from __future__ import annotations
 
@@ -8,12 +8,12 @@ from pathlib import Path
 
 from pro_presentation.settings import LAYOUT_FILE_NAME, STATE_DIR_NAME
 
-# 배치 값 허용 범위 (최소, 최대). 표에 없는 키와 범위 밖 값은 버림
+# Allowed layout value ranges (min, max). Keys not in the table and out-of-range values are dropped
 LAYOUT_RANGES = {
-    "script_scale": (0.5, 2.5),          # 대본 글자 배율 (1 = 기본 크기)
-    "panel_scale": (0.5, 2.5),           # 오른쪽 카드 글자 배율
-    "panel_width_pixels": (200, 2400),   # 오른쪽 열 너비 (px)
-    "slide_height_ratio": (0.1, 0.9),    # 슬라이드 높이 (창 높이 대비)
+    "script_scale": (0.5, 2.5),          # script font scale (1 = default size)
+    "panel_scale": (0.5, 2.5),           # right card font scale
+    "panel_width_pixels": (200, 2400),   # right column width (px)
+    "slide_height_ratio": (0.1, 0.9),    # slide height (relative to window height)
 }
 
 
@@ -22,7 +22,7 @@ def layout_file(deck_dir: Path) -> Path:
 
 
 def clean_layout(raw) -> dict:
-    """아는 키 + 범위 안 숫자만 남김 (bool 제외)"""
+    """Keep only known keys + numbers in range (bool excluded)"""
     if not isinstance(raw, dict):
         return {}
     cleaned = {}
@@ -34,7 +34,7 @@ def clean_layout(raw) -> dict:
 
 
 def read_layout(deck_dir: Path) -> dict:
-    """저장된 배치 (없거나 깨졌으면 빈 dict = 기본 배치)"""
+    """Saved layout (empty dict = default layout if missing or broken)"""
     try:
         return clean_layout(json.loads(layout_file(deck_dir).read_text(encoding="utf-8")))
     except (OSError, ValueError):
@@ -42,7 +42,7 @@ def read_layout(deck_dir: Path) -> dict:
 
 
 def save_layout(deck_dir: Path, raw) -> dict:
-    """브라우저가 보낸 배치 전체 > 검증 > 저장. 저장된 값 반환"""
+    """Whole layout sent by the browser > validate > save. Returns the saved values"""
     cleaned = clean_layout(raw)
     target = layout_file(deck_dir)
     target.parent.mkdir(parents=True, exist_ok=True)

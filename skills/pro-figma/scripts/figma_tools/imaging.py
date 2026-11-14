@@ -1,4 +1,4 @@
-"""이미지 도구(Pillow · numpy) 설치 확인"""
+"""Check image tools (Pillow · numpy) are installed"""
 from __future__ import annotations
 
 from common.emit import emit

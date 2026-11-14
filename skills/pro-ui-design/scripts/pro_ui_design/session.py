@@ -1,5 +1,5 @@
-"""시안 세션: 폴더 위치 결정, session.json 읽기/쓰기, 레포별 현재 세션 포인터
-세션 폴더 구조: {run_dir}/session.json · screens/(시안, 자산) · state/(events.jsonl, server-info.json, server.log)
+"""Mockup session: folder location, session.json read/write, per-repo current session pointer
+Session folder layout: {run_dir}/session.json, screens/ (mockups, assets), state/ (events.jsonl, server-info.json, server.log)
 """
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def _git_top_level(root: Path) -> str | None:
 
 
 def _project_hash(root: Path) -> str:
-    """레포 또는 폴더 경로 > 짧은 해시 (원격 없는 레포끼리 섞이지 않게)"""
+    """Repo or folder path > short hash (keeps repos without a remote apart)"""
     identity = _git_top_level(root) or str(root.resolve())
     return hashlib.sha256(str(Path(identity).resolve()).encode("utf-8")).hexdigest()[:16]
 
@@ -72,7 +72,7 @@ def _pointer_file(root: Path) -> Path:
 
 
 def resolve_run_dir(root: Path, title: str, issue: int | None) -> tuple[Path | None, dict]:
-    """세션 폴더: Git 레포 > 산출물 폴더(자동 .gitignore), 그 외 > projectops 상태 폴더"""
+    """Session folder: Git repo > output folder (auto .gitignore), otherwise > projectops state folder"""
     if _git_top_level(root) is None:
         name = f"{date.today():%Y%m%d}_{normalize(title) or 'untitled'}"
         return base_dir() / SKILL_ID / "sessions" / _project_hash(root) / name, {"gitignore": "outside_repo"}
@@ -85,7 +85,7 @@ def resolve_run_dir(root: Path, title: str, issue: int | None) -> tuple[Path | N
 
 
 def write_json_atomically(path: Path, payload: dict) -> None:
-    """임시 파일 > 교체: 서버와 CLI 가 동시에 읽어도 반쪽 JSON 없음"""
+    """Temp file > replace: no half-written JSON even when server and CLI read at once"""
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
     with os.fdopen(descriptor, "w", encoding="utf-8") as temporary_file:
@@ -108,7 +108,7 @@ def save_session(session: Session) -> None:
 
 
 def create_or_reuse_session(root: Path, run_dir: Path, title: str, issue: int | None) -> Session:
-    """같은 세션 폴더면 키와 포트 유지 (열린 탭의 주소가 그대로 살아 있게)"""
+    """Same session folder keeps key and port (open tab URLs stay valid)"""
     session = load_session(run_dir)
     if session is None:
         session = Session(run_dir=str(run_dir), title=title, key=secrets.token_hex(SESSION_KEY_BYTES), issue=issue)
@@ -127,7 +127,7 @@ def _read_pointer(root: Path) -> dict:
 
 
 def set_current_session(root: Path, session: Session) -> None:
-    """포인터: 현재 세션 + 제목별 세션 폴더 (제목으로 찾기, 다른 날 이어 하기)"""
+    """Pointer: current session + session folder per title (find by title, resume another day)"""
     pointer = _read_pointer(root)
     sessions = pointer.get("sessions") if isinstance(pointer.get("sessions"), dict) else {}
     sessions[session.title] = session.run_dir
@@ -140,7 +140,7 @@ def find_session_by_title(root: Path, title: str) -> Session | None:
 
 
 def find_session(root: Path, title: str | None = None) -> Session | None:
-    """제목을 주면 그 세션, 없으면 이 프로젝트에서 마지막으로 시작한 세션"""
+    """The titled session if given, else the last session started in this project"""
     return find_session_by_title(root, title) if title else find_current_session(root)
 
 
@@ -150,6 +150,6 @@ def list_project_sessions(root: Path) -> list[Session]:
 
 
 def find_current_session(root: Path) -> Session | None:
-    """대화가 압축되어도 복구: 레포 > 마지막 세션"""
+    """Recover even after conversation compaction: repo > last session"""
     run_dir = _read_pointer(root).get("run_dir")
     return load_session(Path(run_dir)) if run_dir else None

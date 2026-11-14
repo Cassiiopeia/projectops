@@ -1,4 +1,4 @@
-"""coverage: 덤프의 스타일 항목을 빠짐없이 나열"""
+"""coverage: list every style entry in the dump"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -44,8 +44,8 @@ def cmd_coverage(args) -> int:
     for it in items:
         counts[it["kind"]] = counts.get(it["kind"], 0) + 1
 
-    # 효과는 layout 수십 줄 사이에 묻히면 아무도 안 본다. **따로 꺼내 놓는다** —
-    # 실제로 빠뜨리는 것이 늘 이쪽이었다 (안쪽 그림자·글로우·배경 블러).
+    # Effects buried among dozens of layout rows get missed. **Pull them out separately** —
+    # this is what actually kept getting dropped (inner shadow, glow, background blur).
     effects = [it for it in items if it["kind"] == "effects"]
     by_effect: dict[str, int] = {}
     for it in effects:

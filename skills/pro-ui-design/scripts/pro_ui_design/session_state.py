@@ -1,5 +1,5 @@
-"""시안 서버의 세션 값: 세션 폴더 읽기 · 시안 목록과 변경 지문 · 요청 경로 확인
-server.py 가 같은 폴더에서 바로 불러 씀 (표준 라이브러리 전용, 분리 프로세스 실행)
+"""Mockup server session values: read session folder, mockup list and change fingerprint, request path check
+Imported directly by server.py from this folder (standard library only, detached process)
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 class SessionState:
-    """요청 스레드가 함께 쓰는 세션 값"""
+    """Session values shared by request threads"""
 
     def __init__(self, run_dir: Path):
         data = json.loads((run_dir / "session.json").read_text(encoding="utf-8"))
@@ -32,7 +32,7 @@ class SessionState:
         self.port = 0
 
     def list_screens(self) -> list[dict]:
-        """시안 목록 (최근 수정순): 폴더 바로 아래 *.html, _로 시작하는 파일 제외"""
+        """Mockup list (most recently modified first): *.html directly in the folder, excluding files starting with _"""
         screens = []
         try:
             entries = list(self.screens_dir.iterdir())
@@ -65,7 +65,7 @@ class SessionState:
         self.last_activity = time.monotonic()
 
     def resolve_screen_file(self, relative_path: str) -> Path | None:
-        """요청 경로 > 세션 안 파일. 경로 이탈, 심볼릭 링크 탈출은 None"""
+        """Request path > file inside the session. None for path traversal or symlink escape"""
         if "\x00" in relative_path or "\\" in relative_path:
             return None
         candidate = (self.screens_dir / relative_path).resolve()

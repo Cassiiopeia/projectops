@@ -1,21 +1,21 @@
-"""데이터 영역: 실제 데이터로 내용이 바뀌는 자리 (글자 내용 · 사진) > 그림 대조에서 뺄 상자
+"""Data regions: spots whose content changes with real data (text content · photos) > boxes excluded from image comparison
 
-데이터가 들어가는 화면은 mock 데이터의 글자 길이·사진이 시안과 다를 수 있다.
-그 자리만 빼고 나머지(배치·색·모양·간격)는 그대로 맞댄다.
+On data-filled screens, mock data text length·photos can differ from the design.
+Only those spots are excluded; the rest (layout·color·shape·spacing) is compared as is.
 """
 from __future__ import annotations
 
 from figma_tools.conform_probes import _fill_kind, _node_width, _rects
 from figma_tools.dump_reader import _style_table
 
-# 뺄 수 있는 데이터 종류: text 글자 내용 · image 사진 칠
+# Excludable data kinds: text = text content · image = photo fill
 DATA_KINDS = ("text", "image")
-# 글자 상자 여유 (논리 px): 안티에일리어싱·글꼴 차이로 상자 밖 1~2px 번짐
+# Text box margin (logical px): anti-aliasing·font differences bleed 1-2px outside the box
 TEXT_PADDING_PIXELS = 2
 
 
 def _kind_of(rect: dict) -> str | None:
-    """사각형 > 데이터 종류 (text · image) 또는 None"""
+    """Rectangle > data kind (text · image) or None"""
     if rect.get("type") == "TEXT":
         return "text"
     if _fill_kind(rect.get("fills"))[0] == "image":
@@ -24,9 +24,9 @@ def _kind_of(rect: dict) -> str | None:
 
 
 def find_data_regions(data: dict, node_id: str | None, kinds: tuple, image_width: int) -> dict:
-    """덤프 > 이미지 픽셀 좌표의 데이터 상자 목록 + 배율
+    """Dump > list of data boxes in image pixel coords + scale
 
-    반환: boxes [{kind, ref, name, x0, y0, x1, y1}] · scale · skipped (위치 모름)
+    Returns: boxes [{kind, ref, name, x0, y0, x1, y1}] · scale · skipped (position unknown)
     """
     styles = _style_table(data)
     rects, skipped = _rects(data, styles, node_id)
@@ -47,7 +47,7 @@ def find_data_regions(data: dict, node_id: str | None, kinds: tuple, image_width
 
 
 def find_node_regions(data: dict, origin_id: str | None, node_ids: list[str], image_width: int) -> dict:
-    """지정한 노드들(디자이너의 사진 자리표시 등) > 이미지 픽셀 상자. 덤프에 없는 id 는 missing"""
+    """Given nodes (designer's photo placeholders etc.) > image pixel boxes. Ids not in the dump are missing"""
     styles = _style_table(data)
     base_width = _node_width(data.get("nodes", data), styles, origin_id)
     scale = image_width / base_width if base_width else 1.0
@@ -63,7 +63,7 @@ def find_node_regions(data: dict, origin_id: str | None, node_ids: list[str], im
 
 
 def _all_boxes(data: dict, origin_id: str | None, styles: dict) -> list[dict]:
-    """칠 유무와 관계없이 위치를 아는 모든 노드 상자 (논리 좌표, origin 기준)"""
+    """Boxes of every node with a known position, filled or not (logical coords, relative to origin)"""
     boxes: list[dict] = []
 
     def walk(node, ox: float, oy: float, inside: bool) -> None:
@@ -75,7 +75,7 @@ def _all_boxes(data: dict, origin_id: str | None, styles: dict) -> list[dict]:
             return
         here = inside or origin_id is None or node.get("id") == origin_id
         layout = node.get("layout")
-        layout = styles.get(layout) if isinstance(layout, str) else layout   # MCP 덤프는 참조
+        layout = styles.get(layout) if isinstance(layout, str) else layout   # MCP dumps use references
         layout = layout if isinstance(layout, dict) else {}
         loc = layout.get("locationRelativeToParent")
         dims = layout.get("dimensions") or {}
@@ -95,6 +95,6 @@ def _all_boxes(data: dict, origin_id: str | None, styles: dict) -> list[dict]:
 
 
 def parse_data_kinds(text: str) -> tuple | None:
-    """'text,image' > ('text', 'image'). 모르는 값이 있으면 None"""
+    """'text,image' > ('text', 'image'). None if any value is unknown"""
     kinds = tuple(k.strip() for k in text.split(",") if k.strip())
     return kinds if kinds and all(k in DATA_KINDS for k in kinds) else None

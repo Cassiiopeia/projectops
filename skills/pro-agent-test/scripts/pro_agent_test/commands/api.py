@@ -1,4 +1,4 @@
-"""api: 서버 시나리오를 끝까지 밟기 (토큰 체이닝 · 상태코드 판정)"""
+"""api: drive a server scenario end to end (token chaining · status code judgement)"""
 from __future__ import annotations
 
 import json
@@ -14,22 +14,22 @@ from pro_agent_test.storage import _expand, _resolve_scenario, _scenario_dir
 
 
 # =========================================================================
-# 엣지케이스 — 코드에서 "밟아야 할 실패 경로"를 뽑아낸다
+# Edge cases — extract from the code the "failure paths that must be driven"
 # =========================================================================
 
-# (정규식, 무엇을 밟아야 하는가, 어떻게 만드는가)
+# (regex, what must be driven, how to produce it)
 _SECRET_KEYS = ("password", "secret", "token", "key")
 
 
-# ── 서버 타겟: API 시퀀스를 밟는다 (이슈 #586) ───────────────────────────
+# ── Server target: drive an API sequence (issue #586) ───────────────────────────
 #
-# 화면이 없는 백엔드도 이 스킬로 검증한다. 핵심은 **이전 응답에서 값을 뽑아 다음
-# 요청에 물리는 것**이다 — 로그인 없이는 그다음 요청이 전부 401이라 한 걸음도 못 간다.
+# Backends with no screen are verified with this skill too. The key is **pulling values from the previous
+# response into the next request** — without login every later request is 401 and nothing moves.
 
 def _parse_do(do: str) -> tuple[str, str, dict | None]:
-    """단계의 `do`를 메서드·경로·본문으로 가른다.
+    """Split a step's `do` into method, path and body.
 
-    형식: `POST /api/auth/login {"id": "x"}`  (본문은 없어도 된다)
+    Format: `POST /api/auth/login {"id": "x"}`  (body is optional)
     """
     m = re.match(r"\s*([A-Z]+)\s+(\S+)\s*(\{.*\}|\[.*\])?\s*$", do, re.S)
     if not m:
@@ -45,7 +45,7 @@ def _parse_do(do: str) -> tuple[str, str, dict | None]:
 
 
 def _fill(value, saved: dict):
-    """{token} 자리에 앞 단계에서 저장한 값을 끼운다. 중첩 구조도 따라 내려간다."""
+    """Fill {token} slots with values saved by earlier steps. Walks nested structures too."""
     if isinstance(value, str):
         def sub(m):
             key = m.group(1)
@@ -61,10 +61,10 @@ def _fill(value, saved: dict):
 
 
 def _jsonpath(data, expr: str):
-    """`$.a.b[0]` 정도만 읽는다.
+    """Reads only about `$.a.b[0]`.
 
-    전체 JSONPath 라이브러리를 쓰지 않는 이유는 이 스크립트가 표준 라이브러리만으로
-    돌아야 하기 때문이다. 응답에서 토큰 하나 꺼내는 데는 이걸로 충분하다.
+    No full JSONPath library because this script must run on the standard library
+    only. This is enough to pull one token out of a response.
     """
     cur = data
     for part in re.findall(r"[^.\[\]]+|\[\d+\]", expr.lstrip("$.")):
@@ -81,7 +81,7 @@ def _jsonpath(data, expr: str):
 
 
 def _api_call(base: str, method: str, path: str, body, headers: dict, timeout: int = 30) -> dict:
-    """한 요청을 보낸다. 실패해도 예외로 끝내지 않는다 — 실패 응답 자체가 검증 대상인 경우가 많다."""
+    """Send one request. Failure does not raise — the failure response itself is often what is verified."""
     url = path if path.startswith("http") else base.rstrip("/") + "/" + path.lstrip("/")
     data = json.dumps(body).encode() if body is not None else None
     h = {"Content-Type": "application/json", "Accept": "application/json", **headers}
@@ -91,10 +91,10 @@ def _api_call(base: str, method: str, path: str, body, headers: dict, timeout: i
     return r
 
 def cmd_api(args) -> int:
-    """서버 시나리오를 밟는다.
+    """Drive a server scenario.
 
-    한 번의 호출로 시나리오 전체를 밟는다 — 앱·웹과 달리 화면을 보고 판단할 것이
-    없으므로 쪼갤 이유가 없고, 토큰 체이닝이 한 프로세스 안에서 끝나야 단순하다.
+    One call drives the whole scenario — unlike app and web there is no screen to judge,
+    so no reason to split, and token chaining is simpler kept inside one process.
     """
     root = Path(args.root).resolve()
     d = _scenario_dir(root)
@@ -117,7 +117,7 @@ def cmd_api(args) -> int:
 
     base = args.base_url or data.get("base_url") or ""
     if not base or base.startswith("{"):
-        # 시나리오에 없으면 기록해 둔 것을 쓴다. 코드에서 짐작하지 않는다.
+        # If the scenario lacks it, use what was recorded. Do not guess from the code.
         rec = _load_access(root).get("base_url")
         base = (rec.get("url") if isinstance(rec, dict) else rec) or ""
     if not base:
@@ -164,13 +164,13 @@ def cmd_api(args) -> int:
         if want is not None:
             ok = res["status"] == want
             checks.append({"expect_status": want, "got": res["status"], "ok": ok})
-        # expect_json 은 사람이 읽는 설명이다. 자동 판정은 save/상태코드로 하고,
-        # 여기서는 실제 응답을 함께 남겨 agent가 눈으로 대조하게 한다.
+        # expect_json is a human-readable description. Automatic judgement uses save/status code;
+        # here the actual response is kept alongside so the agent can compare by eye.
         if st.get("expect_json"):
             row["response"] = res["json"]
             checks.append({"expect_json": st["expect_json"], "ok": None})
         if st.get("expect_server"):
-            row["expect_server"] = st["expect_server"]   # 실제 조회는 db 서브커맨드로
+            row["expect_server"] = st["expect_server"]   # actual lookup via the db subcommand
 
         for key, expr in (st.get("save") or {}).items():
             val = _jsonpath(res["json"], expr) if res["json"] is not None else None

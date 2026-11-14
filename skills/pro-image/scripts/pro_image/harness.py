@@ -1,5 +1,5 @@
-"""레포 하네스: STYLE.md·캐릭터·그림 종류·참조 그림 > 상태 조회, 뼈대 생성, 종류 가이드 찾기
-그림 종류 가이드는 스킬 기본(references/kinds) 위에 레포 kinds/ 가 같은 이름으로 덮어씀
+"""Repo harness: STYLE.md, characters, image kinds, reference images > status, scaffold, kind guide lookup
+Kind guides: repo kinds/ overrides the skill defaults (references/kinds) by same name
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ CHARACTERS_DIR = "characters"
 KINDS_DIR = "kinds"
 REFERENCES_DIR = "refs"
 HISTORY_FILE = "history.jsonl"
-# 스킬 기본 종류 가이드: scripts/pro_image/ > ../../references/kinds
+# Skill default kind guides: scripts/pro_image/ > ../../references/kinds
 BUILTIN_KINDS_DIR = Path(__file__).resolve().parents[2] / "references" / "kinds"
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".webp")
 
@@ -54,7 +54,7 @@ def _names(folder: Path, suffixes: tuple[str, ...]) -> list[str]:
 
 
 def kinds(harness: Path) -> list[dict]:
-    """종류 가이드 목록: 기본 + 레포 (레포가 같은 이름이면 레포 우선)"""
+    """Kind guide list: defaults + repo (repo wins on same name)"""
     by_name = {path.stem: {"kind": path.stem, "source": "builtin", "path": str(path)}
                for path in sorted(BUILTIN_KINDS_DIR.glob("*.md"))}
     for path in sorted((harness / KINDS_DIR).glob("*.md")):
@@ -80,7 +80,7 @@ def describe(harness: Path) -> dict:
 
 
 def initialize(harness: Path, project_name: str, character_names: list[str]) -> list[str]:
-    """뼈대 생성 (있는 파일은 덮어쓰지 않음) > 새로 만든 경로 목록"""
+    """Create scaffold (never overwrites existing files) > list of newly created paths"""
     created = []
     for folder in (harness, harness / CHARACTERS_DIR, harness / KINDS_DIR, harness / REFERENCES_DIR):
         if not folder.is_dir():

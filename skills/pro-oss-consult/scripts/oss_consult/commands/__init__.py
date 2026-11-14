@@ -1,2 +1,2 @@
-"""서브커맨드별 모듈: 하나의 모듈이 cmd_* 하나(쓰기 명령은 계획·검증 포함)를 가진다
+"""Per-subcommand modules: each module holds one cmd_* (write commands include planning and validation)
 """

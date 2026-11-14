@@ -1,4 +1,4 @@
-"""diff: 시안 export 와 앱 렌더를 픽셀로 맞댐"""
+"""diff: pixel-compare the design export against the app render"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -12,16 +12,16 @@ from figma_tools.text_rows import compare_rows
 
 
 # =========================================================================
-# diff — 그림으로 맞댄다
+# diff — overlay the images
 # =========================================================================
 
 
 def _parse_bg(text, design_img):
-    """합성 배경색을 정한다.
+    """Decide the compositing background color.
 
-    앱 렌더는 바깥 발광이 반투명으로 남고 시안 export 는 배경이 합성된 채로 온다.
-    같은 배경 위에 올려놓지 않으면 **발광 전체가 '다름'으로 잡혀** diff 가 의미를
-    잃는다. 색을 고정값으로 박으면 남의 프로젝트에서 틀리므로 시안에서 읽는다.
+    The app render keeps outer glow semi-transparent, while the design export arrives composited on its background.
+    Unless both sit on the same background, **the whole glow registers as 'different'** and diff
+    loses its meaning. A hard-coded color is wrong in other projects, so it is read from the design.
     """
     if text and text != "auto":
         v = text.lstrip("#")
@@ -35,10 +35,10 @@ def _parse_bg(text, design_img):
 
 
 def _clusters(mask, min_area):
-    """다른 픽셀이 뭉친 덩어리를 상자로 묶는다.
+    """Box up clusters of differing pixels.
 
-    한 픽셀씩 보고하면 안티에일리어싱 노이즈에 묻혀 못 읽는다. 행 단위로 훑어
-    겹치는 상자를 합치는 정도면 사람이 어디를 볼지 정하기에 충분하다.
+    Reporting pixel by pixel drowns in anti-aliasing noise. Scanning by row and
+    merging overlapping boxes is enough for a person to decide where to look.
     """
     import numpy as np
     if not mask.any():
@@ -58,13 +58,13 @@ def _clusters(mask, min_area):
 
 
 def _shift_probe(design, render, threshold, span):
-    """렌더를 조금씩 옮겨 보며 **통째로 밀린 것인지** 가린다.
+    """Shift the render a little at a time to tell whether **everything moved as one**.
 
-    실사고: 시트 윗변이 35px 아래에 뜨자 안의 단계·보상·버튼이 **전부 두 겹**으로
-    보였다. 덩어리가 열 개 나왔지만 틀린 것은 하나 — 컨테이너 높이였다. 덩어리만
-    세면 "열 군데가 어긋났다"로 읽혀 엉뚱한 데를 고치게 된다.
+    Real incident: the sheet's top edge sat 35px lower and its steps·rewards·button **all showed
+    doubled**. Ten blobs came out but only one thing was wrong — the container height. Counting blobs
+    alone reads as "ten places are off" and leads to fixing the wrong things.
 
-    세로를 먼저 본다. 화면은 세로로 쌓이므로 밀림도 대개 세로다.
+    Vertical first. Screens stack vertically, so shifts are usually vertical too.
     """
     import numpy as np
 
@@ -94,7 +94,7 @@ def _shift_probe(design, render, threshold, span):
 
 
 def _size_mismatch_report(render_size, design_size) -> dict:
-    """크기가 다를 때의 경고: 가로세로 비율까지 다르면 비교가 사실상 무의미하다"""
+    """Warning for size mismatch: if the aspect ratio also differs, the comparison is practically meaningless"""
     render_ratio = render_size[0] / render_size[1]
     design_ratio = design_size[0] / design_size[1]
     return {
@@ -109,7 +109,7 @@ def _size_mismatch_report(render_size, design_size) -> dict:
 
 
 def _data_regions(args, image_width: int):
-    """--mask-data · --mask-node 입력 검증 > (데이터 상자, None) 또는 (None, 오류 payload)"""
+    """Validate --mask-data · --mask-node input > (data boxes, None) or (None, error payload)"""
     kinds = parse_data_kinds(args.mask_data) if args.mask_data else ()
     if kinds is None:
         return None, {"ok": False, "code": "bad_mask_data",
@@ -146,7 +146,7 @@ def cmd_diff(args) -> int:
     try:
         design_img = Image.open(args.design).convert("RGBA")
         render_img = Image.open(args.render).convert("RGBA")
-    except Exception as e:   # 이미지가 아닌 파일은 트레이스백 대신 JSON 으로 (#710)
+    except Exception as e:   # non-image files return JSON instead of a traceback (#710)
         return emit({"ok": False, "code": "image_unreadable",
                      "error": f"Cannot open the image: {type(e).__name__}: {e}",
                      "next": "Check that --render and --design are image files such as png or jpg"})
@@ -183,7 +183,7 @@ def cmd_diff(args) -> int:
     if args.mask_bottom:
         excluded[-args.mask_bottom:] = True
 
-    # 데이터 영역 빼기 (mock 데이터의 글자 길이·사진 차이는 결함이 아님)
+    # Exclude data regions (text length·photo differences in mock data are not defects)
     data_regions = None
     if args.mask_data or args.mask_node:
         data_regions, error = _data_regions(args, design.shape[1])
@@ -204,36 +204,36 @@ def cmd_diff(args) -> int:
         found.append({"x": x0, "y": y0, "w": x1 - x0 + 1, "h": y1 - y0 + 1,
                       "mean_delta": round(float(hot.mean()), 1)})
 
-    # 선택 검사: 한쪽에만 있는 색면 · 글줄 높이 (수치가 낮아도 결함을 꺼냄)
+    # Optional checks: color fills present on one side only · text line height (surface defects even when the score is low)
     solids = find_solid_blobs(design, render, mask, args.min_area, args.threshold) if args.solids else None
     rows = None
     if args.rows:
         scale = (args.scale or 1.0)
         rows = compare_rows(design, render, args.mask_top, args.mask_bottom, scale)
 
-    # 덩어리가 여럿일 때 "낱낱이 틀림"인지 "하나가 밀림"인지 가린다.
+    # With several blobs, tell "each one wrong" from "one thing shifted".
     shift = None
     if found and args.probe_shift > 0:
         shift = _shift_probe(design, render, args.threshold, args.probe_shift)
-        # 옮겨서 절반 아래로 떨어지면 밀림으로 본다. 조금 나아지는 정도는
-        # 안티에일리어싱으로도 생기므로 신호로 치지 않는다.
+        # If shifting drops it below half, treat it as a shift. Small improvements
+        # also come from anti-aliasing, so they do not count as a signal.
         shift["looks_shifted"] = bool(
             (shift["dy"] or shift["dx"])
             and shift["after"] <= shift["before"] * 0.5)
 
     out_path = None
     if args.out:
-        # 원본을 흐리게 깔고 다른 자리만 붉게 칠한다 — 어디가 틀렸는지 바로 보인다.
+        # Lay the original faintly and paint only differing spots red — shows at once what is wrong.
         canvas = (design * 0.35 + 255 * 0.65).astype(np.uint8)
         canvas[mask] = [255, 0, 0]
         if data_regions:
-            canvas[excluded & ~mask] = [200, 200, 255]   # 뺀 데이터 영역은 연한 파랑
+            canvas[excluded & ~mask] = [200, 200, 255]   # excluded data regions in light blue
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(canvas).save(args.out)
         out_path = str(args.out)
 
     return emit({
-        # 크기가 달라 렌더를 디자인 크기로 늘이거나 줄인 채 비교했다 — 글자 크기·간격 차이가 가짜로 생길 수 있다 (#949)
+        # Sizes differ, so the render was scaled to design size before comparing — text size·spacing differences may be spurious (#949)
         **({"size_mismatch": size_mismatch} if size_mismatch else {}),
         **({"data_excluded": {"kinds": list(parse_data_kinds(args.mask_data or "") or ()) + (["node"] if args.mask_node else []),
                               "missing_nodes": data_regions.get("missing_nodes", []),

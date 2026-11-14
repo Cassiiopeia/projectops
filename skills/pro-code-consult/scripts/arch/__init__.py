@@ -1,1 +1,1 @@
-"""pro-code-consult 사실 수집 모듈 (표준 라이브러리 전용, 스킬 폴더만으로 동작)"""
+"""pro-code-consult fact-collection modules (standard library only, runs from the skill folder alone)"""

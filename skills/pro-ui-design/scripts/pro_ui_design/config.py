@@ -1,5 +1,5 @@
-"""config: ui-design 설정 해석(출처 표시) · 저장 · 옵션 표 조회
-해석 순서: 프로젝트 > 섹션 기본값 > 옛 design_brief(프로젝트 > 기본값) > 옵션 표 기본값
+"""config: resolve ui-design settings (with source), save, show option table
+Resolution order: project > section defaults > legacy design_brief (project > defaults) > option table defaults
 """
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ from pro_ui_design.options import (CONFIG_SECTION, LEGACY_CONFIG_SECTION, OPTION
 from pro_ui_design.session import write_json_atomically
 from pro_ui_design.settings import DESTINATIONS
 
-# 옵션이 아닌 구조 키: 모르는 키 판정에서 제외
+# Structural keys that are not options: excluded from unknown-key check
 STRUCTURAL_SECTION_KEYS = {"projects"}
 STRUCTURAL_PROJECT_KEYS = {"match"}
-# 첫 실행에 사람에게 물어야 하는 옵션
+# Options to ask a person about on first run
 ASK_ON_FIRST_RUN = ("destination", "designer")
 
 
@@ -41,7 +41,7 @@ def _git(root: Path, *args: str) -> str:
 
 
 def _repo_identity(root: Path) -> dict:
-    """{slug: owner/repo 또는 None, path: 레포 절대경로, github: bool}."""
+    """{slug: owner/repo or None, path: absolute repo path, github: bool}."""
     top = _git(root, "rev-parse", "--show-toplevel") or str(root)
     url = _git(root, "remote", "get-url", "origin")
     m = re.search(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$", url) if url else None
@@ -55,7 +55,7 @@ def _read_section(config: dict, name: str) -> dict:
 
 
 def _find_matching_project(section: dict, identity: dict) -> dict | None:
-    """projects[] 중 이 레포 항목: owner/repo 또는 절대경로"""
+    """This repo's entry in projects[]: owner/repo or absolute path"""
     for project in section.get("projects") or []:
         if not isinstance(project, dict) or not project.get("match"):
             continue
@@ -68,7 +68,7 @@ def _find_matching_project(section: dict, identity: dict) -> dict | None:
 
 
 def _find_unknown_keys(section: dict) -> list[str]:
-    """모르는 키: 지우지 않고 알리기만 (다른 버전의 설정 보존)"""
+    """Unknown keys: report, never delete (keeps settings from other versions)"""
     unknown = {key for key in section if key not in OPTIONS_BY_NAME and key not in STRUCTURAL_SECTION_KEYS}
     for project in section.get("projects") or []:
         if isinstance(project, dict):
@@ -77,7 +77,7 @@ def _find_unknown_keys(section: dict) -> list[str]:
 
 
 def resolve_config(root: Path, config: dict | None = None) -> dict:
-    """옵션별 값과 출처(project, default, legacy, builtin) 해석 + 첫 실행 제안"""
+    """Resolve each option's value and source (project, default, legacy, builtin) + first-run suggestions"""
     config = _load_config() if config is None else config
     section = _read_section(config, CONFIG_SECTION)
     legacy_section = _read_section(config, LEGACY_CONFIG_SECTION)
@@ -107,7 +107,7 @@ def resolve_config(root: Path, config: dict | None = None) -> dict:
 
 
 def _build_suggestions(config: dict, identity: dict, resolved: dict) -> dict:
-    """정하지 않은 값의 제안만. 저장은 사람이 고른 뒤"""
+    """Suggestions for unset values only. Saved after a person picks"""
     suggest = {}
     if resolved["destination"] is None:
         repos = (config.get("github") or {}).get("repos") or []
@@ -127,7 +127,7 @@ _PLACEHOLDERS = {"이름", "담당자", "디자이너", "name", "designer", "tod
 
 
 def _designer_from_templates(root: Path) -> list[str]:
-    """이슈 템플릿의 `디자인:` 줄에서 담당자 후보. 최근 디자인 이슈 담당자는 agent 가 pro-github 로 본다."""
+    """Assignee candidates from the `디자인:` line in issue templates. The agent checks recent design issue assignees via pro-github."""
     found: list[str] = []
     d = root / ".github" / "ISSUE_TEMPLATE"
     if not d.is_dir():
@@ -139,7 +139,7 @@ def _designer_from_templates(root: Path) -> list[str]:
             continue
         for m in re.finditer(r"디자인\**\s*[:：][ \t]*@?([^\s,*]+)", text):
             v = m.group(1).strip()
-            # 템플릿 자리표시(`디자인: 이름` 등)를 담당자로 읽지 않는다 — 실측으로 걸렸다
+            # Do not read template placeholders (`디자인: 이름`, etc.) as assignees — hit in practice
             if v and v not in found and not v.startswith(("{", "[", "<")) \
                     and v.lower() not in _PLACEHOLDERS:
                 found.append(v)
@@ -168,7 +168,7 @@ def _show_config(root: Path) -> int:
 
 
 def _collect_changes(args) -> tuple[dict, dict | None]:
-    """인자 > 바꿀 값. 실패면 (빈 값, 오류 응답)"""
+    """Arguments > values to change. On failure (empty, error response)"""
     changes = {}
     if args.destination is not None:
         if args.destination not in DESTINATIONS:
@@ -194,11 +194,11 @@ def _collect_changes(args) -> tuple[dict, dict | None]:
 
 
 def _save_config(args, root: Path) -> int:
-    """전체를 읽고 해당 키만 변경 (config-rules.md §4), 저장은 새 섹션에만"""
+    """Read everything, change only the given keys (config-rules.md §4), save to the new section only"""
     changes, failure = _collect_changes(args)
     if failure:
         return emit(failure)
-    if _is_config_unreadable():   # 깨진 파일을 덮어쓰면 PAT 등 다른 설정까지 사라짐
+    if _is_config_unreadable():   # Overwriting a broken file would wipe other settings like the PAT
         return emit({"ok": False, "code": "config_unreadable", "error": f"Could not read {config_path()}",
                      "next": "Ask the user to fix that file. It was not changed"})
     config = _load_config()
@@ -208,7 +208,7 @@ def _save_config(args, root: Path) -> int:
         target = "default"
     else:
         identity = _repo_identity(root)
-        key = identity["slug"] or identity["path"]   # GitHub 이 아니면 경로로 맞춘다
+        key = identity["slug"] or identity["path"]   # Match by path when not on GitHub
         projects = section.setdefault("projects", [])
         entry = next((p for p in projects if isinstance(p, dict) and
                       str(p.get("match", "")).lower() == key.lower()), None)

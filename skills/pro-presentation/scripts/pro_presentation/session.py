@@ -1,5 +1,5 @@
-"""세션 명령: start(덱 만들기·서버 실행) · status · stop
-서버는 덱 하나에 하나. 상태는 덱 안 .presentation/server.json, 마지막 덱은 ~/.projectops/presentation/
+"""Session commands: start (create deck, run server) · status · stop
+One server per deck. State in the deck's .presentation/server.json, last deck in ~/.projectops/presentation/
 """
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _http(port: int, method: str, path: str, key: str = "") -> dict | None:
 
 
 def read_server_info(deck_dir: Path) -> dict | None:
-    """살아 있고 이 덱의 서버일 때만 정보 반환 (같은 포트의 다른 프로세스 구분)"""
+    """Return info only if alive and serving this deck (tells apart other processes on the same port)"""
     try:
         info = json.loads((deck_dir / STATE_DIR_NAME / SERVER_INFO_FILE_NAME).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -66,7 +66,7 @@ def server_url(info: dict, path: str = "/") -> str:
 
 
 def find_image_python() -> str | None:
-    """Pillow 가 있는 파이썬 (큰 그림의 화면용 사본을 만듦): 현재 > pro-launch 가상환경. 없으면 None (원본 그대로 보냄)"""
+    """Python with Pillow (builds screen copies of large images): current > pro-launch venv. None if neither (originals sent as is)"""
     if importlib.util.find_spec("PIL") is not None:
         return sys.executable
     interpreter = venv_python()
@@ -76,7 +76,7 @@ def find_image_python() -> str | None:
 
 
 def _spawn_server(deck_dir: Path, idle_minutes: int) -> dict | None:
-    """터미널을 닫아도 살아 있게 분리 실행 > server.json 대기"""
+    """Run detached so it survives closing the terminal > wait for server.json"""
     state_dir = deck_dir / STATE_DIR_NAME
     state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / SERVER_INFO_FILE_NAME).unlink(missing_ok=True)
@@ -113,7 +113,7 @@ def remember_deck(project_root: Path, deck_dir: Path) -> None:
 
 
 def resolve_deck(deck: str | None, root: str | None) -> Path | None:
-    """--deck > 이 프로젝트에서 마지막으로 연 덱"""
+    """--deck > the deck last opened in this project"""
     if deck:
         return Path(deck).expanduser().resolve()
     try:
@@ -125,11 +125,11 @@ def resolve_deck(deck: str | None, root: str | None) -> Path | None:
 
 
 def create_deck(deck_dir: Path, title: str | None, root: Path) -> list[str]:
-    """템플릿 복사 (있는 파일은 덮지 않음) > 제목 · 언어 · 제한시간 · 사용자 발표 메모리 반영. 만든 파일 목록"""
+    """Copy template (never overwrites existing files) > apply title · language · time limit · user talk memory. List of created files"""
     created = []
     for source in sorted(DECK_TEMPLATE_DIR.rglob("*")):
         relative = source.relative_to(DECK_TEMPLATE_DIR)
-        # 템플릿 폴더 자체가 git 에서 빠지지 않게 gitignore.template 로 두고 복사할 때 이름을 바꾼다
+        # The template ships gitignore.template so the template folder itself is not git-ignored; renamed on copy
         target = deck_dir / (".gitignore" if relative.name == GITIGNORE_TEMPLATE_NAME else relative)
         if source.is_dir():
             target.mkdir(parents=True, exist_ok=True)
@@ -149,18 +149,18 @@ def create_deck(deck_dir: Path, title: str | None, root: Path) -> list[str]:
 
 
 def _preferences_language(root: Path) -> str | None:
-    """공통 preferences 의 language (없으면 None)"""
+    """language from shared preferences (None if absent)"""
     try:
         from common.preferences import detect_repo, resolve as resolve_preferences
         owner, repo = detect_repo(str(root))
         language = (resolve_preferences("pro-presentation", owner, repo, load=True).get("values") or {}).get("language")
-    except Exception:  # 선호 설정이 깨져도 덱 생성은 계속
+    except Exception:  # broken preferences must not stop deck creation
         return None
     return language if isinstance(language, str) and language else None
 
 
 def _default_deck_dir(root: Path, title: str | None) -> Path | None:
-    """--deck 없음 > deck_root 설정 > get-output-path 자리"""
+    """No --deck > deck_root setting > get-output-path location"""
     configured = option_value(root, "deck_root")
     name = "".join(character if character.isalnum() or character in "-_" else "-" for character in (title or "talk")).strip("-")
     if configured:
@@ -200,7 +200,7 @@ def cmd_start(args) -> int:
               "deck_dir": str(deck_dir), "url": url, "created": is_new, "slide_count": len(deck["slides"]),
               "problems": deck["problems"], "next": NEXT_AFTER_CREATE if is_new else NEXT_AFTER_RESUME}
     if find_image_python() is None:
-        # 화면용 그림 사본을 만들 수 없음: 큰 그림이 있는 덱은 느릴 수 있어 원인과 해결을 알림
+        # Cannot build screen image copies: decks with large images may be slow, so report cause and fix
         result["image_copies"] = False
         result["image_copies_hint"] = ("Large pictures are shown at full size because Pillow is not available. "
                                        "Run launch_cli.py web setup once, then stop and start the deck")

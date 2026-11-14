@@ -1,13 +1,13 @@
-"""생성 기록: 하네스 history.jsonl 에 한 줄씩 (프롬프트·참조·결과·승인 여부) > 다음 요청의 근거"""
+"""Generation history: one line per entry in harness history.jsonl (prompt, references, result, approval) > basis for the next request"""
 from __future__ import annotations
 
 import json
 import time
 from pathlib import Path
 
-# 기록 상태: approved 사용자 승인·앱 반영, rejected 사용자 거절, candidate 생성만 됨
+# Record status: approved user approved and used in the app, rejected user rejected, candidate generated only
 STATUSES = ("approved", "rejected", "candidate")
-# 프롬프트 저장 한도 (글자)
+# Prompt storage limit (characters)
 PROMPT_KEEP_CHARACTERS = 6000
 
 
@@ -22,7 +22,7 @@ def append(history_path: Path, entry: dict) -> dict:
 
 
 def read(history_path: Path, kind: str | None, status: str | None, limit: int) -> list[dict]:
-    """최근 기록 > 종류·상태로 거른 뒤 최신순 limit 건"""
+    """Recent entries > filtered by kind and status, newest first, limit entries"""
     if not history_path.is_file():
         return []
     rows = []

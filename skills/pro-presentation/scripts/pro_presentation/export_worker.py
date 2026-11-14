@@ -1,5 +1,5 @@
-"""내보내기 실행기: 작업 JSON > 장마다 PNG + 조각 값(layout.json) + 조각 아닌 부분 그림 + PDF
-pro-launch 가상환경 파이썬으로 실행 (Playwright, Pillow 는 시스템 파이썬에 없을 수 있음). 결과는 JSON 한 줄
+"""Export runner: job JSON > per slide PNG + piece values (layout.json) + image of non-piece parts + PDF
+Runs with the pro-launch venv Python (Playwright and Pillow may be missing from system Python). Result is one JSON line
 """
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from pathlib import Path
 SLIDE_WIDTH = 1920
 SLIDE_HEIGHT = 1080
 RENDER_WAIT_MILLISECONDS = 600
-# skills/pro-launch/scripts/browser_pick.py (이 파일: skills/pro-presentation/scripts/pro_presentation/)
+# skills/pro-launch/scripts/browser_pick.py (this file: skills/pro-presentation/scripts/pro_presentation/)
 BROWSER_PICK_FILE = Path(__file__).resolve().parents[3] / "pro-launch" / "scripts" / "browser_pick.py"
 
-# 장 안 조각 값 읽기: data-pp 조각 · 조각 아닌 최상위 요소(그림으로 갈 부분) · 내장 변환기가 옮기지 못하는 모양(unmapped)
+# Read piece values in a slide: data-pp pieces · non-piece top-level elements (parts that become images) · shapes the built-in converter cannot carry (unmapped)
 COLLECT_PIECES_SCRIPT = """
 () => {
   const slide = document.querySelector("section.slide");
@@ -62,7 +62,7 @@ COLLECT_PIECES_SCRIPT = """
 
 
 def find_browser_executable(playwright) -> str | None:
-    """pro-launch 규칙과 같은 브라우저 (환경변수 > 번들 Chromium > 설치된 Chrome, Edge)"""
+    """Same browser as the pro-launch rule (env var > bundled Chromium > installed Chrome, Edge)"""
     spec = importlib.util.spec_from_file_location("browser_pick", BROWSER_PICK_FILE)
     if spec is None or not BROWSER_PICK_FILE.is_file():
         return None
@@ -70,13 +70,13 @@ def find_browser_executable(playwright) -> str | None:
     spec.loader.exec_module(module)
     try:
         bundled = playwright.chromium.executable_path
-    except Exception:  # 번들 없음과 같게 처리
+    except Exception:  # treat like no bundle
         bundled = None
     return module.resolve(bundled).get("exe")
 
 
 def capture_slide(page, job: dict, slide: dict, out_dir: Path) -> dict:
-    """한 장: 렌더 > PNG > 조각 값 > 조각 아닌 부분(안의 조각은 숨기고) 그림"""
+    """One slide: render > PNG > piece values > image of non-piece parts (pieces inside hidden)"""
     page.goto(f"{job['base_url']}/render/{slide['id']}", wait_until="networkidle")
     page.wait_for_timeout(RENDER_WAIT_MILLISECONDS)
     png = out_dir / f"slide-{slide['number']:02d}.png"

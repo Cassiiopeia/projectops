@@ -1,15 +1,15 @@
-"""Figma REST 노드 응답 > MCP(get_figma_data) 덤프 모양 변환
+"""Figma REST node response > MCP (get_figma_data) dump shape conversion
 
-coverage · assets · conform 은 MCP 덤프 모양(layout.dimensions · locationRelativeToParent ·
-borderRadius · boxShadow 문자열 · IMAGE-SVG)을 읽는다. REST 원본을 그대로 넣으면
-모서리·그림자 대조가 조용히 0건이 되므로, fetch 가 저장 전에 한 번 바꾼다.
-값은 참조(globalVars) 없이 노드에 직접 넣는다 (읽는 쪽이 둘 다 받음).
+coverage · assets · conform read the MCP dump shape (layout.dimensions · locationRelativeToParent ·
+borderRadius · boxShadow strings · IMAGE-SVG). Feeding raw REST in would make
+corner·shadow comparison silently find 0 items, so fetch converts it once before saving.
+Values go directly on nodes without references (globalVars) (readers accept both).
 """
 from __future__ import annotations
 
-# 모양 정보만 있는 벡터 노드 > MCP 와 같이 IMAGE-SVG 로 (에셋으로 내려받을 대상)
+# Vector nodes with shape info only > IMAGE-SVG like MCP (targets to download as assets)
 VECTOR_TYPES = {"VECTOR", "BOOLEAN_OPERATION", "STAR", "REGULAR_POLYGON", "LINE"}
-# 안이 전부 벡터면 통째로 IMAGE-SVG 가 되는 묶음
+# Groups that become IMAGE-SVG as a whole when everything inside is vector
 VECTOR_WRAPPER_TYPES = {"FRAME", "GROUP", "INSTANCE", "COMPONENT"}
 
 
@@ -19,7 +19,7 @@ def _number(value: float) -> str:
 
 
 def _css_color(color: dict, opacity: float = 1.0) -> str:
-    """{r,g,b,a}(0~1) > '#RRGGBB' (불투명) 또는 'rgba(r, g, b, a)'"""
+    """{r,g,b,a}(0~1) > '#RRGGBB' (opaque) or 'rgba(r, g, b, a)'"""
     red, green, blue = (round(color.get(k, 0) * 255) for k in ("r", "g", "b"))
     alpha = round(color.get("a", 1) * opacity, 3)
     if alpha >= 1:
@@ -28,7 +28,7 @@ def _css_color(color: dict, opacity: float = 1.0) -> str:
 
 
 def _convert_paint(paint: dict):
-    """칠 한 겹: 단색 > 색 문자열, 이미지 > imageRef dict, 그라디언트 > gradient dict"""
+    """One fill layer: solid > color string, image > imageRef dict, gradient > gradient dict"""
     paint_type = paint.get("type")
     opacity = paint.get("opacity", 1)
     if paint_type == "SOLID":
@@ -44,12 +44,12 @@ def _convert_paint(paint: dict):
 
 
 def _visible_paints(paints) -> list:
-    """보이는 칠만, 위 겹이 앞으로 (REST 는 아래 겹이 앞, MCP 는 위 겹이 앞)"""
+    """Visible fills only, top layer first (REST puts the bottom layer first, MCP the top)"""
     return [_convert_paint(p) for p in reversed(paints or []) if p.get("visible", True)]
 
 
 def _convert_effects(effects) -> dict:
-    """효과 목록 > {boxShadow, filter, backdropFilter} (그림자 여러 줄은 쉼표로 이음)"""
+    """Effect list > {boxShadow, filter, backdropFilter} (multiple shadows joined by commas)"""
     shadows, filters, backdrops = [], [], []
     for effect in effects or []:
         if not effect.get("visible", True):
@@ -76,7 +76,7 @@ def _convert_effects(effects) -> dict:
 
 
 def _border_radius(node: dict) -> str | None:
-    """cornerRadius > '20px' · rectangleCornerRadii(좌상·우상·우하·좌하) > '0px 0px 16px 16px'"""
+    """cornerRadius > '20px' · rectangleCornerRadii (top-left·top-right·bottom-right·bottom-left) > '0px 0px 16px 16px'"""
     corners = node.get("rectangleCornerRadii")
     if isinstance(corners, list) and len(corners) == 4 and len(set(corners)) > 1:
         return " ".join(f"{_number(c)}px" for c in corners)
@@ -85,7 +85,7 @@ def _border_radius(node: dict) -> str | None:
 
 
 def _layout(node: dict, parent_box: dict | None) -> dict:
-    """크기 · 부모 기준 위치 · 자동 배치 값"""
+    """Size · position relative to parent · auto layout values"""
     box = node.get("absoluteBoundingBox") or {}
     layout = {"dimensions": {"width": box.get("width"), "height": box.get("height")}}
     if parent_box and box:
@@ -101,7 +101,7 @@ def _layout(node: dict, parent_box: dict | None) -> dict:
 
 
 def _text_style(style: dict) -> dict:
-    """REST 글자 스타일 > 대조에 쓰는 값만"""
+    """REST text style > only values used for comparison"""
     converted = {k: style[k] for k in ("fontFamily", "fontWeight", "fontSize", "textAlignHorizontal")
                  if k in style}
     if style.get("lineHeightPx"):
@@ -112,7 +112,7 @@ def _text_style(style: dict) -> dict:
 
 
 def _is_partial_ellipse(node: dict) -> bool:
-    """반원·고리 같은 호 모양 원 (꽉 찬 원이 아님 > 그림으로 받음)"""
+    """Arc-shaped ellipse such as a half circle·ring (not a full circle > fetched as an image)"""
     arc = node.get("arcData") or {}
     if node.get("type") != "ELLIPSE" or not arc:
         return False
@@ -121,7 +121,7 @@ def _is_partial_ellipse(node: dict) -> bool:
 
 
 def _first_paints(node: dict) -> list:
-    """벡터 묶음의 대표 칠: 자기 칠 > 선 > 자손 중 처음 나온 것 (덮개 판정용)"""
+    """Representative fill of a vector group: own fill > stroke > first descendant's (for cover checks)"""
     for key in ("fills", "strokes"):
         paints = _visible_paints(node.get(key))
         if paints:
@@ -135,7 +135,7 @@ def _first_paints(node: dict) -> list:
 
 
 def _is_vector_only(node: dict) -> bool:
-    """벡터(호 모양 원 포함)이거나, 보이는 자식이 전부 벡터뿐인 묶음"""
+    """A vector (including arc ellipses), or a group whose visible children are all vectors"""
     if node.get("type") in VECTOR_TYPES or _is_partial_ellipse(node):
         return True
     children = [c for c in node.get("children") or [] if c.get("visible", True)]
@@ -144,7 +144,7 @@ def _is_vector_only(node: dict) -> bool:
 
 
 def convert_node(node: dict, parent_box: dict | None = None) -> dict:
-    """노드 1개(+자식) 변환: 기본 > 칠·선·효과·모서리 > 글자 > 자식 (벡터 묶음은 자식 없이 IMAGE-SVG)"""
+    """Convert one node (+children): basics > fill·stroke·effect·corner > text > children (vector groups become IMAGE-SVG without children)"""
     is_vector = _is_vector_only(node)
     converted = {"id": node.get("id"), "name": node.get("name"),
                  "type": "IMAGE-SVG" if is_vector else node.get("type")}
@@ -180,7 +180,7 @@ def convert_node(node: dict, parent_box: dict | None = None) -> dict:
 
 
 def node_fingerprint(body: dict, node_id: str) -> str | None:
-    """화면 1개 내용 지문 (변환 결과 sha256). 파일의 다른 곳이 바뀌어도 그대로"""
+    """Content fingerprint of one screen (sha256 of the converted result). Unchanged when other parts of the file change"""
     import hashlib
     import json
     document = ((body.get("nodes") or {}).get(node_id) or {}).get("document")
@@ -191,7 +191,7 @@ def node_fingerprint(body: dict, node_id: str) -> str | None:
 
 
 def rest_nodes_to_dump(body: dict, node_id: str) -> dict:
-    """REST /files/:key/nodes 응답 > MCP 덤프 모양 (metadata 에 lastModified·version 유지)"""
+    """REST /files/:key/nodes response > MCP dump shape (lastModified·version kept in metadata)"""
     document = ((body.get("nodes") or {}).get(node_id) or {}).get("document") or {}
     return {
         "metadata": {"name": body.get("name"), "lastModified": body.get("lastModified"),

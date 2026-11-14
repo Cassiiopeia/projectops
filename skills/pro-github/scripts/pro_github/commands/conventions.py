@@ -1,4 +1,4 @@
-"""네트워크 없는 서브커맨드: 이슈 문서 경로, 제목 정규화, 브랜치명, 커밋 틀."""
+"""Network-free subcommands: issue doc path, title normalization, branch name, commit template."""
 from __future__ import annotations
 
 from common.emit import emit
@@ -16,12 +16,12 @@ def _date_arg(value: str) -> str:
 
 
 def cmd_get_output_path(args, api) -> int:
-    # 경로 규칙은 common/paths.py 단일 소유 (#525·#623) — 이슈 문서도 직접 조립하지 않는다 (#822).
-    # 새 이슈는 아직 번호가 없으므로 현재 브랜치의 이슈 번호를 빌려 쓰지 않고 일련번호를 붙인다.
+    # Path rules are owned only by common/paths.py (#525·#623) — issue docs are not assembled by hand either (#822).
+    # A new issue has no number yet, so use a serial number instead of borrowing the current branch's issue number.
     from common.gh_branch import strip_issue_decorations
     from common.paths import resolve_output_path
-    # 파일명에는 이모지·[태그]를 넣지 않는다 — 태그가 제목에 붙어 `BugSkills_...` 가 되는 것을 막는다
-    # 위치 인자 허용: "issue <제목>", "<제목>" 모두 (제목을 위치로 넘겨 bad_args 나던 호출, #1063)
+    # No emoji or [tags] in file names — keeps a tag glued to the title from becoming `BugSkills_...`
+    # Positional allowed: both "issue <title>" and "<title>" (calls passing the title positionally hit bad_args, #1063)
     words = list(args.words)
     if words and words[0] == "issue":
         words = words[1:]
@@ -37,7 +37,7 @@ def cmd_normalize_title(args, api) -> int:
 
 
 def read_branch_name_values(values: list[str]) -> tuple:
-    """[제목, 번호] · [번호, 제목] · [owner, repo, 제목, 번호] > (제목, 번호) | None (다른 명령처럼 owner repo 를 앞에 둬도 받는다)"""
+    """[title, number] · [number, title] · [owner, repo, title, number] > (title, number) | None (owner repo up front is accepted like other commands)"""
     if len(values) == 4 and values[3].isdigit():
         return values[2], int(values[3])
     if len(values) == 2 and values[1].isdigit():
@@ -59,7 +59,7 @@ def cmd_create_branch_name(args, api) -> int:
 
 
 def cmd_get_commit_template(args, api) -> int:
-    # 커밋 스킬과 같은 해석 경로를 쓴다 — 이슈 생성 직후 보여주는 틀이 커밋 때와 갈라지지 않게
+    # Same resolution path as the commit skill — so the template shown after issue creation matches the one at commit time
     from common.commit_style import render_for_issue, resolve_for_repo
     _, style = resolve_for_repo(getattr(args, "repo_root", None))
     template = render_for_issue(style, issue_title=args.issue_title, issue_url=args.issue_url,
@@ -69,7 +69,7 @@ def cmd_get_commit_template(args, api) -> int:
                  "summary": template})
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_get_output_path(parser) -> None:
     parser.add_argument("words", nargs="*", metavar="[issue] [title]", help="optional: the word issue, then the title")
@@ -91,8 +91,8 @@ def _configure_create_branch_name(parser) -> None:
 def _configure_get_commit_template(parser) -> None:
     parser.add_argument("issue_title")
     parser.add_argument("issue_url")
-    # 생략하면 제목 태그에서 유도한다. 이슈는 기능인데 실제 작업이 버그 수정인
-    # 경우처럼 태그와 내용이 다를 때만 직접 지정한다.
+    # If omitted, derived from the title tag. Set it only when tag and content differ,
+    # e.g. the issue is a feature but the actual work is a bug fix.
     parser.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,
                        help="commit type (fix, docs, chore, ...). Default: inferred from the title tag")
     parser.add_argument("--scope", default=None, help="value for the {scope} placeholder")

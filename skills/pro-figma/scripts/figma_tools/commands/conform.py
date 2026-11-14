@@ -1,4 +1,4 @@
-"""conform: 시안 값대로 그려졌는지 속성으로 대조"""
+"""conform: compare by property whether it was drawn to the design values"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -35,11 +35,11 @@ def cmd_conform(args) -> int:
 
     try:
         img = Image.open(render).convert("RGB")
-    except Exception as e:   # 이미지가 아닌 파일 (#710)
+    except Exception as e:   # not an image file (#710)
         return emit({"ok": False, "code": "image_unreadable",
                      "error": f"Cannot open the render image: {render} ({type(e).__name__})",
                      "next": "Check that it is an image file such as png or jpg"})
-    # 없는 노드·모르는 검사가 "0건 통과"로 끝나면 대조를 안 한 것과 같다 (#710)
+    # A missing node or unknown check ending in "0 passed" is the same as not comparing (#710)
     checks = [c.strip() for c in args.check.split(",") if c.strip()] if args.check \
         else list(_ALL_CHECKS)
     bad = [c for c in checks if c not in _ALL_CHECKS]
@@ -54,15 +54,15 @@ def cmd_conform(args) -> int:
 
     styles = _style_table(data)
     rects, skipped = _rects(data, styles, args.node)
-    # 시스템이 그리는 띠(상태바 · 홈 인디케이터) 안 사각형은 앱이 안 그림 > 빼기 (논리 좌표)
+    # Rectangles inside system-drawn bands (status bar · home indicator) are not drawn by the app > excluded (logical coords)
     frame_height = max((r["y"] + r["height"] for r in rects), default=0)
     in_band = [r for r in rects
                if r["y"] + r["height"] <= args.mask_top
                or (args.mask_bottom and r["y"] >= frame_height - args.mask_bottom)]
     rects = [r for r in rects if r not in in_band]
-    # 지정 노드 빼기 (디자이너의 사진 자리표시 등 데이터가 채우는 자리)
+    # Exclude given nodes (data-filled slots such as the designer's photo placeholders)
     masked_nodes = [r for r in rects if r["ref"] in (args.mask_node or [])]
-    # OS 가 그리는 노드 (이름: 상태바 · 홈 인디케이터 · 키보드) 자동 제외
+    # Auto-exclude OS-drawn nodes (names: status bar · home indicator · keyboard)
     system_ids = system_node_ids(data)
     system_nodes = [r for r in rects if r["ref"] in system_ids]
     rects = [r for r in rects if r not in masked_nodes and r not in system_nodes]
@@ -73,7 +73,7 @@ def cmd_conform(args) -> int:
 
     scale, scale_from = args.scale, "given"
     if scale <= 0:
-        # 렌더 폭 ÷ 기준 노드 폭. 3배로 찍은 화면을 논리 좌표로 재면 다 어긋난다.
+        # Render width ÷ reference node width. Measuring a 3x capture in logical coords misaligns everything.
         base = _node_width(data.get("nodes", data), styles, args.node)
         if base:
             scale, scale_from = img.size[0] / base, f"render {img.size[0]}px / origin {base:g}"
@@ -91,7 +91,7 @@ def cmd_conform(args) -> int:
     findings = []
     for index, r in enumerate(rects):
         above = layers_above(rects, index)
-        # 자리 먼저: 밀린 상자는 모서리 탐침이 면 안쪽을 찍어 거짓 "각짐"이 됨 > 모서리 건너뜀
+        # Placement first: a shifted box makes the corner probe hit inside the face, a false "각짐" > skip corners
         is_placed = None
         if "placement" in checks:
             placement_findings, is_placed = check_placement(sample, r, above, layers_below(rects, index),

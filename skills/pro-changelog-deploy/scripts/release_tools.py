@@ -1,7 +1,7 @@
-"""릴리스 보조: 릴리스 노트 포장, 브랜치 쌍 점검, base 동기화 (#945).
+"""Release helpers: wrap release notes, check the branch pair, sync base (#945).
 
-에이전트가 매 배포마다 손으로 치던 것(CodeRabbit 표식 블록, base 병합, 브랜치 쌍이 맞는지 확인)을
-한 곳으로 모은다.
+Gathers in one place what the agent typed by hand on every deploy (CodeRabbit marker block, base merge,
+checking the branch pair is right).
 """
 from __future__ import annotations
 
@@ -18,15 +18,15 @@ _NOTES_CLOSE = "<!-- end of auto-generated comment: release notes by coderabbit.
 
 
 def read_repo_language(project_root: Path) -> str:
-    """version.yml options.language > 노트 언어 (정본: release_language — 워크플로우 i18n 과 같은 규칙, #977)"""
+    """version.yml options.language > note language (canonical: release_language — same rule as workflow i18n, #977)"""
     return resolve_notes_language(project_root, load_headings(project_root))[0]
 
 
 def wrap_release_notes(body: str, language: str = "ko") -> tuple[str, bool]:
-    """(본문, 포장했는지). 본문이 비었거나 이미 표식이 있으면 그대로 둔다.
+    """(body, whether wrapped). Leaves the body as is if empty or already marked.
 
-    워크플로우는 표식 블록 구조에 의존한다. 사람이 손으로 쓰다 틀리면 본문이 지워지거나
-    missing_coderabbit_summary 가 나므로 도구가 대신 씌운다.
+    The workflow depends on the marker block structure. Hand-written mistakes wipe the body or
+    raise missing_coderabbit_summary, so the tool wraps it instead.
     """
     if not body.strip() or NOTES_MARKER in body:
         return body, False
@@ -51,12 +51,12 @@ def _commit_count(root: Path, exclude: str, include: str) -> int | None:
     return int(done.stdout.strip()) if done.returncode == 0 and done.stdout.strip().isdigit() else None
 
 
-# branches_check 가 fetch 를 기다리는 최대 시간 (망이 느려도 detect 가 멈추지 않게)
+# Maximum time branches_check waits for fetch (so detect does not hang on a slow network)
 _FETCH_TIMEOUT_SECONDS = 30
 
 
 def _fetch_origin(root: Path) -> str | None:
-    """git fetch origin (원격 추적 ref 만 갱신). 성공하면 None, 실패하면 이유"""
+    """git fetch origin (updates remote-tracking refs only). None on success, reason on failure"""
     try:
         done = subprocess.run(["git", "-C", str(root), "fetch", "--quiet", "origin"], capture_output=True, text=True,
                               encoding="utf-8", errors="replace", timeout=_FETCH_TIMEOUT_SECONDS)
@@ -66,10 +66,10 @@ def _fetch_origin(root: Path) -> str | None:
 
 
 def branches_check(project_root: Path, head: str, base: str) -> dict:
-    """설정된 head/base 쌍이 실제로 릴리스할 차이를 갖는지. fetch 후 origin/* 추적 ref 기준 (#1176)"""
+    """Whether the configured head/base pair actually has a difference to release. Based on origin/* tracking refs after fetch (#1176)"""
     head_ref, base_ref = f"origin/{head}", f"origin/{base}"
     fetch_error = _fetch_origin(project_root)
-    # 실패해도 계속: 로컬 ref 로 세고 낡았을 수 있다고 알린다
+    # Continue on failure: count with local refs and warn they may be stale
     stale_note = "" if fetch_error is None else f" (git fetch failed: {fetch_error}; counts come from local refs and may be stale)"
     out = {"fetched": fetch_error is None, "head_exists": _ref_exists(project_root, head_ref),
            "base_exists": _ref_exists(project_root, base_ref),
@@ -88,13 +88,13 @@ def branches_check(project_root: Path, head: str, base: str) -> dict:
     return out
 
 
-# deploy 브랜치형 레포의 배포 브랜치 이름 (개발은 기본 브랜치, 배포는 이 브랜치로 PR)
+# Deploy branch name in deploy-branch repos (development on the default branch, deploys via PR to this branch)
 DEPLOY_BRANCH_NAME = "deploy"
 _DEPLOY_TRIGGER_RE = re.compile(r"^\s+deploy_trigger_branch\s*:\s*[\"']?([A-Za-z0-9._/-]+)", re.MULTILINE)
 
 
 def read_deploy_trigger_branch(project_root: Path) -> str | None:
-    """version.yml options.deploy_trigger_branch (#1114). 없으면 None"""
+    """version.yml options.deploy_trigger_branch (#1114). None if absent"""
     try:
         text = (project_root / "version.yml").read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -104,10 +104,10 @@ def read_deploy_trigger_branch(project_root: Path) -> str | None:
 
 
 def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dict:
-    """릴리스 구조 판정: standard(개발 > 기본) | deploy_branch(기본 > deploy, #970) | three_tier(개발 > 기본 > 배포, #1114)
+    """Release layout: standard (development > default) | deploy_branch (default > deploy, #970) | three_tier (development > default > deploy, #1114)
 
-    개발 브랜치가 origin 에 없고 origin/deploy 가 있으면 deploy 브랜치형.
-    개발 브랜치가 있고 배포 브랜치(deploy_trigger_branch, 없으면 deploy)도 origin 에 있으면 3단. 그 외는 standard
+    Deploy-branch layout if the development branch is not on origin and origin/deploy exists.
+    Three tiers if the development branch exists and the deploy branch (deploy_trigger_branch, else deploy) is on origin too. Otherwise standard
     """
     is_deploy_branch_shape = (not check.get("head_exists")
                               and branches["head"] != DEPLOY_BRANCH_NAME
@@ -124,7 +124,7 @@ def detect_release_shape(project_root: Path, branches: dict, check: dict) -> dic
 
 
 def _deploy_branch_shape(branches: dict) -> dict:
-    # 개발은 기본 브랜치에서, 릴리스 PR 은 기본 브랜치 > deploy
+    # Development happens on the default branch; the release PR is default > deploy
     head = branches["base"] if branches["base"] != DEPLOY_BRANCH_NAME else "main"
     return {
         "release_shape": "deploy_branch",
@@ -141,7 +141,7 @@ def _deploy_branch_shape(branches: dict) -> dict:
 
 
 def _three_tier_shape(branches: dict, trigger: str) -> dict:
-    # 릴리스 PR(버전 확정·노트)은 개발 > 기본 그대로, 배포는 기본 > 배포 브랜치 반영으로 따로 돈다
+    # The release PR (version finalize, notes) stays development > default; deploying runs separately as default > deploy branch
     head, base = branches["head"], branches["base"]
     return {
         "release_shape": "three_tier",
@@ -157,7 +157,7 @@ def _three_tier_shape(branches: dict, trigger: str) -> dict:
 
 
 def cmd_sync_base(args) -> int:
-    """배포 전 base > head 역방향 병합: fetch > 차이 확인 > merge. 충돌은 되돌리지 않고 멈춘다."""
+    """Reverse merge base > head before deploy: fetch > check difference > merge. Stops on conflict without reverting."""
     root = Path(args.project_root).resolve() if args.project_root else Path.cwd()
     current = _git(root, "branch", "--show-current").stdout.strip()
     if current != args.head:
@@ -177,7 +177,7 @@ def cmd_sync_base(args) -> int:
                      "summary": f"merged {len(behind)} commit(s) from origin/{args.base}", "next": "push, then continue the deploy steps"})
     conflicted = _git(root, "diff", "--name-only", "--diff-filter=U").stdout.split()
     if not conflicted:
-        # 충돌 파일이 없는데 실패했다면 충돌이 아니라 다른 원인(커밋 작성자 미설정, 훅, 더러운 작업트리 등)이다
+        # Failure with no conflicting files is not a conflict but another cause (no commit author, hooks, dirty worktree etc.)
         return emit({"ok": False, "code": "merge_failed", "behind": behind[:20],
                      "error": (merged.stderr or merged.stdout).strip()[:400],
                      "next": "read the cause and fix it (git config user.name/email, overlapping uncommitted changes, ...). It is not a conflict, so there is nothing to abort"})

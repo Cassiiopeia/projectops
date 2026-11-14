@@ -1,7 +1,7 @@
-"""언어별 랜딩 페이지 HTML · sitemap.xml · robots.txt 문자열 생성 (#1021)
+"""Build per-language landing page HTML · sitemap.xml · robots.txt strings (#1021)
 
-파일 쓰기는 하지 않는다 (commands/store_pages.py 담당). 외부 값은 전부 이스케이프.
-스토어 배지 그림은 쓰지 않는다 — 상표 이미지라 텍스트 링크만 둔다.
+Does not write files (commands/store_pages.py does). All external values are escaped.
+No store badge images — they are trademark images, so only text links.
 """
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ X_DEFAULT = "x-default"
 
 
 def page_url(base_url: str, folder: str | None) -> str:
-    """기준 주소 + 언어 폴더 (루트 안내 페이지는 folder None)"""
+    """Base URL + language folder (folder None for the root picker page)"""
     return base_url + (f"{folder}/" if folder else "")
 
 
 def alternate_links(base_url: str, pages: list, default_folder: str) -> list[tuple[str, str]]:
-    """(hreflang, 주소) 목록: 언어별 + x-default(기본 언어 페이지)"""
+    """(hreflang, URL) list: per language + x-default (default language page)"""
     links = [(page["hreflang"], page_url(base_url, page["folder"])) for page in pages]
     links.append((X_DEFAULT, page_url(base_url, default_folder)))
     return links
@@ -30,7 +30,7 @@ def _head_links(links: list[tuple[str, str]], canonical: str) -> str:
 
 
 def _font_css(theme: dict, font_prefix: str) -> tuple[str, str]:
-    """(@font-face CSS, font-family 스택). 글꼴 파일은 site/fonts/ 사본을 상대 경로로"""
+    """(@font-face CSS, font-family stack). Font files are the site/fonts/ copies via relative paths"""
     faces = "".join(f"@font-face{{font-family:'{font['family']}';src:url('{font_prefix}{font['file_name']}');}}"
                     for font in theme["font_files"])
     stack = ",".join([f"'{font['family']}'" for font in theme["font_files"]] + [theme["font_family"]])
@@ -70,7 +70,7 @@ def _language_links(pages: list, base_url: str, current_folder: str | None) -> s
 
 
 def build_locale_page(page: dict, pages: list, site: dict) -> str:
-    """언어 1개 페이지: 제목·설명·스토어 링크·특징·스크린샷·언어 전환 + hreflang"""
+    """One language page: title·description·store links·features·screenshots·language switch + hreflang"""
     canonical = page_url(site["base_url"], page["folder"])
     text = page["text"]
     features = "".join(f"<li>{html.escape(feature)}</li>" for feature in text.get("features", []))
@@ -94,7 +94,7 @@ def build_locale_page(page: dict, pages: list, site: dict) -> str:
 
 
 def build_root_page(pages: list, site: dict) -> str:
-    """루트: 언어 선택 페이지 (자동 이동 없음 — 검색 로봇이 언어별 페이지를 그대로 따라간다)"""
+    """Root: language picker page (no auto redirect — crawlers follow the per-language pages as is)"""
     name = html.escape(site["app"].get("name") or "")
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
@@ -105,7 +105,7 @@ def build_root_page(pages: list, site: dict) -> str:
 
 
 def build_sitemap(site: dict, pages: list) -> str:
-    """언어별 주소마다 <url> + 모든 언어 xhtml:link (x-default 포함)"""
+    """<url> per language URL + xhtml:link for every language (including x-default)"""
     alternates = "".join(f'<xhtml:link rel="alternate" hreflang="{xml_escape(code)}" href="{xml_escape(url)}"/>'
                          for code, url in site["links"])
     urls = "".join(f"<url><loc>{xml_escape(page_url(site['base_url'], page['folder']))}</loc>{alternates}</url>"

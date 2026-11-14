@@ -1,7 +1,7 @@
-"""store-compose: 장면 파일 > 언어별 HTML + 렌더 작업 목록 + 렌더 스크립트 (#1021)
+"""store-compose: scene file > per-language HTML + render job list + render script (#1021)
 
-파일은 run_dir/store/ 아래에만 쓴다 (get-output-path 가 정한 산출물 폴더 밖에는 쓰지 않는다).
-렌더(브라우저)는 하지 않는다 — pro-launch `web script` 가 만든 render.py 를 돌린다.
+Writes files only under run_dir/store/ (never outside the output folder chosen by get-output-path).
+Does not render (browser) — runs the render.py made by pro-launch `web script`.
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _is_inside(child: Path, parent: Path) -> bool:
 
 
 def resolve_store_dir(run_dir_arg: str, project_root: Path) -> tuple[Path | None, dict | None]:
-    """run_dir 이 산출물 루트 안인지 확인 > run_dir/store. 밖이면 에러 응답"""
+    """Check run_dir is inside the output root > run_dir/store. Error response if outside"""
     try:
         from common.paths import resolve_output_root
     except ImportError:
@@ -43,7 +43,7 @@ def resolve_store_dir(run_dir_arg: str, project_root: Path) -> tuple[Path | None
 
 
 def _stale_image_warnings(images_dir: Path, written: set) -> list:
-    """이번 실행이 만들지 않은 이미지 (이전 실행 잔여·손으로 넣은 것) > store-check 장수에 잡히므로 알린다 (지우지는 않음)"""
+    """Images this run did not make (leftovers from earlier runs, added by hand) > reported since store-check counts them (not deleted)"""
     if not images_dir.is_dir():
         return []
     stale = sorted(str(p.relative_to(images_dir)) for p in images_dir.rglob("*.png") if p not in written)
@@ -106,7 +106,7 @@ def cmd_store_compose(args) -> int:
 
 
 def _write_job_files(jobs: list, theme: dict, html_dir: Path, images_dir: Path) -> list:
-    """작업마다 HTML 저장 > 매니페스트 항목 (이미지 경로는 store-check 폴더 규약)"""
+    """Save HTML per job > manifest entry (image paths follow the store-check folder convention)"""
     manifest_jobs = []
     for job in jobs:
         html_path = html_dir / f"{job['id']}.html"

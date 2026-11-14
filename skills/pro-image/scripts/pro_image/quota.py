@@ -1,5 +1,5 @@
-"""도구 한도 판별: 실행 로그 + 도구 대화 기록 > 한도 소진 여부, 재설정까지 남은 시간
-분 단위 제한(잠깐 뒤 재시도)과 주 단위 소진(다음 도구로)을 구분하기 위함
+"""Tool quota detection: run log + tool conversation log > quota exhausted or not, time until reset
+Separates per-minute limits (retry shortly) from weekly exhaustion (move to the next tool)
 """
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from pathlib import Path
 from . import providers
 
 QUOTA_MARKERS = ("429", "RESOURCE_EXHAUSTED", "QUOTA_EXHAUSTED", "Too Many Requests")
-# "reset after 166h53m17s" 형태
+# Form "reset after 166h53m17s"
 RESET_PATTERN = re.compile(r"reset after ((?:\d+h)?(?:\d+m)?(?:\d+s)?)")
-# 이 시간보다 오래 남았으면 재시도 대신 다음 도구 (초)
+# If more than this remains, go to the next tool instead of retrying (seconds)
 WAIT_THRESHOLD_SECONDS = 3600
-# 대화 기록에서 읽을 꼬리 길이 (글자)
+# Tail length to read from the conversation log (characters)
 LOG_TAIL_CHARACTERS = 20000
 
 
@@ -25,7 +25,7 @@ def _seconds(text: str) -> int:
 
 
 def diagnose(definition: dict, run_log_text: str, started_at: float) -> dict | None:
-    """한도 소진이면 {is_quota, reset_in_seconds, reset_in}, 흔적이 없으면 None"""
+    """{is_quota, reset_in_seconds, reset_in} when quota is exhausted, None if no trace"""
     texts = [run_log_text]
     for path in providers.expand_globs(definition.get("failure_log_globs", [])):
         if path.stat().st_mtime >= started_at:

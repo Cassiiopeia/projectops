@@ -1,4 +1,4 @@
-"""시안 검사 4개: 토큰 밖 색, 로드 안 된 글꼴, 외부 URL, 깨진 경로 (사실만 보고, 판단은 에이전트)"""
+"""4 mockup checks: off-token colors, unloaded fonts, external URLs, broken paths (facts only, the agent judges)"""
 from __future__ import annotations
 
 import re
@@ -21,7 +21,7 @@ RESOURCE_PATTERNS = (
     re.compile(r"""url\(\s*["']?([^"')]+)["']?\s*\)""", re.IGNORECASE),
     re.compile(r"""@import\s+["']([^"']+)["']""", re.IGNORECASE),
 )
-# 어느 PC 에나 있거나 OS 가 알아서 고르는 글꼴: 미로드로 치지 않음
+# Fonts present on any PC or picked by the OS: not counted as unloaded
 SYSTEM_FONTS = {"serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui", "ui-sans-serif", "ui-serif",
                 "ui-monospace", "ui-rounded", "-apple-system", "blinkmacsystemfont", "segoe ui", "helvetica",
                 "helvetica neue", "arial", "times", "times new roman", "courier", "courier new", "menlo", "monaco",

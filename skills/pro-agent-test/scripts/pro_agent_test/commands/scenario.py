@@ -1,4 +1,4 @@
-"""scenario: 시나리오 만들기(init) · 목록(list) · 검증(show)"""
+"""scenario: create (init) · list · validate (show) scenarios"""
 from __future__ import annotations
 
 import re
@@ -12,7 +12,7 @@ from pro_agent_test.scenario_rules import (TARGETS, _FLOWS_DIR, _SHARED_DIR, _te
 from pro_agent_test.storage import _expand, _resolve_scenario, _scenario_dir, _scenario_files
 
 
-# 시나리오 이름으로 허용하는 문자. 한글도 \w 에 든다 — 경로 구분자·선행 점은 못 쓴다
+# Characters allowed in scenario names. Korean also matches \w — path separators and a leading dot are not allowed
 _SAFE_NAME = re.compile(r"\w[\w.\- ]*")
 
 
@@ -25,8 +25,8 @@ def cmd_scenario(args) -> int:
         rows = []
         for f in files:
             rel = f.relative_to(d)
-            # flows/{그룹}/x.json → 그룹 / _shared/x.json → _shared
-            # 루트에 그냥 있으면 아직 분류되지 않은 것이다
+            # flows/{group}/x.json → group / _shared/x.json → _shared
+            # sitting directly in the root means not yet classified
             if len(rel.parts) > 2 and rel.parts[0] == _FLOWS_DIR:
                 group = rel.parts[1]
             elif len(rel.parts) > 1:
@@ -49,7 +49,7 @@ def cmd_scenario(args) -> int:
             return emit({"ok": False, "code": "unknown_target",
                          "error": f"Unknown target '{args.target}'",
                          "hint": f"one of {'·'.join(TARGETS)}"})
-        # 이름이 경로가 되면 시나리오 폴더 밖에 파일이 써진다 (#707)
+        # If the name becomes a path, the file is written outside the scenario folder (#707)
         if not _SAFE_NAME.fullmatch(args.name) or ".." in args.name:
             return emit({"ok": False, "code": "bad_name",
                          "error": f"--name '{args.name}' contains characters that are not allowed",
@@ -59,7 +59,7 @@ def cmd_scenario(args) -> int:
                            or "\\" in args.group):
             return emit({"ok": False, "code": "bad_group",
                          "error": f"--group '{args.group}' cannot point outside the folder"})
-        # --group 을 주면 flows/{그룹}/ 아래, _shared 면 전제로 둔다
+        # With --group, under flows/{group}/; _shared means it is a precondition
         if args.group == _SHARED_DIR:
             target_dir = d / _SHARED_DIR
         elif args.group:
@@ -67,7 +67,7 @@ def cmd_scenario(args) -> int:
         else:
             target_dir = d
         f = target_dir / f"{args.name}.json"
-        # 마지막 방어선 — 어떤 경로로든 시나리오 폴더 아래가 아니면 쓰지 않는다
+        # Last line of defence — never write unless the path is under the scenario folder
         if d.resolve() not in f.resolve().parents:
             return emit({"ok": False, "code": "bad_name",
                          "error": "cannot create outside the scenario folder"})
@@ -99,14 +99,14 @@ def cmd_scenario(args) -> int:
         return emit({"ok": False, "code": "invalid_json", "error": f"{f}: {e}"})
 
     problems = _validate(data) + pre_problems
-    # 템플릿 자리를 안 채운 채 실행하면 엉뚱한 걸 누른다 — 문제로 잡는다
+    # Running with template slots unfilled presses the wrong thing — flag it as a problem
     placeholders = [k for k in json.dumps(data, ensure_ascii=False).split('"')
                     if k.startswith("{") and k.endswith("}")]
     if placeholders:
         problems.append(
             f"{len(placeholders)} unfilled placeholder(s) — a scenario left as the template cannot run")
 
-    # 이 시나리오와 겹치는 규칙·함정을 몇 건 싣는다 (시나리오마다 하루 한 번, #837)
+    # Include a few rules and pitfalls overlapping this scenario (once a day per scenario, #837)
     target = scenario_target(data)
     mem = _surface(root, f"scenario:{args.name}",
                    " ".join([json.dumps(data, ensure_ascii=False), _TARGET_WORDS.get(target, "")]))

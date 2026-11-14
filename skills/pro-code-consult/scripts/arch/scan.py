@@ -1,7 +1,7 @@
-"""scan: 레포가 소유한 코드의 냄새 사실 > 범주별 목록 + 판단 단서 (판정 없음)
+"""scan: smell facts about the code the repo owns > lists per category + judgment hints (no verdicts)
 
-운영(production)과 테스트(test)를 따로 센다. 도구 설치물·생성물·외부 라이브러리는 excluded 로 수와 이유만 낸다.
-정렬·집계·읽는 순서는 scan_report.
+Production and test are counted separately. Tooling, generated output and external libraries only get counts and reasons under excluded.
+Sorting, tallies and reading order live in scan_report.
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from . import code_smells, naming_smells, scan_report, structure_smells
 from .origins import SourceInventory
 from .source_files import classify_lines, comment_blocks
 
-# 파일 줄 수 한도 (300 분리 검토 — conventions §3.3, 반드시 분리 500 은 scan_report.MUST_SPLIT_LINES)
+# File line limit (300 = consider splitting — conventions §3.3; the must-split 500 is scan_report.MUST_SPLIT_LINES)
 REVIEW_SPLIT_LINES = 300
-# 운영 코드에 섞인 테스트·목 코드 (경로 폴더 이름 또는 파일 이름)
+# Test/mock code mixed into production (folder name in the path or file name)
 TEST_CODE_DIRECTORY_NAMES = {"test", "tests", "mock", "mocks", "dummy", "fixture", "fixtures", "sample", "samples"}
 TEST_CODE_FILE_PATTERN = re.compile(r"^(?:Test|Mock|Dummy|Fake)\w*(?:Controller|Service|Api|Router|Resource)\.\w+$|^(?:mock|dummy|fake)_\w+\.py$")
 DECLARATION_ONLY_PATTERN = re.compile(r"\binterface\s+\w+|\babstract\s+class\b|\bdeclare\s+module\b")
@@ -31,7 +31,7 @@ def scan_project(root: Path, limit: int, is_including_all: bool = False,
     findings = {category: [] for category in PER_FILE_CATEGORIES}
     cross_file_inputs, files_by_origin, files_by_language = [], {}, {}
 
-    # 파일별 수집 (경로 필터는 수집 단계에서 — 하위 에이전트에 그 폴더 사실만 넘기기)
+    # Collect per file (path filter applied during collection — so a sub-agent gets only that folder's facts)
     for relative, language, text, origin in inventory.files:
         if only_prefixes and not any(relative.startswith(p.rstrip("/") + "/") or relative == p for p in only_prefixes):
             continue
@@ -41,7 +41,7 @@ def scan_project(root: Path, limit: int, is_including_all: bool = False,
         if origin != "test":
             cross_file_inputs.append((relative, language, code_lines))
 
-    # 파일을 넘는 냄새 (운영 코드만 — 테스트의 직접 호출·상수는 정상인 경우가 많다)
+    # Cross-file smells (production only — direct calls and constants in tests are often fine)
     bypassed, unwrapped = structure_smells.direct_call_findings(cross_file_inputs, limit)
     cross_file = {"bypassed_components": bypassed, "common_call_candidates": unwrapped,
                   "duplicate_constants": structure_smells.duplicate_constant_findings(cross_file_inputs)}
@@ -62,7 +62,7 @@ def scan_project(root: Path, limit: int, is_including_all: bool = False,
 
 
 def record_metrics(root: Path, summary: dict, rule_counts: dict) -> Path:
-    """docs/architecture/metrics.jsonl 에 한 줄 추가 (추이 비교용)"""
+    """Append one line to docs/architecture/metrics.jsonl (for trend comparison)"""
     path = root / "docs" / "architecture" / "metrics.jsonl"
     path.parent.mkdir(parents=True, exist_ok=True)
     line = {"date": date.today().isoformat(), "summary": summary, "rules": rule_counts}
@@ -72,14 +72,14 @@ def record_metrics(root: Path, summary: dict, rule_counts: dict) -> Path:
 
 
 def _collect_file(relative: str, language: str, text: str, origin: str, findings: dict) -> list:
-    """한 파일의 냄새를 findings 에 담고, 파일을 넘는 검사용 코드 줄 [(번호, 줄)]을 돌려준다"""
-    tag = {} if origin == "production" else {"origin": origin}  # test 만 test_counts 로 (scan_report)
+    """Add one file's smells to findings and return its code lines [(number, line)] for cross-file checks"""
+    tag = {} if origin == "production" else {"origin": origin}  # only test goes to test_counts (scan_report)
     classified = classify_lines(text, language)
     lines = text.splitlines()
     comment_lines = sum(1 for _, kind, _ in classified if kind == "comment")
     code_line_count = sum(1 for _, kind, _ in classified if kind == "code")
 
-    # 크기·주석 비율·긴 함수
+    # Size, comment ratio, long functions
     if len(classified) > REVIEW_SPLIT_LINES:
         findings["long_files"].append({"path": relative, "lines": len(classified), **tag})
     if code_line_count and comment_lines > code_line_count:
@@ -89,7 +89,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
     for function in structure_smells.long_functions(text, language):
         findings["long_functions"].append({"path": relative, **function, **tag})
 
-    # 주석 블록: 주석 처리된 코드는 따로, 라이선스는 제외, 나머지는 성격(kind)을 붙여 긴 블록으로
+    # Comment blocks: commented-out code separately, licenses skipped, the rest as long blocks tagged with kind
     for start, length, contents in comment_blocks(classified):
         block_kind = code_smells.comment_block_kind(start, contents)
         if block_kind == "commented_code":
@@ -98,7 +98,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
             findings["long_comment_blocks"].append({"path": relative, "line": start, "length": length,
                                                     "kind": block_kind, **tag})
 
-    # 줄 단위: 주석 문구, 이름, 토큰, URL
+    # Per line: comment wording, names, tokens, URLs
     contract = naming_smells.contract_reason(relative, text)
     embedded_numbers = code_smells.embedded_text_lines(text, language)
     code_lines = []
@@ -118,7 +118,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
         for url in code_smells.hardcoded_urls_in_line(line):
             findings["hardcoded_urls"].append({"path": relative, "line": number, "url": url, **tag})
 
-    # 파일 단위: 타입명, catch 처리, 린트 끄기, 운영에 섞인 테스트 코드
+    # Per file: type name, catch handling, lint disables, test code mixed into production
     mismatched_type = naming_smells.file_type_name_mismatch(relative, language, text)
     if mismatched_type:
         findings["file_type_mismatch"].append({"path": relative, "first_type": mismatched_type, **tag})
@@ -135,7 +135,7 @@ def _collect_file(relative: str, language: str, text: str, origin: str, findings
 
 
 def _collect_names(relative, language, line, number, lines, contract, findings, tag):
-    """boolean·약어·뜻 없는 이름 (override 자리는 빼고, 계약 파일은 contract 태그)"""
+    """Boolean, abbreviated and meaningless names (overrides skipped, contract files tagged contract)"""
     is_override = naming_smells.is_override_context("\n".join(lines[max(0, number - 3):number - 1]) + line)
     contract_tag = {"contract": contract} if contract else {}
     if not is_override:

@@ -1,4 +1,4 @@
-"""get-output-path: 이 프로젝트에서 새 덱을 둘 기본 자리"""
+"""get-output-path: default place for a new deck in this project"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,7 +9,7 @@ from pro_presentation.settings import SKILL_ID
 
 
 def cmd_output_path(args) -> int:
-    """산출물 루트 아래 presentation/<날짜_번호_제목>/ (덱이 스스로 .gitignore 를 들고 다닌다)"""
+    """presentation/<date_number_title>/ under the output root (the deck carries its own .gitignore)"""
     try:
         from common.paths import resolve_output_path
     except ImportError:

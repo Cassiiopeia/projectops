@@ -1,5 +1,5 @@
 <!doctype html>
-<!-- pro-ui-design 보드 템플릿. ui_design_cli.py board 가 제목·목차·섹션 자리표시를 채운다. -->
+<!-- pro-ui-design board template. ui_design_cli.py board fills the title, table of contents and section placeholders. -->
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -32,9 +32,9 @@
   figure.zoom img { max-width: 100%; image-rendering: pixelated; }
   .alt figure { max-width: 100%; }
   .alt figure img { max-width: 100%; }
-  /* 상태 표 안의 그림은 섬네일 — 전체 크기로 넣으면 한 장이 세로 1만 px 을 넘는다 (실측) */
+  /* Images in the state table are thumbnails — at full size one page exceeds 10,000px tall (observed) */
   td figure img { max-width: 170px; max-height: 360px; }
-  /* 한글·전각은 두 칸으로 고정한다 — 글꼴이 정확히 두 배 폭으로 그리지 않아 오른쪽 선이 어긋난다 (실측) */
+  /* Fix Hangul and full-width at two columns — fonts do not draw exactly double width, so the right border drifts (observed) */
   pre.ascii .w { display: inline-block; width: 2ch; text-align: center; }
   .alt pre.ascii { font-size: 11px; }
   figcaption { margin-top: 6px; font-size: 13px; color: var(--sub); text-align: center; }
@@ -49,7 +49,7 @@
   .tag.none { background: #ffe3e3; color: var(--missing); }
   .tag.rec { background: var(--accent); color: #fff; }
   .tag.legal { background: #e9ecef; color: #495057; }
-  /* 캡처 출처 — 렌더는 연출이지 사실의 근거가 아니다 (#636) */
+  /* Capture source — a render is staging, not evidence of fact (#636) */
   .tag.src-render { background: #f3d9fa; color: #862e9c; }
   .tag.src-device { background: #d0ebff; color: #1864ab; }
   .tag.src-server { background: #c3fae8; color: #087f5b; }
@@ -70,7 +70,7 @@
 <!--SECTIONS-->
 </main>
 <script>
-  // 탭: 주제 하나만 보거나 전체를 본다. PNG 는 섹션마다 따로 찍으므로 이 상태와 무관하다.
+  // Tabs: show one topic or all. PNGs are captured per section, so this state does not affect them.
   document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
     const want = b.dataset.show;
     document.querySelectorAll('nav button').forEach((x) => x.setAttribute('aria-pressed', x === b));

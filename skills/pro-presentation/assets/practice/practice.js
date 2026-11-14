@@ -1,12 +1,12 @@
-// 연습 화면: 덱 읽기 > 장 그리기 > 고친 대본·메모 저장 > 덱 파일이 바뀌면 다시 그리기
-// 슬라이드 본체 · 썸네일은 slides.js, 흐름 보기는 flow.js (뒤에 읽히는 파일의 함수를 실행 때 부름)
+// Practice screen: read deck > draw slide > save edited script/notes > redraw when deck files change
+// Slide body · thumbnails in slides.js, flow view in flow.js (functions from files loaded later are called at run time)
 "use strict";
 
 const VERSION_CHECK_MILLISECONDS = 2000;
-// 분리 창 주소 ?view=slide|script|notes (popout.js): 그 부분만 보이는 창, 크게 보기 없음
+// Pop-out window URL ?view=slide|script|notes (popout.js): a window showing only that part, no large view
 const VIEW_NAME = new URLSearchParams(location.search).get("view");
 const SLIDE_WIDTH_PIXELS = 1920;
-// 에이전트용 카드 (화면에 안 보임): 장 제목 · 가져온 원본 글 · 다시 지을 표시
+// Agent cards (not shown on screen): slide title · imported source text · rebuild marker
 const HIDDEN_NOTE_TITLES = new Set(["title", "original text", "rebuild"]);
 const ENGLISH_TEXT = {
   estimate: "Script estimate", start: "Start", pause: "Pause", reset: "Reset", big: "Big view", small: "Normal view",
@@ -16,7 +16,7 @@ const ENGLISH_TEXT = {
   next_slide: "Next", last_slide: "Last slide", about: "about", seconds: "s", recorded: "recorded",
   saved: "Saved", save_failed: "Save failed", changed_on_disk: "The file changed on disk, reloaded",
   missing_slide: "This slide has no slide.html or picture",
-  // 카드 제목에 이 말이 있으면 주의 카드 색 (| 로 구분, 언어 사전이 덧붙임)
+  // Card titles containing these words get the warning card color (| separated, extended by the language dictionary)
   warn_card_words: "caution|warning|recording",
   flow: "Flow", flow_help: "Drag a slide to change the order. Click one to open it.", close_flow: "Back to practice",
   record: "Record", stop_recording: "Stop", recording_saving: "Saving the recording...", recording_saved: "Recording saved",
@@ -59,7 +59,7 @@ function applyStaticText() {
   elements.deckTitle.textContent = deck.title;
 }
 
-// 녹화: 이 장 구간의 줄
+// Recording: lines in this slide's range
 function recordingSegment(slide) {
   const recording = deck.recordings[selectedRecordingIndex];
   const range = recording?.ranges[slide.id];
@@ -87,7 +87,7 @@ function renderList(container, items) {
   container.replaceChildren(...items.map((item) => createElement("li", { textContent: item })));
 }
 
-// notes.md 카드: '- ' 줄은 목록, 나머지는 문단
+// notes.md card: '- ' lines are a list, the rest are paragraphs
 function renderNoteCard(note) {
   const card = createElement("div", { className: `card${new RegExp(text.warn_card_words, "i").test(note.title) ? " warn" : ""}` });
   card.append(createElement("h2", { textContent: note.title }));
@@ -164,7 +164,7 @@ function showSlide(index) {
   window.dispatchEvent(new CustomEvent("slide-shown", { detail: slide.id }));
 }
 
-// 녹화 목록: 개수가 바뀌면 (연습 화면 녹음 · recording add) 다시 채우고 최신 녹화 선택
+// Recording list: when the count changes (practice screen recording · recording add), refill and select the newest
 function refreshRecordingSelect() {
   if (elements.recordingSelect.options.length === deck.recordings.length) return;
   selectedRecordingIndex = deck.recordings.length - 1;
@@ -181,7 +181,7 @@ async function fetchDeck() {
   deck = await response.json();
 }
 
-// 저장: 칸을 떠날 때. 읽은 뒤 파일이 바뀌었으면 서버가 409 > 다시 읽음
+// Save: when leaving a field. If the file changed since it was read, the server returns 409 > reload
 async function saveSlideFile(file, value) {
   const slide = deck.slides[currentIndex];
   const original = file === "script" ? slide.script : slide.memo;
@@ -207,7 +207,7 @@ elements.recordingSelect.addEventListener("change", () => {
   showSlide(currentIndex);
 });
 
-// 키: 장 이동 · F 전체 화면 (한글 입력 상태에서도 물리 키 code 기준)
+// Keys: slide navigation · F fullscreen (uses physical key code, works with Korean IME on)
 const toggleFullscreen = () => document.fullscreenElement ? document.exitFullscreen() : document.querySelector(".stage").requestFullscreen();
 document.addEventListener("keydown", (event) => {
   if (isEditing()) return;
@@ -234,7 +234,7 @@ elements.modeToggle.addEventListener("click", () => {
   requestAnimationFrame(fitSlideFrame);
 });
 
-// 타이머: 제한시간이 있으면 넘을 때 빨강
+// Timer: turns red past the time limit, if one is set
 let timerStartedAt = null;
 let timerElapsedMilliseconds = 0;
 const readElapsedSeconds = () => Math.floor((timerElapsedMilliseconds + (timerStartedAt ? Date.now() - timerStartedAt : 0)) / 1000);
@@ -253,7 +253,7 @@ elements.timerReset.addEventListener("click", () => {
   elements.timerToggle.textContent = text.start;
 });
 
-// 자동 다시 그리기: 덱 파일이 바뀌면 (입력 중이면 미룸). 가려진 창은 묻지 않고, 다시 보일 때 바로 확인
+// Auto redraw: when deck files change (deferred while typing). Hidden windows do not poll; check right away when visible again
 async function checkDeckVersion() {
   if (document.hidden) return;
   try {
@@ -263,7 +263,7 @@ async function checkDeckVersion() {
       await fetchDeck();
       showSlide(currentIndex);
     }
-  } catch { /* 서버가 잠시 없음: 다음 주기에 다시 */ }
+  } catch { /* Server briefly unavailable: retry next cycle */ }
 }
 async function watchDeckVersion() {
   await checkDeckVersion();

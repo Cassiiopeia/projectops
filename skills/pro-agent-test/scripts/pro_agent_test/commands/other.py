@@ -1,4 +1,4 @@
-"""other: 앱·웹·서버가 아닌 것 밟기 (실행 · 파일 변화 · 두 번 실행 비교)"""
+"""other: drive things that are not an app, web or server (run · file changes · compare two runs)"""
 from __future__ import annotations
 
 import hashlib
@@ -15,38 +15,38 @@ from pro_agent_test.storage import _expand, _resolve_scenario, _scenario_dir
 
 
 # =========================================================================
-# other — 앱·웹·서버가 아닌 것을 밟는다
+# other — drive things that are not an app, web or server
 #
-# CI 워크플로·CLI 툴·라이브러리·템플릿·배치. 종류를 열거하지 않는다 — 열거하면
-# 목록에 없는 것은 또 못 한다.
+# CI workflows, CLI tools, libraries, templates, batch jobs. Kinds are not enumerated — an enumeration
+# would again fail on anything not listed.
 #
-# **무엇을 돌릴지와 무엇이 맞는지는 agent 가 정한다.** 여기서 하는 일은 셋뿐이다.
-#   ① 돌리고 종료코드·출력을 돌려준다
-#   ② 실행 전후 **파일 변화**를 보여준다 — 사람은 출력만 보고 부작용을 놓친다
-#   ③ 두 번 돌려 같은지 본다 — 멱등은 중요한데 손으로는 거의 안 해본다
+# **The agent decides what to run and what counts as correct.** This does only three things.
+#   ① run it and return the exit code and output
+#   ② show **file changes** before and after the run — people miss side effects reading only output
+#   ③ run it twice and check the result is the same — idempotence matters but is rarely tried by hand
 # =========================================================================
 
-# 파일 목록을 뜰 때 건너뛸 것. 이것을 세면 느리기만 하고 알려주는 것이 없다.
+# Skip these when listing files. Counting them is slow and tells nothing.
 _SNAP_SKIP = {".git", "node_modules", ".venv", "venv", "__pycache__",
               ".gradle", "build", "dist", ".next", ".dart_tool", "Pods"}
-_SNAP_MAX = 20000          # 이보다 많으면 관찰을 포기하고 그 사실을 알린다
+_SNAP_MAX = 20000          # beyond this, give up observing and report that fact
 
 
 def _fingerprint(f: Path, digest: bool) -> tuple:
-    """파일 한 개의 지문.
+    """Fingerprint of one file.
 
-    **두 가지 다른 질문에 같은 기준을 쓰면 안 된다** (실측으로 겪었다).
+    **Two different questions must not use the same criterion** (learned by measurement).
 
-      "이 명령이 무엇을 건드렸나"  → 수정시각. 덮어썼으면 건드린 것이다.
-      "두 번 돌려도 상태가 같은가"  → **내용**. 덮어써도 내용이 같으면 멱등이다.
+      "what did this command touch"  → mtime. If it was overwritten, it was touched.
+      "is the state the same after two runs"  → **content**. Overwritten with the same content is idempotent.
 
-    앞의 것은 stat 만으로 충분하고(싸다), 뒤의 것은 내용을 읽어야 한다(비싸다).
-    그래서 내용 해시는 `--twice` 일 때만 뜬다.
+    The first needs only stat (cheap); the second must read content (expensive).
+    So the content hash is taken only with `--twice`.
     """
     st = f.stat()
     if not digest:
-        # 나노초까지 본다. 초 단위로 보면 같은 초에 같은 크기로 바뀐 파일을 놓친다
-        # — 실측으로 겪었다 ("old" → "new" 가 안 잡혔다).
+        # Look down to nanoseconds. Seconds miss a file changed in the same second to the same size
+        # — learned by measurement ("old" → "new" was not caught).
         return (st.st_size, st.st_mtime_ns)
     h = hashlib.sha256()
     with f.open("rb") as fh:
@@ -56,7 +56,7 @@ def _fingerprint(f: Path, digest: bool) -> tuple:
 
 
 def _snapshot(paths: list[Path], digest: bool = False) -> tuple[dict, str | None]:
-    """경로별 파일 상태. 너무 많으면 (부분, 경고)를 돌려준다."""
+    """File state per path. If there are too many, return (partial, warning)."""
     seen: dict[str, tuple] = {}
     for base in paths:
         if not base.exists():
@@ -108,7 +108,7 @@ def _exec_once(command: str, cwd: Path, env: dict, timeout: int) -> dict:
 
 
 def _judge(step: dict, run: dict, cwd: Path) -> list[str]:
-    """기대 결과와 대조한다. 조건을 주지 않았으면 아무 말도 하지 않는다."""
+    """Compare with expected results. Says nothing if no condition was given."""
     bad: list[str] = []
     if run["timed_out"]:
         return ["did not finish within the time limit"]
@@ -122,7 +122,7 @@ def _judge(step: dict, run: dict, cwd: Path) -> list[str]:
         if want_out not in (run["stdout"] + run["stderr"]):
             bad.append(f"output does not contain '{want_out}'")
 
-    # 존재 여부는 **실행 뒤** 기준이다. 변화가 아니다 — 변화는 files 를 본다.
+    # Existence is judged **after the run**, not as a change — changes are in files.
     want_file = step.get("expect_file")
     if want_file and not (cwd / want_file).exists():
         bad.append(f"'{want_file}' was not created")
@@ -156,31 +156,31 @@ def _run_other_step(step: dict, root: Path, cwd: Path, watch: list[Path],
     problems = _judge(step, run, cwd)
 
     if twice and not run["timed_out"]:
-        # 멱등은 **내용** 기준이다. 1회차 뒤 상태를 내용으로 떠 둔다.
+        # Idempotence is judged by **content**. Snapshot content after the first run.
         content1, _ = (_snapshot(watch, digest=True) if watch else ({}, None))
         run2 = _exec_once(step["do"], cwd, env, timeout)
         content2, _ = (_snapshot(watch, digest=True) if watch else ({}, None))
 
-        # **멱등은 "한 번 더 돌려도 상태가 그대로"다.** 변화 목록끼리 비교하면 안 된다 —
-        # 1회차는 파일을 만들고(created) 2회차는 덮어쓰므로(modified) 목록은 당연히
-        # 다르고, 그래도 결과 상태는 같을 수 있다. 실측으로 오판을 겪어 고쳤다.
+        # **Idempotent means "one more run leaves the state unchanged".** Do not compare change lists —
+        # run 1 creates files (created) and run 2 overwrites them (modified), so the lists naturally
+        # differ while the resulting state may be the same. Fixed after a measured misjudgement.
         settled = (content1 == content2) if watch else None
         out["second_run"] = {
             "exit_code": run2["exit_code"],
             "same_exit": run2["exit_code"] == run["exit_code"],
             "same_stdout": run2["stdout"] == run["stdout"],
-            "settled": settled,          # 두 번째 실행 뒤 내용이 그대로인가
+            "settled": settled,          # is content unchanged after the second run
             "changed_again": (_diff_snapshot(content1, content2, root) if watch else None),
         }
-        # 멱등이 깨진 것이 곧 결함은 아니다 — 로그·타임스탬프가 섞였을 수도 있다.
-        # 판단은 agent 가 한다. 여기서는 "달랐다"는 사실만 올린다.
+        # Broken idempotence is not automatically a defect — logs or timestamps may be mixed in.
+        # The agent judges. Here only the fact "it differed" is reported.
         if run2["exit_code"] != run["exit_code"]:
             problems.append(f"the second run's exit code differs ({run['exit_code']} → {run2['exit_code']})")
         elif settled is False:
             d = out["second_run"]["changed_again"]["counts"]
-            # **단정하지 않는다.** 실측해 보니 세 건 다 타임스탬프와 append-only 로그
-            # 때문이었다. 매번 "멱등이 아니다"라고 외치면 사람이 곧 무시하게 된다.
-            # 사실만 올리고 어디를 보면 되는지 알려준다 — 판단은 agent 가 한다.
+            # **Do not assert.** Measured: all three cases were timestamps and append-only logs.
+            # Shouting "not idempotent" every time makes people ignore it soon.
+            # Report only the facts and where to look — the agent judges.
             problems.append(
                 f"the state changed again on the second run (created {d['created']} · modified {d['modified']} "
                 f"· deleted {d['deleted']}) — open the files in second_run.changed_again and see "
@@ -192,7 +192,7 @@ def _run_other_step(step: dict, root: Path, cwd: Path, watch: list[Path],
 
 
 def cmd_other(args) -> int:
-    """명령을 돌리고, 무엇이 만들어졌는지까지 함께 본다."""
+    """Run the command and also see what it produced."""
     root = Path(args.root).resolve()
     cwd = Path(args.cwd).resolve() if args.cwd else root
     if not cwd.is_dir():
@@ -208,8 +208,8 @@ def cmd_other(args) -> int:
 
     watch = [Path(w) if Path(w).is_absolute() else (cwd / w) for w in (args.watch or [])]
 
-    # ── 시나리오를 밟는 경우: 화면을 보고 판단할 것이 없으므로 한 번에 끝까지 간다
-    #    (server 타겟과 같은 이유. 앞이 실패하면 뒤는 밟지 않는다 — 진짜 원인이 묻힌다)
+    # ── Driving a scenario: nothing to judge from a screen, so go to the end in one call
+    #    (same reason as the server target. If an earlier step fails, later ones are skipped — the real cause would be buried)
     if args.name:
         d = _scenario_dir(root)
         f = _resolve_scenario(d, args.name)
@@ -250,7 +250,7 @@ def cmd_other(args) -> int:
                      "read stderr_tail and files to pin down the cause"),
         })
 
-    # ── 한 번만 돌리는 경우
+    # ── Single run
     if not args.command:
         return emit({"ok": False, "code": "args_required",
                      "error": "one of --command or --name is required",

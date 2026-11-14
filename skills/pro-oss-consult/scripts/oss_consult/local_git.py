@@ -1,4 +1,4 @@
-"""로컬 clone 의 안전한 git 호출·파일 읽기: 악성 .git/config 차단, 심볼릭 링크·레포 밖·상한 초과 건너뜀
+"""Safe git calls and file reads on a local clone: blocks a malicious .git/config, skips symlinks, paths outside the repo and anything over the caps
 """
 from __future__ import annotations
 
@@ -8,14 +8,14 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-# 한 번에 읽는 총량 상한 — 대형 모노레포에서 메모리·시간이 터지지 않게
+# Cap on total bytes read at once — keeps a large monorepo from blowing up memory and time
 MAX_TOTAL_BYTES = 50 * 1024 * 1024
 MAX_SOURCE_FILES = 20000
 _SOURCE_MAX_BYTES = 300_000
 _MANIFEST_MAX_BYTES = 1_000_000
 
 
-# 악성 레포의 .git/config 가 git 호출만으로 명령을 실행하지 못하게 막는다 (core.fsmonitor 가 ls-files 에서 실행됨 — 재현됨)
+# Keep a malicious repo's .git/config from running commands through a mere git call (core.fsmonitor runs on ls-files — reproduced)
 _GIT_SAFE = ["-c", "core.fsmonitor=false", "-c", f"core.hooksPath={os.devnull}", "-c", "core.pager=cat",
              "-c", "core.quotepath=false", "-c", "protocol.ext.allow=never", "-c", "core.untrackedCache=false"]
 
@@ -29,7 +29,7 @@ def _git_env() -> dict:
 
 
 def _git_raw(root: Path, *args: str, timeout: int = 60) -> tuple[int, str, str]:
-    """(returncode, stdout, stderr). 실패와 '결과 없음'을 구분하려고 코드를 그대로 돌려준다."""
+    """(returncode, stdout, stderr). The code is returned as is to tell failure apart from 'no results'."""
     try:
         r = subprocess.run(["git", *_GIT_SAFE, "-C", str(root), *args], capture_output=True, text=True,
                            encoding="utf-8", errors="replace", env=_git_env(), timeout=timeout)
@@ -44,7 +44,7 @@ def _git(root: Path, *args: str) -> str:
 
 
 class _Budget:
-    """읽기 총량·파일 수 상한과 건너뛴 이유 집계."""
+    """Caps on total bytes and file count read, plus tallies of skip reasons."""
 
     def __init__(self, max_bytes: int = MAX_TOTAL_BYTES, max_files: int = MAX_SOURCE_FILES):
         self.max_bytes, self.max_files = max_bytes, max_files
@@ -56,7 +56,7 @@ class _Budget:
 
 
 def _safe_read(root: Path, rel: str, limit: int, budget: _Budget) -> str | None:
-    """추적된 파일을 안전하게 읽는다: 심볼릭 링크·레포 밖·일반 파일 아님·너무 큼·총량 초과는 건너뛴다."""
+    """Read tracked files safely: skip symlinks, paths outside the repo, non-regular files, files too large and anything over the total cap."""
     fp = root / rel
     try:
         st = os.lstat(fp)
@@ -72,7 +72,7 @@ def _safe_read(root: Path, rel: str, limit: int, budget: _Budget) -> str | None:
         budget.skipped["too_large"] += 1
         return None
     try:
-        fp.resolve().relative_to(root)  # 중간 경로가 링크여서 밖으로 나가는 경우까지 막는다
+        fp.resolve().relative_to(root)  # also blocks escaping the repo through a symlinked parent path
     except ValueError:
         budget.skipped["outside_root"] += 1
         return None
@@ -93,7 +93,7 @@ def _safe_read(root: Path, rel: str, limit: int, budget: _Budget) -> str | None:
 
 
 def _gitfile_target(root: Path) -> tuple[bool, str | None]:
-    """`.git` 이 파일(worktree·submodule)이면 가리키는 gitdir 이 실재하는 git 디렉터리인지 본다."""
+    """When `.git` is a file (worktree·submodule), check that the gitdir it points to is a real git directory."""
     gp = root / ".git"
     if not gp.is_file():
         return True, None

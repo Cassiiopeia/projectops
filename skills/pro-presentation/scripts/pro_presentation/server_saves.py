@@ -1,5 +1,5 @@
-"""연습 화면 서버의 쓰기 요청: 대본 · 메모 저장, 장 순서, 배치, 녹음 받기, 서버 끄기
-RequestHandler 가 섞어 쓰는 묶음 (server.py). 접근 검사 · 응답 함수는 RequestHandler 쪽
+"""Practice screen server write requests: save script/notes, slide order, layout, receive recordings, shut down
+Mixin used by RequestHandler (server.py). Access checks and response helpers live in RequestHandler
 """
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from pro_presentation.recording_marks import RECORDING_EXTENSIONS, parse_marks, 
 from pro_presentation.settings import DECK_FILE_NAME, SAVABLE_FILES, SLIDES_DIR_NAME, STATE_DIR_NAME
 
 MAX_SAVE_BYTES = 512 * 1024
-# 연습 화면 녹음 최대 크기 (300MB, opus 기준 몇 시간) · 장 넘긴 시각을 담는 헤더 (encodeURIComponent JSON)
+# Max practice recording size (300MB, several hours of opus) · header carrying slide change times (encodeURIComponent JSON)
 MAX_RECORDING_BYTES = 300 * 1024 * 1024
 RECORDING_COPY_CHUNK_BYTES = 1024 * 1024
 MARKS_HEADER = "X-Recording-Marks"
 
 
 class SaveHandlers:
-    def do_POST(self):  # noqa: N802  (표준 라이브러리 서명)
+    def do_POST(self):  # noqa: N802  (stdlib signature)
         parsed = urllib.parse.urlsplit(self.path)
         if not self._check_access(urllib.parse.parse_qs(parsed.query)):
             return None
@@ -40,7 +40,7 @@ class SaveHandlers:
         return self._respond(404, b"not found")
 
     def _read_json_request(self) -> dict | None:
-        """JSON 본문 읽기 (크기 · 형식 오류는 여기서 응답하고 None)"""
+        """Read JSON body (size/format errors are answered here and return None)"""
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0 or length > MAX_SAVE_BYTES:
             self._respond_json({"code": "bad_size"}, 413)
@@ -55,7 +55,7 @@ class SaveHandlers:
         return request
 
     def _save_slide_file(self) -> None:
-        """브라우저 고침 > 장 파일. 읽은 뒤 파일이 바뀌었으면 덮어쓰지 않음 (409)"""
+        """Browser edit > slide file. Not overwritten if the file changed since it was read (409)"""
         request = self._read_json_request()
         if request is None:
             return None
@@ -76,7 +76,7 @@ class SaveHandlers:
         return self._respond_json({"code": "saved", "version": self.server.current_version(is_fresh=True)})
 
     def _save_slide_order(self) -> None:
-        """흐름 보기에서 끈 순서 > deck.json slides (같은 장 집합일 때만, 종류 유지)"""
+        """Order dragged in flow view > deck.json slides (only for the same slide set, kinds kept)"""
         request = self._read_json_request()
         if request is None:
             return None
@@ -97,7 +97,7 @@ class SaveHandlers:
         return self._respond_json({"code": "saved", "version": self.server.current_version(is_fresh=True)})
 
     def _save_recording(self, query: dict) -> None:
-        """연습 화면 녹음 > recordings/<label>/: 검증(형식·크기·장 시각) > 상태 폴더에 받기 > 녹음 폴더로 이동"""
+        """Practice screen recording > recordings/<label>/: validate (format, size, slide times) > receive into state folder > move to recording folder"""
         extension = (query.get("ext") or [""])[0]
         length = int(self.headers.get("Content-Length") or 0)
         if extension not in RECORDING_EXTENSIONS:
@@ -108,7 +108,7 @@ class SaveHandlers:
             marks, duration_seconds = parse_marks(urllib.parse.unquote(self.headers.get(MARKS_HEADER) or ""))
         except (ValueError, KeyError, TypeError):
             return self._respond_json({"code": "bad_marks"}, 400)
-        # 받는 중 파일은 상태 폴더에 (버전 계산·화면 다시 그리기에서 빠짐)
+        # In-progress uploads go in the state folder (excluded from version calculation and redraws)
         state_dir = self.server.deck_dir / STATE_DIR_NAME
         state_dir.mkdir(parents=True, exist_ok=True)
         incoming = state_dir / f"incoming-{secrets.token_hex(4)}.{extension}"
@@ -123,5 +123,5 @@ class SaveHandlers:
                     remaining -= len(chunk)
             saved = save_page_recording(self.server.deck_dir, extension, incoming, marks, duration_seconds)
         finally:
-            incoming.unlink(missing_ok=True)  # (성공·실패 공통: 이동했으면 이미 없음)
+            incoming.unlink(missing_ok=True)  # (success and failure alike: already gone if moved)
         return self._respond_json({"code": "saved", **saved, "version": self.server.current_version(is_fresh=True)})

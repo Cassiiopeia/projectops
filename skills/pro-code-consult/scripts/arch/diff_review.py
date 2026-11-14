@@ -1,6 +1,6 @@
-"""diff: 변경분만 검사 > 낡은 주석 의심, 새 주석 문제, 기존 주석 고쳐 쓰기, 새 정의의 재사용 후보, 새 이름 문제
+"""diff: check only the changes > suspected stale comments, new comment issues, rewritten existing comments, reuse candidates for new definitions, new naming issues
 
-비교 대상: --base 커밋 <-> 작업 트리 (스테이징·미스테이징·추적 안 된 새 파일 포함)
+Compares: --base commit <-> working tree (staged, unstaged and untracked new files included)
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from .source_files import (classify_lines, comment_blocks, is_generated_file, it
                            language_of, split_identifier_words)
 
 HUNK_HEADER_PATTERN = re.compile(r"^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@")
-# 정의 줄 (함수·메서드·클래스) — 언어별, 이름은 첫 번째 잡힌 그룹
+# Definition lines (function, method, class) — per language; the name is the first captured group
 DEFINITION_PATTERNS = {
     "python": re.compile(r"^\s*(?:async\s+)?def\s+(\w+)|^\s*class\s+(\w+)"),
     "javascript": re.compile(
@@ -29,9 +29,9 @@ DEFINITION_PATTERNS = {
 DEFINITION_PATTERNS["typescript"] = DEFINITION_PATTERNS["javascript"]
 for _language in ("dart", "java", "kotlin"):
     DEFINITION_PATTERNS[_language] = DEFINITION_PATTERNS["slash_typed"]
-# 낡은 주석 탐색: 변경 줄 바로 위 이 줄 수 안의 주석 블록
+# Stale comment search: comment blocks within this many lines above a changed line
 STALE_COMMENT_LOOKBACK_LINES = 3
-# 재사용 후보: 이름 단어 겹침 비율 (Jaccard) 이 이상, 후보 최대 3개
+# Reuse candidates: name-word overlap ratio (Jaccard) at least this, up to 3 candidates
 REUSE_SIMILARITY_THRESHOLD = 0.5
 REUSE_CANDIDATE_LIMIT = 3
 
@@ -56,14 +56,14 @@ def review_diff(root: Path, base: str, limit: int) -> dict:
         changed_code = sorted(n for n in added_lines if n not in comment_line_numbers)
         lines = text.splitlines()
 
-        # 낡은 주석·고쳐 쓴 주석은 기존 파일만 (새 파일은 모든 줄이 추가라 의미 없음)
+        # Stale and rewritten comments only for existing files (every line of a new file is an addition)
         is_new_file = not removed_texts and len(added_lines) >= len(lines)
         if not is_new_file:
             report["stale_comment_suspects"] += _stale_comments(relative, classified, added_lines, changed_code, language, lines)
             report["rewritten_existing_comments"] += _rewritten_comments(relative, classified, added_lines, removed_texts, changed_code)
         report["added_comment_problems"] += _added_comment_problems(relative, classified, added_lines)
 
-        # 새 정의 > 재사용 후보 (색인은 처음 필요할 때 한 번만)
+        # New definitions > reuse candidates (index built once, on first need)
         removed_names = {_definition_name(t, language) for t in removed_texts} - {None}
         for number in added_lines:
             name = _definition_name(lines[number - 1], language)
@@ -89,7 +89,7 @@ def review_diff(root: Path, base: str, limit: int) -> dict:
 
 
 def _changed_files(root: Path, base: str):
-    """[(상대경로, 추가된 새 줄 번호 집합, 삭제된 줄 원문 목록)] — 실패 시 None"""
+    """[(relative path, set of added line numbers, list of removed line texts)] — None on failure"""
     try:
         diff = subprocess.run(["git", "-C", str(root), "diff", "--no-color", "--relative", "--unified=0", base, "--", "."],
                               capture_output=True, text=True, encoding="utf-8", errors="replace", check=True).stdout
@@ -121,7 +121,7 @@ def _changed_files(root: Path, base: str):
 
 
 def _stale_comments(relative, classified, added_lines, changed_code, language, lines):
-    """바뀐 코드 바로 위 주석 블록, 바뀐 본문을 감싼 정의의 문서 주석 — 둘 다 그대로면 의심"""
+    """Comment block right above changed code, and the doc comment of the definition wrapping the changed body — suspect if left unchanged"""
     suspects, reported = [], set()
     blocks = [(start, length, content) for start, length, content in comment_blocks(classified)]
     block_ending_at = {start + length - 1: (start, length, content) for start, length, content in blocks}
@@ -173,7 +173,7 @@ def _added_comment_problems(relative, classified, added_lines):
 
 
 def _rewritten_comments(relative, classified, added_lines, removed_texts, changed_code):
-    """주석만 바뀌고 주변 코드는 그대로인 블록 (건드리지 않은 코드의 주석을 고쳐 쓰지 않는다 — §7.6)"""
+    """Blocks where only the comment changed and nearby code did not (do not rewrite comments on untouched code — §7.6)"""
     removed_comments = [t.strip() for t in removed_texts if t.strip().startswith(("//", "#", "/*", "*", '"""'))]
     if not removed_comments:
         return []
@@ -182,7 +182,7 @@ def _rewritten_comments(relative, classified, added_lines, removed_texts, change
         block_lines = range(start, start + length)
         if not any(n in added_lines for n in block_lines):
             continue
-        # 주석 블록 바로 위·아래 줄의 코드가 바뀌었으면 그 코드에 딸린 주석 수정 (정상)
+        # If code right above or below the comment block changed, it is a comment edit for that code (normal)
         if any(start - 1 <= n <= start + length for n in changed_code):
             continue
         rewritten.append({"path": relative, "line": start, "comment": " / ".join(content)[:200]})

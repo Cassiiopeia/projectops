@@ -1,4 +1,4 @@
-"""detect: pro-launch detect 결과 + 확인해 적어 둔 타겟(note target)"""
+"""detect: pro-launch detect result + confirmed targets (note target)"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,11 +13,11 @@ from pro_agent_test.storage import _home_dir
 
 
 # =========================================================================
-# detect — 띄울 수 있는 것(pro-launch) + 확인해 적어 둔 것(note target)
+# detect — what can be launched (pro-launch) + what was confirmed and recorded (note target)
 # =========================================================================
 
 def _recorded_targets(root: Path) -> dict | None:
-    """agent가 코드를 보고 확인해 적어 둔 것. 선언보다 이쪽을 믿는다."""
+    """What the agent confirmed from the code and recorded. Trusted over declarations."""
     notes, _ = _load_notes(root)
     rec = notes.get("targets")
     if not isinstance(rec, dict):
@@ -27,9 +27,9 @@ def _recorded_targets(root: Path) -> dict | None:
 
 
 def cmd_detect(args) -> int:
-    """무엇을 밟을 수 있는지. 판정 순서: ① --target ② note target ③ version.yml ④ 마커 파일.
+    """What can be driven. Decision order: ① --target ② note target ③ version.yml ④ marker files.
 
-    ③④ 와 기기·브라우저 정보는 pro-launch 가 준다. 여기서는 QA 가 확인해 적어 둔 것만 얹는다.
+    ③④ and device/browser info come from pro-launch. Here only what QA confirmed and recorded is added.
     """
     start = Path(args.path).resolve()
     data, raw, _ = _launch(["detect", "--path", str(start)])
@@ -50,8 +50,8 @@ def cmd_detect(args) -> int:
                          "hint": f"one of {'·'.join(TARGETS)}"})
         targets = [args.target]
 
-    # 감지와 다른 타겟으로 정해졌으면 그 타겟의 정보(기기·브라우저·접속)를 다시 모은다.
-    # 안 그러면 "web 을 밟는다"고 적어 두고도 브라우저 준비 상태를 못 본다.
+    # If a target different from detection was chosen, collect that target's info (device, browser, access) again.
+    # Otherwise it records "drive web" yet never sees whether the browser is ready.
     launchable = [t for t in targets if t in ("app", "web", "server")]
     if launchable and set(launchable) != set(data.get("kinds") or []):
         again, _, _ = _launch(["detect", "--path", str(start), "--kinds", ",".join(launchable)])
@@ -63,11 +63,11 @@ def cmd_detect(args) -> int:
     payload.update({"targets": targets, "target_source": source,
                     "knowledge_dir": str(_home_dir(root))})
     if rec:
-        # 왜 그렇게 판단했는지를 함께 보여준다 — 다음에 이 기록이 맞는지 다시 볼 수 있어야 한다
+        # Show why it was decided too — the record must be re-checkable later
         payload["recorded_why"] = rec.get("why")
 
-    # version.yml 은 **무엇인가**를 선언할 뿐, 무엇을 밟을 수 있는지가 아니다 (#591).
-    # 서버가 화면을 직접 뿌리는 구조면 web 도 밟아야 한다 — 판단은 agent 의 일이다.
+    # version.yml only declares **what it is**, not what can be driven (#591).
+    # If the server renders the screen itself, web must be driven too — that call is the agent's.
     if source == "version.yml" and not getattr(args, "target", None):
         payload["confirm"] = {
             "why": ("These targets come from the version.yml declaration — they are not confirmed. "
@@ -88,7 +88,7 @@ def cmd_detect(args) -> int:
             nxt = "pro-launch devices  # no device. Boot an AVD or a simulator"
     if not nxt and "web" in targets and not ((payload.get("web") or {}).get("playwright") or {}).get("ready"):
         nxt = "pro-launch web setup  # walking web needs a browser (ask the user first)"
-    # 이 앱에서 알아낸 규칙·함정을 몇 건 싣는다 — note show 를 부르지 않아도 보이게 (#837)
+    # Include a few rules and pitfalls learned about this app — visible without calling note show (#837)
     mem = _surface(root, "detect:" + ",".join(targets),
                    " ".join([*targets, *(_TARGET_WORDS.get(t, "") for t in targets)]))
     if mem:

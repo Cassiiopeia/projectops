@@ -1,4 +1,4 @@
-"""assets: 내려받을 에셋 묶기 > 파일명 부여 > 목록"""
+"""assets: group assets to download > assign file names > list"""
 from __future__ import annotations
 
 import json
@@ -9,16 +9,16 @@ from figma_tools.dump_reader import _load_dump, _slug, _style_table, _walk
 
 
 def _download_plan(assets: list[dict]) -> dict:
-    """같은 그림을 여러 번 받지 않도록 묶고, 거부되지 않을 파일명을 붙인다.
+    """Group so the same image is not downloaded twice, and give file names that will not be rejected.
 
-    실측: 에셋 노드 609개 중 실제로 서로 다른 그림은 60여 개였다. 순진하게 훑으면
-    609번 내려받고 592개가 같은 파일명으로 **서로 덮어쓴다**.
+    Measured: of 609 asset nodes only about 60 were distinct images. A naive walk
+    downloads 609 times and 592 **overwrite each other** under the same file name.
     """
     groups: dict[tuple, dict] = {}
     for a in assets:
-        # 같은 컴포넌트를 꽂은 것이면 같은 그림이 **확실하다**. 그 외에는 이름이
-        # 같아도 다른 그림일 수 있어(Figma 기본 이름 'Vector' 가 대표적 —
-        # 실측 71개 중 48종이 서로 달랐다) 노드 전체가 똑같을 때만 묶는다.
+        # Instances of the same component are **certainly** the same image. Otherwise even the
+        # same name can be a different image (Figma's default name 'Vector' is the classic case —
+        # measured 48 distinct out of 71), so group only when the whole node is identical.
         key = (("c", a["component_id"]) if a.get("component_id")
                else ("p", json.dumps(a.get("image"), sort_keys=True), a["_print"]))
         hit = groups.get(key)
@@ -33,16 +33,16 @@ def _download_plan(assets: list[dict]) -> dict:
     taken: dict[str, int] = {}
     unique = []
     for item in groups.values():
-        # imageRef 가 붙은 것은 사진이라 png, 나머지 벡터는 svg 로 받는다
+        # Nodes with imageRef are photos, so png; other vectors are fetched as svg
         ext = "png" if item.get("image") else "svg"
         slug = item["slug"]
         taken[slug] = taken.get(slug, 0) + 1
-        if taken[slug] > 1:                      # 이름이 겹치면 번호를 붙여 구분
+        if taken[slug] > 1:                      # number duplicates to tell them apart
             slug = f"{slug}-{taken[slug]}"
         item["file_name"] = f"{slug}.{ext}"
         item.pop("slug", None)
-        item.pop("_print", None)          # 신원 판정용 내부 값 — 밖으로 내보내지 않는다
-        item["also"] = item["also"][:5]   # 같이 묶인 노드 몇 개만 (점검용)
+        item.pop("_print", None)          # internal identity value — not exposed
+        item["also"] = item["also"][:5]   # only a few grouped nodes (for review)
         unique.append(item)
 
     nodes = []
@@ -50,8 +50,8 @@ def _download_plan(assets: list[dict]) -> dict:
         entry = {"nodeId": item["node_id"], "fileName": item["file_name"]}
         img = item.get("image")
         if img:
-            # 사진은 imageRef 가 없으면 엉뚱한 게 온다. 자르기·크기 인자는
-            # 덤프가 알려준 대로만 넣는다 (기본값이면 넣지 않는다).
+            # Photos come back wrong without imageRef. Crop and size arguments
+            # go in only as the dump says (not added when default).
             entry["imageRef"] = img["imageRef"]
             if img.get("needsCropping"):
                 entry["needsCropping"] = True

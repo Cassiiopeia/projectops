@@ -1,1 +1,1 @@
-"""서브커맨드 구현 — 명령마다 cmd_* 하나. 파서는 진입 파일 e2e_cli.py 에 있다."""
+"""Subcommand implementations — one cmd_* per command. The parser is in the entry file e2e_cli.py."""

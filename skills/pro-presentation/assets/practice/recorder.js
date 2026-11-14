@@ -1,12 +1,12 @@
-// 연습 화면 녹음: 마이크만 녹음 > 장이 보일 때마다 시각 기록 > 멈추면 서버로 보내 recordings/<label>/ 에 저장
-// 받아쓰기는 하지 않음 (로컬 whisper: recording add --label). practice.js 의 전역(deck · text · elements · currentIndex)을 씀
+// Practice screen recording: mic only > log a timestamp each time a slide shows > on stop, send to the server and save under recordings/<label>/
+// No transcription here (local whisper: recording add --label). Uses practice.js globals (deck · text · elements · currentIndex)
 "use strict";
 
-// 브라우저가 고를 수 있는 녹음 형식 순서 (Chrome·Firefox webm, Safari mp4) > 서버 확장자
+// Recording formats the browser may pick, in order (Chrome/Firefox webm, Safari mp4) > server extension
 const RECORDING_FORMATS = [
   ["audio/webm;codecs=opus", "webm"], ["audio/webm", "webm"], ["audio/mp4", "mp4"], ["audio/ogg;codecs=opus", "ogg"],
 ];
-// 조각 단위 (1초): 멈출 때 마지막 조각까지 받기
+// Chunk size (1 second): receive up to the last chunk on stop
 const RECORDING_SLICE_MILLISECONDS = 1000;
 
 let mediaRecorder = null;
@@ -32,7 +32,7 @@ function setRecordStatus(message, isError = false) {
   elements.saveStatus.textContent = message;
 }
 
-// 시작: 마이크 권한 > 녹음기 > 지금 장을 0초로 기록
+// Start: mic permission > recorder > log the current slide as 0 seconds
 async function startRecording() {
   const format = pickRecordingFormat();
   if (!format) return setRecordStatus(text.record_unsupported, true);
@@ -56,7 +56,7 @@ async function startRecording() {
   renderRecordButton();
 }
 
-// 멈춤 > 업로드 (마이크 해제는 성공·실패 공통)
+// Stop > upload (mic release on success and failure alike)
 async function uploadRecording(stream) {
   const durationSeconds = recordingElapsedSeconds();
   stream.getTracks().forEach((track) => track.stop());
@@ -87,5 +87,5 @@ function renderRecordButton() {
 elements.recordToggle.addEventListener("click", () => (isRecording() ? mediaRecorder.stop() : startRecording()));
 window.addEventListener("slide-shown", (event) => markSlide(event.detail));
 setInterval(() => { if (isRecording()) renderRecordButton(); }, 500);
-// 녹음 중 페이지를 떠나면 확인 (녹음은 멈추기 전까지 서버에 없음)
+// Confirm before leaving the page while recording (the recording is not on the server until stopped)
 window.addEventListener("beforeunload", (event) => { if (isRecording()) event.preventDefault(); });

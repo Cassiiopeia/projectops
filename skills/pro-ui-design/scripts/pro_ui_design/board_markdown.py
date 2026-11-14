@@ -1,4 +1,4 @@
-"""보드 데이터 > markdown 요청서, 게시 전 점검(preflight)"""
+"""Board data > markdown request, pre-publish check (preflight)"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -7,12 +7,12 @@ from pro_ui_design.board_html import FACT_BASIS, REACHABLE_TAG, _STATUS_TAG
 
 
 def _c(v) -> str:
-    """markdown 표 칸 — `|` 가 들어오면 표가 깨진다."""
+    """markdown table cell — a `|` would break the table."""
     return ("" if v is None else str(v)).replace("|", "\\|").replace("\n", " ")
 
 
 def render_markdown(data: dict, png: list[str], out_dir: Path) -> str:
-    """markdown 출력 — PNG 폴더와 함께 넘긴다. 표는 보드와 같은 데이터에서 나온다."""
+    """markdown output — handed over with the PNG folder. Tables come from the same data as the board."""
     s = data.get("summary") or {}
     lines = [f"# {data.get('title') or 'Design request'}", "",
              "> This is material to think with, not the answer. Feel free to change any alternative, copy or element.", ""]
@@ -52,13 +52,13 @@ def render_markdown(data: dict, png: list[str], out_dir: Path) -> str:
 
 
 def preflight(data: dict) -> list[str]:
-    """게시 전에 걸러야 할 것. 판단은 agent 가 하지만, 빠뜨린 표시는 기계가 센다 (#636)."""
+    """What to catch before publishing. The agent judges, but missing markers are counted mechanically (#636)."""
     warns: list[str] = []
 
     def need_source(where: str, item: dict, key: str = "image"):
         if item.get(key) and not item.get("source"):
             warns.append(f"{where}: capture source missing; set source to one of render, device, server, design")
-        # HTML 시안은 대안에서만 허용: "지금 앱이 이렇다"의 근거가 될 수 없음
+        # HTML mockups allowed only in alternatives: they cannot prove "this is how the app looks now"
         if item.get(key) and item.get("source") == "mockup":
             warns.append(f"{where}: a mockup is not the real screen; use it only in alternatives")
 

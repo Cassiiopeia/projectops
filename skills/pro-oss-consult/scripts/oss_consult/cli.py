@@ -1,5 +1,5 @@
-"""oss_cli 파서와 실행: 서브커맨드 선언 > 인자 해석 > 명령 실행 (모든 오류 JSON 에 next)
-명령 함수는 모듈 속성으로 묶음 — 실행 시점의 함수를 부르게 해 테스트 대체가 반영됨
+"""oss_cli parser and run: subcommand declarations > argument parsing > command run (every error JSON has next)
+Command functions are bound as module attributes — the function current at run time is called, so test replacements apply
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from oss_consult.commands import collect, get_output_path, label, list_repos, lo
 from oss_consult.commands.list_repos import _DEFAULT_LIMIT
 from oss_consult.readme_facts import MAX_TOP_LINES, TOP_LINES
 
-# ── 파서 ─────────────────────────────────────────────────────────────────
+# ── Parser ─────────────────────────────────────────────────────────────────
 
 def _int_range(lo: int, hi: int, name: str):
     def conv(v: str) -> int:
@@ -78,7 +78,7 @@ def build_parser() -> JSONArgumentParser:
 
 
 def run_cli(parser: JSONArgumentParser, argv=None) -> int:
-    """common.cli_parser.run_cli 와 같되 **모든 오류 JSON 에 next 를 채운다** (#660)."""
+    """Like common.cli_parser.run_cli but **fills next in every error JSON** (#660)."""
     try:
         args = parser.parse_args(argv)
     except _BadArgsExit as e:
@@ -89,7 +89,7 @@ def run_cli(parser: JSONArgumentParser, argv=None) -> int:
                      "next": "Run `oss_cli.py --help` to see the subcommands"})
     try:
         return args.func(args)
-    except Exception as e:  # noqa: BLE001 — 어떤 실패도 JSON 으로 돌려준다
+    except Exception as e:  # noqa: BLE001 — return any failure as JSON
         return emit({"ok": False, "code": "handler_error", "summary": f"{type(e).__name__}: {e}",
                      "error": f"{type(e).__name__}: {e}",
                      "next": "Check the input and run again. If it keeps failing, report the error to the user"})

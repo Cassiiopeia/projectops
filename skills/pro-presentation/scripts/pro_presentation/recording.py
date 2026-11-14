@@ -1,7 +1,7 @@
-"""recording add: 연습 녹화 하나 > recordings/<label>/transcript.txt ('[mm:ss] 문장')
-입력 4가지: 로컬 녹음·녹화 파일(whisper) · 영상 주소(자막 먼저, 없으면 whisper) · 자막·받아쓰기 파일(srt·vtt·txt)
-· 연습 화면 녹음(--label 만, 폴더의 audio.* 를 whisper)
-장별 구간(ranges.json): 연습 화면 녹음은 장 넘긴 시각으로 이미 채워짐, 그 밖은 agent 가 받아쓰기를 읽고 씀
+"""recording add: one practice recording > recordings/<label>/transcript.txt ('[mm:ss] sentence')
+4 inputs: local audio/video file (whisper) · video URL (subtitles first, else whisper) · subtitle/transcript file (srt, vtt, txt)
+· practice screen recording (--label only, whisper on audio.* in the folder)
+Per-slide ranges (ranges.json): practice screen recordings already have them from slide change times; otherwise the agent reads the transcript and writes them
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from pro_presentation.settings import (RANGES_FILE_NAME, RECORDING_META_FILE_NAM
 
 TOOL_TIMEOUT_SECONDS = 600
 WHISPER_SAMPLE_RATE = 16000
-# srt·vtt 시간 줄: 00:01:02,500 --> 00:01:05,000 (시 생략 가능)
+# srt/vtt time line: 00:01:02,500 --> 00:01:05,000 (hours optional)
 CUE_TIME_PATTERN = re.compile(r"^(?:(\d+):)?(\d{1,2}):(\d{2})[.,]\d+\s+-->")
 TRANSCRIPT_LINE_PATTERN = re.compile(r"^\[\d+:\d{2}\]")
 MARKUP_PATTERN = re.compile(r"<[^>]+>")
@@ -36,7 +36,7 @@ def _run(command: list[str], cwd: Path) -> subprocess.CompletedProcess:
 
 
 def _yt_dlp_command() -> list[str] | None:
-    """yt-dlp 실행 파일 > 없으면 파이썬 모듈"""
+    """yt-dlp executable > else the Python module"""
     executable = shutil.which("yt-dlp")
     if executable:
         return [executable]
@@ -53,7 +53,7 @@ def _format_line(seconds: float, text: str) -> str:
 
 
 def json3_to_lines(caption_file: Path) -> list[str]:
-    """YouTube json3 자막 > 줄"""
+    """YouTube json3 subtitles > lines"""
     events = json.loads(caption_file.read_text(encoding="utf-8")).get("events") or []
     lines = []
     for event in events:
@@ -64,7 +64,7 @@ def json3_to_lines(caption_file: Path) -> list[str]:
 
 
 def subtitle_to_lines(subtitle_file: Path) -> list[str]:
-    """srt · vtt > 줄 (이미 '[mm:ss]' 형식인 txt 는 그대로)"""
+    """srt · vtt > lines (txt already in '[mm:ss]' form passes through)"""
     raw_lines = subtitle_file.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     if any(TRANSCRIPT_LINE_PATTERN.match(line.strip()) for line in raw_lines):
         return [line.strip() for line in raw_lines if TRANSCRIPT_LINE_PATTERN.match(line.strip())]
@@ -84,7 +84,7 @@ def subtitle_to_lines(subtitle_file: Path) -> list[str]:
 
 
 def fetch_captions(command: list[str], url: str, language: str, work_dir: Path) -> list[str] | None:
-    """원어 자동 자막(<언어>-orig) > 일반 자막. 없으면 None"""
+    """Original-language auto subtitles (<lang>-orig) > regular subtitles. None if neither"""
     _run(command + ["-q", "--no-warnings", "--skip-download", "--write-auto-subs", "--write-subs",
                     "--sub-langs", f"{language}-orig,{language}", "--sub-format", "json3", "-o", "captions", url], work_dir)
     for suffix in (f"{language}-orig", language):
@@ -95,7 +95,7 @@ def fetch_captions(command: list[str], url: str, language: str, work_dir: Path) 
 
 
 def transcribe_media(media: Path, language: str, model_name: str, work_dir: Path) -> tuple[list[str] | None, str]:
-    """오디오·영상 > 16kHz PCM(ffmpeg) > faster-whisper. (줄, 실패 이유)"""
+    """Audio/video > 16kHz PCM (ffmpeg) > faster-whisper. (lines, failure reason)"""
     try:
         import numpy
         from faster_whisper import WhisperModel
@@ -155,7 +155,7 @@ def cmd_recording_add(args) -> int:
     model_name = option_value(deck_dir, "whisper_model")
     page_audio = None
     if not (args.file or args.url or args.transcript):
-        # 연습 화면 녹음: --label 폴더의 audio.* 를 받아쓰기
+        # Practice screen recording: transcribe audio.* in the --label folder
         page_audio = find_page_audio(deck_dir / RECORDINGS_DIR_NAME / args.label) if args.label else None
         if page_audio is None:
             return emit({"ok": False, "code": "no_take_source",
@@ -183,7 +183,7 @@ def cmd_recording_add(args) -> int:
     folder = recordings_dir / label
     folder.mkdir(parents=True, exist_ok=True)
     (folder / TRANSCRIPT_FILE_NAME).write_text("\n".join(lines) + "\n", encoding="utf-8")
-    # 연습 화면 녹음이면 기존 meta 유지 (source: page > page+whisper)
+    # For practice screen recordings keep the existing meta (source: page > page+whisper)
     meta = _read_json(folder / RECORDING_META_FILE_NAME) if page_audio else {}
     meta.update({"label": label, "url": args.url or meta.get("url", ""),
                  "file": args.file or args.transcript or meta.get("file", ""),

@@ -1,4 +1,4 @@
-"""서브커맨드 처리: 입력 해석 > 모듈 호출 > 결과 + next (출력 형식은 image_cli.emit)"""
+"""Subcommand handling: parse input > call module > result + next (output format is image_cli.emit)"""
 from __future__ import annotations
 
 import platform
@@ -9,7 +9,7 @@ from . import (board, codex_runner, converter, generation, harness, history, ima
 
 
 def _harness_dir(args) -> Path:
-    # --harness > 설정 harness_dir > {레포}/docs/image-harness
+    # --harness > setting harness_dir > {repo}/docs/image-harness
     if getattr(args, "harness", None):
         return Path(args.harness).expanduser().resolve()
     return settings.harness_dir(settings.repository_root())
@@ -99,12 +99,12 @@ def cmd_run(args) -> dict:
             "name": args.name, "kind": args.kind, "provider": provider_name, "status": "candidate",
             "image": result["image"]["path"], "size": args.size, "alpha": args.alpha,
             "references": [str(path) for path in references], "prompt": prompt_text})
-    # 실제로 넘긴 참조 목록 (빠진 참조가 응답에서 바로 보이게, #1183) + 복사된 이름 (#1192)
+    # References actually passed (so missing ones show in the response, #1183) + copied names (#1192)
     return {**result, "references": _reference_report(references, run_dir)}
 
 
 def _reference_report(references: list[Path], run_dir: Path) -> list[dict]:
-    """참조 > {source, copied_as}. copied_as 는 실행 폴더에 실제로 복사된 것만 (거절·누락이면 없음)"""
+    """Reference > {source, copied_as}. copied_as only for files actually copied into the run folder (absent if rejected or missing)"""
     report = []
     for reference, copy_name in zip(references, generation.reference_copy_names(references)):
         entry = {"source": str(reference)}

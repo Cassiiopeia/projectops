@@ -1,4 +1,4 @@
-"""collect: 원격 레포 하나의 오픈소스 준비 사실 수집 (메타 > 목록 > 라벨·README·릴리스·이슈 > 건강 파일)
+"""collect: gather one remote repo's open-source readiness facts (meta > listings > labels·README·releases·issues > health files)
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def cmd_collect(args) -> int:
     errors: list[dict] = []
 
     def opt(name: str, fn, default):
-        """선택 엔드포인트 — 실패해도 나머지 사실은 계속 모은다. 실패는 errors 로 알린다."""
+        """Optional endpoint — on failure the other facts are still collected. Failures are reported in errors."""
         try:
             return fn()
         except (gh_client.GitHubAPIError, gh_client.GitHubNetworkError) as e:
@@ -51,7 +51,7 @@ def cmd_collect(args) -> int:
     issues = opt("issues", lambda: _get(f"/repos/{owner}/{repo}/issues?state=all&per_page=30", pat), [])
 
     files = detect_files(root, gh, docs, templates, extra)
-    # 앞부분만 사실로 싣는다 — 빈 문서 여부는 에이전트가 원문을 보고 판단
+    # Only the opening part is included as fact — whether the doc is empty is for the agent to judge from the source
     for key in ("contributing", "security"):
         hit = files.get(key)
         if hit and hit["type"] == "file":
@@ -114,13 +114,13 @@ def cmd_collect(args) -> int:
             "latest_draft": bool(latest.get("draft")) if latest else None,
             "latest_stable": stable.get("tag_name") if stable else None,
             "assets_on_latest": len(latest.get("assets", [])) if latest else 0,
-            # 릴리스 없이 태그만 쓰는 레포를 "배포 없음"으로 오해하지 않게.
-            # 릴리스가 있으면 태그를 조회하지 않는다 — 0 으로 두면 "태그 없음"으로 읽혀서 null 로 구분한다
+            # So a repo that uses tags without releases is not mistaken for "no releases".
+            # With releases, tags are not queried — 0 would read as "no tags", so null tells them apart
             "tags_checked": not releases,
             "tags_count": len(tags) if not releases else None,
             "tags_capped": len(tags) >= 30 if not releases else None,
         },
-        # 이슈 관리 방식·외부 PR 응대는 제목·날짜·작성자 관계를 보고 에이전트가 읽는다 (PR 도 섞여 온다)
+        # The agent reads issue handling and responses to outside PRs from titles, dates and author relations (PRs are mixed in)
         "issues_sample": [
             {"number": i.get("number"), "title": i.get("title", "")[:120], "state": i.get("state"),
              "is_pr": "pull_request" in i,

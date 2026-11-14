@@ -1,4 +1,4 @@
-"""PR 서브커맨드: 생성·목록·수정·상세 판정·댓글·닫기·다시 열기·머지."""
+"""PR subcommands: create, list, edit, detailed verdict, comment, close, reopen, merge."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from pro_github.responses import api_error, missing_pat
 
 
 def _preflight_head_branch(args, api, pat) -> int | None:
-    """head 브랜치 사전 점검: 글자 깨짐 > origin 존재. 문제 있으면 응답 코드, 없으면 None (#938)"""
+    """Pre-check the head branch: garbled text > exists on origin. Response code on a problem, otherwise None (#938)"""
     owner, _, branch = args.head.rpartition(":")
     if "\ufffd" in branch:
         return emit({
@@ -19,7 +19,7 @@ def _preflight_head_branch(args, api, pat) -> int | None:
             "error": f"the head branch name was cut in the middle of a character: {branch}",
             "next": "read the branch name again with git branch --show-current and pass it as head",
         })
-    # 포크(다른 owner)의 브랜치는 이 레포 API 로 볼 수 없으니 점검하지 않는다
+    # A fork's (other owner's) branch cannot be seen through this repo's API, so skip the check
     if owner and owner != args.owner:
         return None
     try:
@@ -37,13 +37,13 @@ def _preflight_head_branch(args, api, pat) -> int | None:
 
 
 def _resolve_head_and_base(args) -> int | None:
-    """위치 인자·--head/--base 를 하나로 > args.head·args.base. 문제 있으면 응답 코드, 없으면 None"""
+    """Merge positional and --head/--base into one > args.head·args.base. Response code on a problem, otherwise None"""
     args.head = args.head_option or args.head_positional
     args.base = args.base_option or args.base_positional
     usage = "create-pr <owner> <repo> <title> <body_file> --head <branch> --base <branch>"
     if not args.head or not args.base:
         return emit({"ok": False, "code": "missing_argument", "error": "head and base branches are required", "usage": usage})
-    # 브랜치명에는 공백이 없다: 공백이 있으면 제목이 head 자리에 들어간 순서 오류
+    # Branch names have no spaces: a space means the title landed in the head slot (order error)
     if any(character.isspace() for character in args.head + args.base):
         return emit({"ok": False, "code": "argument_order",
                      "error": f"head/base contains spaces; the argument order is wrong (head={args.head!r}, base={args.base!r})",
@@ -104,7 +104,7 @@ def cmd_update_pr(args, api) -> int:
                 "error": f"body file for the update not found: {args.body_file}",
                 "path_attempted": str(body_path.resolve()),
             })
-    # 바꿀 값이 없으면 PATCH 하지 않는다 (#699)
+    # Do not PATCH when there is nothing to change (#699)
     if args.title is None and body is None and args.state is None:
         return emit({
             "ok": False,
@@ -127,7 +127,7 @@ def cmd_get_pr(args, api) -> int:
         return missing_pat()
     try:
         pr = api.get_pull_detail(args.owner, args.repo, args.number, pat)
-        # mergeable_state가 아직 계산 전이면 unknown/None — agent가 재조회 판단
+        # unknown/None while mergeable_state is not computed yet — the agent decides whether to re-query
         state = pr.get("mergeable_state")
         if pr.get("merged"):
             verdict = "merged"
@@ -157,7 +157,7 @@ def cmd_add_pr_comment(args, api) -> int:
         return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} not found"})
     body = body_path.read_text(encoding="utf-8")
     try:
-        # PR도 GitHub API에선 issue이므로 issues/{n}/comments로 댓글 추가
+        # A PR is an issue in the GitHub API, so the comment goes to issues/{n}/comments
         result = api.add_comment(args.owner, args.repo, args.number, body, pat)
         return emit({**result, "summary": f"added a comment to PR #{args.number}"})
     except GitHubAPIError as e:
@@ -201,7 +201,7 @@ def cmd_merge_pr(args, api) -> int:
             "summary": f"merged PR #{args.number} ({args.method})",
         })
     except GitHubAPIError as e:
-        # 405: 머지 불가(충돌/체크 실패/드래프트), 409: sha 불일치, 422: rebase 불허
+        # 405: cannot merge (conflict/failed checks/draft), 409: sha mismatch, 422: rebase not allowed
         verdict = {405: "not_mergeable", 409: "sha_mismatch", 422: "method_not_allowed"}.get(
             e.status_code, "error"
         )
@@ -214,14 +214,14 @@ def cmd_merge_pr(args, api) -> int:
         })
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_create_pr(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("title")
     parser.add_argument("body_file")
-    # 위치 인자 6개 순서가 자주 틀려 플래그로도 받는다 (플래그가 우선)
+    # The 6 positional arguments are often in the wrong order, so flags are accepted too (flags win)
     parser.add_argument("head_positional", nargs="?", metavar="head")
     parser.add_argument("base_positional", nargs="?", metavar="base")
     parser.add_argument("--head", dest="head_option", default=None, metavar="BRANCH", help="head branch (owner:branch for a fork)")

@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""e2e_cli — pro-agent-test 전용 CLI (projectops 3-layer 표준, Layer 2).
+"""e2e_cli — pro-agent-test CLI (projectops 3-layer standard, Layer 2).
 
-**QA 절차만** 담는다. 앱·웹·서버를 띄우고 조작하고 찍는 능력은 pro-launch 담당 (#629·#631).
+Holds **only the QA procedure**. Launching, driving and capturing apps, web and servers belongs to pro-launch (#629·#631).
 
-서브커맨드:
-    detect    무엇을 밟을 수 있는지 — pro-launch detect 결과 + 확인해 적어 둔 타겟(note target)
-    scenario  밟기 시나리오 만들기 · 목록 · 검증
-    note      이 프로젝트에서 알아낸 것을 쌓는다
-    api       서버 시나리오를 끝까지 밟는다 (단건 요청은 pro-launch http)
-    other     앱·웹·서버가 아닌 것을 밟는다
+Subcommands:
+    detect    what can be driven — pro-launch detect result + confirmed targets (note target)
+    scenario  create · list · validate driving scenarios
+    note      accumulate what was learned about this project
+    api       drive a server scenario end to end (single requests: pro-launch http)
+    other     drive things that are not an app, web or server
 
-옮긴 명령(doctor · devices · device · web · access · db · logs · shrink · get-output-path)은
-**한 마이너 버전 동안** pro-launch 로 그대로 넘겨주고, 결과에 새 자리를 알리는 next 를 싣는다.
+Moved commands (doctor · devices · device · web · access · db · logs · shrink · get-output-path) are
+forwarded to pro-launch **for one minor version**, with a next pointing at the new location.
 
-출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
+Output: MCP-style JSON (ok/code/summary/next 4 fields guaranteed).
 """
 from __future__ import annotations
 
@@ -21,12 +21,12 @@ import argparse
 import sys
 from pathlib import Path
 
-# 구현은 같은 폴더의 pro_agent_test 패키지에 있다 (공용 common 경로는 패키지가 맞춘다)
+# Implementation lives in the pro_agent_test package in this folder (the package sets the common path)
 _HERE = Path(__file__).resolve()
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
-import pro_agent_test  # noqa: E402,F401  (common import 경로를 맞춘다)
+import pro_agent_test  # noqa: E402,F401  (sets the common import path)
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 
 from pro_agent_test.commands.api import cmd_api  # noqa: E402
@@ -37,7 +37,7 @@ from pro_agent_test.commands.scenario import cmd_scenario  # noqa: E402
 from pro_agent_test.launch_bridge import MOVED, delegate  # noqa: E402
 from pro_agent_test.scenario_rules import DEFAULT_TARGET, TARGETS  # noqa: E402
 
-# 테스트가 e2e_cli.<이름> 으로 직접 쓰는 내부 함수 재노출
+# Re-export internal functions that tests use directly as e2e_cli.<name>
 from common import memory as _memory  # noqa: E402,F401
 from common.access import find_secrets as _find_secrets  # noqa: E402,F401
 from pro_agent_test.commands.api import _fill, _jsonpath, _parse_do  # noqa: E402,F401
@@ -47,7 +47,7 @@ from pro_agent_test.storage import _expand, _home_dir, _repo_key, _resolve_scena
 
 
 def build_parser() -> JSONArgumentParser:
-    # 인자 오류도 JSON(bad_args)으로 — 에이전트는 stdout JSON 만 읽는다 (#708)
+    # Argument errors also return JSON (bad_args) — agents read only stdout JSON (#708)
     parser = JSONArgumentParser(
         prog="e2e_cli",
         description="agent QA — walk the app, web or server to find bugs (running and capturing is pro-launch)",
@@ -84,7 +84,7 @@ def build_parser() -> JSONArgumentParser:
                      help=("screen: what to press. 'label=text:copy' · 'label=id:x' · 'label=desc:x' "
                            "(append '|index=N') · 'label=at:0.5,0.8' only when there is no element. Pixels are rejected. "
                            "With --result, labels only"))
-    p_n.add_argument("--taps", nargs="*", help=argparse.SUPPRESS)   # 옛 픽셀 입력 — 거절하고 --target 을 안내
+    p_n.add_argument("--taps", nargs="*", help=argparse.SUPPRESS)   # old pixel input — rejected, points to --target
     p_n.add_argument("--screen-size", help="screen: measured screen resolution, e.g. 1080x2400 (used for at-ratio hints)")
     p_n.add_argument("--result", choices=["ok", "fail"], default=None,
                      help=("screen: ok if pressing that target changed the screen, fail if not found or unchanged / "
@@ -146,7 +146,7 @@ def build_parser() -> JSONArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    # 옮긴 명령은 파서에 올리지 않고 그대로 넘긴다 — 인자 계약이 pro-launch 쪽에 산다
+    # Moved commands are not added to the parser and are forwarded as is — the argument contract lives in pro-launch
     if argv and argv[0] in MOVED:
         return delegate(argv)
     return run_cli(build_parser(), argv)

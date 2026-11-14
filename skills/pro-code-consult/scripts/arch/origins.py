@@ -1,13 +1,13 @@
-"""파일 출처 판별: 레포가 소유한 코드(production·test)와 아닌 코드(tooling·generated·vendored) 구분
+"""File origin detection: separates code the repo owns (production, test) from code it does not (tooling, generated, vendored)
 
-출처 5종:
-- production: 운영 코드 (감사 대상)
-- test: 테스트 코드 (따로 센다 — 운영 수치를 부풀리지 않게)
-- tooling: CI·에이전트 도구 설치물 (.github/, .claude/ 등 — 원본 레포에서 고칠 일)
-  예외: 그 안에 자체 테스트가 있는 .github/ 는 이 레포가 원본 (owned_tooling 에 근거)
-  남의 레포 통째 사본(마법사 임시 다운로드, 자체 .git 을 가진 하위 폴더)은 예외 없이 tooling
-- generated: 생성물 (머리 표식, gen-l10n 출력)
-- vendored: 외부 라이브러리 사본 (vendor/, 버전 머리가 있는 큰 정적 JS, shadcn ui)
+5 origins:
+- production: production code (audited)
+- test: test code (counted separately — so production numbers are not inflated)
+- tooling: installed CI/agent tooling (.github/, .claude/, etc. — fixed in the upstream repo)
+  Exception: a .github/ with its own tests is owned by this repo (evidence in owned_tooling)
+  Whole copies of other repos (wizard temp downloads, subfolders with their own .git) are always tooling
+- generated: generated output (header markers, gen-l10n output)
+- vendored: copies of external libraries (vendor/, large static JS with a version header, shadcn ui)
 """
 from __future__ import annotations
 
@@ -21,21 +21,21 @@ from .source_files import (NOT_ANALYZED_LANGUAGE_BY_EXTENSION, SKIPPED_DIRECTORY
 
 OWNED_ORIGINS = ("production", "test")
 TOOLING_DIRECTORY_NAMES = {".github", ".cursor", ".claude", ".agents", ".codex", ".gemini", ".pi", ".husky"}
-# 자체 테스트가 있으면 원본으로 보는 도구 폴더 (설치본에는 테스트가 따라오지 않는다)
+# Tooling folders treated as owned when they have their own tests (installed copies do not ship tests)
 SELF_TESTED_TOOLING_DIRECTORY_NAMES = {".github"}
-# 남의 레포 통째 사본 폴더 (projectops 마법사 임시 다운로드 — 안의 .github/ 테스트 때문에 원본으로 오판된다)
+# Folders that are whole copies of other repos (projectops wizard temp downloads — their .github/ tests would make them look owned)
 FOREIGN_TREE_DIRECTORY_NAMES = {".template_download_temp"}
 VENDORED_DIRECTORY_NAMES = {"vendor", "vendors", "third_party", "thirdparty", "bower_components"}
-# 정적 자원 폴더 (여기 있는 JS는 외부 라이브러리 사본일 가능성이 높다)
+# Static asset folders (JS here is likely a copy of an external library)
 STATIC_DIRECTORY_NAMES = {"static", "public", "assets", "wwwroot"}
-# 외부 라이브러리 머리 표식 (첫 600자): 라이선스·저작권·버전 번호
+# External library header markers (first 600 chars): license, copyright, version number
 LIBRARY_HEADER_PATTERN = re.compile(r"@license|\blicense\b|copyright|\(c\)|\bv?\d+\.\d+\.\d+\b", re.IGNORECASE)
-# 이 줄 수를 넘는 JS 한 파일은 머리 표식이 있으면 외부 라이브러리로 본다
+# A single JS file over this many lines with a header marker is treated as an external library
 LARGE_SINGLE_SCRIPT_LINES = 5000
-# @generated 는 대소문자 구분 + 단어 경계 (JPA @GeneratedValue 오인 방지)
+# @generated is case-sensitive with a word boundary (avoids matching JPA @GeneratedValue)
 GENERATED_HEADER_PATTERN = re.compile(
     r"generated (?:code|file|by)|do not (?:edit|modify)|(?-i:@generated\b)|auto-?generated|code generated", re.IGNORECASE)
-# shadcn 컴포넌트 폴더 이름 (components.json 이 있는 모듈에서 alias 경로와 함께 본다)
+# shadcn component folder names (checked with the alias path in modules that have components.json)
 SHADCN_DIRECTORY_NAMES = {"shadcn"}
 
 TEST_DIRECTORY_NAMES = {"test", "tests", "__tests__", "spec", "specs", "integration_test", "androidTest",
@@ -45,19 +45,19 @@ TEST_FILE_PATTERN = re.compile(
 
 
 class SourceInventory:
-    """대상 레포 소스 목록 + 출처 (한 번 훑어 표식 수집 > 파일마다 판정)"""
+    """Target repo source list + origins (one pass to collect markers > classify each file)"""
 
     def __init__(self, root: Path, is_including_all: bool = False):
         self.root = root
         self.is_including_all = is_including_all
-        self.generated_prefixes = []   # gen-l10n 출력 (경로 접두사 + 파일 이름 접두사)
-        self.vendored_prefixes = []    # shadcn ui 폴더 등
-        self.shadcn_modules = []       # components.json 이 있는 모듈 (alias 와 다른 shadcn 폴더도 제외)
-        self.files = []                # (상대경로, 언어, 본문, 출처)
-        self.excluded = {}             # 출처 > {count, reasons, examples}
-        self.not_analyzed_languages = {}  # CLI가 못 읽는 언어 > 파일 수 (도구·외부 폴더 제외)
-        self.owned_tooling = {}        # 원본으로 본 도구 폴더 접두사 > 근거 (자체 테스트)
-        self.foreign_trees = {}        # 남의 레포 사본 접두사 > 근거 (임시 다운로드 · 중첩 git 레포)
+        self.generated_prefixes = []   # gen-l10n output (path prefix + file name prefix)
+        self.vendored_prefixes = []    # shadcn ui folders, etc.
+        self.shadcn_modules = []       # modules with components.json (shadcn folders other than the alias are excluded too)
+        self.files = []                # (relative path, language, content, origin)
+        self.excluded = {}             # origin > {count, reasons, examples}
+        self.not_analyzed_languages = {}  # languages the CLI cannot read > file count (tooling and external folders excluded)
+        self.owned_tooling = {}        # tooling folder prefixes treated as owned > evidence (own tests)
+        self.foreign_trees = {}        # prefixes of other-repo copies > evidence (temp download, nested git repo)
         self._collect_foreign_trees()
         self._collect_markers()
         self._collect_files()
@@ -70,7 +70,7 @@ class SourceInventory:
                 for origin, e in self.excluded.items()}
 
     def _collect_foreign_trees(self):
-        """하위 폴더 중 남의 레포 사본 > 접두사 기록 (그 아래로는 더 내려가지 않음)"""
+        """Subfolders that are other-repo copies > record the prefix (no descent below them)"""
         for directory, subdirectories, _ in os.walk(self.root):
             descend = []
             for name in sorted(d for d in subdirectories if d not in SKIPPED_DIRECTORY_NAMES):
@@ -78,7 +78,7 @@ class SourceInventory:
                 prefix = absolute.relative_to(self.root).as_posix() + "/"
                 if name in FOREIGN_TREE_DIRECTORY_NAMES:
                     self.foreign_trees[prefix] = prefix
-                elif (absolute / ".git").exists():  # 폴더(clone)·파일(worktree·submodule) 둘 다
+                elif (absolute / ".git").exists():  # both folder (clone) and file (worktree, submodule)
                     self.foreign_trees[prefix] = f"{prefix} (nested git repo)"
                 else:
                     descend.append(name)
@@ -87,7 +87,7 @@ class SourceInventory:
     def _foreign_tree_reason(self, relative: str) -> str | None:
         return next((reason for prefix, reason in self.foreign_trees.items() if relative.startswith(prefix)), None)
 
-    # 표식 수집 (shadcn components.json, Flutter l10n.yaml) — 남의 레포 사본 안 표식은 무시
+    # Collect markers (shadcn components.json, Flutter l10n.yaml) — markers inside other-repo copies are ignored
     def _collect_markers(self):
         for relative, absolute in walk_files(self.root):
             if self._foreign_tree_reason(relative):
@@ -112,7 +112,7 @@ class SourceInventory:
                                                 Path(output_file).stem, "gen-l10n"))
 
     def _mark_self_tested_tooling(self, relative: str):
-        """도구 폴더 안 테스트 파일 > 그 폴더를 원본으로 (근거: 테스트 수·예시)"""
+        """Test files inside a tooling folder > treat that folder as owned (evidence: test count and examples)"""
         parts = relative.split("/")
         for depth, directory in enumerate(parts[:-1]):
             if directory in SELF_TESTED_TOOLING_DIRECTORY_NAMES:
@@ -189,14 +189,14 @@ class SourceInventory:
 
 
 def is_test_path(relative: str) -> bool:
-    """테스트 경로 판정 (src/main 아래는 이름이 test여도 운영 코드 — 운영에 섞인 테스트 코드는 따로 잡는다)"""
+    """Test path detection (under src/main it is production code even if named test — test code mixed into production is caught separately)"""
     if "/src/main/" in "/" + relative:
         return False
     name = relative.rsplit("/", 1)[-1]
     if TEST_FILE_PATTERN.search(name):
         return True
     directories = relative.split("/")[:-1]
-    # Next app 라우터의 /test 페이지는 운영 라우트
+    # A /test page in the Next app router is a production route
     if "app" in directories and language_of(relative) in ("javascript", "typescript"):
         directories = directories[:directories.index("app")]
     return bool(TEST_DIRECTORY_NAMES & set(directories))

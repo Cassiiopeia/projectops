@@ -1,4 +1,4 @@
-"""deploy-status: deploy PR 의 automerge 상태를 verdict 하나로 판정한다 (--wait 로 도구 안에서 폴링, #945)."""
+"""deploy-status: judge a deploy PR's automerge state as one verdict (--wait polls inside the tool, #945)."""
 from __future__ import annotations
 
 import sys
@@ -14,36 +14,36 @@ from common.gh_client import (  # noqa: E402
     GitHubAPIError, resolve_pr_runs, get_pull_detail, find_open_pr_by_base, get_branch_head, list_runs,
 )
 
-# automerge 대기가 이 시간을 넘으면 정상 대기가 아니라 막힌 것으로 본다 (#945)
+# An automerge wait beyond this is treated as blocked, not a normal wait (#945)
 STUCK_AFTER_SECONDS = 600
-# --wait 폴링 간격과 한 번 호출의 최대 대기 (하네스의 명령 시간 상한 안에서 끝나게)
+# --wait poll interval and maximum wait per call (so it ends within the harness command time limit)
 WAIT_POLL_SECONDS = 15
 WAIT_MAX_SECONDS = 540
-# PR 생성 직후 워크플로우가 API 에 아직 안 보일 수 있는 유예 (초)
+# Grace period (seconds) right after PR creation when the workflow may not be visible in the API yet
 WORKFLOW_GRACE_SECONDS = 120
-# 아직 끝난 것이 아니라서 더 기다릴 가치가 있는 verdict
+# Verdicts that are not final yet and worth waiting for
 _STILL_WAITING_VERDICTS = ("waiting_for_automerge", "waiting_for_workflow")
-# 시작 전·진행 중인 run 상태
+# Run states before start / in progress
 _RUNNING_STATUSES = ("in_progress", "queued", "waiting", "requested", "pending")
-# RELEASE-CHANGELOG 워크플로우 파일 (신·구 이름, #455 리네임)
+# RELEASE-CHANGELOG workflow files (new and old names, #455 rename)
 _RELEASE_WORKFLOW_PATHS = ("project-common-release-changelog.yaml", "project-common-auto-changelog-control.yaml")
-# deploy 브랜치형 릴리스 PR(기본 > deploy): RELEASE-CHANGELOG 트리거가 이 방향을 받지 않아 자동 머지 없음 (#1077)
+# Deploy-branch release PR (default > deploy): the RELEASE-CHANGELOG trigger does not accept this direction, so no automerge (#1077)
 _BRANCH_WITHOUT_RELEASE_WORKFLOW = "deploy"
 
 
 def _stuck_reason(pr_age_sec, workflow, workflow_running, mergeable_state):
-    """automerge 대기가 임계값을 넘었을 때 왜 막혔는지. 막힌 게 아니면 None"""
+    """Why the automerge wait got blocked once over the threshold. None if not blocked"""
     if pr_age_sec is None or pr_age_sec < STUCK_AFTER_SECONDS or workflow_running:
         return None
     if workflow is None:
-        return "no_workflow_on_head"  # 이 PR 의 RELEASE-CHANGELOG run 이 head 브랜치 어디에도 없고 대기열도 비었다
+        return "no_workflow_on_head"  # no RELEASE-CHANGELOG run for this PR anywhere on the head branch and the queue is empty
     if workflow.get("conclusion") == "success":
-        return "workflow_done_not_merged"  # 워크플로우는 끝났는데 PR 이 머지되지 않았다
+        return "workflow_done_not_merged"  # the workflow finished but the PR was not merged
     return None
 
 
 def cmd_deploy_status(args) -> int:
-    """deploy PR 상태 판정. --wait N 이면 끝날 때까지(최대 N초) 도구 안에서 폴링한다 (#945)."""
+    """Judge deploy PR state. With --wait N, poll inside the tool until done (up to N seconds) (#945)."""
     import time
     pat = get_github_pat(args.owner, args.repo)
     if not pat:
@@ -65,9 +65,9 @@ def cmd_deploy_status(args) -> int:
 
 
 def _is_release_run(run: dict) -> bool:
-    """RELEASE-CHANGELOG run 인지: 파일 path 우선, 이름 키워드는 옛 레포 폴백
+    """Is it a RELEASE-CHANGELOG run: file path first, name keyword as a fallback for old repos
 
-    name 은 사람이 보는 라벨이라 바뀐다 — path 가 식별자다.
+    name is a human-facing label and changes — path is the identifier.
     """
     path = (run.get("path") or "").lower()
     name = (run.get("name") or "").upper()
@@ -76,7 +76,7 @@ def _is_release_run(run: dict) -> bool:
 
 
 def _find_release_workflow(owner: str, repo: str, pr_number: int, pat: str) -> dict | None:
-    """PR 의 최신 RELEASE-CHANGELOG run (현재 head SHA + head 브랜치 PR 이벤트, 최신순). 없으면 None"""
+    """The PR's latest RELEASE-CHANGELOG run (current head SHA + head-branch PR event, newest first). None if absent"""
     try:
         runs = resolve_pr_runs(owner, repo, pr_number, pat).get("runs", [])
     except GitHubAPIError:
@@ -90,14 +90,14 @@ def _find_release_workflow(owner: str, repo: str, pr_number: int, pat: str) -> d
                 "conclusion": run.get("conclusion"),
                 "run_url": run.get("url"),
                 "head_sha": run.get("head_sha"),
-                # 옛 head SHA 에서 돈 run 이면 false (push 로 head 가 바뀐 뒤)
+                # false if the run was on an old head SHA (head changed after a push)
                 "is_current_head": run.get("is_current_head", True),
             }
     return None
 
 
 def _count_repository_queued_runs(owner: str, repo: str, pat: str) -> int:
-    """레포 전체의 queued run 수 (러너 대기열 지연 판정용). 조회 실패면 0"""
+    """Number of queued runs repo-wide (for runner queue delay judgement). 0 if the lookup fails"""
     try:
         return len(list_runs(owner, repo, pat, status="queued", limit=20))
     except GitHubAPIError:
@@ -105,7 +105,7 @@ def _count_repository_queued_runs(owner: str, repo: str, pat: str) -> int:
 
 
 def _deploy_status_once(args, pat) -> dict:
-    """한 번 조회한 verdict 를 dict 로 돌려준다 (emit 은 호출자가)."""
+    """Return one lookup's verdict as a dict (the caller emits)."""
     if args.pr:
         pr = get_pull_detail(args.owner, args.repo, args.pr, pat)
     else:
@@ -141,9 +141,9 @@ def _deploy_status_once(args, pat) -> dict:
     workflow_conclusion = (workflow or {}).get("conclusion")
     workflow_running = workflow_status in _RUNNING_STATUSES
 
-    # PR 생성 후 얼마 안 지났으면 워크플로우가 막 trigger되어 아직 API에
-    # 반영되지 않았을 가능성을 가드한다. workflow=null이라도 PR이 갓 만들어진 상태면
-    # missing 판정 대신 대기로 양보한다.
+    # Right after PR creation the workflow may have just triggered and not yet show in the
+    # API. Even with workflow=null, if the PR is freshly created, yield to waiting
+    # instead of judging missing.
     import datetime as _dt
     pr_age_sec = None
     if pr.get("created_at"):
@@ -154,18 +154,18 @@ def _deploy_status_once(args, pat) -> dict:
         except Exception:
             pr_age_sec = None
     pr_young = (pr_age_sec is not None and pr_age_sec < WORKFLOW_GRACE_SECONDS)
-    # 매칭 run 이 없으면 레포 대기열 확인 (러너 부족으로 run 이 아직 안 잡힌 경우, #970)
+    # No matching run: check the repo queue (run not picked up yet for lack of runners, #970)
     repo_queued_count = 0
     if workflow is None and not pr_young:
         repo_queued_count = _count_repository_queued_runs(args.owner, args.repo, pat)
 
     next_hint = f"deploy-status {args.owner} {args.repo} --pr {pr['number']}"
-    # 대기열 지연은 PR 닫기·재오픈으로 풀리지 않는다 — 다시 열면 run 만 하나 더 쌓인다 (#970)
+    # Queue delay is not fixed by closing and reopening the PR — reopening only stacks another run (#970)
     wait_hint = (f"deploy-status {args.owner} {args.repo} --pr {pr['number']} --wait {WAIT_MAX_SECONDS} "
                  "(do not close or reopen the PR)")
     if pr["merged"]:
         verdict, summary = "merged", f"PR #{pr['number']} automerged"
-        # 머지 뒤 마무리 누락 방지 (#970)
+        # Prevent missing the post-merge wrap-up (#970)
         next_hint = (f"for each issue in the release (issue URLs in the PR #{pr['number']} commit messages): "
                      "post a report comment with pro-report > finish it with pro-github finish-issue")
     elif pr["mergeable_state"] == "dirty":
@@ -179,38 +179,38 @@ def _deploy_status_once(args, pat) -> dict:
         verdict = "blocked"
         summary = f"PR #{pr['number']} merge is blocked; it may be waiting on required checks, reviews or protection rules"
     elif workflow and workflow_conclusion == "failure":
-        # 최신 RELEASE run 이 실패 (옛 head SHA 의 run 이어도 더 새 run 이 없으면 실패로 본다)
+        # Latest RELEASE run failed (even if it ran on an old head SHA, it counts as failed when no newer run exists)
         verdict = "workflow_failed"
         sha_note = "" if workflow.get("is_current_head") else " (run of an earlier head SHA)"
         summary = f"RELEASE-CHANGELOG workflow failed{sha_note}: {workflow.get('run_url')}"
         next_hint = "check the failure at workflow.run_url > rerun in fix mode"
     elif workflow_running:
-        # 워크플로우 대기·진행 중이면 body·has_summary가 일시적으로 비어 보여도 정상 대기로 본다 (race 가드)
+        # While the workflow is queued or running, an empty-looking body/has_summary is a normal wait (race guard)
         verdict = "waiting_for_workflow"
         summary = f"PR #{pr['number']} RELEASE-CHANGELOG {workflow_status}; waiting for the workflow"
         next_hint = wait_hint
     elif workflow is None and (pr_young or repo_queued_count):
-        # 매칭 run 없음: PR 생성 직후(API 반영 지연) 또는 레포 대기열에 run 이 밀려 있음
+        # No matching run: just after PR creation (API delay) or runs backed up in the repo queue
         verdict = "waiting_for_workflow"
         reason = (f"just created ({int(pr_age_sec)}s)" if pr_young
                   else f"{repo_queued_count} run(s) queued in the repo")
         summary = f"PR #{pr['number']} {reason}; waiting for the workflow to start"
         next_hint = wait_hint
     elif workflow_conclusion == "skipped" or (workflow is None and args.base == _BRANCH_WITHOUT_RELEASE_WORKFLOW):
-        # 기다려도 아무도 머지하지 않음: 시간 낭비 대신 바로 알림 (#1077)
+        # Nobody will merge even if we wait: report right away instead of wasting time (#1077)
         verdict = "manual_merge_needed"
         summary = f"PR #{pr['number']} will not automerge: no release workflow ran for {args.base}"
         next_hint = (f"Confirm with the user, then: github_cli.py merge-pr {args.owner} {args.repo} {pr['number']}. "
                      "Merging starts this repo's deploy workflow")
     elif not has_summary:
-        # 워크플로우가 진행 중이 아니고 PR도 갓 생성된 게 아니면 진짜 body 초기화 사고로 판정
+        # Not running and the PR is not fresh: judged as a real body-reset incident
         verdict = "missing_coderabbit_summary"
         summary = f"PR #{pr['number']} body has no 'Summary by CodeRabbit'; rewrite it in fix mode"
     else:
         verdict = "waiting_for_automerge"
         summary = f"PR #{pr['number']} open, {pr['mergeable_state']}; waiting for automerge"
 
-    # 대기가 임계값을 넘으면 무한 대기 대신 막힘으로 알린다 (#945)
+    # Over the threshold: report blocked instead of waiting forever (#945)
     pr_out["age_seconds"] = int(pr_age_sec) if pr_age_sec is not None else None
     stuck = _stuck_reason(pr_age_sec, workflow, workflow_running, pr["mergeable_state"]) \
         if verdict == "waiting_for_automerge" else None

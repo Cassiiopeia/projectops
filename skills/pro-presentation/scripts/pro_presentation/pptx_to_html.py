@@ -1,5 +1,5 @@
-"""PPT 한 장 > slide.html (조각 위치 그대로): 글 상자 > text, 그림 > image, 도형 > shape, 표 > table
-배치·글꼴은 인라인 스타일로 옮긴다. 다듬을 때 theme.css 변수로 옮기는 것은 agent 몫 (building.md)
+"""One PPT slide > slide.html (pieces at their positions): text box > text, picture > image, shape > shape, table > table
+Layout and fonts carried as inline styles. Moving them to theme.css variables when polishing is the agent's job (building.md)
 """
 from __future__ import annotations
 
@@ -10,14 +10,14 @@ from pro_presentation.settings import SLIDE_WIDTH_PIXELS
 
 PICTURE_SHAPE_TYPE = 13   # MSO_SHAPE_TYPE.PICTURE
 GROUP_SHAPE_TYPE = 6      # MSO_SHAPE_TYPE.GROUP
-# 문단 정렬 코드 > CSS (1 왼쪽, 2 가운데, 3 오른쪽, 4 양쪽)
+# Paragraph alignment code > CSS (1 left, 2 center, 3 right, 4 justify)
 ALIGNMENT_CSS = {1: "left", 2: "center", 3: "right", 4: "justify"}
 ROUNDED_SHAPE_NAMES = ("ROUNDED_RECTANGLE",)
 ELLIPSE_SHAPE_NAMES = ("OVAL",)
 
 
 def _rgb(color) -> str | None:
-    """python-pptx 색 > '#rrggbb' (테마 색 등 RGB 가 아니면 None)"""
+    """python-pptx color > '#rrggbb' (None for non-RGB such as theme colors)"""
     try:
         return f"#{color.rgb}" if color is not None and color.type is not None and color.rgb is not None else None
     except (AttributeError, ValueError):
@@ -31,7 +31,7 @@ def _box_style(shape, pixels_per_emu: float) -> str:
 
 
 def _text_html(shape, pixels_per_emu: float) -> str:
-    """문단마다 <p>, 줄 안 글씨는 크기·굵기·색이 같으면 묶음"""
+    """<p> per paragraph; runs in a line merge when size, weight and color match"""
     paragraphs = []
     for paragraph in shape.text_frame.paragraphs:
         runs = []
@@ -88,7 +88,7 @@ def _table_html(shape, pixels_per_emu: float) -> str:
 
 
 def convert_slide(slide, slide_width_emu: int, folder: Path) -> tuple[str, int]:
-    """한 장 > (slide.html 본문, 옮기지 못한 도형 수). 그림 파일은 folder 에 저장"""
+    """One slide > (slide.html body, count of shapes not carried). Images saved to folder"""
     pixels_per_emu = SLIDE_WIDTH_PIXELS / slide_width_emu
     pieces, skipped, picture_count = [], 0, 0
 
@@ -96,7 +96,7 @@ def convert_slide(slide, slide_width_emu: int, folder: Path) -> tuple[str, int]:
         nonlocal skipped, picture_count
         box = _box_style(shape, pixels_per_emu)
         if shape.shape_type == GROUP_SHAPE_TYPE:
-            for child in shape.shapes:   # 그룹 좌표 변환은 근사 (자식 좌표 그대로)
+            for child in shape.shapes:   # group coordinate transform is approximate (child coordinates as is)
                 add(child)
         elif shape.shape_type == PICTURE_SHAPE_TYPE:
             picture_count += 1
@@ -112,7 +112,7 @@ def convert_slide(slide, slide_width_emu: int, folder: Path) -> tuple[str, int]:
             is_title = shape.is_placeholder and "TITLE" in str(shape.placeholder_format.type)
             kind = "title" if is_title else "text"
             pieces.append(f'  <div data-pp="{kind}" style="{box}">{_text_html(shape, pixels_per_emu)}</div>')
-        elif shape.shape_type == 1:   # 글 없는 도형
+        elif shape.shape_type == 1:   # shape without text
             fill = _fill_style(shape)
             if fill:
                 pieces.append(f'  <div data-pp="shape" style="{box}{fill}"></div>')
@@ -125,7 +125,7 @@ def convert_slide(slide, slide_width_emu: int, folder: Path) -> tuple[str, int]:
 
 
 def picture_slide_html(file_name: str) -> str:
-    """그림 한 장짜리 장 (전체 그림 PPT · PDF 쪽)"""
+    """Single-image slide (all-image PPT · PDF page)"""
     return ('<section class="slide imported">\n'
             f'  <img data-pp="image" src="{file_name}" alt="" '
             f'style="left:0;top:0;width:1920px;height:1080px;object-fit:contain;">\n</section>\n')

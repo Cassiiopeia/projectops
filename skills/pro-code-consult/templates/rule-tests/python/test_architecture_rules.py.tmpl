@@ -1,5 +1,5 @@
-"""아키텍처 규칙 테스트: docs/architecture/rules/<id>.rule 위반 <-> <id>.allow 대조
-규칙은 rules 폴더에서 고친다 (이 파일은 pro-code-consult 템플릿 — 판정 로직만)
+"""Architecture rule test: docs/architecture/rules/<id>.rule violations <-> <id>.allow
+Edit rules in the rules folder (this file is a pro-code-consult template — verdict logic only)
 """
 import os
 import re
@@ -8,18 +8,18 @@ from typing import Dict, List, Optional
 
 import pytest
 
-# 탐색 제외 폴더 (다른 스택 템플릿과 같은 목록)
+# Excluded folders (same list as the other stack templates)
 SKIPPED_DIRECTORY_NAMES = {
     ".git", "build", "dist", "node_modules", ".dart_tool", "Pods", ".gradle",
     "venv", ".venv", "__pycache__", ".next", "out", "target", ".idea",
 }
 LIST_KEYS = ("paths", "extensions", "exclude")
-# 규칙 파일 자신은 판정 대상에서 늘 제외
+# Rule files themselves are always excluded
 ALWAYS_EXCLUDED_PREFIX = "docs/architecture/"
 
 
 def find_rules_directory(start: Path) -> Optional[Path]:
-    """현재 폴더부터 위로 docs/architecture/rules 탐색 (모노레포 서브폴더에서도 동작)"""
+    """Search upward from the current folder for docs/architecture/rules (works from monorepo subfolders)"""
     for directory in [start, *start.parents]:
         candidate = directory / "docs" / "architecture" / "rules"
         if candidate.is_dir():
@@ -28,7 +28,7 @@ def find_rules_directory(start: Path) -> Optional[Path]:
 
 
 def parse_rule(path: Path) -> Dict:
-    """key=value (첫 = 에서만 자름, # 주석) > 규칙"""
+    """key=value (split on the first = only, # comments) > rule"""
     rule = {"id": path.stem, "pattern": "", "paths": [], "extensions": [], "exclude": []}
     for raw in path.read_text(encoding="utf-8").splitlines():
         line = raw.strip()
@@ -81,13 +81,13 @@ RULE_FILES = sorted(RULES_DIRECTORY.glob("*.rule")) if RULES_DIRECTORY else []
 def test_architecture_rule(rule_file):
     repository_root = RULES_DIRECTORY.parent.parent.parent
     rule = parse_rule(rule_file)
-    assert rule["pattern"], f"{rule_file.name}: pattern 키가 없다"
+    assert rule["pattern"], f"{rule_file.name}: missing pattern key"
     violating = set(find_violating_files(repository_root, rule))
     allowed = set(read_allow_entries(rule_file.with_suffix(".allow")))
 
-    # 새 위반 (동결 목록에 없는 파일) > 코드를 고친다
+    # New violations (files not in the freeze list) > fix the code
     new_violations = sorted(violating - allowed)
-    assert not new_violations, f"[{rule['id']}] 새 위반: {new_violations}"
-    # 고쳐진 항목 > 동결 목록에서 지운다 (목록이 느슨해지지 않게)
+    assert not new_violations, f"[{rule['id']}] new violations: {new_violations}"
+    # Fixed entries > remove them from the freeze list (keeps the list from loosening)
     fixed_entries = sorted(allowed - violating)
-    assert not fixed_entries, f"[{rule['id']}] 고쳐졌으니 {rule_file.stem}.allow 에서 지운다: {fixed_entries}"
+    assert not fixed_entries, f"[{rule['id']}] fixed, so remove from {rule_file.stem}.allow: {fixed_entries}"

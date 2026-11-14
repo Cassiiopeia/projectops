@@ -1,4 +1,4 @@
-"""copy-lint: 문구 후보의 기계적 검사 (em dash · 가운뎃점 · 금지어 · 번역투 · 과장)"""
+"""copy-lint: mechanical checks on copy candidates (em dash, middle dot, banned words, translationese, hype)"""
 from __future__ import annotations
 
 import json
@@ -9,7 +9,7 @@ from common.emit import emit
 
 
 # =========================================================================
-# copy-lint — 기계적으로 짚을 수 있는 것만. 좋은 문구는 agent 가 쓴다
+# copy-lint — only what can be flagged mechanically. The agent writes good copy
 # =========================================================================
 
 _TRANSLATIONESE = [
@@ -40,8 +40,8 @@ def lint_text(text: str, banned: list[str]) -> list[str]:
     return found
 
 
-# 금지어 뒤에 붙어도 같은 말로 보는 조사. 이것 말고 한글이 이어지면 다른 낱말이다
-# ("아이" 금지인데 "아이콘" 을 잡으면 안 된다 — 실측 오탐, #636).
+# Particles that still count as the banned word when attached. Any other following Hangul makes a different word
+# (banning "아이" must not flag "아이콘" — real false positive, #636).
 _JOSA = ("은", "는", "이", "가", "을", "를", "의", "에", "에게", "께", "와", "과", "도", "만",
          "로", "으로", "랑", "이랑", "들", "한테", "보다", "처럼", "까지", "부터", "라고", "야", "아")
 
@@ -49,11 +49,11 @@ _JOSA = ("은", "는", "이", "가", "을", "를", "의", "에", "에게", "께"
 def _banned_hit(word: str, text: str) -> bool:
     for m in re.finditer(re.escape(word), text):
         before = text[m.start() - 1] if m.start() > 0 else ""
-        # 앞이 한글·영숫자면 다른 낱말의 일부다 ("우리아이" 처럼 붙여 쓴 것은 놓친다 — 오탐보다 낫다)
+        # Preceded by Hangul or alphanumerics means part of another word (misses joined forms like "우리아이" — better than false positives)
         if before and re.match(r"[가-힣A-Za-z0-9]", before):
             continue
         tail = re.match(r"[가-힣A-Za-z0-9]*", text[m.end():]).group(0)
-        # 바로 끝나거나, 붙은 것이 조사 그대로거나, 복수·여격으로 시작하면 같은 말이다
+        # Same word if it ends there, the suffix is exactly a particle, or it starts with a plural/dative
         if not tail or tail in _JOSA or tail.startswith(("들", "에게", "한테")):
             return True
     return False
@@ -78,7 +78,7 @@ def cmd_copy_lint(args) -> int:
     issues, checked = [], 0
     for r in rows:
         if r.get("legal"):
-            continue   # 법적 문구는 후보를 내지 않는다 — 검사 대상도 아니다
+            continue   # Legal text gets no candidates — not checked either
         for kind, texts in (("current", [r.get("current")]), ("candidate", r.get("candidates") or [])):
             for t in texts:
                 if not t:

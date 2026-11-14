@@ -1,6 +1,6 @@
-"""파일을 넘는 냄새 (scan 전용): 긴 함수, 공통 지점 우회·공통화 후보, 같은 값 상수 중복
+"""Cross-file smells (scan only): long functions, bypassed shared entry points and extraction candidates, duplicate same-value constants
 
-모두 후보다. 우회는 "공통 지점이 이미 있다"는 근거(wrappers)를 함께 내고, 공통 지점이 없으면 세 번째 원칙 후보로 낸다.
+All are candidates. Bypasses come with evidence that a shared entry point already exists (wrappers); without one they are rule-of-three candidates.
 """
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import re
 
 from .naming_smells import without_string_literals
 
-# 긴 함수 (단계가 여러 개 섞였다는 신호 — conventions §3.3·§8 첫 줄)
+# Long functions (a sign of mixed steps — conventions §3.3 and the first row of §8)
 LONG_FUNCTION_LINES = 60
 CONTROL_KEYWORDS = {"if", "for", "while", "switch", "catch", "synchronized", "return", "new", "else", "try", "do",
                     "when", "foreach", "using", "class", "interface", "enum", "record", "object", "with", "super", "this"}
@@ -19,11 +19,11 @@ SLASH_FUNCTION_START_PATTERNS = (
 )
 PYTHON_FUNCTION_START_PATTERN = re.compile(r"^([ \t]*)(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(")
 
-# 공통 지점 후보 폴더 (여기서 원본 API를 감싸면 래퍼로 본다)
-# lib 는 src/lib 일 때만 (Flutter lib/ 는 앱 전체), client 는 모노레포 폴더 이름이라 넣지 않는다
+# Shared-entry-point folders (wrapping the raw API here counts as a wrapper)
+# lib only as src/lib (Flutter lib/ is the whole app); client is left out because it is a monorepo folder name
 COMMON_DIRECTORY_NAMES = {"design", "design_system", "common", "core", "shared", "ui", "network", "http",
                           "apis", "api", "clients", "infrastructure", "infra", "utils", "support"}
-# 원본 API 직접 호출 (스택 문서 "자주 나오는 AI 냄새"의 사실판) — (언어 집합, 이름, 패턴)
+# Direct raw API calls (fact version of the stack docs' "common AI smells") — (language set, name, pattern)
 DIRECT_CALL_PATTERNS = (
     ({"dart"}, "CircularProgressIndicator(", re.compile(r"\bCircularProgressIndicator\(")),
     ({"dart"}, "CupertinoActivityIndicator(", re.compile(r"\bCupertinoActivityIndicator\(")),
@@ -41,10 +41,10 @@ DIRECT_CALL_PATTERNS = (
     ({"java", "kotlin"}, "new ObjectMapper(", re.compile(r"\bnew\s+ObjectMapper\(|\bObjectMapper\(\)")),
     ({"python"}, "direct requests/httpx call", re.compile(r"\b(?:requests|httpx)\.(?:get|post|put|patch|delete|request)\(")),
 )
-# 공통 지점이 없을 때 이 파일 수 이상이면 공통화 후보 (세 번째 원칙 — conventions §1)
+# With no shared entry point, this many files or more makes an extraction candidate (rule of three — conventions §1)
 RULE_OF_THREE_FILES = 3
 
-# 이름 있는 상수 정의 (값이 문자열·숫자 리터럴인 것만)
+# Named constant definitions (only string or number literal values)
 CONSTANT_DEFINITION_PATTERNS = {
     "java": re.compile(r"\bstatic\s+final\s+[\w<>]+\s+([A-Z][A-Z0-9_]+)\s*=\s*(\"[^\"]{3,}\"|-?\d[\d_.]*[LlFfDd]?)\s*;"),
     "kotlin": re.compile(r"\bconst\s+val\s+([A-Z][A-Z0-9_]+)\s*(?::\s*\w+)?\s*=\s*(\"[^\"]{3,}\"|-?\d[\d_.]*)"),
@@ -56,7 +56,7 @@ CONSTANT_DEFINITION_PATTERNS["typescript"] = CONSTANT_DEFINITION_PATTERNS["javas
 
 
 def long_functions(text: str, language: str) -> list[dict]:
-    """60줄 넘는 함수·메서드 [{name, line, lines}] (중괄호 짝 / 파이썬 들여쓰기 기준 근사)"""
+    """Functions and methods over 60 lines [{name, line, lines}] (approximated by brace matching / Python indentation)"""
     lines = text.splitlines()
     if language == "python":
         return _long_python_functions(lines)
@@ -98,10 +98,10 @@ def _long_python_functions(lines: list[str]) -> list[dict]:
 
 
 def direct_call_findings(files: list, limit: int) -> tuple[list, list]:
-    """(우회, 공통화 후보) — files: [(상대경로, 언어, 코드 줄 [(번호, 줄)])]
+    """(bypasses, extraction candidates) — files: [(relative path, language, code lines [(number, line)])]
 
-    우회: 공통 폴더 안에 같은 원본 호출이 있는데(래퍼 후보) 그 밖에서도 직접 부름
-    공통화 후보: 래퍼가 없고 3개 파일 이상에서 직접 부름
+    Bypass: the same raw call exists inside a shared folder (wrapper candidate) yet is also called directly outside it
+    Extraction candidate: no wrapper and called directly from 3+ files
     """
     bypassed, unwrapped = [], []
     for languages, label, pattern in DIRECT_CALL_PATTERNS:
@@ -128,9 +128,9 @@ def direct_call_findings(files: list, limit: int) -> tuple[list, list]:
 
 
 def duplicate_constant_findings(files: list) -> list[dict]:
-    """같은 값 상수가 2개 파일 이상 (설정값·키 이름은 2곳이어도 단일 원본 — conventions §1·§5)
+    """Same-value constants in 2+ files (config values and key names need a single source even at 2 places — conventions §1, §5)
 
-    문자열은 값으로, 숫자는 이름+값으로 묶는다 (0·1 같은 흔한 숫자가 이름만 달라 묶이는 것 방지)
+    Strings are grouped by value, numbers by name+value (so common numbers like 0 and 1 with different names are not grouped)
     """
     groups = {}
     for relative, language, code_lines in files:

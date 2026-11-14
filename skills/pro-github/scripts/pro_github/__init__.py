@@ -1,1 +1,1 @@
-"""pro-github CLI 구현 패키지. 진입점은 ../github_cli.py (지도: registry.py · cli.py · commands/)."""
+"""pro-github CLI implementation package. Entry point is ../github_cli.py (map: registry.py · cli.py · commands/)."""

@@ -1,13 +1,13 @@
-"""scan 결과 정리: 범주 정렬 > 운영/테스트 분리 수치 > 파일별 집계 > 읽는 순서
+"""Organize scan results: sort categories > separate production/test counts > per-file tallies > reading order
 
-목록은 경로 순이 아니다. 심한 것 먼저, 같은 무게면 폴더마다 번갈아 뽑는다
-(한 폴더가 상위 목록을 다 채워 다른 폴더가 안 보이는 일 방지). 테스트 항목은 운영 항목 뒤에 둔다.
+Lists are not in path order. Most severe first; at equal weight, picked round-robin by folder
+(so one folder does not fill the top of the list and hide the others). Test items go after production items.
 """
 from __future__ import annotations
 
 from itertools import zip_longest
 
-# 읽는 순서 = 위험도 순 (동작 위험 > 공통화·단일 원본 > 구조 > 주석 > 이름·토큰)
+# Reading order = risk order (behavior risk > extraction/single source > structure > comments > names/tokens)
 REVIEW_ORDER = (
     ("behavior risk", ("unhandled_catch", "test_code_in_production", "swallowed_catch", "hardcoded_urls", "lint_disabled_files")),
     ("common code and single source", ("bypassed_components", "common_call_candidates", "duplicate_constants")),
@@ -18,29 +18,29 @@ REVIEW_ORDER = (
 )
 CROSS_FILE_CATEGORIES = ("bypassed_components", "common_call_candidates", "duplicate_constants")
 PER_FILE_CATEGORIES = tuple(c for _, group in REVIEW_ORDER for c in group if c not in CROSS_FILE_CATEGORIES)
-# 크기 순 정렬 기준 (나머지 범주는 폴더 번갈아)
+# Size-sort keys (other categories alternate by folder)
 SIZE_SORT_KEYS = {
     "long_files": lambda f: -f["lines"],
     "long_functions": lambda f: -f["lines"],
     "comment_heavy_files": lambda f: (f.get("is_declaration_only", False), -(f["comment_lines"] - f["code_lines"])),
     "long_comment_blocks": lambda f: (f["kind"] != "prose", -f["length"]),
     "commented_out_code": lambda f: -f["length"],
-    # 낮은 것 뒤로: 실패를 결과에 담음·화면에 알림·업무 예외 통과 후 번역 > 로그만 > 좁은 catch
+    # Lower priority last: failure recorded in result, reported to screen, translation after business exceptions pass > log only > narrow catch
     "unhandled_catch": lambda f: (f.get("records_failure", False) or f.get("sets_error_state", False)
                                   or f.get("has_passthrough_before", False),
                                   f["has_log"] and f["kind"] == "no_rethrow", not f["is_catch_all"], -f["body_lines"]),
 }
-# 반드시 분리할 파일 줄 수 (conventions §3.3)
+# File line count that must be split (conventions §3.3)
 MUST_SPLIT_LINES = 500
 HOTSPOT_COUNT = 15
-# 파일별 집계에서 뺄 범주 (파일 단위 사실이라 중복 집계가 됨)
+# Categories left out of per-file tallies (file-level facts would be double-counted)
 HOTSPOT_SKIPPED = {"long_files", "comment_heavy_files", "file_type_mismatch", "lint_disabled_files", "test_code_in_production"}
 
 
 def build_report(findings: dict, cross_file: dict, limit: int, categories: list | None) -> dict:
     counts, test_counts, ordered = {}, {}, {}
     for category, items in findings.items():
-        # --all 로 넣은 tooling·generated·vendored 는 운영 쪽 수치 (test 만 따로)
+        # tooling/generated/vendored included via --all count as production (only test is separate)
         production = [f for f in items if not _is_test_item(f)]
         others = [f for f in items if _is_test_item(f)]
         counts[category] = len(production)
@@ -94,7 +94,7 @@ def _ordered(category: str, items: list) -> list:
 
 
 def _round_robin_by_area(items: list) -> list:
-    """폴더(경로 앞 3단계)마다 번갈아 — 큰 폴더 먼저"""
+    """Alternate by folder (first 3 path levels) — larger folders first"""
     by_area = {}
     for item in items:
         by_area.setdefault("/".join(item["path"].split("/")[:3]), []).append(item)
@@ -103,7 +103,7 @@ def _round_robin_by_area(items: list) -> list:
 
 
 def _hotspots(findings: dict) -> list:
-    """운영 파일별 후보 수 상위 (원인 묶기 출발점: 한 파일에 여러 범주가 몰리면 그 파일 하나가 원인)"""
+    """Production files with the most candidates (starting point for grouping causes: many categories in one file means that file is the cause)"""
     by_file = {}
     for category, items in findings.items():
         if category in HOTSPOT_SKIPPED:

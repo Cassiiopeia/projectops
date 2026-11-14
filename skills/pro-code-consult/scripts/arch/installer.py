@@ -1,8 +1,8 @@
-"""conventions·install-tests·get-output-path: 스킬 정본 > 대상 프로젝트 설치 (덮어쓰지 않음)
+"""conventions, install-tests, get-output-path: skill originals > install into the target project (never overwrite)
 
-설치본 머리 표식 1줄: <!-- pro-code-consult:installed sha256=<정본 본문 해시> -->
-(옛 스킬 이름 pro-architecture-consult 표식도 같은 설치본으로 읽음)
-상태 4종: same(정본과 같음) / outdated(정본이 바뀜) / locally_modified(프로젝트 자체 수정본 — 그 프로젝트의 규칙) / missing
+One-line header marker on installed copies: <!-- pro-code-consult:installed sha256=<hash of the original body> -->
+(markers with the old skill name pro-architecture-consult are read as the same installed copy)
+4 states: same (matches the original) / outdated (the original changed) / locally_modified (edited by the project — that project's rules) / missing
 """
 from __future__ import annotations
 
@@ -21,11 +21,11 @@ RULE_TEST_TEMPLATES_DIRECTORY = SKILL_DIRECTORY / "templates" / "rule-tests"
 
 STACKS = ("flutter", "spring", "python", "javascript")
 INSTALLED_MARKER_PATTERN = re.compile(r"^<!-- pro-(?:code|architecture)-consult:installed sha256=([0-9a-f]{64}) -->\n\n?")
-# 규칙 테스트 템플릿 > 모듈 안 설치 위치
+# Rule test template > install location inside the module
 RULE_TEST_DESTINATIONS = {
     "flutter": ("architecture_rules_test.dart", "test/architecture/architecture_rules_test.dart"),
     "spring": ("ArchitectureRulesTest.java", "src/test/java/architecture/ArchitectureRulesTest.java"),
-    "python": ("test_architecture_rules.py.tmpl", "tests/architecture/test_architecture_rules.py"),  # .tmpl: 이 레포 pytest 수집 제외
+    "python": ("test_architecture_rules.py.tmpl", "tests/architecture/test_architecture_rules.py"),  # .tmpl: kept out of this repo's pytest collection
     "javascript": ("architecture.rules.test.mjs", "test/architecture/architecture.rules.test.mjs"),
 }
 OUTPUT_TITLE_ALLOWED_PATTERN = re.compile(r"[^\w가-힣\-]+")
@@ -33,7 +33,7 @@ MAXIMUM_TITLE_LENGTH = 60
 
 
 def installed_documents(root: Path, stacks: list[str]) -> list[tuple[Path, Path]]:
-    """(정본, 설치 위치) 목록: 규칙 정본 1개 + 지정 스택 문서"""
+    """List of (original, install location): the one conventions original + the requested stack docs"""
     architecture = root / "docs" / "architecture"
     pairs = [(CONVENTIONS_SOURCE, architecture / "CONVENTIONS.md")]
     pairs += [(STACK_SOURCES_DIRECTORY / f"{s}.md", architecture / "stacks" / f"{s}.md") for s in stacks]
@@ -82,7 +82,7 @@ def install_rule_test(root: Path, stack: str, module: str, is_force: bool) -> di
 
 
 def audit_output_path(root: Path, title: str) -> dict:
-    """경로 계산만 (폴더를 만들지 않는다 — 승인 전 호출해도 대상 레포가 바뀌지 않게, 폴더는 보고서를 쓸 때 생긴다)"""
+    """Compute the path only (creates no folder — calling before approval leaves the target repo unchanged; the folder appears when the report is written)"""
     slug = OUTPUT_TITLE_ALLOWED_PATTERN.sub("_", title.strip()).strip("_")[:MAXIMUM_TITLE_LENGTH] or "audit"
     audits = root / AUDITS_DIRECTORY
     path = audits / f"{date.today().isoformat()}_{slug}.md"

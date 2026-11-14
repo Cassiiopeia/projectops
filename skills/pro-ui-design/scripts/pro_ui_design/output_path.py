@@ -1,4 +1,4 @@
-"""get-output-path: 이번 요청서 자리(run_dir · board_dir · brief.md)"""
+"""get-output-path: location for this request (run_dir, board_dir, brief.md)"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -13,7 +13,7 @@ from pro_ui_design.settings import SKILL_ID
 # =========================================================================
 
 def cmd_output_path(args) -> int:
-    """이번 요청서 자리. 캡처는 pro-launch get-output-path --skill ui-design 로 같은 우산에 받는다."""
+    """Location for this request. Captures go under the same root via pro-launch get-output-path --skill ui-design."""
     try:
         from common.paths import resolve_output_path
     except ImportError:

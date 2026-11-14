@@ -1,6 +1,6 @@
-"""export: 덱 > exports/v<n>/ (덮어쓰지 않음, 열린 PPT 잠금과 무관)
-흐름: 서버 확인 > 브라우저로 장 PNG·조각 값(layout.json)·PDF > 변환기 고르기 > PPT 조립 > 검수(글자 대조 · 그림 부분 · 글꼴 · 되그리기 대조)
-변환기 2개: 내장(pptx_builder.py, 조각 값 > python-pptx) · dom-to-pptx(dom_to_pptx.py, 브라우저 안에서 DOM > PPT)
+"""export: deck > exports/v<n>/ (never overwrites, unaffected by an open PPT's lock)
+Flow: check server > browser renders slide PNG, piece values (layout.json), PDF > pick converter > build PPT > review (text match · image parts · fonts · redraw comparison)
+2 converters: built-in (pptx_builder.py, piece values > python-pptx) · dom-to-pptx (dom_to_pptx.py, DOM > PPT inside the browser)
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ BUILDER_SCRIPT = HERE / "pptx_builder.py"
 DOM_CONVERTER_SCRIPT = HERE / "dom_to_pptx.py"
 CONVERTER_AUTO = "auto"
 CONVERTER_BUILTIN = "builtin"
-# 받아 둔 dom-to-pptx 번들 자리 (~/.projectops/presentation/vendor/)
+# Downloaded dom-to-pptx bundle location (~/.projectops/presentation/vendor/)
 VENDOR_RELATIVE = Path("presentation") / "vendor"
 WHITESPACE_PATTERN = re.compile(r"\s+")
 PIP_TIMEOUT_SECONDS = 300
@@ -67,7 +67,7 @@ def _run_json(command: list[str], timeout_seconds: int) -> dict:
 
 
 def python_with_pptx() -> str | None:
-    """python-pptx 가 있는 파이썬: 현재 > pro-launch 가상환경(없으면 설치 1회)"""
+    """Python with python-pptx: current > pro-launch venv (installs once if missing)"""
     candidates = [sys.executable] + ([str(venv_python())] if venv_python() else [])
     for interpreter in candidates:
         if subprocess.run([interpreter, "-c", "import pptx"], capture_output=True).returncode == 0:
@@ -81,7 +81,7 @@ def python_with_pptx() -> str | None:
 
 
 def find_missing_fonts(layout: dict) -> list[str]:
-    """쓴 글꼴 중 이 컴퓨터 글꼴 폴더에 파일이 안 보이는 것 (받는 쪽에도 없을 수 있음)"""
+    """Fonts used that have no file in this computer's font folders (the recipient may lack them too)"""
     families = {piece.get("font_family", "").split(",")[0].strip().strip("\"'")
                 for slide in layout["slides"] for piece in slide["pieces"] if piece["kind"] in ("text", "title", "table")}
     installed = " ".join(path.stem.lower().replace(" ", "") for directory in FONT_DIRECTORIES if directory.is_dir()
@@ -90,7 +90,7 @@ def find_missing_fonts(layout: dict) -> list[str]:
 
 
 def compare_render_back(pptx_file: Path, out_dir: Path, slide_count: int) -> dict:
-    """LibreOffice 로 PPT 를 다시 그려 HTML 캡처와 장마다 비교 (없으면 건너뜀)"""
+    """Redraw the PPT with LibreOffice and compare with the HTML capture per slide (skipped if absent)"""
     libreoffice = find_libreoffice()
     if libreoffice is None:
         return {"render_back": "skipped_no_libreoffice"}
@@ -108,12 +108,12 @@ def compare_render_back(pptx_file: Path, out_dir: Path, slide_count: int) -> dic
 
 
 def unmapped_styles(layout: dict) -> list[str]:
-    """내장 변환기가 옮기지 못하는 모양이 있는 장 ('slide 3: shadow, table style')"""
+    """Slides with shapes the built-in converter cannot carry ('slide 3: shadow, table style')"""
     return [f"slide {slide['number']}: {', '.join(slide['unmapped'])}" for slide in layout["slides"] if slide.get("unmapped")]
 
 
 def build_with_dom_to_pptx(job: dict, out_dir: Path, timeout_seconds: int) -> dict:
-    """번들 준비(받아 둔 것 또는 내려받기) > 브라우저 안에서 변환. 실패하면 ok False (호출부가 내장 변환기로 대신함)"""
+    """Prepare bundle (downloaded or download now) > convert in the browser. ok False on failure (caller falls back to the built-in converter)"""
     bundle, bundle_state = ensure_bundle(base_dir() / VENDOR_RELATIVE)
     if bundle is None:
         return {"ok": False, "code": "converter_unavailable", "error": f"dom-to-pptx bundle: {bundle_state}"}
@@ -134,7 +134,7 @@ def build_with_builtin(job: dict, out_dir: Path, deck_dir: Path, timeout_seconds
 
 
 def build_pptx(requested: str, layout: dict, job: dict, out_dir: Path, deck_dir: Path, timeout_seconds: int) -> dict:
-    """변환기 고르기: auto 는 내장 변환기가 옮기지 못하는 모양이 있을 때만 dom-to-pptx (실패하면 내장으로 대신)"""
+    """Pick converter: auto uses dom-to-pptx only when the built-in converter cannot carry some shapes (falls back to built-in on failure)"""
     unmapped = unmapped_styles(layout)
     if requested == CONVERTER_BUILTIN or (requested == CONVERTER_AUTO and not unmapped):
         return {**build_with_builtin(job, out_dir, deck_dir, timeout_seconds), "unmapped_styles": unmapped}
@@ -147,10 +147,10 @@ def build_pptx(requested: str, layout: dict, job: dict, out_dir: Path, deck_dir:
 
 
 def verify(layout: dict, built: dict, out_dir: Path, pptx_file: Path) -> dict:
-    """장마다 HTML 조각 글이 PPT 글에 다 있는지 + 그림으로 들어간 부분 + 글꼴 + 되그리기"""
+    """Per slide: all HTML piece text present in the PPT text + parts placed as images + fonts + redraw"""
     built_by_id = {slide["id"]: slide for slide in built["slides"]}
     is_dom_converter = built.get("converter") == CONVERTER_DOM
-    # dom-to-pptx 는 줄바꿈 자리가 HTML 과 달라질 수 있음 > 공백을 빼고 대조
+    # dom-to-pptx may break lines differently from HTML > compare with whitespace removed
     normalize = (lambda text: WHITESPACE_PATTERN.sub("", text)) if is_dom_converter else (lambda text: text)
     slides = []
     for slide in layout["slides"]:
@@ -158,7 +158,7 @@ def verify(layout: dict, built: dict, out_dir: Path, pptx_file: Path) -> dict:
         expected = [line.strip() for piece in slide["pieces"] for line in (piece.get("lines") or []) if line.strip()]
         expected += [cell for piece in slide["pieces"] for row in (piece.get("rows") or []) for cell in row if cell]
         missing = [line for line in expected if normalize(line) not in ppt_text]
-        # dom-to-pptx 는 data-pp 없는 부분도 PPT 객체로 옮김 (그림으로 들어가지 않음)
+        # dom-to-pptx carries parts without data-pp as PPT objects too (not as images)
         slides.append({"id": slide["id"], "text_match": not missing, "missing_text": missing[:5],
                        "picture_parts": 0 if is_dom_converter else len(slide["pictures"]),
                        "missing_images": built_by_id.get(slide["id"], {}).get("missing_images", [])})

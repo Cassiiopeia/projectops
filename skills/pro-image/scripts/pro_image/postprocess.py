@@ -1,5 +1,5 @@
-"""후처리 한 번에: PNG 변환 > 진짜 투명 여부 확인 > 필요 시 배경 제거 > 크기 맞춤 > 최종 사실
-사용자에게 중간 과정을 보이지 않도록 run 이 끝까지 처리하고, 한 일은 steps 로만 남김
+"""Postprocess in one pass: convert to PNG > check real transparency > remove background if needed > fit size > final facts
+run handles everything so the user never sees intermediate steps; what was done is recorded only in steps
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ def _ensure_png(source: Path, work_dir: Path, steps: list[str]) -> Path:
 
 
 def _transparent_share(path: Path) -> float | None:
-    """완전 투명 픽셀 비율 (PNG 디코드 불가면 None)"""
+    """Share of fully transparent pixels (None if the PNG cannot be decoded)"""
     try:
         width, height, rgba = png_codec.read_rgba(path)
     except (png_codec.UnsupportedPng, OSError, ValueError):
@@ -30,12 +30,12 @@ def _transparent_share(path: Path) -> float | None:
 
 
 def remove_background(source: Path, target: Path, key_color: str | None, tolerance: float, mode: str | None) -> dict:
-    """배경 제거 1회 > 사용한 키·모드·투명 비율"""
+    """One background removal > key, mode and transparent share used"""
     width, height, rgba = png_codec.read_rgba(source)
     keys = [background.parse_hex_color(key_color)] if key_color else background.detect_keys(width, height, rgba)
     if not keys:
         return {"ok": False, "code": "no_background_color", "summary": "Border has no dominant color to remove"}
-    # 키 컬러를 지정했으면 global(물체 사이 틈까지), 자동 판별이면 flood(테두리와 이어진 곳만)
+    # Explicit key color uses global (including gaps between objects); auto-detect uses flood (only areas connected to the border)
     chosen_mode = mode or ("global" if key_color else "flood")
     stats = background.remove(width, height, rgba, keys, tolerance, chosen_mode)
     png_codec.write_rgba(target, width, height, rgba)
@@ -44,14 +44,14 @@ def remove_background(source: Path, target: Path, key_color: str | None, toleran
 
 def finish(source: Path, final_path: Path, size: tuple[int, int], is_alpha_required: bool,
            key_color: str | None) -> dict:
-    """생성 원본 > 요청 규격의 최종 PNG"""
+    """Generated original > final PNG at the requested spec"""
     work_dir = final_path.parent / "work"
     work_dir.mkdir(exist_ok=True)
     steps: list[str] = []
     current = _ensure_png(source, work_dir, steps)
     if is_alpha_required:
         share = _transparent_share(current)
-        # 투명 픽셀이 거의 없으면 가짜 투명(체크무늬)·단색 배경 > 배경 제거
+        # Almost no transparent pixels means fake transparency (checkerboard) or a solid background > remove background
         if share is None or share < 0.02:
             cleared = work_dir / "background_removed.png"
             if share is None:
@@ -65,7 +65,7 @@ def finish(source: Path, final_path: Path, size: tuple[int, int], is_alpha_requi
             current = cleared
     facts = image_facts.read_facts(current)
     if (facts.get("width"), facts.get("height")) != size:
-        # 투명 그림(물체)은 잘리지 않게 contain, 배경 그림은 빈틈 없게 cover
+        # Transparent images (objects) use contain so nothing is cut; background images use cover so there are no gaps
         mode = "contain" if is_alpha_required else "cover"
         tool = converter.fit(current, work_dir / "fitted.png", size, mode)
         steps.append(f"resized {facts.get('width')}x{facts.get('height')} to {size[0]}x{size[1]} ({mode}, {tool})")

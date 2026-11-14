@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
-"""presentation_cli — pro-presentation 전용 CLI (projectops 3-layer 표준, Layer 2, #1097).
+"""presentation_cli — pro-presentation CLI (projectops 3-layer standard, Layer 2, #1097).
 
-HTML 덱 폴더를 원본으로 연습 화면을 띄우고, 녹화를 받아쓰고, 검사하고, PDF·PPT 로 내보낸다.
-**판단은 agent** — 코칭, 장별 녹화 구간, 슬라이드 내용은 agent 가 덱 파일을 직접 고친다. 여기는 실행과 사실만.
+Serves the practice screen from an HTML deck folder, transcribes recordings, checks, and exports to PDF/PPT.
+**The agent decides** — coaching, per-slide recording ranges and slide content are edited by the agent in the deck files. This only runs things and reports facts.
 
-서브커맨드:
-    start · status · stop        덱 만들기(템플릿·첫 실행 질문) + 연습 서버
-    import                       기존 PPT·PDF > 장 그림 + 원본 글
-    recording add                녹화 파일 · 영상 주소 · 자막 파일 > transcript.txt
-    check                        빠진 파일 · 용어 위반 · 예상 시간 · 녹화 차수별 장 시간 · 그림으로 갈 부분
-    export                       PDF · 글자 PPT + 검수
-    config show|set|options      presentation 설정 (config.json)
-    get-output-path              덱을 둘 기본 자리
+Subcommands:
+    start · status · stop        create deck (template, first-run questions) + practice server
+    import                       existing PPT/PDF > slide images + source text
+    recording add                recording file · video URL · subtitle file > transcript.txt
+    check                        missing files · term violations · estimated time · per-slide time by recording take · parts better as images
+    export                       PDF · text PPT + review
+    config show|set|options      presentation settings (config.json)
+    get-output-path              default place for the deck
 
-출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
+Output: MCP-style JSON (ok/code/summary/next, all 4 fields guaranteed).
 """
 from __future__ import annotations
 
@@ -24,12 +24,12 @@ _HERE = Path(__file__).resolve()
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
-import pro_presentation  # noqa: E402,F401  (common import 경로를 맞춘다)
+import pro_presentation  # noqa: E402,F401  (sets the common import path)
 from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 
 
 def _run(module_name: str, function_name: str):
-    """서브커맨드 모듈은 부를 때만 import (선택 의존성이 다른 명령을 막지 않게)"""
+    """Import subcommand modules only when called (so an optional dependency does not block other commands)"""
     def runner(args):
         module = __import__(f"pro_presentation.{module_name}", fromlist=[function_name])
         return getattr(module, function_name)(args)

@@ -1,5 +1,5 @@
-"""설정 해석: projects[] 일치 항목 > 섹션 기본값 > 표 기본값 (값마다 출처 표시)
-config show · set · options. 쓰기는 presentation 섹션의 그 키만
+"""Settings resolution: matching projects[] entry > section default > table default (source shown per value)
+config show · set · options. Writes only that key in the presentation section
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _project_identity(root: Path) -> set[str]:
 
 
 def resolve_config(root: Path) -> dict:
-    """옵션별 {value, source} + 잘못 저장된 값(invalid) + 모르는 키(ignored)"""
+    """{value, source} per option + wrongly stored values (invalid) + unknown keys (ignored)"""
     data = common_config.load() or {}
     section = data.get(CONFIG_SECTION) if isinstance(data.get(CONFIG_SECTION), dict) else {}
     identity = _project_identity(root)

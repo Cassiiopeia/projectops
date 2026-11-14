@@ -1,5 +1,5 @@
-// pro-ui-design 뷰어 셸 동작: 시안 목록, 기기, 테마, 속도 전환, 주기 확인
-// 서버가 채우는 설정: 기기, 테마, 언어, 제목
+// pro-ui-design viewer shell: mockup list, device, theme, speed switching, polling
+// Settings filled by the server: device, theme, language, title
 const SETTINGS = window.UI_DESIGN_SETTINGS;
 const POLL_INTERVAL_MILLISECONDS = 1000;
 const SPEED_CHOICES = [{ value: 1, label: "Normal speed" }, { value: 3, label: "3x slower" }];
@@ -26,11 +26,11 @@ function readStored(name, fallback) {
   try { return localStorage.getItem(STORAGE_PREFIX + name) ?? fallback; } catch { return fallback; }
 }
 function storeValue(name, value) {
-  try { localStorage.setItem(STORAGE_PREFIX + name, value); } catch { /* 저장 불가 브라우저는 이번 탭에서만 유지 */ }
+  try { localStorage.setItem(STORAGE_PREFIX + name, value); } catch { /* Browsers that cannot store keep it for this tab only */ }
 }
 function translate(text) { return translations[text] || text; }
 
-// 묶음 토글: 하나만 켜짐, 선택지가 하나면 숨김
+// Group toggle: only one on, hidden when there is a single choice
 function buildSegment(containerId, choices, selected, onSelect) {
   const container = document.getElementById(containerId);
   container.hidden = choices.length < 2;
@@ -115,7 +115,7 @@ function renderList(screens, newest) {
   });
 }
 
-// 주기 확인: 새 시안이면 따라가고, 보던 이전 시안은 고정 유지
+// Polling: follow a new mockup, keep a pinned older one in place
 async function pollState() {
   try {
     const response = await fetch("/api/state", { cache: "no-store" });
@@ -148,7 +148,7 @@ async function loadTranslations() {
   if (!String(SETTINGS.language || "").toLowerCase().startsWith("ko")) return;
   try {
     translations = await (await fetch("/assets/viewer-i18n.ko.json")).json();
-  } catch { /* 사전을 못 읽으면 영어로 표시 */ }
+  } catch { /* Show English if the dictionary cannot be read */ }
 }
 
 async function main() {

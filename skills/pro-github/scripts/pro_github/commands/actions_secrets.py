@@ -1,4 +1,4 @@
-"""Actions Secret 서브커맨드: secrets (list|set)."""
+"""Actions Secret subcommand: secrets (list|set)."""
 from __future__ import annotations
 
 import os
@@ -27,7 +27,7 @@ def cmd_secrets(args, api) -> int:
                 return emit({"ok": False, "code": "missing_argument", "error": "name is required"})
             value = os.environ.get("SECRET_VALUE")
             if args.value_file:
-                # 여러 줄 값(.env 통째로 등)은 파일로: 셸 이스케이프 없이 그대로 읽는다 (#939)
+                # Multi-line values (a whole .env, etc.) come from a file: read as is with no shell escaping (#939)
                 try:
                     value = Path(args.value_file).read_text(encoding="utf-8")
                 except OSError as error:
@@ -46,7 +46,7 @@ def cmd_secrets(args, api) -> int:
         return api_error(e)
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_secrets(parser) -> None:
     parser.add_argument("sub", choices=["list", "set"])

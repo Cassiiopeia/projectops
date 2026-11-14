@@ -1,7 +1,7 @@
-"""api: 전용 서브커맨드가 없는 GitHub REST 호출의 검증된 통과 경로 (#939).
+"""api: vetted pass-through for GitHub REST calls with no dedicated subcommand (#939).
 
-기능이 비면 에이전트가 설정 파일에서 PAT 를 읽어 curl 을 직접 쓴다. 인증을 여기서 한 곳에서 붙이고
-PAT 를 출력하지 않으며, 레포 범위 밖 경로와 의도하지 않은 쓰기를 막는다.
+When a feature is missing, the agent reads the PAT from the config file and calls curl itself. This adds auth in one place,
+never prints the PAT, and blocks paths outside the repo and unintended writes.
 """
 from __future__ import annotations
 
@@ -16,25 +16,25 @@ from pro_github.responses import api_error, missing_pat
 
 READ_METHODS = ("GET",)
 WRITE_METHODS = ("POST", "PUT", "PATCH", "DELETE")
-# 응답이 길어도 세션에 다 싣지 않는다
+# Do not load the whole response into the session even when it is long
 MAX_RESPONSE_CHARS = 20000
-# 레포 밖이지만 읽기 전용으로 허용하는 경로 (남은 호출 한도 확인)
+# Outside the repo but allowed read-only (remaining rate limit check)
 READ_ONLY_GLOBAL_PATHS = ("/rate_limit",)
-# 쓰기를 막는 레포 관리 경로 (공개 전환·삭제·이전·비밀·권한) — 통과 경로로 되돌리기 어려운 사고를 내지 않게
+# Repo admin paths where writes are blocked (visibility, delete, transfer, secrets, permissions) — avoids hard-to-undo accidents via the pass-through
 REPOSITORY_ADMIN_SUBPATHS = ("transfer", "actions/secrets", "collaborators", "keys", "hooks")
-# 레포 생성 REST 경로: /orgs/{org}/repos · /user/repos (그룹 1: 조직, 사용자 경로면 None)
+# Repo creation REST paths: /orgs/{org}/repos · /user/repos (group 1: org, None for the user path)
 REPOSITORY_CREATION_PATH_PATTERN = re.compile(r"^/(?:orgs/([^/]+)|user)/repos/?$")
 
 
 def resolve_api_path(owner: str, repo: str, path: str) -> str:
-    """상대 경로(actions/runs) > /repos/{owner}/{repo}/actions/runs. 절대 경로는 그대로"""
+    """Relative path (actions/runs) > /repos/{owner}/{repo}/actions/runs. Absolute paths stay as is"""
     if path.startswith("/"):
         return path
     return f"/repos/{owner}/{repo}/{path}"
 
 
 def is_path_in_scope(method: str, path: str, prefix: str) -> bool:
-    """이 레포 아래 경로, 또는 GET 으로 부르는 허용 전역 경로만"""
+    """Only paths under this repo, or allowed global paths called with GET"""
     if ".." in path or "://" in path:
         return False
     if method in READ_METHODS and path.split("?", 1)[0] in READ_ONLY_GLOBAL_PATHS:
@@ -43,7 +43,7 @@ def is_path_in_scope(method: str, path: str, prefix: str) -> bool:
 
 
 def is_repository_admin_write(method: str, path: str, prefix: str) -> bool:
-    """레포 자체(/repos/o/r) 수정·삭제 또는 관리 경로 쓰기인지"""
+    """Whether this edits/deletes the repo itself (/repos/o/r) or writes an admin path"""
     if method not in WRITE_METHODS:
         return False
     bare = path.split("?", 1)[0]
@@ -54,9 +54,9 @@ def is_repository_admin_write(method: str, path: str, prefix: str) -> bool:
 
 
 def fit_response_data(data, max_chars: int = MAX_RESPONSE_CHARS) -> tuple:
-    """응답을 유효한 JSON 으로 한도 안에 맞춘다 > (줄인 data, 버린 항목 수 | None=줄일 수 없음).
+    """Fit the response within the limit as valid JSON > (trimmed data, dropped item count | None=cannot trim).
 
-    목록이면 뒤 항목부터, 객체면 가장 큰 목록 값의 뒤 항목부터 버린다.
+    For a list, drop items from the end; for an object, drop from the end of its largest list value.
     """
     if len(json.dumps(data, ensure_ascii=False)) <= max_chars:
         return data, 0
@@ -75,7 +75,7 @@ def fit_response_data(data, max_chars: int = MAX_RESPONSE_CHARS) -> tuple:
     def rebuild(count: int):
         return items[:count] if list_key is None else {**data, list_key: items[:count]}
 
-    # 한도 안에 드는 최대 항목 수 (이분 탐색)
+    # Maximum item count that fits the limit (binary search)
     low, high = 0, len(items)
     while low < high:
         middle = (low + high + 1) // 2
@@ -102,7 +102,7 @@ def cmd_api(args, api) -> int:
         return emit({"ok": False, "code": "repo_admin_blocked",
                      "error": f"repo settings, deletion, transfer, secrets and permission writes do not go through this pass-through: {method} {path}",
                      "next": "use secrets set for secrets; the user changes repo settings in the GitHub UI"})
-    # 대상 레포 밖 경로(다른 레포·사용자·조직)는 거절 — 통과 경로가 범용 토큰 사용기가 되지 않게
+    # Reject paths outside the target repo (other repos, users, orgs) — keeps the pass-through from becoming a general token runner
     if not is_path_in_scope(method, path, prefix):
         return emit({"ok": False, "code": "path_out_of_scope",
                      "error": f"the path must start with {prefix} (read-only exception: GET /rate_limit): {args.path}",
@@ -118,7 +118,7 @@ def cmd_api(args, api) -> int:
         except (OSError, ValueError) as error:
             return emit({"ok": False, "code": "body_file_invalid", "error": f"{args.body_file}: {error}"})
     try:
-        # --out 이면 바이트로 받음 — artifact zip·zipball 같은 비 JSON 응답도 저장 (#987)
+        # With --out, receive bytes — also saves non-JSON responses such as artifact zips and zipballs (#987)
         data = api._request(method, f"https://api.github.com{path}", payload, pat, as_bytes=bool(args.out))
     except GitHubAPIError as e:
         return api_error(e)
@@ -130,7 +130,7 @@ def cmd_api(args, api) -> int:
 
 
 def _out_of_scope_next(args, method: str, path: str) -> str:
-    """범위 밖 경로 > 다음 명령 안내 (레포 생성 경로면 전용 명령 create-repo, #1022)"""
+    """Out-of-scope path > next-command hint (for repo creation paths, the dedicated create-repo command, #1022)"""
     creation_match = REPOSITORY_CREATION_PATH_PATTERN.match(path.split("?", 1)[0])
     if method == "POST" and creation_match:
         repository_owner = creation_match.group(1) or args.owner
@@ -139,7 +139,7 @@ def _out_of_scope_next(args, method: str, path: str) -> str:
 
 
 def _parse_json_bytes(content: bytes):
-    """응답 바이트 > (JSON 값, True) | (바이트 그대로, False). 빈 본문은 기존과 같이 {}"""
+    """Response bytes > (JSON value, True) | (raw bytes, False). Empty body stays {} as before"""
     if not content:
         return {}, True
     try:
@@ -149,7 +149,7 @@ def _parse_json_bytes(content: bytes):
 
 
 def _emit_binary_saved(args, method: str, path: str, content: bytes) -> int:
-    """비 JSON 응답 > 바이트 그대로 --out 에 저장, 본문은 응답에 싣지 않음"""
+    """Non-JSON response > save raw bytes to --out, body not included in the response"""
     saved_path = Path(args.out)
     saved_path.write_bytes(content)
     return emit({"method": method, "path": path, "binary": True, "bytes": len(content),
@@ -158,7 +158,7 @@ def _emit_binary_saved(args, method: str, path: str, content: bytes) -> int:
 
 
 def _emit_api_result(args, method: str, path: str, data) -> int:
-    """전체 저장(--out) > 한도 맞춤 > 잘렸으면 per_page·--out 안내"""
+    """Save everything (--out) > fit the limit > if trimmed, hint per_page·--out"""
     out = {"method": method, "path": path, "summary": f"{method} {path} done"}
     if args.out:
         Path(args.out).write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

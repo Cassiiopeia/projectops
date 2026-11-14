@@ -1,1 +1,1 @@
-"""pro-image 모듈: 설정·Codex 실행·이미지 검사·하네스·생성 기록"""
+"""pro-image modules: settings, Codex runs, image checks, harness, generation history"""

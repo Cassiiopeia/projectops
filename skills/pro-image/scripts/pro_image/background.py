@@ -1,25 +1,25 @@
-"""배경 제거: 테두리 색으로 배경 판별 > 투명화 > 가장자리 반투명·색 번짐 제거
-모드 2개: flood 테두리와 이어진 배경만 (흰 배경·가짜 체크무늬), global 키 컬러 전부 (초록·분홍 크로마키)
+"""Background removal: detect background from border color > make transparent > remove edge semi-transparency and color bleed
+2 modes: flood only background connected to the border (white bg, fake checkerboard), global every key-color pixel (green/pink chroma key)
 """
 from __future__ import annotations
 
 from collections import Counter, deque
 
-# 배경으로 볼 색 거리 (RGB 유클리드, 0~441)
+# Color distance counted as background (RGB Euclidean, 0-441)
 DEFAULT_TOLERANCE = 48
-# 반투명 처리 폭: tolerance ~ tolerance*SOFT_BAND_RATIO 구간은 거리 비례 알파
+# Semi-transparent band: tolerance to tolerance*SOFT_BAND_RATIO gets alpha proportional to distance
 SOFT_BAND_RATIO = 2.0
-# 키 컬러 후보 3개 (초록, 분홍, 파랑): 대상 색과 가장 먼 것을 고름
+# 3 key-color candidates (green, pink, blue): pick the one farthest from the subject colors
 KEY_COLOR_CANDIDATES = ("#00FF00", "#FF00FF", "#0000FF")
-# 가장자리 색 복원 분모 하한 (알파 비율, 0~1)
+# Lower bound of the denominator when restoring edge color (alpha share, 0-1)
 UNMIX_MIN_SHARE = 0.6
-# 키 컬러(채도 높은 배경)일 때 최소 허용 거리
+# Minimum tolerance for a key color (high-saturation background)
 CHROMA_TOLERANCE = 110
-# 키 컬러 번짐 제거 범위: 투명 영역 바깥 몇 픽셀까지
+# Key-color bleed removal range: how many pixels outside the transparent area
 EDGE_RING_PIXELS = 2
-# 테두리 색 묶음 단위 (값을 이 크기로 양자화해 대표색 계산)
+# Border color bucket size (values quantized to this size to find dominant colors)
 BORDER_COLOR_BUCKET = 16
-# 대표색 후보: 테두리 픽셀 중 이 비율 이상 차지한 색만
+# Dominant color candidates: only colors taking at least this share of border pixels
 BORDER_COLOR_MIN_SHARE = 0.08
 
 
@@ -47,7 +47,7 @@ def _border_indexes(width: int, height: int) -> list[int]:
 
 
 def detect_keys(width: int, height: int, rgba: bytearray) -> list[tuple[int, int, int]]:
-    """테두리 대표색 1~2개 (가짜 체크무늬면 밝은 회색·흰색 2개)"""
+    """1-2 dominant border colors (fake checkerboard gives light gray and white)"""
     buckets = Counter()
     sums: dict[tuple, list[int]] = {}
     for index in _border_indexes(width, height):
@@ -66,7 +66,7 @@ def detect_keys(width: int, height: int, rgba: bytearray) -> list[tuple[int, int
 
 
 def _alpha_for(color: tuple[int, int, int], keys: list[tuple[int, int, int]], tolerance: float) -> int:
-    """배경색과의 거리 > 알파 (가까우면 0, 반투명 구간은 비례, 멀면 255)"""
+    """Distance from background color > alpha (near 0, proportional in the soft band, far 255)"""
     nearest = min(_distance(color, key) for key in keys)
     if nearest <= tolerance:
         return 0
@@ -75,7 +75,7 @@ def _alpha_for(color: tuple[int, int, int], keys: list[tuple[int, int, int]], to
 
 
 def _despill(rgba: bytearray, index: int, key: tuple[int, int, int]) -> None:
-    # 키 컬러 번짐 제거: 키에서 강한 채널(초록 1개, 분홍 2개)을 약한 채널 최대값으로 낮춤
+    # Key-color bleed removal: lower the key's strong channels (green 1, pink 2) to the max of the weak channels
     offset = index * 4
     strong = [channel for channel in range(3) if key[channel] >= 128]
     weak = [channel for channel in range(3) if key[channel] < 128]
@@ -87,8 +87,8 @@ def _despill(rgba: bytearray, index: int, key: tuple[int, int, int]) -> None:
 
 
 def _unmix(rgba: bytearray, index: int, key: tuple[int, int, int], alpha: int) -> None:
-    # 반투명 픽셀 = 물체색 x a + 배경색 x (1-a) > 물체색 복원 (가장자리 배경색 비침 제거)
-    # 알파가 아주 낮으면 나눗셈이 잡음을 키워 다른 색 테두리가 생김 > 분모 하한 UNMIX_MIN_SHARE
+    # Semi-transparent pixel = subject x a + background x (1-a) > restore subject color (removes background tint on edges)
+    # Very low alpha makes division amplify noise into off-color fringes > denominator floor UNMIX_MIN_SHARE
     offset, share = index * 4, max(alpha / 255, UNMIX_MIN_SHARE)
     for channel in range(3):
         restored = (rgba[offset + channel] - key[channel] * (1 - share)) / share
@@ -96,7 +96,7 @@ def _unmix(rgba: bytearray, index: int, key: tuple[int, int, int], alpha: int) -
 
 
 def pick_key_color(colors: list[tuple[int, int, int]]) -> str:
-    """대상에 쓰인 색들 > 그중 어느 색과도 가장 먼 키 컬러 (초록·분홍·파랑 중)"""
+    """Colors used in the subject > key color farthest from all of them (green, pink or blue)"""
     if not colors:
         return KEY_COLOR_CANDIDATES[0]
     def nearest_distance(candidate: str) -> float:
@@ -106,7 +106,7 @@ def pick_key_color(colors: list[tuple[int, int, int]]) -> str:
 
 
 def dominant_colors(width: int, height: int, rgba: bytearray, limit: int = 8) -> list[tuple[int, int, int]]:
-    """불투명 픽셀의 대표색 (양자화 후 빈도순, 참조 그림에서 키 컬러 고를 때 사용)"""
+    """Dominant colors of opaque pixels (quantized, by frequency; used to pick a key color from references)"""
     buckets = Counter()
     step = max(1, (width * height) // 40000)
     for index in range(0, width * height, step):
@@ -129,12 +129,12 @@ def _neighbors(index: int, width: int, height: int):
 
 
 def is_chroma_key(keys: list[tuple[int, int, int]]) -> bool:
-    # 채도 높은 키(초록·분홍 등): 물체와 멀어 허용 범위를 넓히고 번짐 제거
+    # High-saturation key (green, pink, etc.): far from the subject, so widen tolerance and remove bleed
     return any(max(key) - min(key) > 128 for key in keys)
 
 
 def _edge_ring(alpha_by_index: dict, width: int, height: int) -> set[int]:
-    """투명·반투명 픽셀 + 그 바깥 EDGE_RING_PIXELS 겹 이웃 (키 컬러가 번지는 윤곽선)"""
+    """Transparent/semi-transparent pixels + EDGE_RING_PIXELS rings of neighbors (outline where key color bleeds)"""
     ring = {index for index, alpha in alpha_by_index.items() if alpha > 0}
     frontier = {index for index, alpha in alpha_by_index.items() if alpha == 0}
     seen = set(alpha_by_index)
@@ -148,7 +148,7 @@ def _edge_ring(alpha_by_index: dict, width: int, height: int) -> set[int]:
 
 def remove(width: int, height: int, rgba: bytearray, keys: list[tuple[int, int, int]], tolerance: float,
            mode: str) -> dict:
-    """배경 픽셀 알파 조정 > {투명 픽셀 수, 반투명 픽셀 수} (rgba 를 직접 수정)"""
+    """Adjust alpha of background pixels > {transparent count, semi-transparent count} (mutates rgba)"""
     total = width * height
     if is_chroma_key(keys):
         tolerance = max(tolerance, CHROMA_TOLERANCE)
@@ -167,7 +167,7 @@ def remove(width: int, height: int, rgba: bytearray, keys: list[tuple[int, int, 
             if alpha == 255:
                 continue
             alpha_by_index[index] = alpha
-            # 반투명 픽셀은 물체 가장자리 > 더 들어가지 않음
+            # Semi-transparent pixel is the subject edge > stop here
             if alpha > 0:
                 continue
             for neighbor in _neighbors(index, width, height):

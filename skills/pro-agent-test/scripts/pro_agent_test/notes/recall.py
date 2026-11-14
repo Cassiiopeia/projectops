@@ -1,4 +1,4 @@
-"""기억 요약·응답 싣기: 순위, 화면 요약, 하루 한 번 싣기, 쓰기 전 비슷한 항목 찾기"""
+"""Memory summary and surfacing: ranking, screen summary, once-a-day surfacing, finding similar entries before writing"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from pro_agent_test.notes.store import _load_notes, _locator, _machine_note_path
 from pro_agent_test.storage import _NOTE_MIN_WORDS, _SEEN_FILE, _SHOW_CHARS, _SURFACE_CHARS, _home_dir
 
 
-# ── 항목 요약 · 응답에 싣기 ─────────────────────────────────────────────
+# ── Entry summary · surfacing in responses ─────────────────────────────────────────────
 
 def _brief(i: int, e: dict, chars: int, now: str | None = None, scope: str | None = None) -> dict:
     ok, fail, last = _memory.stats(e)
@@ -33,14 +33,14 @@ def _ranked(entries: list, now: str | None = None) -> list[tuple[int, dict]]:
 
 
 def _target_verify(t: dict, now: str | None = None) -> bool:
-    """화면 대상은 성적이 생긴 뒤에만 낡음을 따진다 — 갓 적은 대상을 '오래됨'으로 보지 않는다."""
+    """Screen targets are judged stale only after they have a score — a freshly recorded target is not 'old'."""
     if t.get("verify"):
         return True
     return ("ok" in t or "fail" in t) and _memory.needs_verify(t, now)
 
 
 def _screen_view(entry: dict, full: bool) -> dict:
-    """화면 기록. 요약에서는 누를 대상만 보여 준다 — 원본 픽셀은 --all 에서만."""
+    """Screen record. The summary shows only targets to press — raw pixels only with --all."""
     if full:
         return entry
     out = {"anchor": entry.get("anchor"), "variants": {}}
@@ -62,7 +62,7 @@ def _screen_view(entry: dict, full: bool) -> dict:
     return out
 
 
-# 타겟별로 맥락에 더하는 말 — 함정 문장과 겹칠 만한 것
+# Words added to the context per target — likely to overlap with pitfall sentences
 _TARGET_WORDS = {
     "app": "앱 화면 에뮬레이터 기기 adb 스크롤 좌표 Flutter",
     "web": "웹 브라우저 페이지 화면 viewport",
@@ -72,12 +72,12 @@ _TARGET_WORDS = {
 
 
 def _surface(root: Path, slot: str, context: str, now: str | None = None) -> dict | None:
-    """응답에 실을 기억 — 제약 2 · 함정 2 · 이 컴퓨터 범위 함정 1 까지.
+    """Memory to include in responses — up to 2 constraints · 2 pitfalls · 1 machine-scope pitfall.
 
-    agent 가 `note show` 를 부르지 않아도 보이게 한다(원칙 1). slot(영역)마다 하루 한 번만
-    싣는다 — 매번 실으면 토큰만 쓰고 아무도 읽지 않는다. 실패가 크게 앞서는 것은 싣지 않는다.
+    Visible even if the agent never calls `note show` (principle 1). Included once a day per slot (area)
+    — including it every time only burns tokens and nobody reads it. Entries with far more failures are skipped.
     """
-    # HOME 이 상대 경로면 작업 폴더 아래에 기록이 생긴다 — 쓰지 않는다
+    # A relative HOME would create records under the working folder — do not write
     if not _base_dir().is_absolute():
         return None
     seen_file = _home_dir(root) / _SEEN_FILE
@@ -111,7 +111,7 @@ def _surface(root: Path, slot: str, context: str, now: str | None = None) -> dic
 
     constraints = pick(notes.get("constraints") or [], 2)
     pitfalls = pick(notes.get("pitfalls") or [], 2)
-    # 이 컴퓨터 범위는 맥락과 겹칠 때만 — 모든 레포에 모든 플랫폼 함정을 들이밀지 않는다
+    # Machine scope only when it overlaps the context — do not push every platform pitfall onto every repo
     pitfalls += pick(machine.get("pitfalls") or [], 1, scope="machine", need_ctx=True)
     if not (constraints or pitfalls):
         return None
@@ -126,10 +126,10 @@ def _surface(root: Path, slot: str, context: str, now: str | None = None) -> dic
     return out
 
 
-# ── 쓰기 전에 비슷한 것 찾기 ────────────────────────────────────────────
+# ── Find similar entries before writing ────────────────────────────────────────────
 
 def _find_dup(text: str, lists: dict[str, list]) -> tuple[tuple[str, int] | None, list[dict]]:
-    """(합칠 자리 (범위, 위치) 또는 None, 애매하게 비슷한 것들). 범위 순서대로 먼저 찾은 것이 이긴다."""
+    """(merge slot (scope, position) or None, loosely similar entries). In scope order, the first found wins."""
     probe = {"text": text}
     hit, related = None, []
     for scope, entries in lists.items():
@@ -144,7 +144,7 @@ def _find_dup(text: str, lists: dict[str, list]) -> tuple[tuple[str, int] | None
 
 
 def _new_entry(text: str, today: str, **extra) -> dict:
-    """새 항목. 겪어서 적는 것이므로 한 번 확인된 것(ok=1)으로 시작한다."""
+    """New entry. Recorded from experience, so it starts as confirmed once (ok=1)."""
     e = {"text": text, **{k: v for k, v in extra.items() if v is not None}, "added": today}
     _memory.bump(e, "ok", today)
     return e

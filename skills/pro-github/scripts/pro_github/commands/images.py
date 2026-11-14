@@ -1,4 +1,4 @@
-"""증적 이미지 서브커맨드: 릴리스 자산 업로드(마크다운 반환)·삭제."""
+"""Evidence image subcommands: upload release assets (returns markdown), delete."""
 from __future__ import annotations
 
 import argparse
@@ -12,9 +12,9 @@ from pro_github.responses import api_error, missing_pat
 
 
 def _release_tag(value: str) -> str:
-    """태그로 쓸 수 없는 값(공백·제어문자·~^:?*[\\ 등)을 인자 단계에서 거절한다 (#701).
+    """Reject values unusable as a tag (whitespace, control chars, ~^:?*[\\ etc.) at the argument stage (#701).
 
-    URL 에 그대로 넣으면 InvalidURL 예외가 handler_error 로 새므로, 다른 서브커맨드처럼 bad_args 로 알린다.
+    Put into a URL as is, they leak an InvalidURL exception as handler_error, so report bad_args like other subcommands.
     """
     if not value or re.search(r"[\s\x00-\x1f\x7f~^:?*\[\\]", value) or value.startswith(("-", "/")):
         raise argparse.ArgumentTypeError(
@@ -23,17 +23,17 @@ def _release_tag(value: str) -> str:
 
 
 def cmd_upload_image(args, api) -> int:
-    """이미지를 증적 릴리스에 올리고 바로 붙여넣을 마크다운까지 돌려준다.
+    """Upload images to the evidence release and return the markdown ready to paste.
 
-    GitHub 공식 첨부 업로드는 브라우저 세션이 필요해 PAT로 쓸 수 없다. 릴리스 자산이
-    유일하게 PAT로 가능한 경로이고, 실측으로 이슈 본문·댓글 양쪽에서 <img>로 렌더링되는
-    것을 확인했다 (자세한 근거는 gh_client의 주석).
+    GitHub's official attachment upload needs a browser session, so a PAT cannot use it. Release assets
+    are the only PAT-capable path, and they were measured to render as <img> in both issue bodies and comments
+    (details in the gh_client comments).
     """
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
-    # 파일 확인이 먼저다. 네트워크를 먼저 치면 "파일이 없다"가 "레포가 없다"(404)로
-    # 둔갑해 원인을 못 짚는다. 올릴 것이 하나도 없으면 API를 부를 이유도 없다.
+    # Check files first. Hitting the network first turns "file missing" into "repo missing" (404)
+    # and hides the cause. If there is nothing to upload, there is no reason to call the API.
     missing = [f for f in args.files if not Path(f).expanduser().is_file()]
     if len(missing) == len(args.files):
         return emit({
@@ -43,15 +43,15 @@ def cmd_upload_image(args, api) -> int:
         })
 
     try:
-        # private이면 익명 접근이 막혀 이미지가 깨진다. 올리기 전에 알린다 —
-        # 올리고 나서 알면 이미 이슈에 깨진 이미지가 박힌 뒤다.
+        # If private, anonymous access is blocked and images break. Warn before uploading —
+        # finding out after means the broken image is already in the issue.
         warning = None
         if api.is_repo_private(args.owner, args.repo, pat):
             warning = ("images do not render in a private repo (anonymous access is blocked). "
                        "The URL is issued, but the image shows as broken in issues.")
 
         images, failed = [], []
-        # 한도로 이월된 태그를 다음 파일에도 쓴다 (매 파일 꽉 찬 릴리스부터 다시 두드리지 않게)
+        # Reuse the tag rolled over by the limit for the next file (so each file does not start again from a full release)
         current_tag = args.tag
         limit_error = None
         for position, f in enumerate(args.files):
@@ -61,11 +61,11 @@ def cmd_upload_image(args, api) -> int:
                 failed.append({"file": f, "error": str(e)})
                 continue
             except ReleaseAssetLimitError as e:
-                # 이미 올린 것은 살려 보고하고, 남은 파일은 실패로 남긴다
+                # Report what was already uploaded, and mark the remaining files as failed
                 limit_error = e
                 failed.extend({"file": rest, "error": "release_asset_limit"} for rest in args.files[position:])
                 break
-            # 로컬 경로 — ui-design rewrite-images 가 파일 이름 대신 경로로 짝을 맞춘다 (#974)
+            # Local path — ui-design rewrite-images matches by path instead of file name (#974)
             images.append({**image, "file": str(Path(f).expanduser().resolve())})
             current_tag = image.get("tag", current_tag)
 
@@ -78,7 +78,7 @@ def cmd_upload_image(args, api) -> int:
         out = {
             "count": len(images),
             "images": images,
-            # 그대로 본문·댓글 파일에 붙여넣을 수 있게 합쳐서 준다
+            # Joined so it can be pasted into a body or comment file as is
             "markdown": "\n".join(i["markdown"] for i in images),
             "tag": current_tag,
             "failed": failed or None,
@@ -86,7 +86,7 @@ def cmd_upload_image(args, api) -> int:
             "summary": f"uploaded {len(images)} image(s) (release {current_tag})",
             "next": f"add-comment {args.owner} {args.repo} <issue_number> <body_file>",
         }
-        # 1개면 images.0.url 을 짐작하지 않게 최상위에 둔다
+        # With one image, put it at the top level so nobody guesses images.0.url
         if len(images) == 1:
             out["url"] = images[0]["url"]
         return emit(out)
@@ -95,14 +95,14 @@ def cmd_upload_image(args, api) -> int:
 
 
 def _asset_limit_response(args, error) -> int:
-    """이어 쓸 증적 릴리스까지 모두 찬 경우: 시도한 태그와 다음 행동"""
+    """Every evidence release to roll over into is full: tried tags and next action"""
     return emit({"ok": False, "code": "release_asset_limit", "error": str(error), "tried_tags": error.tried_tags,
                  "next": (f"delete old evidence with delete-image {args.owner} {args.repo} <asset_id>, or upload again with "
                           f"upload-image {args.owner} {args.repo} <file> --tag <new tag>")})
 
 
 def cmd_delete_image(args, api) -> int:
-    """올린 증적을 지운다. 검증용으로 올린 것을 치울 때 쓴다."""
+    """Delete uploaded evidence. Used to clean up what was uploaded for verification."""
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
@@ -114,7 +114,7 @@ def cmd_delete_image(args, api) -> int:
         return api_error(e)
 
 
-# ── 인자 ──
+# ── Arguments ──
 
 def _configure_upload_image(parser) -> None:
     parser.add_argument("owner")

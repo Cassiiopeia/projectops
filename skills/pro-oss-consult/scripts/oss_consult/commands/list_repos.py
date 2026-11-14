@@ -1,4 +1,4 @@
-"""list-repos: 계정·조직 레포 목록 (기본: 공개·비포크·비보관, 계정 소유만)
+"""list-repos: an account's or org's repos (default: public, non-fork, non-archived, owned by the account only)
 """
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ def cmd_list_repos(args) -> int:
             if len(items) < 100:
                 break
         else:
-            # 모든 페이지가 가득 찼다 → 상한 때문에 더 있을 수 있다
+            # Every page was full → there may be more beyond the cap
             pages_capped = True
     except (gh_client.GitHubAPIError, gh_client.GitHubNetworkError) as e:
         return _api_fail(e, pat)
@@ -54,7 +54,7 @@ def cmd_list_repos(args) -> int:
     other_owners: list[str] = []
     other_count = 0
     if args.owner:
-        # /users/X/repos?type=all 은 X 가 멤버인 타 조직 레포를 섞어 준다 — 기본은 X 소유만 남긴다
+        # /users/X/repos?type=all mixes in other orgs' repos X is a member of — by default keep only X's own
         mine = [r for r in rows if r["owner"].lower() == args.owner.lower()]
         others = [r for r in rows if r["owner"].lower() != args.owner.lower()]
         other_count = len(others)

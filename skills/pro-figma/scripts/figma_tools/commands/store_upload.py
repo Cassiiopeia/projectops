@@ -1,7 +1,7 @@
-"""store-upload-plan · store-upload-mark · store-upload-status: 스토어 콘솔 업로드 체크리스트 (#1021)
+"""store-upload-plan · store-upload-mark · store-upload-status: store console upload checklist (#1021)
 
-업로드 자체는 하지 않는다 — 에이전트가 pro-launch web 으로 콘솔에 올리고, 단계마다 여기에 기록한다.
-체크리스트: store-check 가 ready 인 폴더 > 스토어 x 언어 x 슬롯 항목 (파일 순서 · 상태 · 시각)
+Does not upload itself — the agent uploads to the console via pro-launch web and records each step here.
+Checklist: folders that store-check marks ready > store x language x slot items (file order · status · time)
 """
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from figma_tools.commands.store import check_store_folder
 from figma_tools.store_check import GLOBAL_LOCALE
 
 CHECKLIST_FILE_NAME = "upload_checklist.json"
-# 항목 상태 4개: pending 미착수 > uploaded 콘솔에 파일 올림 > saved 임시저장 완료 > verified 저장 후 다시 열어 장수 확인
+# 4 item states: pending not started > uploaded file put in console > saved draft saved > verified reopened after save and count checked
 UPLOAD_STATUSES = ("pending", "uploaded", "saved", "verified")
 UPLOAD_TAB_NAME = "store-upload"
-# 누르면 심사 제출·출시로 이어지는 버튼 (사용자 명시 승인 없이는 누르지 않음)
+# Buttons that lead to review submission·release (never pressed without explicit user approval)
 NEVER_CLICK_LABELS = (
     "Add for Review", "Submit for Review", "Submit to App Review", "Resubmit to App Review",
     "Send for review", "Send changes for review", "Start rollout", "Publish", "Release",
@@ -31,7 +31,7 @@ STORE_CONSOLES = {
 
 
 def _output_root_error(folder: Path, project_root: Path) -> dict | None:
-    """쓰기 위치가 산출물 루트 안인지 확인. 밖이면 에러 응답"""
+    """Check the write location is inside the output root. Error response if outside"""
     try:
         from common.paths import resolve_output_root
     except ImportError:
@@ -57,7 +57,7 @@ def _upload_command(files: list[str]) -> str:
 
 
 def _build_items(report: dict, images_dir: Path) -> list:
-    """matrix(ok 칸) > 업로드 항목. 파일은 이름 순 = 콘솔 표시 순서"""
+    """matrix (ok cells) > upload items. Files in name order = console display order"""
     items = []
     for store, locales in report["matrix"].items():
         for locale, slots in locales.items():
@@ -73,7 +73,7 @@ def _build_items(report: dict, images_dir: Path) -> list:
 
 
 def _carry_progress(new_items: list, checklist_path: Path) -> int:
-    """이전 체크리스트에서 같은 항목·같은 파일이면 진행 상태 유지 > 유지한 항목 수"""
+    """Keep progress for the same item·same file from the previous checklist > number of items kept"""
     try:
         previous = json.loads(checklist_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -96,7 +96,7 @@ def _progress(items: list) -> dict:
 
 
 def _next_item(items: list) -> dict | None:
-    """다음 작업: verified 가 아닌 첫 항목"""
+    """Next task: first item that is not verified"""
     return next((item for item in items if item["status"] != "verified"), None)
 
 
@@ -122,7 +122,7 @@ def _write_checklist(path: Path, checklist: dict) -> None:
 
 
 def cmd_store_upload_plan(args) -> int:
-    """store-check ready 확인 > 항목 생성 (이전 진행 유지) > upload_checklist.json"""
+    """Confirm store-check ready > create items (keeping previous progress) > upload_checklist.json"""
     images_dir = Path(args.dir).resolve()
     project_root = Path(args.root).resolve()
     error = _output_root_error(images_dir, project_root)
@@ -177,7 +177,7 @@ def _load_checklist(path_arg: str) -> tuple[Path, dict | None, dict | None]:
 
 
 def cmd_store_upload_mark(args) -> int:
-    """항목 1개 상태 기록 (단계마다 바로 저장 — 중간에 끊겨도 어디까지 했는지 남는다)"""
+    """Record one item's status (saved at every step — progress survives an interruption)"""
     path, data, error = _load_checklist(args.checklist)
     if error:
         return emit(error)
@@ -198,7 +198,7 @@ def cmd_store_upload_mark(args) -> int:
 
 
 def cmd_store_upload_status(args) -> int:
-    """진행 현황 + 최종 보고 표 (스토어 x 언어 x 슬롯, 장수, 상태)"""
+    """Progress + final report table (store x language x slot, count, status)"""
     path, data, error = _load_checklist(args.checklist)
     if error:
         return emit(error)

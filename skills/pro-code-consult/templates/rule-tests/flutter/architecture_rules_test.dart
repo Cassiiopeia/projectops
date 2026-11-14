@@ -1,20 +1,20 @@
-// 아키텍처 규칙 테스트: docs/architecture/rules/<id>.rule 위반 <-> <id>.allow 대조
-// 규칙은 rules 폴더에서 고친다 (이 파일은 pro-code-consult 템플릿 — 판정 로직만)
+// Architecture rule test: docs/architecture/rules/<id>.rule violations <-> <id>.allow
+// Edit rules in the rules folder (this file is a pro-code-consult template — verdict logic only)
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-// 탐색 제외 폴더 (다른 스택 템플릿과 같은 목록)
+// Excluded folders (same list as the other stack templates)
 const skippedDirectoryNames = {
   '.git', 'build', 'dist', 'node_modules', '.dart_tool', 'Pods', '.gradle',
   'venv', '.venv', '__pycache__', '.next', 'out', 'target', '.idea',
 };
 const listKeys = {'paths', 'extensions', 'exclude'};
-// 규칙 파일 자신은 판정 대상에서 늘 제외
+// Rule files themselves are always excluded
 const alwaysExcludedPrefix = 'docs/architecture/';
 
-/// 현재 폴더부터 위로 docs/architecture/rules 탐색 (모노레포 서브폴더에서도 동작)
+/// Search upward from the current folder for docs/architecture/rules (works from monorepo subfolders)
 Directory? findRulesDirectory(Directory start) {
   var directory = start.absolute;
   while (true) {
@@ -25,7 +25,7 @@ Directory? findRulesDirectory(Directory start) {
   }
 }
 
-/// key=value (첫 = 에서만 자름, # 주석) > 규칙
+/// key=value (split on the first = only, # comments) > rule
 Map<String, dynamic> parseRule(File file) {
   final name = file.uri.pathSegments.last;
   final rule = <String, dynamic>{
@@ -96,16 +96,16 @@ void main() {
   for (final ruleFile in ruleFiles) {
     final rule = parseRule(ruleFile);
     test('architecture rule: ${rule['id']}', () {
-      expect(rule['pattern'], isNotEmpty, reason: '${rule['id']}.rule: pattern 키가 없다');
+      expect(rule['pattern'], isNotEmpty, reason: '${rule['id']}.rule: missing pattern key');
       final violating = findViolatingFiles(repositoryRoot, rule).toSet();
       final allowed = readAllowEntries(File('${rulesDirectory.path}/${rule['id']}.allow')).toSet();
 
-      // 새 위반 (동결 목록에 없는 파일) > 코드를 고친다
+      // New violations (files not in the freeze list) > fix the code
       final newViolations = violating.difference(allowed).toList()..sort();
-      expect(newViolations, isEmpty, reason: '[${rule['id']}] 새 위반: $newViolations');
-      // 고쳐진 항목 > 동결 목록에서 지운다 (목록이 느슨해지지 않게)
+      expect(newViolations, isEmpty, reason: '[${rule['id']}] new violations: $newViolations');
+      // Fixed entries > remove them from the freeze list (keeps the list from loosening)
       final fixedEntries = allowed.difference(violating).toList()..sort();
-      expect(fixedEntries, isEmpty, reason: '[${rule['id']}] 고쳐졌으니 ${rule['id']}.allow 에서 지운다: $fixedEntries');
+      expect(fixedEntries, isEmpty, reason: '[${rule['id']}] fixed, so remove from ${rule['id']}.allow: $fixedEntries');
     });
   }
 }

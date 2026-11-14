@@ -1,40 +1,40 @@
-"""기록 자리: 프로젝트 키, 홈 아래 시나리오·노트 폴더, 시나리오 파일 찾기·전제 펼치기"""
+"""Record locations: project key, scenario and note folders under home, scenario lookup and precondition expansion"""
 from __future__ import annotations
 
 from pathlib import Path
 
 from common.state import repo_key, state_dir
 
-# 기록 파일 이름 · 노트 요약 크기
+# Record file names · note summary sizes
 _NOTE_FILE = "learned.json"
-_SEEN_FILE = "memory_seen.json"     # 응답에 기억을 실은 날 (하루·영역 1회)
-_MACHINE = "_machine"               # ~/.projectops/agent-test/_machine/ — 이 컴퓨터 범위
+_SEEN_FILE = "memory_seen.json"     # days memory was surfaced in responses (once per day and area)
+_MACHINE = "_machine"               # ~/.projectops/agent-test/_machine/ — machine scope
 
-_SHOW_MAX = 5                       # note show 요약: 제약·함정 각각 이만큼
-_SHOW_CHARS = 120                   # 요약에서 항목당 글자 수
-_SURFACE_CHARS = 200                # 응답에 싣는 항목당 글자 수 (원칙: 200자)
-_NOTE_MIN_WORDS = 3                 # 고유어가 이보다 적은 짧은 문장은 자동으로 합치지 않는다
+_SHOW_MAX = 5                       # note show summary: this many constraints and pitfalls each
+_SHOW_CHARS = 120                   # characters per entry in the summary
+_SURFACE_CHARS = 200                # characters per entry surfaced in responses (principle: 200 chars)
+_NOTE_MIN_WORDS = 3                 # short sentences with fewer distinct words are never auto-merged
 _MACHINE_SCOPES = ("flutter", "platform")
 
 
 def _repo_key(root: Path) -> str:
-    """프로젝트를 가리키는 키 (common/state.py 가 단독으로 정한다)."""
+    """Key identifying the project (decided solely by common/state.py)."""
     return repo_key(root)
 
 
 def _home_dir(root: Path) -> Path:
-    """쌓은 것(learned.json · 시나리오 · flows)을 두는 곳. 프로젝트 밖(홈)이라 워크트리를 만들어도 살아남는다.
+    """Where accumulated data (learned.json · scenarios · flows) lives. Outside the project (home), so it survives new worktrees.
 
-    기기·브라우저·접속 정보는 pro-launch 의 자리(~/.projectops/launch/)에 있음 (#629).
+    Device, browser and access info lives in pro-launch's location (~/.projectops/launch/) (#629).
     """
     return state_dir("agent-test", root)
 
 
 def _scenario_dir(root: Path, create: bool = False) -> Path:
-    """시나리오·지식을 둘 곳.
+    """Where scenarios and knowledge go.
 
-    홈에 두고 git remote로 프로젝트를 구분한다. 프로젝트 안 폴더는 .gitignore로 빠지면
-    **새 워크트리에 복사되지 않아**, 이슈마다 워크트리를 만드는 흐름에서 지식이 사라진다 (#586).
+    Kept in home, with projects told apart by git remote. A folder inside the project excluded by .gitignore
+    **is not copied into new worktrees**, so knowledge vanishes in the worktree-per-issue flow (#586).
     """
     home = _home_dir(root)
     if create and not home.is_dir():
@@ -42,13 +42,13 @@ def _scenario_dir(root: Path, create: bool = False) -> Path:
     return home
 
 def _scenario_files(d: Path) -> list[Path]:
-    """시나리오 파일 목록. flows/ 하위와 _shared/ 를 함께 본다.
+    """List scenario files. Looks at flows/ subfolders and _shared/ together.
 
-    app-map·learned 는 시나리오가 아니므로 제외한다.
+    app-map and learned are not scenarios and are excluded.
     """
     if not d.is_dir():
         return []
-    # app-map 은 bootstrap 시절 산출물, memory_seen 은 기억을 실은 날 기록 (#837)
+    # app-map is a bootstrap-era output, memory_seen records days memory was surfaced (#837)
     skip = {"app-map.json", _NOTE_FILE, _SEEN_FILE}
     out = [f for f in d.rglob("*.json")
            if f.name not in skip and not f.name.startswith("learned.broken-")]
@@ -56,9 +56,9 @@ def _scenario_files(d: Path) -> list[Path]:
 
 
 def _resolve_scenario(d: Path, name: str) -> Path | None:
-    """이름으로 파일을 찾는다. `flows/auth/x` 처럼 경로를 줘도, `x` 만 줘도 된다."""
+    """Find a file by name. Accepts a path like `flows/auth/x` or just `x`."""
     direct = d / f"{name}.json"
-    # 폴더 밖 파일(../x)은 시나리오가 아니다 (#707)
+    # Files outside the folder (../x) are not scenarios (#707)
     if direct.exists() and d.resolve() in direct.resolve().parents:
         return direct
     matches = [f for f in _scenario_files(d) if f.stem == name]
@@ -66,10 +66,10 @@ def _resolve_scenario(d: Path, name: str) -> Path | None:
 
 
 def _expand(d: Path, path: Path, seen: list[str] | None = None) -> tuple[dict, list[str]]:
-    """전제를 펼쳐 전체 단계를 만든다.
+    """Expand preconditions into the full step list.
 
-    로그인처럼 거의 모든 시나리오의 앞에 붙는 흐름을 매번 적지 않게 한다.
-    순환 참조는 여기서 끊는다 — 무한 재귀로 죽는 대신 문제로 보고한다.
+    Keeps flows that precede almost every scenario, like login, from being written each time.
+    Circular references are cut here — reported as a problem instead of dying in infinite recursion.
     """
     import json
     seen = seen or []
