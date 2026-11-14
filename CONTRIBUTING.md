@@ -125,6 +125,8 @@ AI tools are welcome. You are responsible for what you submit:
 - Read and understand every line before you open the PR, and run the tests yourself.
 - Say so in the PR description if an agent wrote a significant part of the change.
 - Keep PRs focused. Large generated refactors without a prior issue will be closed.
+- Automated PRs are closed without review when the issue was not claimed with `/assign`, when they change files the
+  issue does not ask about, or when the description claims checks that were not run.
 
 ## Reporting problems with the installer
 
