@@ -8,6 +8,7 @@ For an overview of the whole project, read the [root README](https://github.com/
 
 | Document | Contents |
 |------|------|
+| [Compared with other tools](./compare.md) | How projectops compares with release-please, semantic-release and changesets, and when a smaller tool fits better |
 | [NPX wizard guide](./npx-wizard.md) | Integrate or update the template in an existing project with `npx projectops`. Project kind (intent), the two deploy/publish axes, automatic legacy migration |
 | [Agent Skills guide](./skills.md) | The 18 Skills used in Claude Code / Cursor / Gemini CLI / Codex CLI |
 | [Integration script guide](./template-integrator.md) | End of support and removal of the old `template_integrator.sh`/`.ps1` |
@@ -53,6 +54,7 @@ For an overview of the whole project, read the [root README](https://github.com/
 
 | Document | Contents |
 |------|------|
+| [Contributing](./contributing-guide.md) | Claim an issue with `/assign`, open a PR against `develop` with `Fixes #<number>` |
 | [Workflow comment standard](./workflow-comment-guidelines.md) | Workflow comment conventions, type classification, **complete per-file status list** |
 | [Branch naming convention](./branch-convention.md) | Consumers that break when the convention changes, and the extension procedure |
 | [CONTRIBUTING](https://github.com/Cassiiopeia/projectops/blob/main/CONTRIBUTING.md) | How to contribute |

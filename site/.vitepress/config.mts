@@ -121,8 +121,11 @@ const SECTIONS = [
     en: 'Contributors',
     ko: '기여자용',
     pages: [
+      { slug: 'contributing-guide', en: 'Contributing', ko: '기여하기' },
       { slug: 'branch-convention', en: 'Branch naming', ko: '브랜치 네이밍 규칙' },
       { slug: 'workflow-comment-guidelines', en: 'Workflow comment style', ko: '워크플로우 주석 표준' },
+      // 영어 원문만 있는 문서 (locale-paths.mts ENGLISH_TOP_LEVEL_FILES) > 두 언어 모두 영어 경로로 연결
+      { slug: 'translating', en: 'Translating', ko: 'Translating (영문)', isEnglishOnly: true },
     ],
   },
 ]
@@ -136,10 +139,15 @@ function toPageLink(lang: Lang, slug: string): string {
   return `${LINK_PREFIX[lang]}/${slug}`
 }
 
+// 사이드바·메뉴 항목 > 링크 (영어 전용 문서는 언어와 상관없이 영어 경로)
+function toSectionPageLink(lang: Lang, page: (typeof SECTIONS)[number]['pages'][number]): string {
+  return toPageLink('isEnglishOnly' in page && page.isEnglishOnly ? 'en' : lang, page.slug)
+}
+
 function buildSidebar(lang: Lang) {
   return SECTIONS.map((section) => ({
     text: section[lang],
-    items: section.pages.map((page) => ({ text: page[lang], link: toPageLink(lang, page.slug) })),
+    items: section.pages.map((page) => ({ text: page[lang], link: toSectionPageLink(lang, page) })),
   }))
 }
 
@@ -147,7 +155,7 @@ function buildSidebar(lang: Lang) {
 function buildNav(lang: Lang) {
   const sectionOf = (english: string) => SECTIONS.find((section) => section.en === english)!
   const toItems = (pages: (typeof SECTIONS)[number]['pages']) =>
-    pages.map((page) => ({ text: page[lang], link: toPageLink(lang, page.slug) }))
+    pages.map((page) => ({ text: page[lang], link: toSectionPageLink(lang, page) }))
   const workflows = sectionOf('Workflows')
   const contributors = sectionOf('Contributors')
   return [

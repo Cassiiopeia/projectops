@@ -8,6 +8,7 @@
 
 | 문서 | 내용 |
 |------|------|
+| [다른 도구와 비교](COMPARE.md) | release-please, semantic-release, changesets와 비교하고, 더 작은 도구가 맞는 경우를 정리 |
 | [NPX 마법사 가이드](NPX-WIZARD.md) | `npx projectops`로 기존 프로젝트에 템플릿 통합·업데이트. 프로젝트 성격(intent), 배포/publish 2축, 레거시 자동 마이그레이션 |
 | [Agent Skills 가이드](SKILLS.md) | Claude Code / Cursor / Gemini CLI / Codex CLI에서 쓰는 18종 Skill |
 | [통합 스크립트 가이드](TEMPLATE-INTEGRATOR.md) | 구 `template_integrator.sh`/`.ps1` 지원 종료 및 제거 안내 |
@@ -53,6 +54,7 @@
 
 | 문서 | 내용 |
 |------|------|
+| [기여하기](CONTRIBUTING-GUIDE.md) | `/assign`으로 이슈 맡기, `develop` 대상 PR에 `Fixes #<번호>` 적기 |
 | [워크플로우 주석 표준](WORKFLOW-COMMENT-GUIDELINES.md) | 워크플로우 주석 컨벤션, 타입 분류, **파일별 적용 현황 전수 목록** |
 | [브랜치 네이밍 규칙](BRANCH-CONVENTION.md) | 규칙 변경 시 깨지는 소비자 목록과 확장 절차 |
 | [CONTRIBUTING](https://github.com/Cassiiopeia/projectops/blob/main/CONTRIBUTING.md) | 기여 절차 |
