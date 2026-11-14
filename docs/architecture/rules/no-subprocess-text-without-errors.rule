@@ -1,5 +1,5 @@
-# text=True 만 쓰면 Windows 는 cp949 로 읽는다. 한글 출력에서 디코딩이 실패해 stdout 이 None 이 된다 (한글 폴더 레포에서 CLI 전멸)
-description=subprocess text=True 는 encoding 또는 errors 를 함께 적는다
+# With text=True alone, Windows decodes as cp949. Decoding fails on Korean output and stdout becomes None (every CLI breaks in a repo under a Korean folder)
+description=subprocess text=True must also set encoding or errors
 paths=scripts/,skills/,plugins/,hooks/,.github/scripts/,.github/util/
 extensions=.py
 pattern=capture_output=True,\s*text=True(?![^)]*(?:encoding|errors)=)

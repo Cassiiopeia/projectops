@@ -1,5 +1,5 @@
-# 레포 주소는 설정값 단일 원본(conventions §5): src/core/paths.js 의 TEMPLATE_REPO 를 쓴다
-description=src/ 에서 레포 주소 직접 기재 금지 — src/core/paths.js 정본 사용
+# The repo address is a single-source setting (conventions §5): use TEMPLATE_REPO in src/core/paths.js
+description=No hard-coded repo address in src/ — use the canonical value in src/core/paths.js
 paths=src/
 extensions=.js,.mjs
 exclude=src/core/paths.js,src/i18n/

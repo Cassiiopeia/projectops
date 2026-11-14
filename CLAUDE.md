@@ -1,101 +1,106 @@
 # Projectops
 
-완전 자동화된 GitHub 프로젝트 관리 템플릿
+A fully automated GitHub project management template
 
 ---
 
-## ⚠️ 작업 브랜치 규칙 (agent 필독)
+## ⚠️ Language (agent must read)
 
-**이 프로젝트는 `develop` 브랜치에서 직접 작업하는 것을 기본값으로 한다. `main`은 프로덕션(default) — 직접 커밋·push 금지.**
+**Language: this is an open-source repository. Code comments, docstrings, commit messages, issues and rule documents are written in English (this overrides any personal convention of Korean comments). Korean stays only in localization catalogs, Korean docs-site pages and README translations, compatibility strings and historical records.**
 
-- 별도 지시가 없으면 feature 브랜치를 만들지 말고 `develop`에서 작업·커밋·푸시한다.
-- `develop` push 전에는 **항상 `git pull --rebase origin develop`** 으로 먼저 동기화한다 (릴리스 시 버전 확정 커밋이 develop에 추가되므로 로컬이 뒤처지기 쉽다).
-- 릴리스(배포)는 develop→main PR로만 진행한다 (`/pro-changelog-deploy`). main 직접 push는 안전망(VERSION-CONTROL 가드)이 버전만 보전할 뿐 지원 경로가 아니다.
-- `git push`는 **사용자가 명시적으로 요청한 경우에만** 실행한다.
-- 사용자가 명시적으로 브랜치 작업을 요청한 경우에만 feature 브랜치를 사용한다.
-- 커밋은 **`/pro-commit`을 사용한다.** 브랜치명에서 이슈 번호를 뽑아 컨벤션에 맞는 메시지를 만들고, 스테이징 대상도 함께 확인시켜 준다.
+---
 
-### 여러 에이전트가 동시에 작업한다 (agent 필독)
+## ⚠️ Working branch rules (agent must read)
 
-**여러 Claude Code 세션이 같은 `develop`에서 동시에 작업한다.** 각 세션은 서로의 존재나
-작업 내용을 알지 못한다. 내가 만들지 않은 변경이 언제든 작업트리에 나타날 수 있다는
-전제로 움직인다.
+**This project works directly on the `develop` branch by default. `main` is production (default) — never commit or push to it directly.**
 
-| 상황 | 대응 |
+- Unless told otherwise, do not create a feature branch; work, commit and push on `develop`.
+- Before pushing `develop`, **always sync first with `git pull --rebase origin develop`** (releases add a version-finalization commit to develop, so local copies fall behind easily).
+- Releases (deploys) go only through a develop→main PR (`/pro-changelog-deploy`). A direct push to main only has its version preserved by the safety net (VERSION-CONTROL guard); it is not a supported path.
+- Run `git push` **only when the user explicitly asks for it**.
+- Use a feature branch only when the user explicitly asks for branch work.
+- **Commit with `/pro-commit`.** It extracts the issue number from the branch name to build a message that follows the conventions, and shows you the staging targets for confirmation.
+
+### Several agents work at the same time (agent must read)
+
+**Several Claude Code sessions work on the same `develop` at the same time.** No session knows about the others
+or what they are doing. Act on the assumption that changes you did not make can appear in the working tree at any moment.
+
+| Situation | Response |
 |---|---|
-| 작업 시작 전 | `git pull --rebase origin develop`로 최신 상태를 먼저 받는다 |
-| 커밋 전 | `git status`로 **내가 만들지 않은 변경**이 섞였는지 확인한다 |
-| 스테이징 | `git add -A`보다 **내가 건드린 경로만** 명시해 담는다 |
-| 브랜치가 바뀌어 있음 | 다른 세션이 옮긴 것일 수 있다. 임의로 되돌리지 말고 현재 브랜치를 존중한다 |
-| 푸시 거부(non-fast-forward) | 강제 푸시하지 않는다. rebase로 통합한 뒤 다시 푸시한다 |
+| Before starting work | Get the latest state first with `git pull --rebase origin develop` |
+| Before committing | Check `git status` for **changes you did not make** |
+| Staging | Stage **only the paths you touched** explicitly, rather than `git add -A` |
+| The branch has changed | Another session may have moved it. Do not switch back on your own; respect the current branch |
+| Push rejected (non-fast-forward) | Do not force-push. Integrate with rebase, then push again |
 
-**금지**
+**Forbidden**
 
-- `git push --force` / `--force-with-lease` — 다른 세션의 커밋이 사라진다
-- `git checkout .` · `git reset --hard` — 다른 세션의 미커밋 작업을 날린다
-- 내 작업과 무관한 파일을 함께 커밋하는 것 — 원인 추적이 불가능해진다
+- `git push --force` / `--force-with-lease` — other sessions' commits disappear
+- `git checkout .` · `git reset --hard` — destroys other sessions' uncommitted work
+- Committing files unrelated to your work — makes causes impossible to trace
 
-의도를 모르는 변경이 작업트리에 있으면 **건드리지 말고 그대로 둔다.** 내 변경만 커밋하고
-나머지는 그 세션이 처리하도록 남겨두는 것이 안전하다.
+If there are changes in the working tree whose intent you do not know, **leave them alone.** Committing only your changes and
+leaving the rest for that session to handle is the safe choice.
 
-### 브랜치 3개념 (agent·마법사 필독 — #482)
+### Three branch concepts (agents and wizard must read — #482)
 
-혼동 주의: 프로젝트에는 브랜치가 **3개념**이 있고, version.yml 필드명이 직관과 어긋난다.
+Watch out for confusion: a project has **three branch concepts**, and the version.yml field names do not match intuition.
 
-| 개념 | 뜻 | version.yml 필드 | 표준값 |
+| Concept | Meaning | version.yml field | Standard value |
 |------|-----|-----------------|--------|
-| **기본(배포) 브랜치** | 레포 default·프로덕션. push되면 배포가 도는 곳 | `default_branch` | `main` |
-| **개발(릴리스 소스) 브랜치** | 개발을 모아 기본 브랜치로 올리는 릴리스 PR의 head | `development_branch` (구 `deploy_branch`) | `develop` |
-| 배포 트리거 브랜치 (선택) | 푸시되면 **배포 워크플로**가 도는 곳. 기본 브랜치와 나눌 때만 둔다 (develop > main > deploy) | `metadata.template.options.deploy_trigger_branch` | 없음 = 기본 브랜치 |
-| 이슈 브랜치 | 작업 단위 (`YYYYMMDD_#번호_제목`) | — | — |
+| **Default (deploy) branch** | Repo default, production. Deployment runs when it is pushed | `default_branch` | `main` |
+| **Development (release source) branch** | Collects development; the head of the release PR into the default branch | `development_branch` (formerly `deploy_branch`) | `develop` |
+| Deploy trigger branch (optional) | Where a push runs the **deploy workflows**. Set only when splitting it from the default branch (develop > main > deploy) | `metadata.template.options.deploy_trigger_branch` | none = default branch |
+| Issue branch | Unit of work (`YYYYMMDD_#number_title`) | — | — |
 
-> ⚠️ **키 이름은 `development_branch`가 정본이다 (#915).** 구 이름 `deploy_branch`는 "배포 브랜치"로 오독되는 이름이라 정본에서 내렸고, 하위호환용으로만 남는다.
-> - **읽기**: 모든 소비자가 `development_branch` → 없으면 `deploy_branch` → 없으면 `develop` 순으로 읽는다 (`src/core/version-yml.js` `readDevelopmentBranch`, `changelog_cli.py` `_parse_release_branches`).
-> - **쓰기**: 생성기는 두 키를 **같은 값으로 함께** 쓴다 — 구 키만 읽는 구버전 스킬(플러그인은 레포와 따로 업데이트된다)이 조용히 `develop`로 폴백하지 않게 하기 위해서다. 업데이트(마법사 재실행)가 구 키만 있는 파일을 두 키로 다시 쓴다.
-> - 워크플로우는 런타임에 이 키를 읽지 않는다 (설치 시 브랜치명을 치환해 넣는다).
-> - 사용자 노출 문구에서 이 브랜치를 "배포 브랜치"라 부르지 말고 "개발(릴리스 소스) 브랜치"로 칭한다. CLI 플래그 `--deploy-branch`와 내부 변수명 `deployBranch`는 그대로다.
-
----
-
-## ⚠️ 이슈 처리 규칙 (agent 필독)
-
-**이 프로젝트는 이슈가 완료되면 완료 라벨을 붙이고 이슈를 닫는다(close).** (2026-10-10 소유자 결정으로 변경 — 이전엔 닫지 않고 라벨만 바꿨다.)
-
-- 작업이 끝나면 이슈 상태 라벨을 **`status: done`**(기존 한글 레포는 `작업완료`)으로 바꾼 뒤 **이슈를 닫는다.**
-  `finish-issue {owner} {repo} {번호} [--outcome done|cancelled|in-progress]`로 한다 — 상태 라벨만 바꾸고(`type:`·`area:` 등 다른 라벨 유지) 닫는다.
-  `set-labels`는 라벨 **전체를 교체**하므로 `set-labels ... "status: done"`만 넘기면 다른 라벨이 전부 지워진다. `add-labels`만 쓰면 이전 상태 라벨이 남아 상태가 두 개가 된다.
-- **완료 기준을 지킨다** — 구현이 main(또는 개발 브랜치)에 반영되고, 검증과 보고서(`/pro-report`)까지 끝난 것만 닫는다.
-  사용자가 특정 이슈를 **명시적으로 완료 처리하라고 하면** 이 기준을 다시 따지지 않고 처리한다.
-  남은 하위 작업이 있으면 닫지 않고 `status: in progress`로 둔다. 취소된 작업은 `status: cancelled`와 함께 닫는다.
-- 라벨 변경과 close는 `/pro-github`(`github_cli.py finish-issue`)로 처리한다. 일부 단계만 실패하면 `failed_steps`의 단계만 `set-labels`(기존 라벨에서 상태만 바꾼 전체 목록) / `close-issue`로 다시 한다.
-- **릴리스 워크플로우도 닫는다 (#771, `close_on_release`).** 완료 라벨이 붙은 이슈 중 릴리스 구간 커밋이 URL로 참조한 것을 닫는다. 에이전트가 먼저 닫아도 충돌하지 않는다(이미 닫힌 이슈는 건너뛴다). 이 저장소는 `version.yml`에서 켜져 있다.
-- **업데이트는 사용자가 지운·제외한 워크플로우를 되살리지 않는다 (#810).** baseline에 있는데 없는 파일, `options.excluded_workflows`에 적힌 파일, 개발 브랜치가 원격에 없는데 `develop`에서만 도는 파일은 건너뛰고 `incoming/`에 사본을 남긴다. 새 조건부 설치 경로를 추가하면 `copy/workflows.js`의 `skipNew` 게이트를 거치게 한다.
-- **상태 라벨은 영문 표준(`status: todo` 등)과 기존 한글(`작업전` 등)을 둘 다 쓴다 (#776).** `label_style`이 표기를 정하고(신규 `en`, 기존 `ko` 유지), 스킬 공통 라벨 함수와 Projects 동기화는 두 표기를 서로 바꿔 인식한다.
+> ⚠️ **The canonical key name is `development_branch` (#915).** The old name `deploy_branch` was easily misread as "deploy branch", so it was demoted from canonical and remains only for backward compatibility.
+> - **Reading**: every consumer reads `development_branch` → if missing, `deploy_branch` → if missing, `develop` (`readDevelopmentBranch` in `src/core/version-yml.js`, `_parse_release_branches` in `changelog_cli.py`).
+> - **Writing**: generators write **both keys with the same value** — so older skill versions that read only the old key (the plugin updates separately from the repo) do not silently fall back to `develop`. An update (re-running the wizard) rewrites files that only have the old key with both keys.
+> - Workflows do not read this key at runtime (the branch name is substituted at install time).
+> - In user-facing text, do not call this branch the "deploy branch"; call it the "development (release source) branch". The CLI flag `--deploy-branch` and the internal variable name `deployBranch` stay as they are.
 
 ---
 
-## ⚠️ 건드리기 전에 읽을 문서 (agent 필독)
+## ⚠️ Issue handling rules (agent must read)
 
-**아래 표의 대상을 수정하기 전에 해당 문서를 먼저 Read 한다.** 이 파일에는 모든 작업에 걸리는 규칙만 있고, 영역별 규칙은 문서로 옮겼다.
-각 줄의 사고는 그 문서를 안 읽고 고쳐서 실제로 났던 것이다.
+**In this project, when an issue is complete, put the done label on it and close it.** (Changed by owner decision on 2026-10-10 — previously issues were not closed and only the label was changed.)
 
-| 건드리는 것 | 먼저 읽을 문서 | 안 읽고 고치면 났던 사고 |
+- When the work is done, change the issue's status label to **`status: done`** (`작업완료` in existing Korean-label repos) and **close the issue.**
+  Use `finish-issue {owner} {repo} {number} [--outcome done|cancelled|in-progress]` — it changes only the status label (keeping other labels such as `type:` and `area:`) and closes the issue.
+  `set-labels` **replaces all labels**, so passing only `set-labels ... "status: done"` wipes every other label. Using only `add-labels` leaves the previous status label, giving two statuses.
+- **Respect the completion criteria** — close only issues whose implementation has landed on main (or the development branch) and whose verification and report (`/pro-report`) are done.
+  If the user **explicitly asks to mark a specific issue complete**, do it without re-checking these criteria.
+  If sub-tasks remain, do not close it; leave it at `status: in progress`. Cancelled work is closed with `status: cancelled`.
+- Label changes and closing are done with `/pro-github` (`github_cli.py finish-issue`). If only some steps fail, redo just the steps in `failed_steps` with `set-labels` (the full existing label list with only the status changed) / `close-issue`.
+- **The release workflow closes issues too (#771, `close_on_release`).** Among issues with the done label, it closes those referenced by URL from commits in the release range. No conflict if an agent closes them first (already-closed issues are skipped). It is on in this repo's `version.yml`.
+- **An update does not bring back workflows the user deleted or excluded (#810).** Files that are in the baseline but missing, files listed in `options.excluded_workflows`, and files that run only on `develop` when the development branch does not exist on the remote are skipped, with a copy left in `incoming/`. If you add a new conditional install path, route it through the `skipNew` gate in `copy/workflows.js`.
+- **Status labels exist in both the English standard (`status: todo`, etc.) and legacy Korean (`작업전`, etc.) (#776).** `label_style` decides the notation (new repos `en`, existing ones keep `ko`), and the shared skill label functions and Projects sync recognize either notation interchangeably.
+
+---
+
+## ⚠️ Documents to read before touching things (agent must read)
+
+**Before editing anything in the table below, Read the matching document first.** This file holds only the rules that apply to all work; area-specific rules moved into the documents.
+Each row's incidents really happened because someone edited without reading that document.
+
+| What you touch | Read first | Incidents when edited without reading |
 |---|---|---|
-| 워크플로우 YAML (`.github/workflows/`, `project-types/`), 배포/publish 축, 댓글 트리거, 이슈·PR 템플릿 | [`docs/architecture/agent/workflows.md`](docs/architecture/agent/workflows.md) | `permissions:` 누락으로 댓글 스텝 실패(#595) · 없는 fastlane lane 호출(#601) · 빌드 플래그 한 층만 적용(#603) · 리네임 후 구 워크플로가 계속 실행(#470) · 공통 워크플로 원본과 복사본 불일치 · 로컬 YAML 파서 오류를 실제 고장으로 오판 |
-| Flutter 마법사 (`.github/util/flutter/`) | [`docs/architecture/agent/wizards.md`](docs/architecture/agent/wizards.md) | 공통 유틸 재정의로 정본 무력화 · 로드 순서 뒤바뀜 · `check-consistency.py` 미실행(#521) |
-| `.github/scripts/` (버전 · 체인지로그 · 빌드 번호 · 이슈 헬퍼), `.sh`, 레포 루트의 템플릿 전용 파일 | [`docs/architecture/agent/scripts.md`](docs/architecture/agent/scripts.md) | 기본 경로에 과금 요소(#569) · macOS bash 3.2 에서만 깨짐(#415 · #418) · 템플릿 전용 파일을 한 곳에만 등록 · 모델명에 버전을 박아 404(#566) |
-| `src/` CLI · 마법사 (옵션, 실행 기록, breaking changes), 문서·GIF 언어, 한글 줄 예산 | [`docs/architecture/agent/installer.md`](docs/architecture/agent/installer.md) | 옵션 정본과 코드 불일치(#851) · `trace.emit` 오타로 기록 통째 누락(#561) · 완료 화면이 로그에서 빠짐 |
-| `skills/`, `scripts/common/`, `plugins/`, 스킬 CLI · config · 산출물 경로 | [`docs/architecture/agent/skills.md`](docs/architecture/agent/skills.md) | `SKILL_CLIS` · `RESOLVER_REVISION` 미갱신(#1080) · 산출물 경로 하드코딩(#623) · 선택 위치 인자 여러 개(#622) · 테스트 파일이 사용자 PC 로 복사(#591) |
+| Workflow YAML (`.github/workflows/`, `project-types/`), deploy/publish axes, comment triggers, issue/PR templates | [`docs/architecture/agent/workflows.md`](docs/architecture/agent/workflows.md) | Comment step failed due to missing `permissions:` (#595) · called a nonexistent fastlane lane (#601) · build flags applied in only one layer (#603) · the old workflow kept running after a rename (#470) · shared workflow original and copy out of sync · a local YAML parser error mistaken for a real breakage |
+| Flutter wizards (`.github/util/flutter/`) | [`docs/architecture/agent/wizards.md`](docs/architecture/agent/wizards.md) | Redefining shared utilities disabled the canonical ones · load order reversed · `check-consistency.py` not run (#521) |
+| `.github/scripts/` (version · changelog · build number · issue helper), `.sh`, template-only files at the repo root | [`docs/architecture/agent/scripts.md`](docs/architecture/agent/scripts.md) | A paid element on the default path (#569) · broke only on macOS bash 3.2 (#415 · #418) · template-only file registered in only one place · a version pinned in a model name gave 404 (#566) |
+| `src/` CLI · wizard (options, run logs, breaking changes), doc/GIF language, Korean line budget | [`docs/architecture/agent/installer.md`](docs/architecture/agent/installer.md) | Canonical options and code out of sync (#851) · a `trace.emit` typo dropped the log entirely (#561) · the completion screen missing from the log |
+| `skills/`, `scripts/common/`, `plugins/`, skill CLI · config · output paths | [`docs/architecture/agent/skills.md`](docs/architecture/agent/skills.md) | `SKILL_CLIS` · `RESOLVER_REVISION` not updated (#1080) · hard-coded output paths (#623) · several optional positional arguments (#622) · test files copied to user PCs (#591) |
 
-- 이 표에 없는 새 영역 규칙은 이 파일이 아니라 위 문서 중 맞는 곳에 쓴다. 이 파일에는 한 줄 요약과 링크만 더한다.
-- 스킬 CLI 를 고칠 때의 "Python 행동 스크립트 표준"은 `skills.md`, "템플릿 전용 파일 추가" 규칙은 `scripts.md` 에 있다.
+- New area rules not in this table go into whichever document above fits, not into this file. Add only a one-line summary and a link here.
+- The "Python behavior script standard" for editing skill CLIs is in `skills.md`, and the "adding template-only files" rule is in `scripts.md`.
 
 ---
 
-## 프로젝트 개요
+## Project overview
 
-### 지원 프로젝트 타입
-| 타입 | 설명 | 버전 동기화 파일 |
+### Supported project types
+| Type | Description | Version sync file |
 |------|------|-----------------|
 | `spring` | Spring Boot | `build.gradle` |
 | `flutter` | Flutter | `pubspec.yaml` |
@@ -104,15 +109,15 @@
 | `python` | FastAPI/Django | `pyproject.toml` |
 | `react-native` | React Native CLI | `Info.plist` + `build.gradle` |
 | `react-native-expo` | Expo | `app.json` |
-| `basic` | 범용 | `version.yml`만 |
+| `basic` | General purpose | `version.yml` only |
 
-> **멀티타입**: 단일 레포에 여러 타입 공존 시 `--type spring,react,python` csv로 지정. `version.yml`의 `project_types` 배열에 저장되며, 첫 항목이 primary 타입이다 (단수 `project_type` 키는 v4.1.0에서 제거됨 — SSOT).
+> **Multi-type**: when several types coexist in one repo, pass them as csv with `--type spring,react,python`. They are saved in the `project_types` array in `version.yml`, and the first item is the primary type (the singular `project_type` key was removed in v4.1.0 — SSOT).
 >
-> **모노레포 경로**: 타입별 프로젝트가 서브폴더에 있으면(예: `app/`, `client/`, `ai/`) `version.yml`의 `project_paths` 맵(타입 → 레포 루트 기준 상대경로)으로 지정한다. integrator가 통합 시 마커 파일(`pubspec.yaml`·`package.json`·`pyproject.toml`·`build.gradle` 등)을 자동 감지·확인하며, 키가 없으면 루트 기준(기존 동작 100% 유지). 비대화형은 `--paths "flutter=app,react=client"`(`.ps1`은 `-Paths`). `version_manager.sh`가 이 경로를 따라 서브폴더 버전 파일을 동기화하므로, `PROJECT-COMMON-VERSION-CONTROL` 워크플로우는 무수정으로 모노레포를 커버한다.
+> **Monorepo paths**: when per-type projects live in subfolders (e.g. `app/`, `client/`, `ai/`), set them with the `project_paths` map in `version.yml` (type → path relative to the repo root). The integrator detects and confirms marker files (`pyproject.toml`, `package.json`, `pubspec.yaml`, `build.gradle`, etc.) automatically during integration, and without the key everything is root-relative (existing behavior kept 100%). Non-interactive: `--paths "flutter=app,react=client"` (`-Paths` for `.ps1`). `version_manager.sh` follows these paths to sync subfolder version files, so the `PROJECT-COMMON-VERSION-CONTROL` workflow covers monorepos without modification.
 
 ---
 
-## 폴더 구조
+## Folder structure
 
 ```
 projectops/
@@ -121,174 +126,174 @@ projectops/
 │   │   ├── PROJECT-TEMPLATE-INITIALIZER.yaml
 │   │   ├── PROJECT-COMMON-*.yaml
 │   │   └── project-types/
-│   │       ├── common/          # 공통 원본 (+ secret-backup/ opt-in, deploy/vercel/ 배포타겟)
-│   │       ├── flutter/         # Flutter 전용 (스토어 배포 워크플로우 루트 포함)
-│   │       ├── spring/          # Spring 전용 (server-deploy/ + publish/{nexus,github-packages}/)
-│   │       ├── python/          # Python 전용 (CI 루트 + server-deploy/)
-│   │       ├── react/           # React/Next.js 공용 (next 타입은 v4.1.0에서 흡수됨)
-│   │       └── node/            # Node 전용 (publish/npm/)
+│   │       ├── common/          # Shared originals (+ secret-backup/ opt-in, deploy/vercel/ deploy target)
+│   │       ├── flutter/         # Flutter only (store deploy workflows at the root)
+│   │       ├── spring/          # Spring only (server-deploy/ + publish/{nexus,github-packages}/)
+│   │       ├── python/          # Python only (CI at the root + server-deploy/)
+│   │       ├── react/           # Shared by React/Next.js (the next type was absorbed in v4.1.0)
+│   │       └── node/            # Node only (publish/npm/)
 │   ├── scripts/
-│   │   ├── version_manager.sh    # + version_manager.py (실 로직, #448)
+│   │   ├── version_manager.sh    # + version_manager.py (holds the logic, #448)
 │   │   ├── changelog_manager.py
-│   │   ├── truncate_release_notes.sh  # + .py (실 로직, #448)
+│   │   ├── truncate_release_notes.sh  # + .py (holds the logic, #448)
 │   │   └── template_initializer.sh
 │   ├── util/
 │   │   ├── flutter/
 │   │   │   ├── playstore-wizard/
 │   │   │   ├── testflight-wizard/
 │   │   │   ├── firebase-wizard/
-│   │   │   └── oauth-wizard/          # Kakao·Google 로그인 (#156)
+│   │   │   └── oauth-wizard/          # Kakao and Google sign-in (#156)
 │   │   └── common/
 │   │       ├── projects-sync-wizard/
 │   │       ├── github-projects-sync-worker/
 │   │       └── github-secrets-converter/
 │   ├── ISSUE_TEMPLATE/
 │   └── PULL_REQUEST_TEMPLATE.md
-├── .claude-plugin/              # 플러그인 매니페스트
-├── skills/                      # 플러그인 Skills (마켓플레이스 전용)
-├── scripts/                     # 플러그인 Scripts (마켓플레이스 전용)
+├── .claude-plugin/              # Plugin manifest
+├── skills/                      # Plugin skills (marketplace only)
+├── scripts/                     # Plugin scripts (marketplace only)
 ├── .cursor/skills/
-├── docs/                        # 상세 문서
+├── docs/                        # Detailed docs
 ├── version.yml
 └── CHANGELOG.md / CHANGELOG.json
 ```
 
 ---
 
-## 모든 작업 공통 규칙
+## Rules for all work
 
-### ⚠️ Windows는 cp949와 비ASCII 경로까지 봐야 검증이다 (agent 필독)
+### ⚠️ Windows verification must cover cp949 and non-ASCII paths (agent must read)
 
-**영문 경로와 UTF-8 모드로 통과한 것은 Windows 검증이 아니다.** 일반 사용자 환경은 시스템 코드페이지가 cp949이고 폴더 이름에 한글과 공백이 있다.
+**Passing with English paths and UTF-8 mode is not Windows verification.** A typical user environment has cp949 as the system code page and Korean characters and spaces in folder names.
 
-| 함정 | 증상 | 지키는 방법 |
+| Trap | Symptom | How to avoid it |
 |---|---|---|
-| `fs.cpSync` + 비ASCII 경로 (Node 22 이상) | 메시지 없이 프로세스 종료, 임시 폴더 잔존 | `fsutil.copyPathSync`. 규칙 `no-fs-cpsync` |
-| `subprocess.run(text=True)`만 쓰기 | 한글 출력에서 `stdout`이 `None`, 다음 줄에서 크래시 | git은 `encoding="utf-8", errors="replace"`, 그 외 `errors="replace"`. 규칙 `no-subprocess-text-without-errors` |
-| Windows용 안내 명령에 `&&` | PowerShell 5.1 파싱 오류 | `;`로 잇는다 |
+| `fs.cpSync` + non-ASCII path (Node 22+) | Process exits without a message, temp folder left behind | `fsutil.copyPathSync`. Rule `no-fs-cpsync` |
+| Using only `subprocess.run(text=True)` | `stdout` is `None` on Korean output, crash on the next line | git: `encoding="utf-8", errors="replace"`, otherwise `errors="replace"`. Rule `no-subprocess-text-without-errors` |
+| `&&` in commands shown for Windows | PowerShell 5.1 parse error | Join with `;` |
 
-- **`PYTHONUTF8=1`이 켜진 개발 PC에서는 위 결함이 전부 숨는다.** 확인할 때 `unset PYTHONUTF8 PYTHONIOENCODING`으로 재현한다.
-- 전역 git `core.longpaths`도 마찬가지다. 새 사용자처럼 빈 `HOME`으로 돌려 본다.
-- 스모크(`matrix-smoke`)는 3 OS, Node 20과 24에서 비ASCII 공백 경로 설치까지 돈다.
+- **On a development PC with `PYTHONUTF8=1` set, every defect above is hidden.** Reproduce with `unset PYTHONUTF8 PYTHONIOENCODING` when checking.
+- The same goes for global git `core.longpaths`. Run with an empty `HOME`, like a new user.
+- The smoke test (`matrix-smoke`) runs on 3 OSes with Node 20 and 24, including installation into a non-ASCII path with spaces.
 
-### ⚠️ 테스트는 감시용 5개만 둔다 (agent 필독)
+### ⚠️ Keep only the 5 watch tests (agent must read)
 
-AI가 작업마다 쌓은 테스트(약 250개 파일, 3만 줄)를 걷어 내고, **여러 파일에 흩어진 약속이 서로 맞는지 보는 감시 검사만** 남겼다.
-사람이 눈으로 놓치는 것만 잡고, 작고 빠르다.
+The tests AI piled up task after task (about 250 files, 30k lines) were removed, and **only watch checks that confirm promises scattered across several files still agree** were kept.
+They catch only what people miss by eye, and they are small and fast.
 
-| 파일 | 지키는 것 |
+| File | What it guards |
 |---|---|
-| `test/rename-consistency.test.js` | 스킬 개수·목록이 폴더 ↔ 매니페스트 ↔ README·CLAUDE.md에서 같다 |
-| `test/options-schema.test.js` | CLI 플래그·`version.yml` 옵션이 정본(`src/core/options-schema.js`)과 같다 |
-| `scripts/tests/test_skill_docs.py` | 스킬 description이 짧고(300자) 영어다 |
-| `scripts/tests/test_korean_line_budget.py` | 영문 표면의 한글 줄이 늘지 않는다 (아래 절) |
-| `.github/scripts/test/test_workflow_permissions.py` | 모든 워크플로우가 `permissions:`를 선언한다 |
+| `test/rename-consistency.test.js` | Skill count and list are the same across folders ↔ manifests ↔ README and CLAUDE.md |
+| `test/options-schema.test.js` | CLI flags and `version.yml` options match the canonical source (`src/core/options-schema.js`) |
+| `scripts/tests/test_skill_docs.py` | Skill descriptions are short (300 characters) and in English |
+| `scripts/tests/test_korean_line_budget.py` | Korean lines on English surfaces do not grow (section below) |
+| `.github/scripts/test/test_workflow_permissions.py` | Every workflow declares `permissions:` |
 
-- **새 테스트 파일을 커밋하지 않는다.** 구현 확인은 스크래치 폴더의 임시 테스트나 직접 실행으로 하고 지운다.
-- 감시 검사를 더 두려면 "여러 파일의 약속이 어긋나는 것을 사람이 놓친 실제 사고"가 있을 때만 사용자와 상의한다.
-- `PROJECT-TEMPLATE-CI`: develop은 ubuntu 1대에서 위 5개 + 마법사 정합성(`check-consistency.py`) + CLI 스모크, main은 3 OS에서 CLI 스모크(macOS bash 3.2·Windows `.cmd` 차이 #415·#418).
+- **Do not commit new test files.** Verify implementations with throwaway tests in a scratch folder or by running things directly, then delete them.
+- Add another watch check only after discussing it with the user, and only when there was "a real incident where people missed promises across several files drifting apart".
+- `PROJECT-TEMPLATE-CI`: on develop, one ubuntu runner runs the 5 above + wizard consistency (`check-consistency.py`) + CLI smoke; on main, CLI smoke runs on 3 OSes (macOS bash 3.2 and Windows `.cmd` differences, #415 · #418).
 
 ---
 
-## Skills (Claude Code 플러그인)
+## Skills (Claude Code plugin)
 
-**플러그인명**: `projectops`
+**Plugin name**: `projectops`
 
 ```bash
 claude plugin marketplace add Cassiiopeia/projectops
 claude plugin install projectops@projectops-marketplace --scope user
 ```
 
-> 설계·계획·구현은 이 플러그인이 아니라 `superpowers`(brainstorming → writing-plans → executing-plans)가 맡는다. 아래 표(코어 18종 + extras 4종)에는 분석·계획·구현 스킬이 없다.
+> Design, planning and implementation are handled by `superpowers` (brainstorming → writing-plans → executing-plans), not by this plugin. The table below (core 18 + extras 4) has no analysis, planning or implementation skills.
 
-| 명령어 | 용도 |
+| Command | Purpose |
 |--------|------|
-| `review` | 코드 리뷰 |
-| `testcase` | QA 테스트케이스 |
-| `init-worktree` | Git worktree 생성 |
-| `commit` | 이슈 기반 커밋 자동화 |
-| `github` | GitHub 전반: 이슈 생성/조회/수정/댓글/라벨/담당자, PR 생성/머지/조회, 레포 탐색, Actions 로그, Secret 관리, **이미지 첨부**(이슈 본문·댓글·PR) |
-| `report` | 구현 보고서 생성 |
-| `changelog-deploy` | develop push → main으로 릴리스 PR(deploy PR) → 버전 확정 + automerge / automerge 실패 시 재트리거 |
-| `synology-expose` | 시놀로지 서비스 외부 노출 가이드 (**extras 선택 플러그인** `projectops-extras` — `plugins/projectops-extras/`, 공유 문서 사본은 `scripts/sync_extras.py`로 동기화) |
-| `code-consult` | **AI가 짠 코드 관리** (#1107에서 extras → 코어) — 코딩 규칙 기준 점검·한 항목씩 리팩터링(전후 실행 대조)·변경분 검사(낡은 주석·중복)·위반 동결 목록(`docs/architecture/rules/`, 줄을 지울 수만 있음). CLI `arch_cli.py`는 표준 라이브러리 전용이고 `scripts/common`을 쓰지 않는다 (#867) |
-| `skill-bug` | **projectops 스킬 버그 보고** (**extras**) — 어느 레포 세션에서든 의심되면 불러, 세션 기록에서 명령·결과·흐름·로그·스크린샷을 모아 개인정보를 지우고 `Cassiiopeia/projectops`에 이슈(같은 이슈 있으면 댓글)로 묻지 않고 올린 뒤 하던 일로 돌아간다. 판정·수정은 하지 않는다 (CLI `bug_cli.py`). Claude Code에서는 extras 훅(`plugins/projectops-extras/hooks/skill_bug_watch.py`, 규칙 정본 `skill_bug_rules.py`)이 모든 pro- CLI의 실패 후 우회(스킬별 우회 표)·도구가 답한 기능 없음·같은 사용법 오류 2회·같은 실패 3회·CLI 내부 예외를 잡아 백그라운드 서브에이전트로 자동 보고시키고(세션당 3건, `skill-bug.auto_report: false`로 끔), `skill_bug_notice.ts`가 토스트를 띄운다 (#997). 자동 보고 본문은 이슈만 받은 에이전트가 재현·수정할 수 있게 `bug_cli.py alarm`·`excerpt --tool-use-id`·`context`가 모은 사실(원본 응답·앞뒤 흐름·환경)로 채운다 (#1000) |
-| `orca-tunnel` | **Orca Web 원격 주소** (**extras**, macOS·Windows·Linux) — "orca 주소 줘"에 URL 하나로 답한다. `tunnel_cli.py`(표준 라이브러리)가 cloudflared 빠른 터널을 재사용·새로 열기·정리하고, 저장한 짝 맞추기 링크 안의 터널 주소를 형식 몰라도 바꾼다. Orca 포트·확인 화면·링크 모양은 하네스(`harness/orca.md`, 로컬 사본 `~/.projectops/tunnel/harness/orca.md` 우선)에 두고 Orca가 바뀌면 에이전트가 고친다. Cloudflare 계정 불필요 (#1126) |
-| `disk-cleanup` | **디스크 용량 정리** (**extras**, macOS·Windows·Linux, 스택 무관 — 알려진 위치표 + 홈 아래 큰 폴더를 크기로 찾는 `largest`) — 읽기 전용 `scan` 먼저, safe·decide·keep 3단계로 나눠 safe만 한 번 확인 후 정리, decide(열린 이슈 worktree·DerivedData·Gradle 캐시·에뮬레이터)는 사용자가 이름을 댈 때만. worktree 제거는 GitHub에서 닫힘 확인 > 사용 중·최근 활동 거절 > 백업(패치·무시된 .env 포함) > `git worktree remove`, 브랜치 유지. 모든 삭제는 `disk_cli.py` 게이트를 거치고 `--yes` 없으면 계획만 (#1091) |
-| `ssh` | 원격 서버 SSH 접속 및 명령 실행 (AWS EC2, 시놀로지 NAS, Linux 서버 등) |
-| `skill-creator` | skill 생성/리뷰/개선 (CREATE·REVIEW·IMPROVE 3모드) |
-| `agent-test` | **앱·웹·서버를 실제로 실행해 밟는다** (E2E·증적) — 문서만 쓰는 `testcase`와 다르다 |
-| `figma` | **시안 → 코드 → 대조** 한 묶음. 덤프 항목을 세어 작업 목록으로 삼고, 옮긴 뒤 픽셀로 맞댄다 (#619에서 옮기기·대조를 `figma-verify`로 합쳤고, #854에서 이름을 `figma`로 되돌렸다) |
-| `launch` | **능력 스킬** — 앱·웹·서버를 띄우고 조작하고 찍는다. 다른 스킬이 `launch_cli.py` 를 스크립트로 부른다 (#629) |
-| `desktop-control` | **이 컴퓨터 화면의 프로그램 조작** (웹 페이지·에뮬레이터가 아닌 설치 마법사·OS 대화상자·데스크톱 앱). 요소를 읽고, 마우스를 움직이지 않고 누르고, 설치 전에는 묻고, 보안 확인 창은 사용자에게 넘긴다. `launch`의 `desktop` 명령 묶음 위에 얹은 절차 스킬이라 자체 CLI가 없다. 지금은 Windows만 (macOS는 #985) |
-| `ui-design` | **시안을 로컬 주소에 띄워 비교하고 고른다** (#1080) — 레포 토큰·글꼴 반영, 애니메이션 비교, 여러 화면 연결 프로토타입, PNG·GIF 이슈 공유, 안 되면 디자이너 요청서(#634). 판단과 시안 제작은 에이전트, `ui_design_cli.py`는 서버·사실 수집·캡처만. 설정 `ui-design` 섹션 + 옵션 표(`pro_ui_design/options.py`), 프로젝트 지식은 레포 범위 하네스 `ui-design`, 스킬 연결은 `decision.json` |
-| `image` | **프로젝트 화풍에 맞는 이미지 에셋 생성** (#1102) — 에이전트가 레포 하네스(`docs/image-harness/`: STYLE·캐릭터·종류 가이드·참조·기록)로 요청을 브리프·영어 프롬프트로 바꾸고, 이미지 도구는 우선순위(기본 codex 구독 > antigravity > claude-vector SVG, `image.priority`·`image.providers`로 추가)로 고른다. `image_cli.py`는 실행·결과 수거·PNG 변환·배경 제거(가짜 체크무늬·키 컬러)·크기 맞춤·비교판·기록만, 표준 라이브러리 전용(Pillow 있으면 사용). Codex는 ChatGPT 구독 로그인만 허용(API 키 환경변수 제거) |
-| `presentation` | **발표 덱을 HTML로 짓고 말로 연습한다** (#1097) — 덱 폴더(장마다 slide.html·script.md·notes.md·takes.md, 빌드 없음), 장별 말하기 코칭 하네스(`references/coaching.md`, 사용자 방향성은 덱 `memory.md` + `~/.projectops/presentation/memory.md`), 자동 새로고침 연습 화면, 녹화 자막으로 장별 시간 비교, PDF·글자 PPT 내보내기와 검수. 코칭·구간 판단은 에이전트, `presentation_cli.py`는 서버·가져오기·자막·검사·내보내기만 |
-| `oss-consult` | **오픈소스 컨설팅** — 레포 성격을 판별하고 6축(첫인상·가치 증명·커뮤니티·코드 확장성·법적 안전·장기 운영)으로 깐깐하게 채점, 성숙도 단계와 선행 조건을 짚고 승인받은 것을 고친다. 단일 레포·전체 일괄 (#644) |
+| `review` | Code review |
+| `testcase` | QA test cases |
+| `init-worktree` | Create a git worktree |
+| `commit` | Issue-based commit automation |
+| `github` | All GitHub work: create/read/edit issues, comments, labels, assignees, create/merge/read PRs, repo exploration, Actions logs, secret management, **image attachments** (issue body, comments, PRs) |
+| `report` | Generate an implementation report |
+| `changelog-deploy` | develop push → release PR (deploy PR) to main → version finalization + automerge / re-trigger when automerge fails |
+| `synology-expose` | Guide for exposing Synology services externally (**optional extras plugin** `projectops-extras` — `plugins/projectops-extras/`, copies of shared docs are synced with `scripts/sync_extras.py`) |
+| `code-consult` | **Managing AI-written code** (moved from extras to core in #1107) — audit against coding conventions, refactor one item at a time (before/after run comparison), check diffs (stale comments, duplicates), frozen violation lists (`docs/architecture/rules/`, lines can only be removed). The CLI `arch_cli.py` uses only the standard library and does not use `scripts/common` (#867) |
+| `skill-bug` | **Report projectops skill bugs** (**extras**) — called from a session in any repo when a bug is suspected; it collects commands, results, flow, logs and screenshots from the session transcript, strips personal data, files an issue on `Cassiiopeia/projectops` without asking (or comments on an existing one), then returns to the task. It does not judge or fix (CLI `bug_cli.py`). In Claude Code, the extras hook (`plugins/projectops-extras/hooks/skill_bug_watch.py`, canonical rules in `skill_bug_rules.py`) catches, for every pro- CLI, workarounds after a failure (per-skill workaround table), a feature the tool says it lacks, the same usage error twice, the same failure three times and internal CLI exceptions, and has a background subagent report them automatically (3 per session, turn off with `skill-bug.auto_report: false`); `skill_bug_notice.ts` shows a toast (#997). The automatic report body is filled with the facts `bug_cli.py alarm`, `excerpt --tool-use-id` and `context` collect (raw response, surrounding flow, environment), so an agent given only the issue can reproduce and fix it (#1000) |
+| `orca-tunnel` | **Remote URL for Orca Web** (**extras**, macOS, Windows, Linux) — answers "give me the orca URL" with a single URL. `tunnel_cli.py` (standard library) reuses, opens fresh and cleans up cloudflared quick tunnels, and replaces the tunnel address inside the saved pairing link without knowing its format. The Orca port, confirmation screen and link shape live in the harness (`harness/orca.md`, the local copy `~/.projectops/tunnel/harness/orca.md` takes priority), and the agent updates it when Orca changes. No Cloudflare account needed (#1126) |
+| `disk-cleanup` | **Disk space cleanup** (**extras**, macOS, Windows, Linux, stack-agnostic — a table of known locations + `largest`, which finds big folders under home by size) — read-only `scan` first, split into safe, decide and keep tiers; only safe is cleaned after one confirmation, and decide (open-issue worktrees, DerivedData, Gradle cache, emulators) only when the user names it. Worktree removal: confirm closed on GitHub > refuse if in use or recently active > back up (patches, including ignored .env) > `git worktree remove`, keeping the branch. Every deletion goes through the `disk_cli.py` gate, and without `--yes` it only plans (#1091) |
+| `ssh` | Connect to remote servers over SSH and run commands (AWS EC2, Synology NAS, Linux servers, etc.) |
+| `skill-creator` | Create/review/improve skills (CREATE, REVIEW, IMPROVE modes) |
+| `agent-test` | **Actually runs and walks through the app, web or server** (E2E, evidence) — unlike `testcase`, which only writes documents |
+| `figma` | **Design → code → comparison** in one bundle. Counts the dumped items as a worklist and compares pixels after porting (#619 merged porting and comparison into `figma-verify`, and #854 renamed it back to `figma`) |
+| `launch` | **Capability skill** — launches, drives and captures apps, web and servers. Other skills call `launch_cli.py` as a script (#629) |
+| `desktop-control` | **Driving programs on this computer's screen** (installer wizards, OS dialogs and desktop apps rather than web pages or emulators). Reads elements, presses without moving the mouse, asks before installing, and hands security confirmation windows to the user. A procedure skill on top of `launch`'s `desktop` command group, so it has no CLI of its own. Windows only for now (macOS is #985) |
+| `ui-design` | **Show mockups on a local URL to compare and pick** (#1080) — reflects repo tokens and fonts, compares animations, multi-screen linked prototypes, shares PNG/GIF to issues, and falls back to a designer request (#634). The agent judges and builds the mockups; `ui_design_cli.py` only runs the server, collects facts and captures. Settings in the `ui-design` section + options table (`pro_ui_design/options.py`), project knowledge in the repo-scoped harness `ui-design`, skill handoff through `decision.json` |
+| `image` | **Generate image assets in the project's style** (#1102) — the agent turns requests into a brief and an English prompt using the repo harness (`docs/image-harness/`: STYLE, characters, per-kind guides, references, records), and the image tool is chosen by priority (default codex subscription > antigravity > claude-vector SVG; add more with `image.priority` and `image.providers`). `image_cli.py` only runs tools, collects results, converts to PNG, removes backgrounds (fake checkerboards, key colors), fits sizes, builds comparison boards and records; standard library only (uses Pillow if present). Codex is allowed only with a ChatGPT subscription login (API key environment variables are removed) |
+| `presentation` | **Build a presentation deck as HTML and rehearse it aloud** (#1097) — a deck folder (slide.html, script.md, notes.md, takes.md per slide, no build), a per-slide speaking coaching harness (`references/coaching.md`; user directions in the deck's `memory.md` + `~/.projectops/presentation/memory.md`), an auto-reloading rehearsal screen, per-slide timing comparison from recording captions, PDF and text PPT export with review. The agent does coaching and section judgment; `presentation_cli.py` only does the server, import, captions, checks and export |
+| `oss-consult` | **Open-source consulting** — determines the repo's nature, scores it strictly on 6 axes (first impression, proof of value, community, code extensibility, legal safety, long-term operation), points out the maturity stage and prerequisites, and fixes what is approved. Single repo or all at once (#644) |
 
 ---
 
 ## Skill routing
 
-이 프로젝트에서 사용 가능한 스킬 호출 규칙:
+Skill call rules available in this project:
 
-| 요청 유형 | 호출 스킬 |
+| Request type | Skill to call |
 |----------|----------|
-| **이슈 만들어줘, 이슈 등록, 버그 리포트, PR 생성, PR 올려줘, PR 머지, 이슈 댓글, 댓글 달아줘/수정/삭제, 이슈 확인, 이슈 닫기, 라벨 추가/제거, 담당자 추가, PR 조회, GitHub API** | **`pro-github` ← 최우선 트리거** |
-| 뭔가 안 됨, 버그, 장애, 원인 파악 | `superpowers:systematic-debugging` |
-| 코드 리뷰 | `pro-review` |
-| QA 테스트케이스 | `pro-testcase` |
-| 이슈 작성 / 이슈 생성 | `pro-github` (이슈 생성 워크플로우 흡수) |
-| 커밋 | `pro-commit` |
-| 배포 / automerge 실패 재트리거 | `pro-changelog-deploy` |
-| 보고서 | `pro-report` |
-| 원격 서버 SSH 접속, 로그/상태 확인 | `pro-ssh` |
-| **실제로 테스트해줘, 에뮬레이터·시뮬레이터·브라우저로 확인, E2E, 끝까지 밟아줘** | `pro-agent-test` |
-| **에뮬레이터 띄워서 찍어줘, 시뮬레이터 스크린샷, 브라우저로 캡처, 모바일 폭으로·빈 목록·500 화면 찍어줘** | `pro-launch` |
-| **시안 몇 개 보여줘, 애니메이션 시안 비교, 이 흐름 눌러 보게 해줘, 시안 이슈에 올려줘, 디자인 요청해줘, 디자이너한테 보낼 거 만들어줘, 빈 화면·에러 화면도 그려 달라고 해줘** | `pro-ui-design` |
-| **전체적으로 봐줘, 코드 엉망인 것 같은데, AI가 짠 코드 정리, 리팩터링, 커밋 전에 주석·이름 봐줘, 내 코딩 규칙 깔아줘** | `pro-code-consult` |
-| **이미지 만들어줘, 그림 그려줘, 배경·캐릭터·아이콘 만들어줘, 어떤 그림체가 어울려** | `pro-image` |
-| **발표 연습하자, 발표 자료 만들어줘, 대본 봐줘, 녹화 올렸어, PPT로 뽑아줘** | `pro-presentation` |
-| **오픈소스 점검, 레포 컨설팅, trending 가려면, 오픈소스답게 만들어줘, 내 레포 전부 점검, README·라벨·라이선스 괜찮아?** | `pro-oss-consult` |
-| **figma 디자인 구현, 시안대로 만들어줘, 시안이랑 같은지 확인, 디자인대로 됐는지, 그림자 빠진 거 없나** | `pro-figma` |
-| **설계·기획 (무엇을 왜)** | **`superpowers:brainstorming`** |
-| **구현 계획 (어떻게)** | **`superpowers:writing-plans`** |
-| **계획 실행** | **`superpowers:executing-plans`** |
+| **Make an issue, register an issue, bug report, create a PR, open a PR, merge a PR, issue comment, add/edit/delete a comment, check an issue, close an issue, add/remove labels, add an assignee, look up a PR, GitHub API** | **`pro-github` ← top-priority trigger** |
+| Something does not work, bug, outage, finding the cause | `superpowers:systematic-debugging` |
+| Code review | `pro-review` |
+| QA test cases | `pro-testcase` |
+| Writing / creating an issue | `pro-github` (absorbs the issue creation workflow) |
+| Commit | `pro-commit` |
+| Deploy / re-trigger after automerge failure | `pro-changelog-deploy` |
+| Report | `pro-report` |
+| SSH into a remote server, check logs/status | `pro-ssh` |
+| **Test it for real, check in the emulator/simulator/browser, E2E, walk it to the end** | `pro-agent-test` |
+| **Launch the emulator and capture, simulator screenshot, browser capture, capture at mobile width / empty list / 500 screen** | `pro-launch` |
+| **Show me some mockups, compare animation mockups, let me click through this flow, post the mockups to the issue, request a design, make something to send to the designer, ask them to draw the empty and error screens too** | `pro-ui-design` |
+| **Look at the whole thing, the code seems messy, clean up AI-written code, refactor, check comments and names before committing, install my coding conventions** | `pro-code-consult` |
+| **Make an image, draw a picture, make a background/character/icon, which art style fits** | `pro-image` |
+| **Let's rehearse the talk, make presentation slides, review my script, I uploaded a recording, export to PPT** | `pro-presentation` |
+| **Open-source audit, repo consulting, to get on trending, make it more open-source-like, audit all my repos, are the README, labels and license OK?** | `pro-oss-consult` |
+| **Implement a Figma design, build it to the mockup, check it matches the mockup, did it come out as designed, are any shadows missing** | `pro-figma` |
+| **Design and planning (what and why)** | **`superpowers:brainstorming`** |
+| **Implementation plan (how)** | **`superpowers:writing-plans`** |
+| **Executing the plan** | **`superpowers:executing-plans`** |
 
-> 설계·계획·구현 흐름은 위 superpowers 3종이 담당한다. (옛 분석·계획·구현 스킬 3종은 #849에서 삭제되어 superpowers로 이관됐다.)
+> The design, planning and implementation flow is handled by the three superpowers skills above. (The three old analysis, planning and implementation skills were deleted in #849 and moved to superpowers.)
 
-## 커밋 컨벤션 필수 규칙
+## Required commit conventions
 
-커밋 메시지 앞에 이모지·태그(`🚀[기능개선]`, `⚙️[기능추가]` 등) **절대 포함 금지**.
-이슈 제목에서 이모지+태그를 제거한 순수 내용만 사용한다.
+**Never put emoji or tags (`🚀[기능개선]`, `⚙️[기능추가]`, etc.) at the start of a commit message.**
+Use only the plain content of the issue title with the emoji and tags removed.
 
-- 올바른 예: `RELEASE-CHANGELOG PR 본문 초기화 보호 로직 추가 : feat : ... https://...`
-- 잘못된 예: `🚀[기능개선][ChangeLog] RELEASE-CHANGELOG : feat : ...`
+- Correct: `Protect the RELEASE-CHANGELOG PR body from being reset : feat : ... https://...`
+- Wrong: `🚀[기능개선][ChangeLog] RELEASE-CHANGELOG : feat : ...` (legacy Korean issue-title tags must be stripped)
 
-커밋은 `pro-commit`이 만든다. `pro-report`는 커밋을 직접 실행하지 않는다(SKILL.md에서 금지) — 커밋 메시지를 제안하는 스킬도 이 규칙을 따른다.
+Commits are made by `pro-commit`. `pro-report` never runs a commit itself (forbidden in its SKILL.md) — skills that suggest commit messages follow this rule too.
 
-### 커밋 타입이 릴리스 버전을 결정한다 (#546 — agent 필독)
+### The commit type decides the release version (#546 — agent must read)
 
-`semver_auto`가 켜진 레포(이 레포 포함)는 **릴리스 구간 커밋 제목으로 버전 승격 폭이 정해진다.**
-커밋 타입을 아무거나 고르면 버전이 잘못 나간다.
+In repos with `semver_auto` on (including this one), **the bump size is decided by the commit subjects in the release range.**
+Picking any commit type at random ships the wrong version.
 
-| 커밋 타입 | 릴리스 결과 |
+| Commit type | Release result |
 |---|---|
-| `제목 : feat! : 내용` (또는 `feat!:`) | **major** — 4.2.45 → 5.0.0 |
-| `제목 : feat : 내용` | **minor** — 4.2.45 → 4.3.0 |
+| `title : feat! : content` (or `feat!:`) | **major** — 4.2.45 → 5.0.0 |
+| `title : feat : content` | **minor** — 4.2.45 → 4.3.0 |
 | `fix` / `docs` / `chore` / `refactor` / `test` | patch — 4.2.45 → 4.2.46 |
 
-- **`!`는 호환성이 깨질 때만 붙인다** — 기존 사용자의 설정·API·CLI 인자가 더 이상 동작하지
-  않게 되는 변경. 확신이 없으면 붙이지 말고 사용자에게 묻는다.
-- 한 릴리스 구간에 섞이면 가장 높은 것이 이긴다 (major > minor > patch).
-- `[skip ci]` 포함 커밋과 `Merge`로 시작하는 커밋은 판정에서 제외된다.
-- 판정 로직: `.github/scripts/changelog_manager.py` `classify_bump_level()`.
+- **Add `!` only when compatibility breaks** — changes after which existing users' settings, API or CLI arguments
+  no longer work. If you are not sure, do not add it; ask the user.
+- When mixed in one release range, the highest wins (major > minor > patch).
+- Commits containing `[skip ci]` and commits starting with `Merge` are excluded from the decision.
+- Decision logic: `classify_bump_level()` in `.github/scripts/changelog_manager.py`.
 
-## 기능 구현 워크플로우
+## Feature implementation workflow
 
-새 기능 구현 시 순서:
+Order for implementing a new feature:
 
-1. `superpowers:brainstorming` — 설계 및 스펙 확정
-2. `superpowers:writing-plans` — 상세 구현 계획
-3. `superpowers:executing-plans` — 실제 구현
-4. `superpowers:requesting-code-review` — 코드 리뷰 요청
+1. `superpowers:brainstorming` — design and settle the spec
+2. `superpowers:writing-plans` — detailed implementation plan
+3. `superpowers:executing-plans` — the actual implementation
+4. `superpowers:requesting-code-review` — request a code review
