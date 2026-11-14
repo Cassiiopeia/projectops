@@ -1,10 +1,10 @@
-// 설치 옵션 값을 정하는 단 한 곳 (#851).
+// The single place that decides install option values (#851).
 //
-// 비대화형(src/index.js)과 대화형(src/commands/interactive.js)이 같은 결과를 쓴다.
-// 각자 정하면 규칙이 갈라진다: 대화형 PR 요약 선택 유실(aiPrSummary),
-// 질문을 건너뛰는 version 모드가 모바일 단독 레포에 deploy: docker-ssh 를 남김.
-// 규칙은 모든 옵션에 같다: CLI 플래그 > version.yml 저장값 > 기본값.
-// 대화형은 이 결과를 초기값으로 쓰고, 사용자가 답한 것만 그 위에 덮어쓴다.
+// Non-interactive (src/index.js) and interactive (src/commands/interactive.js) use the same result.
+// Deciding separately splits the rules: the interactive PR summary choice was lost (aiPrSummary),
+// and version mode, which skips questions, left deploy: docker-ssh in mobile-only repos.
+// The rule is the same for every option: CLI flag > saved version.yml value > default.
+// Interactive uses this result as initial values and overwrites only what the user answered.
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { applicableTargets, migrateProvider } from "./options-ask.js";
@@ -12,11 +12,11 @@ import { DEFAULT_CODE_REVIEW_CODERABBIT } from "./constants.js";
 import { resolveLabelStyle } from "./label-style.js";
 import { resolveRepoLanguage } from "./repo-language.js";
 
-// 이미 설치돼 있으면 Projects 동기화를 켜진 것으로 보는 기준 파일 (#716)
+// File that marks Projects sync as on when already installed (#716)
 export const PROJECTS_SYNC_WORKFLOW = ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml";
 
-// 타입에 성립하지 않는 축 값을 정리한다 (#498). 모바일 앱·basic 단독은 두 축이 모두 비어
-// intent 도 none 으로 확정된다. 질문을 거친 값에도 같은 규칙을 다시 적용할 수 있게 따로 둔다.
+// Clean up axis values that do not apply to the type (#498). Mobile app or basic alone leaves both axes empty
+// and intent settles as none. Kept separate so the same rule can be reapplied to values from questions.
 export function normalizeAxes({ deploy, publish, intent, types }) {
   const applicable = applicableTargets(types);
   const outDeploy = deploy !== "none" && !applicable.deploy.includes(deploy) ? "none" : deploy;
@@ -25,20 +25,20 @@ export function normalizeAxes({ deploy, publish, intent, types }) {
   return { deploy: outDeploy, publish: outPublish, intent: noAxes ? "none" : intent, applicable };
 }
 
-// flags: parseArgs 결과 중 옵션 관련 값 (없으면 {} — 대화형 초기값)
-// existing: parseExisting 결과 또는 null
-// 반환: { values, sources } — sources 는 trace 가 "왜 이 값인가"를 남길 근거다 (#561).
+// flags: option-related values from parseArgs (none → {} — interactive initial values)
+// existing: parseExisting result or null
+// Returns { values, sources } — sources lets the trace record "why this value" (#561).
 export function resolveOptions({ flags = {}, existing = null, types = [], cwd = "." }) {
   const stored = existing?.options ?? {};
   const applicable = applicableTargets(types);
 
-  // 프로젝트 성격(#485): CLI --intent → 저장값. deploy/publish 유도의 기준.
+  // Project nature (#485): CLI --intent → saved value. Basis for deriving deploy/publish.
   let intent = flags.intent ?? stored.intent ?? null;
-  // 배포/publish 축(#439): 플래그 → 저장값 → 기본값(적용 가능할 때만 docker-ssh — #498).
+  // Deploy/publish axes (#439): flag → saved value → default (docker-ssh only when applicable — #498).
   let deploy = flags.deployTarget ?? stored.deploy
     ?? (applicable.deploy.includes("docker-ssh") ? "docker-ssh" : "none");
   let publish = flags.publishTargets ?? stored.publish ?? [];
-  // --intent 를 줬고 해당 축 플래그가 없으면 intent 가 축을 유도한다 (#485 비대화형)
+  // With --intent and no flag for that axis, intent derives the axis (#485 non-interactive)
   if (flags.intent != null) {
     if ((intent === "library" || intent === "none") && flags.deployTarget == null) deploy = "none";
     if ((intent === "app" || intent === "none") && flags.publishTargets == null) publish = [];
@@ -49,33 +49,33 @@ export function resolveOptions({ flags = {}, existing = null, types = [], cwd = 
   const values = {
     intent, deployTarget: deploy, publishTargets: publish,
     includeSecretBackup: flags.includeSecretBackup ?? stored.secretBackup ?? false,
-    // #566 — 설정 없이 바로 동작하므로 기본 켜짐
+    // #566 — works with no setup, so on by default
     aiPrSummary: flags.aiPrSummary ?? stored.aiPrSummary ?? true,
-    // #716 — 설정(Secret, PROJECT_URL) 없는 신규 레포에 깔면 알림만 쌓인다. 이미 깔린 레포는 유지.
+    // #716 — installed in a new repo without setup (Secret, PROJECT_URL) it only piles up notices. Existing installs keep it.
     projectsSync: flags.projectsSync ?? stored.projectsSync ?? existsSync(join(cwd, PROJECTS_SYNC_WORKFLOW)),
-    // #502 — version 모드가 기존 full 통합 기록을 강등하지 않게 (full 이 우세)
+    // #502 — keeps version mode from downgrading an existing full integration record (full wins)
     recordMode: existing?.templateMode === "full" ? "full" : "version",
-    // #456 — 비어 있으면 version.yml 에 쓰지 않는다 (스킬이 develop 으로 폴백). 사용자가 고르거나 플래그로 준 것만 기록.
+    // #456 — not written to version.yml when empty (skills fall back to develop). Records only what the user chose or passed as a flag.
     deployBranch: flags.deployBranch || stored.deployBranch || "",
-    // #1114 — 비어 있으면 워크플로를 바꾸지 않고 version.yml 에도 쓰지 않는다 (기존 레포 무변화)
+    // #1114 — when empty, workflows are untouched and nothing is written to version.yml (existing repos unchanged)
     deployTriggerBranch: flags.deployTriggerBranch || stored.deployTriggerBranch || "",
-    // #1114 — 켤 때만 기록·치환. 꺼져 있으면 설치 결과가 바이트 동일
+    // #1114 — recorded and substituted only when on. When off, install output is byte-identical
     ciMinutesSaver: flags.ciMinutesSaver ?? stored.ciMinutesSaver ?? false,
-    // #455 — null 이 흘러 provider:"null" 로 기록되던 버그 방지
+    // #455 — prevents the bug where null flowed through and was recorded as provider:"null"
     changelogProvider: migrateProvider(stored.changelogProvider) ?? "commit",
     changelogBaseUrl: stored.changelogBaseUrl ?? "",
     codeReviewCoderabbit: flags.codeReviewCoderabbit ?? stored.codeReviewCoderabbit ?? DEFAULT_CODE_REVIEW_CODERABBIT,
-    // #546, #814 — 명시적 false 는 존중, 키가 없으면 신규·기존 모두 켠다
+    // #546, #814 — an explicit false is respected; when the key is missing, on for both new and existing
     semverAuto: stored.semverAuto ?? true,
-    // 마법사가 묻지 않는 값은 저장값만 보존한다 (전체 재생성이라 안 넘기면 사라진다)
+    // Values the wizard does not ask about keep only the saved value (full regeneration drops anything not passed)
     appRelease: stored.appRelease ?? null,                 // #553
     excludedWorkflows: stored.excludedWorkflows ?? null,   // #810
     storeLocales: stored.storeLocales ?? null,             // #829
     storeLocalesIos: stored.storeLocalesIos ?? null,
     storeLocalesPlay: stored.storeLocalesPlay ?? null,
-    // #771 — 신규만 켠다. 기존 레포는 키를 만들지 않아 현행 유지
+    // #771 — on for new installs only. Existing repos get no key and keep current behavior
     closeOnRelease: stored.closeOnRelease ?? (existing ? null : true),
-    // #769, #776 — 신규 en / 기존 ko. 업데이트만으로 기존 레포 문구·라벨이 바뀌지 않는다
+    // #769, #776 — new en / existing ko. An update alone never changes existing repo text or labels
     language: resolveRepoLanguage({ flag: flags.language ?? null, stored: stored.language, existing: !!existing }),
     labelStyle: resolveLabelStyle({ flag: flags.labelStyle ?? null, stored: stored.labelStyle, existing: !!existing }),
   };
@@ -88,14 +88,14 @@ export function resolveOptions({ flags = {}, existing = null, types = [], cwd = 
     deploy: from(flags.deployTarget, stored.deploy, "--deploy"),
     publish: from(flags.publishTargets, stored.publish, "--publish"),
     before, applicable,
-    // 기존 레포에서 semver_auto 가 이번에 처음 켜졌는지 — 완료 화면이 알린다
+    // Whether semver_auto was turned on for the first time in an existing repo — the finish screen reports it
     semverAutoNewlyOn: !!existing && stored.semverAuto == null,
   };
   return { values, sources };
 }
 
-// version.yml options 로 기록되는 값 (resolveOptions 결과 이름 그대로)
-// 진입점(full·version)이 각자 고르면 빠진 옵션이 생성기 기본값으로 되돌아간다 (#909: version 모드 ai_summary false > true)
+// Values recorded as version.yml options (same names as the resolveOptions result)
+// If each entry point (full, version) picked its own, missing options revert to generator defaults (#909: version mode ai_summary false > true)
 const TEMPLATE_OPTION_FIELDS = [
   "intent", "deployTarget", "publishTargets", "includeSecretBackup", "aiPrSummary", "projectsSync",
   "changelogProvider", "changelogBaseUrl", "codeReviewCoderabbit", "semverAuto", "appRelease",
@@ -103,7 +103,7 @@ const TEMPLATE_OPTION_FIELDS = [
   "deployTriggerBranch", "ciMinutesSaver",
 ];
 
-/** 실행 context(resolveOptions 값이 펼쳐진 것) > buildVersionYml templateOptions */
+/** Run context (resolveOptions values spread out) > buildVersionYml templateOptions */
 export function toTemplateOptions(context, { mode, optionsDate }) {
   const options = Object.fromEntries(TEMPLATE_OPTION_FIELDS.map((field) => [field, context[field]]));
   return { ...options, templateVersion: context.templateVersion, mode, optionsDate };

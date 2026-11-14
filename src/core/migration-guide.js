@@ -1,7 +1,7 @@
-// 마이그레이션 가이드 (#493) — Layer 1 큐레이션 문서.
-// 마법사(full/workflows) 실행이 끝나면 대상 레포의 .github/.projectops/logs/PROJECTOPS-MIGRATION-GUIDE.md에
-// "고정 헤더(최초 1회) + 실행 엔트리(append-only)"를 남긴다. 사람용 동적 체크리스트와
-// AI Agent용 yaml 메타데이터를 한 엔트리에 담고, run-trace(#494)의 events를 단일 소스로 소비한다.
+// Migration guide (#493) — Layer 1 curated document.
+// When a wizard run (full/workflows) ends, writes to the target repo's .github/.projectops/logs/PROJECTOPS-MIGRATION-GUIDE.md
+// "a fixed header (first time only) + a run entry (append-only)". Each entry holds a dynamic checklist for people
+// and yaml metadata for AI agents, consuming run-trace (#494) events as the single source.
 import { join } from "node:path";
 import { existsSync, readFileSync, appendFileSync } from "node:fs";
 import { writeText } from "./fsutil.js";
@@ -10,7 +10,7 @@ import { MIGRATION_DIR } from "./run-trace.js";
 export const GUIDE_FILE = `${MIGRATION_DIR}/PROJECTOPS-MIGRATION-GUIDE.md`;
 export const GUIDE_SCHEMA = 1;
 
-// 고정 헤더 — 문서 목적 + AI Agent 해석 가이드라인. 최초 생성 시 1회만 쓴다 (엔트리와 분리).
+// Fixed header — document purpose + AI agent reading guidelines. Written once on first creation (separate from entries).
 const HEADER = `# ProjectOps Migration Guide
 
 This document is **written automatically every time a run finishes** by the projectops wizard (\`npx projectops\`).
@@ -41,18 +41,18 @@ Parse the \`\`\`yaml metadata block (\`# projectops-migration\`) of each entry a
 - When there are several entries, the **latest entry** is the reference for the current state. Older entries are history.
 `;
 
-// ── yaml 렌더 헬퍼 (외부 의존성 없이 수동 직렬화 — version-yml.js와 동일 원칙) ──
+// ── yaml render helpers (manual serialization with no external dependencies — same principle as version-yml.js) ──
 const yq = (s) => `"${String(s ?? "").replaceAll('"', '\\"')}"`;
 const ylist = (arr) => (arr && arr.length ? `[${arr.map(yq).join(", ")}]` : "[]");
 
-// trace events → 가이드용 파일 목록 파생 (단일 소스 — 이벤트에서 유도).
+// trace events → derive the file list for the guide (single source — derived from events).
 export function deriveWorkflowLists(events = []) {
   const pick = (action) => events.filter((e) => e.phase === "copy" && e.action === action).map((e) => e.target);
   return {
     added: pick("copied"),
     replacedBak: pick("replaced-bak"),
     skippedConflict: pick("skipped-conflict"),
-    // #654 — 건너뛴 파일별 새 템플릿 사본 경로와 diff 줄 수 (이벤트 detail에서 파생)
+    // #654 — per skipped file, the new template copy path and diff line counts (derived from event detail)
     skippedConflictDetails: events.filter((e) => e.phase === "copy" && e.action === "skipped-conflict")
       .map((e) => ({ file: e.target, incoming: e.detail?.incoming ?? "", added: e.detail?.added ?? null, removed: e.detail?.removed ?? null })),
     templateAdded: pick("template-added"),
@@ -60,7 +60,7 @@ export function deriveWorkflowLists(events = []) {
   };
 }
 
-// trace events → 타입별 적용 env 값 파생.
+// trace events → derive the applied env values per type.
 export function deriveEnvApplied(events = []) {
   const byType = new Map();
   for (const e of events) {
@@ -72,10 +72,10 @@ export function deriveEnvApplied(events = []) {
   return byType;
 }
 
-// 실행 엔트리 렌더링. report:
+// Render a run entry. report:
 //   { now, mode, types, repoName, templateFrom, templateTo,
 //     options: {deploy, publish, secretBackup, coderabbit, changelogProvider, intent},
-//     branches: {defaultBranch, deployBranch, ready, created, result},  // result: #715 비대화형 생성 결과 | null
+//     branches: {defaultBranch, deployBranch, ready, created, result},  // result: #715 non-interactive creation result | null
 //     breaking: {current, target, critical:[], warnings:[]} | null,
 //     migrations: {applied:[], confirmPending:[], askPending:[]} | null,
 //     orphans: {cleaned:[], pending:[]} | null,
@@ -102,7 +102,7 @@ export function renderGuideEntry(report) {
   L.push(`- Workflows: ${wf.added.length + wf.replacedBak.length} new/updated, ${(r.counters?.skipped ?? 0)} kept (unchanged or skipped on conflict)`);
   L.push("");
 
-  // ── 확인 체크리스트 (동적 — 실제 발생분만) ──
+  // ── Check list (dynamic — only what actually happened) ──
   const checklist = [];
   if (leftoverOldGen.length) {
     checklist.push(`- [ ] **Switch to the new workflow, then delete ${leftoverOldGen.length} old-generation deploy workflow(s)** (they may be live deployments, so the wizard left them alone):`);
@@ -115,7 +115,7 @@ export function renderGuideEntry(report) {
   }
   if (wf.skippedConflict.length) {
     checklist.push(`- [ ] **Kept ${wf.skippedConflict.length} modified file(s), review a merge with the new template**: ${wf.skippedConflict.map((f) => `\`${f}\``).join(", ")}`);
-    // #654 — 새 템플릿 사본이 있으면 비교 방법까지 적는다
+    // #654 — when a new template copy exists, also explain how to compare
     for (const d of wf.skippedConflictDetails.filter((x) => x.incoming)) {
       const cnt = d.added != null && d.removed != null ? ` (+${d.added} / -${d.removed} lines)` : "";
       checklist.push(`  - \`${d.file}\`${cnt}: \`diff -u .github/workflows/${d.file} ${d.incoming}\``);
@@ -130,14 +130,14 @@ export function renderGuideEntry(report) {
       for (const [k, v] of kv) checklist.push(`  - ${t} \`${k}\` = \`${v}\``);
     }
   }
-  // #843 — 다국어 스토어인데 store_locales 미설정. 안내만 (키는 쓰지 않는다)
+  // #843 — multi-language store but store_locales unset. Notice only (the key is not written)
   const storeHint = r.storeLocalesHint ?? null;
   if (storeHint) {
     checklist.push(`- [ ] **Decide whether to turn on per-language store release notes**: ${storeHint.locales.length} store languages found (${storeHint.locales.map((l) => `\`${l}\``).join(", ")}) but \`store_locales\` is not set, so every language gets the same text. To use per-language text from \`store_notes\` in CHANGELOG.json, add \`metadata.template.options.store_locales: ["ko-KR", "en-US", ...]\` to version.yml (first = default language). Found in:`);
     for (const s of storeHint.signals) checklist.push(`  - \`${s.path}\` (${s.source}: ${s.locales.join(", ")})`);
   }
   const devBranch = r.branches?.deployBranch ?? "develop";
-  const devBranchResult = r.branches?.result ?? null; // #715 --create-development-branch 결과
+  const devBranchResult = r.branches?.result ?? null; // #715 --create-development-branch result
   if (devBranchResult?.status === "created") {
     checklist.push(`- [x] Development (release source) branch \`${devBranch}\`: created from \`${devBranchResult.base || "HEAD"}\` and pushed (--create-development-branch)`);
   } else if (devBranchResult?.status === "skipped") {
@@ -156,7 +156,7 @@ export function renderGuideEntry(report) {
     L.push("");
   }
 
-  // ── 버전 점프에서 통과한 호환성 변경 (조치 방법 전문 — 터미널에서 스킵해도 여기 남는다) ──
+  // ── Compatibility changes passed in the version jump (full action steps — kept here even if skipped in the terminal) ──
   if (breakingAll.length) {
     L.push(`### Breaking changes passed through (v${breaking.current} → v${breaking.target})`);
     L.push("");
@@ -168,7 +168,7 @@ export function renderGuideEntry(report) {
     }
   }
 
-  // ── AI 메타데이터 ──
+  // ── AI metadata ──
   L.push("### AI metadata");
   L.push("");
   L.push("```yaml");
@@ -235,7 +235,7 @@ export function renderGuideEntry(report) {
   return L.join("\n");
 }
 
-// 가이드 파일에 엔트리 append (파일 없으면 헤더부터 생성). 반환: { guidePath, created }.
+// Append an entry to the guide file (creates it with the header if missing). Returns { guidePath, created }.
 export function appendGuideEntry(targetRoot, report) {
   const guidePath = join(targetRoot, GUIDE_FILE);
   const entry = renderGuideEntry(report);
@@ -243,7 +243,7 @@ export function appendGuideEntry(targetRoot, report) {
   if (created) {
     writeText(guidePath, HEADER + "\n" + entry);
   } else {
-    // append-only — 기존 엔트리 불변 (이력 보존 계약)
+    // append-only — existing entries never change (history preservation contract)
     const prev = readFileSync(guidePath, "utf8");
     appendFileSync(guidePath, (prev.endsWith("\n") ? "" : "\n") + entry);
   }

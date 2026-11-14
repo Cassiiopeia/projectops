@@ -1,18 +1,18 @@
-// IDE 어댑터 공용 레거시 유틸 — 버전 판정 + config 루트 이관.
-// 리브랜딩(#459) 전 설치본(cassiiopeia/SUH-DEVOPS-TEMPLATE)을 신규(projectops)로 넘길 때 공용.
+// Shared legacy utilities for IDE adapters — version check + config root migration.
+// Shared when moving pre-rebrand (#459) installs (cassiiopeia/SUH-DEVOPS-TEMPLATE) to the new one (projectops).
 import { join } from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { copyFileSync } from "../fsutil.js";
 import { compareCacheName } from "./util.js";
 import { t } from "../../i18n/index.js";
 
-// version <= maxLegacy 이면 레거시. null/빈문자열은 판정 불가 → false(안전).
+// Legacy if version <= maxLegacy. null/empty string cannot be judged → false (safe).
 export function isLegacyVersion(version, maxLegacy) {
   if (!version || !maxLegacy) return false;
   return compareCacheName(String(version), String(maxLegacy)) <= 0;
 }
 
-// 파일이 존재하고 JSON 파싱되며 최소 1개 키가 있으면 true.
+// true if the file exists, parses as JSON and has at least 1 key.
 export function hasNonEmptyJson(path) {
   if (!path || !existsSync(path)) return false;
   try {
@@ -21,14 +21,14 @@ export function hasNonEmptyJson(path) {
   } catch { return false; }
 }
 
-// config 루트 이관: 타겟(~/.projectops/config/config.json)이 비었을 때만 옛 경로에서 복사.
-// 옛 파일은 삭제하지 않음(민감값 보존). idempotent.
+// Config root migration: copy from the old path only when the target (~/.projectops/config/config.json) is empty.
+// The old file is not deleted (keeps sensitive values). Idempotent.
 export function migrateConfigRoot(io) {
   const target = join(io.home(), ".projectops", "config", "config.json");
   if (hasNonEmptyJson(target)) return { migrated: false, reason: "target-exists" };
   const sources = [
-    join(io.home(), ".suh-template", "config", "config.json"), // 2세대 우선
-    join(io.home(), ".cassiiopeia", "config.json"),            // 1세대 폴백
+    join(io.home(), ".suh-template", "config", "config.json"), // 2nd generation first
+    join(io.home(), ".cassiiopeia", "config.json"),            // 1st generation fallback
   ];
   const src = sources.find(hasNonEmptyJson);
   if (!src) return { migrated: false, reason: "no-source" };

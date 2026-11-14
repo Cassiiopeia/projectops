@@ -1,5 +1,5 @@
-// breaking-changes 확인 흐름 배선.
-// collectBreaking(순수 비교)은 breaking.js — 이 모듈은 로드(원격→clone본 폴백)·표시·확인 게이트.
+// Wiring for the breaking-changes check flow.
+// collectBreaking (pure comparison) lives in breaking.js — this module handles loading (remote → cloned copy fallback), display and the confirm gate.
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { collectBreaking, localizeBreakingEntry } from "./breaking.js";
@@ -9,33 +9,33 @@ import { TEMPLATE_RAW_URL } from "./paths.js";
 
 const BC_URL = `${TEMPLATE_RAW_URL}/.github/config/breaking-changes.json`;
 
-// 원격 우선(3초 타임아웃) → clone된 템플릿의 번들본 폴백 → 둘 다 실패 시 null(조용히 스킵)
+// Remote first (3s timeout) → bundled copy in the cloned template → null if both fail (skip silently)
 export async function loadBreakingJson(tempDir) {
   try {
     const res = await fetch(BC_URL, { signal: AbortSignal.timeout(3000) });
     if (res.ok) return await res.json();
-  } catch { /* 원격 실패 — 폴백 */ }
+  } catch { /* Remote failed — fall back */ }
   try {
     const p = join(tempDir, ".github", "config", "breaking-changes.json");
     if (existsSync(p)) return JSON.parse(readFileSync(p, "utf8"));
-  } catch { /* 폴백 실패 — 스킵 */ }
+  } catch { /* Fallback failed — skip */ }
   return null;
 }
 
-// 반환: true=진행, false=사용자 취소.
+// Returns true = proceed, false = cancelled by the user.
 // opts:
-//   cwd             - 통합 대상 루트 (기존 version.yml에서 현재 템플릿 버전 읽음)
-//   tempDir         - clone된 템플릿 (번들 폴백용)
-//   templateVersion - 설치하려는 템플릿 버전 (고정 DEFAULT_VERSION 아님 — 설계 D2)
-//   askYesNo        - async(message, defaultYes)→bool. null이면 비대화형: 경고만 출력 후 진행
-//   loader          - 테스트 주입용 (기본 loadBreakingJson)
-//   onItems         - (#493) 통과 구간 항목 콜백 ({current, target, critical, warnings}) —
-//                     마이그레이션 가이드가 조치 방법 전문을 임베드하는 데 쓴다 (표시 여부와 무관하게 호출)
+//   cwd             - integration target root (reads the current template version from the existing version.yml)
+//   tempDir         - cloned template (for the bundled fallback)
+//   templateVersion - template version being installed (not the fixed DEFAULT_VERSION — design D2)
+//   askYesNo        - async(message, defaultYes)→bool. null means non-interactive: print a warning and proceed
+//   loader          - test injection (default loadBreakingJson)
+//   onItems         - (#493) callback with the entries in range ({current, target, critical, warnings}) —
+//                     the migration guide embeds the full action steps from it (called whether or not shown)
 export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo = null, loader = loadBreakingJson, onItems = null }) {
   const vy = join(cwd, "version.yml");
-  if (!existsSync(vy)) return true; // 신규 통합 — 비교 기준 없음
+  if (!existsSync(vy)) return true; // New integration — nothing to compare with
   const { templateVersion: current } = parseExisting(readFileSync(vy, "utf8"));
-  if (!current) return true; // 템플릿 메타 없음(unknown) — 스킵
+  if (!current) return true; // No template metadata (unknown) — skip
 
   const json = await loader(tempDir);
   if (!json) return true;
@@ -44,10 +44,10 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
   if (critical.length || warnings.length) onItems?.({ current, target: templateVersion, critical, warnings });
   if (critical.length === 0 && warnings.length === 0) return true;
 
-  // 요약 리스트 표시 (#473 — 전문 통덤프는 벽글이 되어 정작 CRITICAL이 안 읽혔고,
-  // 긴 본문 래핑이 ║ 박스 경계를 붕괴시켰다. 버전·제목만 한 줄씩, 전문은 선택 열람.)
+  // Show a summary list (#473 — dumping the full text made a wall of text so CRITICAL went unread,
+  // and wrapping long bodies broke the ║ box borders. One line per version and title; full text on request.)
   const e = (s = "") => process.stderr.write(s + "\n");
-  // 화면은 화면 언어 문구 (onItems 로 넘긴 가이드용 항목은 영어 원문 그대로 — 실행 기록은 영어)
+  // Screen text uses the screen language (entries passed to onItems for the guide stay in English — the run log is English)
   const localized = (item) => localizeBreakingEntry(item, getLang());
   e("");
   e(t("breaking.title", { current, target: templateVersion, critical: critical.length, warnings: warnings.length }));
@@ -57,7 +57,7 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
   e("");
 
   if (askYesNo) {
-    // 대화형: 전문(조치 방법)은 원할 때만 펼친다
+    // Interactive: expand the full text (action steps) only when asked
     const detail = await askYesNo(t("breaking.askDetail"), false);
     if (detail === true) {
       for (const it of [...critical, ...warnings]) {
@@ -76,11 +76,11 @@ export async function runBreakingCheck({ cwd, tempDir, templateVersion, askYesNo
 
   if (critical.length > 0) {
     if (askYesNo) {
-      // 대화형: 명시 확인 없으면 중단 (기본 N)
+      // Interactive: stop without explicit confirmation (default N)
       const ok = await askYesNo(t("breaking.askContinue"), false);
       if (ok !== true) return false;
     } else {
-      // 비대화형(--force): 게이트로 CI를 죽이지 않고 경고 후 진행 (CI 친화)
+      // Non-interactive (--force): warn and proceed instead of killing CI at the gate (CI friendly)
       e(t("breaking.nonInteractive"));
     }
   }

@@ -1,9 +1,9 @@
-// node:readline 기반 대화형 프롬프트 엔진 (@clack/prompts 대체).
-// WHY: @clack/prompts 1.7.0 이 Windows TTY 콘솔에서 Enter(return) 키를 처리하지 못하고
-//   멈추는 버그가 있다(실측 확정). node:readline 의 keypress 이벤트는 Windows에서 정상 동작한다.
-//   외부 의존성 0 → 내부망에서도 안전.
+// node:readline based interactive prompt engine (replaces @clack/prompts).
+// WHY: @clack/prompts 1.7.0 fails to handle the Enter (return) key in Windows TTY consoles
+//   and freezes (confirmed by measurement). node:readline keypress events work fine on Windows.
+//   Zero external dependencies → safe on internal networks too.
 //
-// 계약: 취소(ESC/Ctrl+C)는 CANCEL 심볼 반환. 각 함수 async.
+// Contract: cancel (ESC/Ctrl+C) returns the CANCEL symbol. Every function is async.
 import { emitKeypressEvents } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { visualWidth } from "./ansi.js";
@@ -11,7 +11,7 @@ import { t } from "../i18n/index.js";
 
 export const CANCEL = Symbol("cancel");
 
-// ── ANSI 헬퍼 (picocolors 대체 — 의존성 0) ───────────────────────────
+// ── ANSI helpers (replaces picocolors — zero dependencies) ───────────────────────────
 const ESC = "\x1b[";
 const c = {
   reset: `${ESC}0m`, dim: `${ESC}2m`, bold: `${ESC}1m`,
@@ -21,7 +21,7 @@ const paint = (s, color) => `${color}${s}${c.reset}`;
 const hideCursor = () => stdout.write(`${ESC}?25l`);
 const showCursor = () => stdout.write(`${ESC}?25h`);
 
-// 심볼 (clack 톤 유지)
+// Symbols (keeps the clack look)
 const S_ACTIVE = paint("●", c.green);
 const S_INACTIVE = paint("○", c.dim);
 const S_CHECK_ON = paint("◼", c.green);
@@ -30,36 +30,36 @@ const S_BAR = paint("│", c.gray);
 const S_Q = paint("◆", c.cyan);
 const S_DONE = paint("◇", c.green);
 
-// 한 논리 라인이 터미널 폭에서 차지하는 물리 줄 수 (wrap 고려).
-// WHY: 긴 라벨(한글 2칸 포함)이 터미널 폭을 넘으면 터미널이 자동 줄바꿈해 물리적으로 2줄+가 된다.
-//   커서 되감기(ESC[nA)는 물리 줄 기준이므로, 논리 줄 수만 세면 wrap된 만큼 덜 올라가
-//   이전 출력이 안 지워지고 매 렌더마다 화면이 아래로 밀린다. (실측: Windows PowerShell 폭 80)
+// Number of physical rows a logical line takes at the terminal width (accounts for wrapping).
+// WHY: when a long label (with 2-cell Korean) exceeds the terminal width, the terminal wraps it into 2+ physical rows.
+//   Cursor rewind (ESC[nA) counts physical rows, so counting only logical lines rewinds too little by the wrapped amount,
+//   leaving old output and pushing the screen down on every render. (Measured: Windows PowerShell width 80)
 export function physicalRows(line, cols) {
-  const w = visualWidth(line); // ANSI 시퀀스 제외 + CJK 2칸
+  const w = visualWidth(line); // Excludes ANSI sequences + CJK 2 cells
   if (cols <= 0) return 1;
-  // 빈 줄도 최소 1행. 폭의 정수배로 딱 떨어지면 wrap 안 되므로 그대로(80칸 라인@80폭 = 1행).
+  // Even an empty line takes at least 1 row. An exact multiple of the width does not wrap, so as is (80-cell line @ width 80 = 1 row).
   if (w === 0) return 1;
   return Math.max(1, Math.ceil(w / cols));
 }
 
-// 여러 줄 지운 뒤 커서를 블록 시작으로 되돌리는 렌더러.
-// 직전 렌더의 "물리 줄 수"만큼 위로 올라가 지우고 새로 그린다 (wrap 안전).
+// Renderer that clears several lines and returns the cursor to the block start.
+// Moves up by the "physical row count" of the previous render, clears and redraws (wrap safe).
 function makeRenderer() {
-  let prevRows = 0; // 직전 렌더가 실제로 차지한 물리 줄 수
+  let prevRows = 0; // Physical rows actually taken by the previous render
   return {
     render(lines) {
-      if (prevRows > 0) stdout.write(`${ESC}${prevRows}A`); // 물리 줄 기준으로 위로
-      stdout.write(`${ESC}0J`); // 커서 아래 전부 지우기
+      if (prevRows > 0) stdout.write(`${ESC}${prevRows}A`); // Up by physical rows
+      stdout.write(`${ESC}0J`); // Clear everything below the cursor
       stdout.write(lines.join("\n") + "\n");
-      const cols = stdout.columns || 80; // 터미널 폭 (파이프 등으로 없으면 80 가정)
+      const cols = stdout.columns || 80; // Terminal width (assume 80 when missing, e.g. a pipe)
       prevRows = lines.reduce((sum, l) => sum + physicalRows(l, cols), 0);
     },
     reset() { prevRows = 0; },
   };
 }
 
-// raw keypress 세션 공통 래퍼. onKey(str,key) → true 반환 시 종료.
-// 반환값은 finalize()가 만든다. 취소 시 CANCEL.
+// Shared wrapper for raw keypress sessions. onKey(str,key) returning true ends it.
+// The return value is built by finalize(). CANCEL on cancel.
 function keySession(renderFn, onKey) {
   return new Promise((resolve) => {
     const wasRaw = stdin.isTTY ? stdin.isRaw : false;
@@ -77,7 +77,7 @@ function keySession(renderFn, onKey) {
 
     const handler = (str, key) => {
       key = key || {};
-      // 취소: Ctrl+C / ESC
+      // Cancel: Ctrl+C / ESC
       if ((key.ctrl && key.name === "c") || key.name === "escape") {
         cleanup();
         resolve(CANCEL);
@@ -92,15 +92,15 @@ function keySession(renderFn, onKey) {
       }
     };
     stdin.on("keypress", handler);
-    renderFn(); // 최초 렌더
+    renderFn(); // First render
   });
 }
 
-// ── 단일 선택 (방향키 + Enter) ───────────────────────────────────────
-// options: [{value,label,hint?}]. 반환: 선택 value 또는 CANCEL.
+// ── Single select (arrow keys + Enter) ───────────────────────────────────────
+// options: [{value,label,hint?}]. Returns the selected value or CANCEL.
 export async function select({ message, options, initialIndex = 0 }) {
   if (!stdin.isTTY) {
-    // 비-TTY: 기본값(첫 항목) 반환 — 파이프 환경 방어
+    // Non-TTY: return the default (first item) — guards pipe environments
     return options[initialIndex]?.value;
   }
   const r = makeRenderer();
@@ -122,17 +122,17 @@ export async function select({ message, options, initialIndex = 0 }) {
   const result = await keySession(draw, (str, key) => {
     if (key.name === "up" || key.name === "k") { idx = (idx - 1 + options.length) % options.length; return; }
     if (key.name === "down" || key.name === "j") { idx = (idx + 1) % options.length; return; }
-    // 숫자 점프 (1-9)
+    // Number jump (1-9)
     if (/^[1-9]$/.test(str || "")) {
       const n = Number(str) - 1;
       if (n < options.length) { idx = n; return; }
       return;
     }
     if (key.name === "return" || key.name === "enter") return options[idx].value;
-    return; // 그 외 키: 무시하고 계속
+    return; // Any other key: ignore and continue
   });
 
-  // 확정 화면 다시 그리기 (◇ 완료 심볼 + 선택값)
+  // Redraw the confirmed screen (◇ done symbol + selected value)
   if (result !== CANCEL) {
     const chosen = options.find((o) => o.value === result);
     r.render([S_BAR, `${S_DONE}  ${paint(message, c.dim)}`, `${S_BAR}  ${paint(chosen?.label ?? "", c.dim)}`]);
@@ -140,8 +140,8 @@ export async function select({ message, options, initialIndex = 0 }) {
   return result;
 }
 
-// ── 다중 선택 (Space 토글 + Enter) ──────────────────────────────────
-// options: [{value,label,hint?,disabled?}]. 반환: 선택 value 배열 또는 CANCEL.
+// ── Multi select (Space toggles + Enter) ──────────────────────────────────
+// options: [{value,label,hint?,disabled?}]. Returns an array of selected values or CANCEL.
 export async function multiselect({ message, options, initialValues = [], required = false }) {
   if (!stdin.isTTY) {
     return initialValues.length ? [...initialValues] : (required ? [options[0]?.value].filter(Boolean) : []);
@@ -197,8 +197,8 @@ export async function multiselect({ message, options, initialValues = [], requir
   return result;
 }
 
-// ── 텍스트 입력 (Enter 확정, 빈 입력=기본값) ─────────────────────────
-// 반환: 입력 문자열(빈 입력 시 defaultValue) 또는 CANCEL.
+// ── Text input (Enter confirms, empty input = default) ─────────────────────────
+// Returns the input string (defaultValue on empty input) or CANCEL.
 export async function text({ message, defaultValue = "" }) {
   if (!stdin.isTTY) return defaultValue;
   return new Promise((resolve) => {
@@ -209,7 +209,7 @@ export async function text({ message, defaultValue = "" }) {
     let buf = "";
 
     const prompt = () => {
-      stdout.write(`\r${ESC}0K`); // 줄 초기화
+      stdout.write(`\r${ESC}0K`); // Reset the line
       const shown = buf.length ? buf : paint(defaultValue || "", c.dim);
       stdout.write(`${S_Q}  ${paint(message, c.bold)} ${shown}`);
     };
@@ -230,7 +230,7 @@ export async function text({ message, defaultValue = "" }) {
         return;
       }
       if (key.name === "backspace") { buf = buf.slice(0, -1); prompt(); return; }
-      // 일반 문자 (제어문자 제외)
+      // Regular characters (excluding control characters)
       if (str && !key.ctrl && !key.meta && str.length === 1 && str >= " ") { buf += str; prompt(); return; }
     };
     stdin.on("keypress", handler);
@@ -238,8 +238,8 @@ export async function text({ message, defaultValue = "" }) {
   });
 }
 
-// ── Y/N 확인 (←→ 또는 y/n, Enter 확정) ──────────────────────────────
-// 반환: true/false 또는 CANCEL.
+// ── Y/N confirm (←→ or y/n, Enter confirms) ──────────────────────────────
+// Returns true/false or CANCEL.
 export async function confirm({ message, initialValue = true }) {
   if (!stdin.isTTY) return initialValue;
   const r = makeRenderer();
@@ -266,7 +266,7 @@ export async function confirm({ message, initialValue = true }) {
   return result;
 }
 
-// ── 출력 헬퍼 (clack intro/outro/note/cancel 대체) ──────────────────
+// ── Output helpers (replace clack intro/outro/note/cancel) ──────────────────
 export function intro(text) { stdout.write(`\n${paint("┌", c.gray)}  ${paint(text, c.bold)}\n`); }
 export function outro(text) { stdout.write(`${paint("└", c.gray)}  ${paint(text, c.green)}\n\n`); }
 export function cancelMessage(text = t("engine.cancelled")) { stdout.write(`${paint("■", c.yellow)}  ${paint(text, c.yellow)}\n`); }

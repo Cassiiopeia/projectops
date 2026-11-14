@@ -1,9 +1,9 @@
-// IDE 어댑터 레지스트리 — 유일한 확장 지점.
+// IDE adapter registry — the only extension point.
 //
-// 새 IDE를 지원하려면:
-//   1) src/core/ide/adapters/<name>.js 에 어댑터 객체(adapter.js 계약) 작성
-//   2) 아래에 import 추가하고 ADAPTERS 배열에 넣기
-// 오케스트레이터·프롬프트·index 라우팅은 이 배열만 순회하므로 다른 파일은 손대지 않는다.
+// To support a new IDE:
+//   1) write an adapter object (adapter.js contract) in src/core/ide/adapters/<name>.js
+//   2) add the import below and put it in the ADAPTERS array
+// The orchestrator, prompts and index routing only iterate this array, so no other file needs changes.
 import { assertAdapter } from "./adapter.js";
 import { claudeAdapter } from "./adapters/claude.js";
 import { cursorAdapter } from "./adapters/cursor.js";
@@ -13,7 +13,7 @@ import { copilotAdapter } from "./adapters/copilot.js";
 import { piAdapter } from "./adapters/pi.js";
 import { piHarnessAdapter } from "./adapters/pi-harness.js";
 
-// order 오름차순 정렬 + 계약 검증.
+// Sort by order ascending + check the contract.
 export const ADAPTERS = [
   claudeAdapter,
   cursorAdapter,

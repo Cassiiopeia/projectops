@@ -1,4 +1,4 @@
-// options 영역 메시지 (en). 키는 <영역>.<의미> 형식.
+// options area messages (en). Keys use the <area>.<meaning> format.
 export default {
   "options.branch.remoteOnly": "Branch '{branch}' exists on the remote but not locally. Run 'git switch {branch}' if you need it.",
   "options.branch.missing": "Development (release source) branch '{branch}' does not exist. It is required for releases ({branch} to {base} PR) to work.",

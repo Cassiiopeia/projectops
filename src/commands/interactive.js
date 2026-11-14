@@ -1,7 +1,7 @@
-// 대화형 마법사 (#446 UI 5층).
-// io 주입으로 테스트 가능. 실제 실행은 src/ui/prompts.js 함수를 io로 넘긴다.
-// 새 시각 층(banner/detectionLog/analysisCard/ideStatus/installKind/summary)과 저수준 엔진(engineIo)은
-// io의 "옵셔널 멤버" — 스텁이 생략하면 해당 층만 건너뛰고 실행 계약은 동일하다.
+// Interactive wizard (#446 UI, 5 layers).
+// Testable via io injection. A real run passes the src/ui/prompts.js functions as io.
+// The new visual layers (banner/detectionLog/analysisCard/ideStatus/installKind/summary) and the low-level engine (engineIo) are
+// "optional members" of io — if a stub omits one, only that layer is skipped and the run contract stays the same.
 import { resolveOptions } from "../core/resolve-options.js";
 import { detectStoreLocalesHint } from "../core/store-locales-hint.js";
 import { join } from "node:path";
@@ -37,56 +37,56 @@ import { printSummary } from "../ui/summary.js";
 const CANCEL = prompts.CANCEL;
 const isCancel = (v) => v === CANCEL || typeof v === "symbol";
 
-// io 기본값 = 실제 prompts. 테스트는 스텁 io 주입.
-// skills = runSkills 주입 지점(테스트가 실제 IDE CLI를 안 건드리게). 기본은 실제 runSkills.
+// io default = real prompts. Tests inject a stub io.
+// skills = injection point for runSkills (so tests do not touch real IDE CLIs). Default is the real runSkills.
 export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { type: "git" }, clock, io = prompts, skills = runSkills } = {}) {
   const tempDir = join(cwd, PATHS.tempDir);
-  // 실행 트레이스 (#494) — 실제 CLI(io=prompts)에서만 터미널 미러를 켠다 (테스트 스텁 io는 이벤트만).
+  // Run trace (#494) — the terminal mirror is on only in the real CLI (io=prompts) (test stub io records events only).
   const trace = createRunTrace();
-  // Ctrl+C로 끊어도 기록이 남는다 (#561) — 대화형은 사람이 중간에 끊는 일이 잦다.
+  // The record stays even when cut off with Ctrl+C (#561) — people often stop the interactive wizard midway.
   const disarmSignals = trace.armSignals({ targetRoot: cwd, now: clock?.now || "" });
-  // finally에서 기록할 때 쓰는 값 — try 안에서 확정되기 전에 취소될 수 있으므로 바깥에 둔다 (#561).
+  // Values used when recording in finally — kept outside because a cancel may come before try settles them (#561).
   let traceFrom = "";
   let traceTo = "";
-  // 기록 파일을 남기는 모드인지 — 모드 선택 전에 취소될 수 있어 기본값은 false.
+  // Whether this mode leaves record files — false by default since a cancel may come before mode selection.
   let recordArtifacts = false;
-  // 기록을 남기지 않고 끝낼 경우(version/issues 모드의 정상 완주)에만 true.
-  // 취소·예외는 모드와 무관하게 남긴다 — 끊겼을 때가 "어디까지 갔는지"가 가장 궁금한 순간이다.
+  // true only when ending without a record (normal finish of version/issues modes).
+  // Cancels and exceptions are recorded regardless of mode — when cut off is exactly when "how far did it get" matters most.
   let skipRecord = false;
   if (io === prompts) trace.mirrorStart();
   try {
-    // 템플릿 먼저 획득 — 배너에 실제 템플릿 버전을 표시
-    // 대화형도 끝에 스킬 설치·업데이트 > scripts/common 유지 (#994)
+    // Fetch the template first — the banner shows the real template version
+    // Interactive also installs/updates skills at the end > keep scripts/common (#994)
     trace.step("acquire-template", () => acquireTemplate({ tempDir, source, keep: [SHARED_SCRIPTS_DIR_NAME] }), { source: source?.type || "git" });
     const templateVersion = readTemplateVersion(tempDir);
     traceTo = templateVersion;
 
-    // 층1 — 시작 배너 (#446 확정 시안 A). 스텁엔 banner 없음 → intro 폴백.
+    // Layer 1 — start banner (#446 settled mockup A). Stubs have no banner → intro fallback.
     if (io.banner) io.banner({ version: templateVersion, modeLabel: t("banner.interactive") });
     else io.intro?.(`projectops, ${t("banner.interactive")}`);
 
-    // 기존 version.yml — version/version_code/paths/옵션 보존의 단일 진실
+    // Existing version.yml — single source of truth for keeping version/version_code/paths/options
     const vyPath = join(cwd, "version.yml");
     const existing = existsSync(vyPath) ? parseExisting(readFileSync(vyPath, "utf8")) : null;
     traceFrom = existing?.templateVersion || "";
 
-    // 층4 — IDE Skills 현재 상태 · 층5 — 신규/업데이트 판별 (#446)
+    // Layer 4 — current IDE skills status · Layer 5 — new vs. update (#446)
     io.installKind?.({ currentTemplateVersion: existing?.templateVersion || "", templateVersion });
 
-    // 1) 모드 선택 — 기존 통합 레포면 업데이트 항목을 맨 위에 노출 (#502)
+    // 1) Mode selection — for an already integrated repo, show the update item at the top (#502)
     const updateInfo = existing?.templateVersion ? { from: existing.templateVersion, to: templateVersion } : null;
-    // 실행 경계(#561) — 대화형은 사람이 무엇을 골랐는지가 핵심 기록이다.
+    // Run boundary (#561) — for interactive, what the person chose is the key record.
     trace.event("run", "start", "interactive", { templateVersion, isUpdate: !!updateInfo });
     const picked = await io.selectMode(updateInfo ? { update: updateInfo } : {});
     trace.event("prompt", "mode", String(picked ?? ""), { update: !!updateInfo });
     if (picked === CANCEL || picked == null) { trace.event("run", "cancelled", "mode-select", { reason: "user-cancel" }); io.cancelMessage?.(t("flow.cancelInstall")); return 0; }
-    // 업데이트 모드(#502): 저장된 통합 범위(templateMode, 없으면 full)를 재실행하고
-    // 이하 updateRun 분기가 질문을 최소화한다 ("저장된 설정 그대로 반영"이 계약).
+    // Update mode (#502): re-runs the saved integration scope (templateMode, full if missing),
+    // and the updateRun branches below minimize questions ("apply the saved settings as is" is the contract).
     const updateRun = picked === "update";
     const mode = updateRun ? (existing?.templateMode || "full") : picked;
 
-    // Breaking Changes 게이트 (모든 모드 공통, 대화형은 확인 질문)
-    let breakingReport = null; // #493 — 통과 구간 항목을 가이드에 조치 방법 전문으로 임베드
+    // Breaking changes gate (all modes; interactive asks for confirmation)
+    let breakingReport = null; // #493 — embeds the full action steps of entries in range into the guide
     const proceed = await trace.stepAsync("breaking-check", () => runBreakingCheck({
       cwd, tempDir, templateVersion,
       askYesNo: (msg, def) => io.askYesNo(msg, def),
@@ -94,7 +94,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     }));
     if (!proceed) { trace.event("run", "cancelled", "breaking-gate", { reason: "user-declined" }); io.cancelMessage?.(t("flow.cancelBreaking")); return 0; }
 
-    // skills 모드 — IDE 스킬 설치 (템플릿 통합 없음). 대화형으로 실행.
+    // skills mode — install IDE skills (no template integration). Runs interactively.
     if (mode === "skills") {
       io.ideStatus?.();
       await skills({ templateVersion, tempDir, interactive: true });
@@ -102,10 +102,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       return 0;
     }
 
-    // issues 모드는 정보 수집 없이 바로 실행
+    // issues mode runs right away without gathering info
     if (mode === "issues") {
-      // 기존 레포의 템플릿 언어와 라벨 표기는 저장값을 따른다. 빈 baseCtx 로 만들면 둘 다 null 이 되어
-      // runIssues 의 기본값(en)이 적용돼, 키 없는 기존 한국어 레포가 질문 없이 영문으로 바뀐다 (#769).
+      // Existing repos keep the saved template language and label style. Starting from an empty baseCtx would make both null,
+      // applying runIssues' default (en) and silently switching existing Korean repos without the key to English (#769).
       const ctx = createContext({
         ...baseCtx, mode, force: true,
         language: resolveRepoLanguage({ flag: null, stored: existing?.options?.language, existing: !!existing }),
@@ -117,9 +117,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       return 0;
     }
 
-    // full/version/workflows — 감지 (version은 기존 version.yml 최우선)
+    // full/version/workflows — detection (version: existing version.yml first)
     let types = detectTypes(cwd);
-    // 업데이트 모드 — 저장된 타입 우선 (재감지로 타입 집합이 흔들리지 않게, #502)
+    // Update mode — saved types first (so re-detection does not shake the type set, #502)
     if (updateRun && existing?.types?.length) {
       const saved = existing.types.filter((t) => VALID_TYPES.includes(t));
       if (saved.length) types = saved;
@@ -127,9 +127,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let version = (existing?.version) || detectVersion(cwd);
     let branch = detectDefaultBranch(cwd);
     const repoName = detectRepoName(cwd);
-    const versionCode = existing?.versionCode ?? 1; // 기존 빌드번호 보존
-    // 옵션 초기값은 비대화형과 같은 resolve-options.js 에서 받는다 (#851).
-    // 질문을 건너뛰는 모드(version 등)도 이 값이 그대로 기록되므로 타입 적용성 정리까지 거친 값이어야 한다.
+    const versionCode = existing?.versionCode ?? 1; // Keep the existing build number
+    // Initial option values come from resolve-options.js, same as non-interactive (#851).
+    // Modes that skip questions (version, etc.) record these values as is, so they must already include the type applicability cleanup.
     const { values: init, sources: initSources } = resolveOptions({ existing, types, cwd });
     let deployTarget = init.deployTarget;
     let publishTargets = init.publishTargets;
@@ -138,20 +138,20 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let codeReviewCoderabbit = init.codeReviewCoderabbit;
     let changelogProvider = init.changelogProvider;
     let changelogBaseUrl = init.changelogBaseUrl;
-    let deployBranch = init.deployBranch; // #456 — 비어 있으면 기록하지 않는다. 질문에서 고른 값만 남긴다
-    let deployBranchReady = null; // #490 — 이번 실행에서 개발 브랜치 존재/생성이 확인됐는지
-    let deployBranchCreated = null; // #493 — 마법사가 직접 생성했는지 (가이드 기록용)
-    let intent = init.intent; // #485 프로젝트 성격
-    // 묻지 않는 값 — 저장값 보존 규칙은 resolve-options.js 에 있다
+    let deployBranch = init.deployBranch; // #456 — not recorded when empty. Only a value picked in the question is kept
+    let deployBranchReady = null; // #490 — whether the development branch was confirmed/created in this run
+    let deployBranchCreated = null; // #493 — whether the wizard created it (for the guide record)
+    let intent = init.intent; // #485 project nature
+    // Values not asked — the saved-value rule lives in resolve-options.js
     const { semverAuto, appRelease, closeOnRelease, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay, projectsSync, deployTriggerBranch, ciMinutesSaver } = init;
     const semverAutoNewlyOn = initSources.semverAutoNewlyOn;
-    // 레포 문구 언어(#769)·라벨 표기(#776): 기존 레포에는 영문 전환을 한 번만 제안한다(아래).
+    // Repo text language (#769) and label style (#776): existing repos get the English switch offered only once (below).
     let language = init.language;
     let labelStyle = init.labelStyle;
     const showOptional = mode === "full" || mode === "workflows";
     const realTty = process.stdout.isTTY === true;
-    // 기존 한글 라벨 레포에는 영문 표준 전환을 한 번만 제안한다(#776). 거절하면 한글을 저장해 다시 묻지 않는다.
-    // 라벨 정의의 from_name 이 이슈에 붙은 라벨을 그대로 옮기므로 이슈 이력은 보존된다.
+    // Existing repos with Korean labels get the English standard switch offered only once (#776). If declined, Korean is saved so it is not asked again.
+    // from_name in the label definitions carries over the labels attached to issues, so issue history is kept.
     if (existing && !existing.options?.labelStyle && realTty && showOptional && io.askYesNo) {
       const adopt = await io.askYesNo(t("labelStyle.propose"), false);
       labelStyle = adopt ? "en" : "ko";
@@ -161,10 +161,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       language = adopt ? "en" : "ko";
     }
 
-    // 층2 — 감지 로그 (#446)
+    // Layer 2 — detection log (#446)
     io.detectionLog?.({ types, version, branch });
 
-    // 배포/publish 축 + Secret 백업 질문 (#439 — full/workflows만)
+    // Deploy/publish axes + secret backup questions (#439 — full/workflows only)
     if (showOptional) {
       const r = await askAllOptionalWorkflows({
         tempDir, types, targetRoot: cwd, defaultBranch: branch,
@@ -188,7 +188,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       publishTargets = r.publish;
       includeSecretBackup = r.secretBackup;
       codeReviewCoderabbit = r.codeReviewCoderabbit;
-      aiPrSummary = r.aiPrSummary; // #851 — 빠져 있어 PR 요약 선택이 버려졌다
+      aiPrSummary = r.aiPrSummary; // #851 — was missing, so the PR summary choice was dropped
       changelogProvider = r.changelogProvider;
       changelogBaseUrl = r.changelogBaseUrl;
       deployBranch = r.deployBranch;
@@ -197,10 +197,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       intent = r.intent;
     }
 
-    // 확인/수정 루프 — ESC는 '머무르기' (명시적 '아니오'만 종료)
+    // Confirm/edit loop — ESC means 'stay' (only an explicit 'no' exits)
     let paths = new Map();
     let confirmed = false;
-    // 업데이트 모드 — 카드는 보여주되 확인 루프 생략 (#502: 설정 변경은 기존 모드의 몫)
+    // Update mode — show the card but skip the confirm loop (#502: changing settings belongs to the existing modes)
     if (updateRun) {
       if (io.analysisCard) {
         io.analysisCard({ mode, modeLabel: t("flow.updateScope", { scope: modeLabel(mode) }), types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, paths });
@@ -210,7 +210,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       confirmed = true;
     }
     while (!confirmed) {
-      // 층3 — 프로젝트 분석 개요 카드 (#446). 스텁엔 없음 → note 폴백.
+      // Layer 3 — project analysis overview card (#446). Missing in stubs → note fallback.
       if (io.analysisCard) {
         io.analysisCard({ mode, modeLabel: modeLabel(mode), types, version, branch, deployTarget, publishTargets, includeSecretBackup, showOptional, paths });
       } else {
@@ -218,19 +218,19 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }
       const choice = await io.confirmProjectMenu();
       if (choice === "cancel") { trace.event("run", "cancelled", "confirm-loop", { reason: "user-cancel" }); io.cancelMessage?.(t("flow.cancelInstall")); return 0; }
-      if (isCancel(choice) || choice == null) continue; // ESC = 머무르기 (루프 재출력)
+      if (isCancel(choice) || choice == null) continue; // ESC = stay (redraw the loop)
       if (choice === "continue") { confirmed = true; break; }
-      // edit 루프
+      // edit loop
       let editing = true;
       while (editing) {
-        // #498 — 타입에 적용 불가한 배포 축 항목은 메뉴에서 숨김 (타입을 바꾸면 다음 진입부터 다시 노출)
+        // #498 — hide deploy axis items that do not apply to the types (shown again from the next entry if types change)
         const what = await io.editMenu({ showOptional, axes: applicableTargets(types) });
         if (isCancel(what) || what === "done") { editing = false; break; }
         if (what === "type") {
           const t = await io.selectTypes(types);
           trace.event("prompt", "types", (Array.isArray(t) ? t : []).join(",") || "", { before: types });
           if (!isCancel(t) && Array.isArray(t) && t.length) {
-            // 타입 집합이 실제로 바뀌면 경로 재해석 대상으로 초기화 (정렬 집합 비교)
+            // When the type set really changes, reset it for path re-resolution (sorted set comparison)
             const oldSorted = [...types].sort().join(",");
             types = t.filter((x) => VALID_TYPES.includes(x));
             if ([...types].sort().join(",") !== oldSorted) paths = new Map();
@@ -238,7 +238,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         } else if (what === "version") {
           const v = await io.askText(t("flow.askVersion"), version);
           if (!isCancel(v) && v !== version) {
-            // semver 형식 검증
+            // semver format check
             if (/^\d+\.\d+\.\d+$/.test(v)) version = v;
             else io.note?.(t("flow.badVersion"), t("flow.badVersionTitle"));
           }
@@ -246,7 +246,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           const b = await io.askText(t("flow.askBranch"), branch);
           if (!isCancel(b) && b) branch = b;
         } else if (OPTION_AXES.includes(what)) {
-          // #483 — 선택한 축 하나만 재질문 (scope). 나머지 옵션은 현재값 그대로 유지.
+          // #483 — re-ask only the one chosen axis (scope). Other options keep their current values.
           const r = await askAllOptionalWorkflows({
             tempDir, types, targetRoot: cwd, defaultBranch: branch,
             current: {
@@ -276,22 +276,22 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }
     }
 
-    // 경로 확정 (full/version만. 저장값·후보 스캔·질문)
+    // Settle paths (full/version only. saved values, candidate scan, questions)
     if (mode === "full" || mode === "version") {
       paths = await resolveProjectPaths({
         root: cwd, types, paths, existingPaths: existing?.paths ?? new Map(),
         force: false, tty: realTty, io: io.engineIo ?? {},
       });
-      // 타입 탈출구 (#487) — 경로 단계에서 제외된 타입은 version.yml·복사·env 전 단계에서 뺀다
+      // Type escape hatch (#487) — types excluded at the path step are dropped from version.yml, copy and env steps
       types = filterExcludedTypes(types, paths);
     } else {
       for (const t of types) if (t !== "basic" && !paths.has(t)) paths.set(t, existing?.paths.get(t) || ".");
     }
 
-    // @wizard env 계획 질문 (full/workflows만).
-    // 업데이트 모드는 생략 — 신규 파일은 기본값, 교체 파일은 아래 carryover가 기존 실값을 이월한다.
+    // @wizard env plan questions (full/workflows only).
+    // Skipped in update mode — new files get defaults; replaced files carry over existing values via carryover below.
     const resolvers = makeResolvers(cwd, repoName, paths);
-    // 다국어 스토어인데 store_locales 미설정이면 안내만 한다 (#843) — 복사 전 상태로 판정
+    // Multi-language store with store_locales unset: notice only (#843) — judged on the state before copying
     const storeLocalesHint = detectStoreLocalesHint({ root: cwd, existing, paths, trace });
     let envValues = new Map(), envUseDefaults = true;
     if (showOptional && !updateRun) {
@@ -303,9 +303,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       envUseDefaults = plan.useDefaults;
     }
 
-    // 업데이트 모드 충돌 처리 (#502) — 타입별 3지선다 대신 일괄 확인 1회(기본 Y: .bak 백업 후 교체).
-    // 교체를 선택하면 기존 설치본의 env 실값을 추출해 새 파일에 이월(carryover)한다 —
-    // 기본값 재치환으로 사용자가 채운 값(FIREBASE_APP_ID 등)이 초기화되는 것을 막는 핵심.
+    // Update mode conflict handling (#502) — one bulk confirmation (default Y: .bak backup then replace) instead of a 3-way choice per type.
+    // When replacing, real env values are extracted from the existing install and carried over into the new file —
+    // the key to keeping values the user filled in (FIREBASE_APP_ID, etc.) from being reset by default re-substitution.
     let updateDecisions = null;
     if (showOptional && updateRun) {
       const liteCtx = { types, paths, deployTarget, publishTargets, repoName, resolvers, branch, deployBranch };
@@ -335,13 +335,13 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       aiPrSummary, codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay,
       deployTriggerBranch, ciMinutesSaver,
       repoName, templateVersion, resolvers, envValues, envUseDefaults, now, today,
-      // #502 — version 모드가 기존 full 기록을 강등하지 않도록 (full이 우세)
+      // #502 — keeps version mode from downgrading an existing full record (full wins)
       recordMode: init.recordMode,
     });
     ctx.templateVersion = templateVersion;
 
-    // 기존 워크플로우 충돌 3지선 — 타입당 1회 결정을 파일에 캐시 적용
-    // 업데이트 모드는 위에서 일괄 결정(updateDecisions)했으므로 3지선다를 건너뛴다 (#502).
+    // 3-way choice for existing workflow conflicts — one decision per type, cached and applied to its files
+    // Update mode decided in bulk above (updateDecisions), so the 3-way choice is skipped (#502).
     let hooks = updateDecisions ? { decisions: updateDecisions } : {};
     if (showOptional && io.engineIo?.select && !updateRun) {
       const conflicts = listWorkflowConflicts(ctx, tempDir, cwd);
@@ -358,7 +358,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
                 { value: "template", label: t("flow.opt.template") },
               ],
             });
-            perType.set(type, isCancel(sel) || sel == null ? "skip" : sel); // ESC = 건너뛰기
+            perType.set(type, isCancel(sel) || sel == null ? "skip" : sel); // ESC = skip
           }
           decisions.set(filename, perType.get(type));
         }
@@ -366,8 +366,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }
     }
 
-    // 레거시 마이그레이션 (#470) — 워크플로우를 만지는 모드에서만. 대화형은 safe 티어 확인 1회.
-    let migrationsResult = null; // #493 — 가이드 기록용
+    // Legacy migration (#470) — only in modes that touch workflows. Interactive confirms the safe tier once.
+    let migrationsResult = null; // #493 — for the guide record
     if (mode === "full" || mode === "workflows") {
       migrationsResult = await runMigrations({
         targetRoot: cwd,
@@ -377,11 +377,11 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       for (const e of migrationsResult.confirmPending ?? []) trace.event("legacy", "leftover-old-gen", e.file, { replacement: e.replacedBy ?? "", reason: e.reason ?? "" });
     }
 
-    // 고아 타입 워크플로우 정리 (#487) — 타입 변경으로 선택에서 빠진 타입의 잔존 워크플로우
-    const orphanReport = { cleaned: [], pending: [] }; // #493 — 가이드 기록용
+    // Orphan type workflow cleanup (#487) — leftover workflows of types dropped from the selection by a type change
+    const orphanReport = { cleaned: [], pending: [] }; // #493 — for the guide record
     if (mode === "full" || mode === "workflows") {
       const orphans = detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types,
-        // 껐는데 남아 계속 도는 워크플로우도 함께 잡는다 (#566)
+        // Also catch workflows that were turned off but remain and keep running (#566)
         options: { includeSecretBackup, aiPrSummary: aiPrSummary !== false, projectsSync, deployTarget } });
       if (orphans.length > 0) {
         io.note?.(
@@ -408,8 +408,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     else if (mode === "version") result = trace.step("install-version", () => runVersion(ctx, tempDir, cwd));
     else if (mode === "workflows") result = trace.step("install-workflows", () => runWorkflows(ctx, tempDir, cwd, { ...hooks, trace }));
 
-    // 통합 후 IDE 스킬 제안 (사전 질문 게이트, 기본 N)
-    // 업데이트 모드(#502): 이미 설치된 IDE 스킬만 질문 없이 최신화 (미설치 IDE는 건드리지 않음)
+    // IDE skills offer after integration (gate question first, default N)
+    // Update mode (#502): update only already-installed IDE skills without asking (IDEs not installed are left alone)
     if (updateRun) {
       await skills({ templateVersion, tempDir, interactive: false, installedOnly: true });
     } else {
@@ -417,10 +417,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       if (wantSkills === true) { io.ideStatus?.(); await skills({ templateVersion, tempDir, interactive: true }); }
     }
 
-    // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리 (full/workflows만)
+    // Migration record (#493/#494) — Layer 2/3 trace files + Layer 1 guide entry (full/workflows only)
     let migrationGuidePath = null;
     recordArtifacts = mode === "full" || mode === "workflows";
-    // 경로는 먼저 계산하고 실제 쓰기는 완료 화면 뒤로 미룬다 — 요약까지 터미널 미러에 담기 위함 (#561)
+    // Compute paths first and delay the actual write until after the finish screen — so the summary is captured in the terminal mirror (#561)
     const files = recordArtifacts
       ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: templateVersion, now })
       : null;
@@ -429,7 +429,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
         now, mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: templateVersion,
         options: { deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup, coderabbit: codeReviewCoderabbit, changelogProvider, intent, semverAuto , appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay },
-        storeLocalesHint,                        // #843 체크리스트 한 항목
+        storeLocalesHint,                        // #843 one checklist item
         branches: { defaultBranch: branch, deployBranch, ready: deployBranchReady, created: deployBranchCreated },
         breaking: breakingReport, migrations: migrationsResult, orphans: orphanReport,
         events: trace.events, counters: { skipped: result?.workflows?.skipped ?? 0 },
@@ -437,19 +437,19 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }).guidePath;
     }
 
-    // 완료 요약
+    // Finish summary
     const summaryCtx = {
       mode, types, version, deployBranch, deployBranchReady, migrationGuidePath,
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
-      skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
-      replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
-      legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
-      notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
+      skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 merge notice
+      replacedBak: result?.workflows?.replacedBak ?? [],             // #673 notice for files replaced without a reference point
+      legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 notice for old and new generations running together
+      notInstalled: result?.workflows?.notInstalled ?? [],            // #810 notice for workflows not installed
       semverAutoNewlyOn,
-      storeLocalesHint,                        // #843 다국어 스토어 안내
-      verification: result?.verification,      // #549 설치 검증 결과
-      aiPrSummary, codeReviewCoderabbit,       // #569 — 고른 것만 안내
-      logDir: files ? MIGRATION_DIR : null,    // #561 기록 위치 안내
+      storeLocalesHint,                        // #843 multi-language store notice
+      verification: result?.verification,      // #549 install verification result
+      aiPrSummary, codeReviewCoderabbit,       // #569 — mention only what was picked
+      logDir: files ? MIGRATION_DIR : null,    // #561 record location notice
       logFile: files?.logFile ?? null,
       traceFile: files?.traceFile ?? null,
     };
@@ -462,7 +462,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     }
     io.outro?.(t("flow.done", { mode }));
 
-    // 완료 화면까지 출력한 뒤 finally에서 닫는다 (#561) — 여기서 닫으면 이 아래 화면이 안 담긴다.
+    // Close in finally after printing the finish screen (#561) — closing here would drop the screen below from the record.
     trace.event("run", "end", mode || "", {
       workflowsCopied: result?.workflows?.copied ?? 0,
       workflowsSkipped: result?.workflows?.skipped ?? 0,
@@ -476,8 +476,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     });
     throw err;
   } finally {
-    // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 중간 취소·예외·Ctrl+C 포함.
-    // 완료 화면 출력이 try 안에 있어야 그 화면까지 미러에 담긴 채로 여기서 닫힌다.
+    // Leave a record however it exits (#561) — including mid-run cancel, exceptions and Ctrl+C.
+    // The finish screen output must be inside try so it is captured in the mirror before closing here.
     if (skipRecord) trace.mirrorStop();
     else trace.finalize({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: clock?.now || "" });
     disarmSignals();

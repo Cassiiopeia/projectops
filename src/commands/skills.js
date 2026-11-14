@@ -1,24 +1,24 @@
-// IDE Skills 설치 오케스트레이터.
-// 레지스트리 기반 — 개별 IDE를 이름으로 알지 않고 ADAPTERS 배열만 순회한다.
-// 새 IDE는 adapters/ 에 파일 추가 + registry 등록만으로 여기 수정 없이 동작한다.
+// IDE skills install orchestrator.
+// Registry based — does not know individual IDEs by name, only iterates the ADAPTERS array.
+// A new IDE works with just a file in adapters/ + registry entry, with no changes here.
 import { ADAPTERS } from "../core/ide/registry.js";
 import { versionTag } from "../core/ide/util.js";
 import { defaultIo } from "../core/ide/runner.js";
 import * as skillsPrompts from "../ui/skills-prompts.js";
 import { t } from "../i18n/index.js";
 
-// 상태 수집 → [{adapter, status}]. optional 어댑터는 감지 불가(cliMissing)면 목록에서 제외.
+// Collect status → [{adapter, status}]. Optional adapters are left out when undetectable (cliMissing).
 export function collectStatuses(io) {
   const rows = [];
   for (const a of ADAPTERS) {
     const status = safe(() => a.detect(io), { installed: false, version: null, cliMissing: true });
-    if (a.optional && status.cliMissing) continue; // harness 등 조건부 항목은 불가 시 숨김
+    if (a.optional && status.cliMissing) continue; // Conditional items like the harness are hidden when unavailable
     rows.push({ adapter: a, status });
   }
   return rows;
 }
 
-// 상태 표시 문자열 목록 (표시용, 순수).
+// Status display strings (for display, pure).
 export function formatStatuses(rows, templateVersion) {
   return rows.map(({ adapter, status }) => {
     const label = adapter.label.padEnd(12);
@@ -31,9 +31,9 @@ export function formatStatuses(rows, templateVersion) {
   });
 }
 
-// 대화형/비대화형 공통 진입. opts: {io, templateVersion, sourceSkillsDir, tempDir, interactive, ui, installedOnly}
-// installedOnly(#502 — 업데이트 모드): 비대화형 apply를 이미 설치된 어댑터로 한정한다.
-// 미설치 IDE에 새로 설치하지 않는다 — 업데이트는 "있는 것을 최신으로"가 계약.
+// Shared entry for interactive/non-interactive. opts: {io, templateVersion, sourceSkillsDir, tempDir, interactive, ui, installedOnly}
+// installedOnly (#502 — update mode): limits non-interactive apply to already-installed adapters.
+// Never installs into IDEs not yet installed — an update's contract is "bring what exists up to date".
 export async function runSkills(opts = {}) {
   const io = opts.io || defaultIo();
   const ui = opts.ui || skillsPrompts;
@@ -45,8 +45,8 @@ export async function runSkills(opts = {}) {
   for (const line of formatStatuses(rows, ctx.templateVersion)) io.log(line);
   io.log("");
 
-  // 비대화형: 감지된(=관리 가능) 모든 어댑터에 apply(설치/업데이트) 순차 실행.
-  // installedOnly면 설치된 어댑터만 (업데이트 모드 — 미설치 IDE는 건드리지 않음).
+  // Non-interactive: run apply (install/update) in order on every detected (= manageable) adapter.
+  // With installedOnly, installed adapters only (update mode — IDEs not installed are left alone).
   if (!opts.interactive) {
     for (const { adapter, status } of rows) {
       if (opts.installedOnly && !status.installed) continue;
@@ -55,7 +55,7 @@ export async function runSkills(opts = {}) {
     return 0;
   }
 
-  // 대화형: 동작 선택 → IDE 멀티셀렉트 → 실행.
+  // Interactive: choose action → IDE multiselect → run.
   const action = await ui.selectAction();
   if (action == null || action === skillsPrompts.CANCEL || action === "skip") {
     io.log(t("skills.unchanged"));
@@ -64,7 +64,7 @@ export async function runSkills(opts = {}) {
 
   const choices = rows.map(({ adapter, status }) => ({
     id: adapter.id, label: adapter.label,
-    disabled: action === "apply" && status.cliMissing, // 설치는 CLI 있어야, 제거는 무조건 후보
+    disabled: action === "apply" && status.cliMissing, // Install needs the CLI; removal is always a candidate
   }));
   const preselect = rows
     .filter(({ status }) => action === "apply" ? !status.cliMissing : true)

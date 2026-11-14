@@ -1,10 +1,10 @@
-// 설정 이관기 (#470 확장, #478) — 구 워크플로우의 커스텀 설정을 무해화 전에 version.yml로 이관.
-// 원칙: 기본값과 다른 값만 이관 / issue_helper 섹션이 이미 있으면 불변(신형 우선·멱등)
-//       / version.yml 없으면 skip / 실패해도 무해화를 막지 않는다(호출부에서 try-catch).
+// Settings migrator (#470 extension, #478) — moves custom settings of old workflows into version.yml before neutralizing.
+// Rules: migrate only values that differ from defaults / leave an existing issue_helper section untouched (new form wins, idempotent)
+//       / skip if there is no version.yml / never block neutralization on failure (caller uses try-catch).
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-// 구 MODULE 워크플로우 배포본의 with: 기본값 — 이 값 그대로면 사용자 커스텀이 아니다
+// with: defaults of the shipped old MODULE workflow — values equal to these are not user customizations
 const OLD_DEFAULTS = {
   branch_prefix: "",
   max_branch_length: "100",
@@ -25,7 +25,7 @@ function parseWithValues(content) {
   return out;
 }
 
-// version.yml에 issue_helper 블록 삽입. 계층(metadata/template/options)이 없으면 만든다.
+// Insert the issue_helper block into version.yml. Creates the hierarchy (metadata/template/options) if missing.
 function insertIssueHelperBlock(vyText, carried) {
   const lines = Object.entries(carried)
     .map(([k, v]) => `        ${k}: "${v.replace(/"/g, '\\"')}"`);
@@ -40,19 +40,19 @@ function insertIssueHelperBlock(vyText, carried) {
   return `${vyText.replace(/\n*$/, "\n")}metadata:\n  template:\n    options:\n${block}\n`;
 }
 
-// 구 SUH-ISSUE-HELPER-MODULE의 with: → options.issue_helper 이관. 반환: { carried: [키...] }
+// Old SUH-ISSUE-HELPER-MODULE with: → options.issue_helper migration. Returns { carried: [keys...] }
 export function extractIssueHelperModule(targetRoot, entry) {
   const wf = join(targetRoot, ".github", "workflows", entry.file);
   const vy = join(targetRoot, "version.yml");
   if (!existsSync(wf) || !existsSync(vy)) return { carried: [] };
 
   const vyText = readFileSync(vy, "utf8");
-  if (/^\s*issue_helper:/m.test(vyText)) return { carried: [] }; // 신형 설정 우선
+  if (/^\s*issue_helper:/m.test(vyText)) return { carried: [] }; // New-form settings win
 
   const vals = parseWithValues(readFileSync(wf, "utf8"));
   const carried = {};
   for (const [k, v] of Object.entries(vals)) {
-    if (v !== OLD_DEFAULTS[k]) carried[k] = v; // 기본값과 다른 것만
+    if (v !== OLD_DEFAULTS[k]) carried[k] = v; // Only values that differ from defaults
   }
   if (Object.keys(carried).length === 0) return { carried: [] };
 

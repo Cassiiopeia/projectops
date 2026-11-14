@@ -1,15 +1,15 @@
-// 건너뛴 워크플로의 새 템플릿 보관소 (#654).
-// 사용자가 수정한 워크플로는 덮어쓰지 않고 유지한다. 대신 "새 템플릿이 어떻게 다른지"를
-// 비교할 수 있도록 추적되지 않는 자리에 사본을 남긴다.
-// 절대 .github/workflows 에 쓰지 않는다 — 거기 생긴 파일은 GitHub 이 실제 워크플로로 실행한다.
+// Store for new templates of skipped workflows (#654).
+// Workflows the user modified are kept, not overwritten. Instead, a copy goes to an untracked place
+// so the user can compare how the new template differs.
+// Never write to .github/workflows — files there run as real workflows on GitHub.
 import { join } from "node:path";
 import { writeText } from "./fsutil.js";
 
 export const INCOMING_DIR = ".github/.projectops/incoming";
-// 폴더가 스스로 추적 제외 규칙을 들고 다닌다 (logs/.gitignore 와 같은 방식, 루트 .gitignore 무수정)
+// The folder carries its own ignore rule (same as logs/.gitignore; the root .gitignore is untouched)
 export const INCOMING_GITIGNORE = [
-  "# projectops 가 건너뛴 워크플로의 새 템플릿 사본 — 저장소에 추적하지 않습니다.",
-  "# 병합 검토용 임시 자료이며 실행할 때마다 최신으로 덮어씁니다.",
+  "# New template copies of workflows projectops skipped — not tracked in the repository.",
+  "# Temporary material for merge review, overwritten with the latest on every run.",
   "*",
   "!.gitignore",
   "",
@@ -17,23 +17,23 @@ export const INCOMING_GITIGNORE = [
 
 const toLines = (s) => {
   const lines = String(s).split(/\r?\n/);
-  if (lines.length && lines[lines.length - 1] === "") lines.pop(); // 끝 개행이 만드는 빈 줄 제외
+  if (lines.length && lines[lines.length - 1] === "") lines.pop(); // Drop the empty line made by the trailing newline
   return lines;
 };
 
-// 줄 단위 추가/삭제 개수. LCS 기반이라 줄이 이동만 한 경우도 과대 계상하지 않는다.
-// removed: 사용자본에만 있는 줄, added: 새 템플릿에만 있는 줄.
+// Count of added/removed lines. LCS-based, so lines that only moved are not overcounted.
+// removed: lines only in the user copy, added: lines only in the new template.
 export function lineDiffCounts(userText, incomingText) {
   const a = toLines(userText);
   const b = toLines(incomingText);
-  // 공통 접두/접미는 LCS에서 뺀다 (워크플로 대부분이 같아 표가 작아진다)
+  // Trim the common prefix/suffix before LCS (most of a workflow is identical, so the table stays small)
   let s = 0;
   while (s < a.length && s < b.length && a[s] === b[s]) s++;
   let ea = a.length; let eb = b.length;
   while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
   const x = a.slice(s, ea); const y = b.slice(s, eb);
   if (x.length * y.length > 25_000_000) {
-    // 비정상적으로 큰 파일 — 정확도 대신 크기 차이로 근사한다 (실패시키지 않는다)
+    // Abnormally large file — approximate by size difference instead of exactness (never fail)
     return { added: y.length, removed: x.length };
   }
   let prev = new Array(y.length + 1).fill(0);
@@ -48,7 +48,7 @@ export function lineDiffCounts(userText, incomingText) {
   return { added: y.length - common, removed: x.length - common };
 }
 
-// incoming 폴더에 새 템플릿을 저장한다. 반환: 대상 기준 상대 경로(항상 '/').
+// Save the new template into the incoming folder. Returns a path relative to the target (always '/').
 export function saveIncoming(targetRoot, filename, content) {
   writeText(join(targetRoot, INCOMING_DIR, ".gitignore"), INCOMING_GITIGNORE);
   writeText(join(targetRoot, INCOMING_DIR, filename), content);

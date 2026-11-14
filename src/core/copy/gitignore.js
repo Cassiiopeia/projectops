@@ -1,17 +1,17 @@
-// .gitignore 보장 (항목 정규화 > 누락 확인 > 추가).
+// Ensure .gitignore (normalize entries > check missing > add).
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
 const REQUIRED_ENTRIES = ["/.idea", "/.claude/settings.local.json"];
 
-// 항목 정규화: 주석 제거·트림·앞 / 제거·앞 ./ 제거·뒤 / 제거. 빈값이면 원본.
+// Normalize an entry: strip comment, trim, drop leading /, leading ./ and trailing /. Original if empty.
 export function normalizeGitignoreEntry(entry) {
   let e = String(entry);
-  e = e.replace(/#.*$/, "");        // 주석 제거
-  e = e.trim();                      // 앞뒤 공백
-  e = e.replace(/^\//, "");         // 앞 /
-  e = e.replace(/^\.\//, "");       // 앞 ./
-  e = e.replace(/\/$/, "");         // 뒤 /
+  e = e.replace(/#.*$/, "");        // Strip comment
+  e = e.trim();                      // Trim whitespace
+  e = e.replace(/^\//, "");         // Leading /
+  e = e.replace(/^\.\//, "");       // Leading ./
+  e = e.replace(/\/$/, "");         // Trailing /
   return e === "" ? String(entry) : e;
 }
 
@@ -32,7 +32,7 @@ const NEW_FILE_CONTENT =
   "# Claude AI Settings\n" +
   "/.claude/settings.local.json\n";
 
-// 반환: {created, added:[...]}
+// Returns {created, added:[...]}
 export function ensureGitignore(targetRoot = ".") {
   const p = join(targetRoot, ".gitignore");
   if (!existsSync(p)) {
@@ -43,7 +43,7 @@ export function ensureGitignore(targetRoot = ".") {
   const toAdd = REQUIRED_ENTRIES.filter((e) => !entryExists(e, content));
   if (toAdd.length === 0) return { created: false, added: [] };
 
-  // 파일 끝에 개행 없으면 추가
+  // Add a newline if the file does not end with one
   if (content.length > 0 && !content.endsWith("\n")) content += "\n";
   content += "\n";
   content += "# ====================================================================\n";

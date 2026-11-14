@@ -1,16 +1,16 @@
-// doctor 명령 (#558) — 통합 상태·저장소 설정 진단. 읽기 전용, 파일을 건드리지 않는다.
+// doctor command (#558) — diagnoses integration state and repo settings. Read-only, touches no files.
 //
-// 출력 설계:
-//   ① 항목 이름에 purpose("무엇을 위한 설정인지")를 병기한다. `actions: write`만 보고는
-//      그게 자기 릴리스 흐름의 무엇을 담당하는지 알 수 없다.
-//   ② 도구가 "고쳐야 한다"고 판정하지 않는다. 발견한 사실만 진술하고 그것이 자신에게
-//      문제인지는 사용자가 판단한다 — 쓰지 않는 워크플로우의 Secret은 등록할 이유가 없다.
-//   ③ 문제 항목만 `현상 → 영향 → 조치` 로 펼치고, 정상 항목은 한 줄로 압축한다.
-//   ④ GitHub 설정 화면에 실제로 표시되는 문자열("Read and write permissions" 등)은
-//      번역하지 않는다. 번역하면 설명은 읽히지만 정작 화면에서 그 항목을 찾지 못한다.
+// Output design:
+//   ① Item names carry their purpose ("what the setting is for"). Seeing only `actions: write`
+//      does not tell what it handles in your own release flow.
+//   ② The tool does not rule "you must fix this". It states only the facts found; whether that is a
+//      problem for you is the user's call — there is no reason to register secrets for workflows you do not use.
+//   ③ Only problem items expand as `symptom → impact → action`; healthy items collapse to one line.
+//   ④ Strings actually shown on GitHub settings screens ("Read and write permissions", etc.)
+//      are not translated. Translated, the explanation reads fine but the item cannot be found on screen.
 //
-// 원격 점검은 GITHUB_TOKEN이 있을 때만 한다. 없다고 실패시키지 않는다 — 로컬 점검만으로도
-// 대부분의 흔한 사고(치환 실패·Secret 누락)를 잡을 수 있다.
+// Remote checks run only with GITHUB_TOKEN. Missing it is not a failure — local checks alone
+// catch most common accidents (substitution failures, missing secrets).
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
@@ -23,18 +23,18 @@ import { detectMigrations } from "../core/migrations/index.js";
 import { scanPlaceholderTriggers } from "../core/placeholder-triggers.js";
 import { t } from "../i18n/index.js";
 
-// 언어 전환(withLang 등) 시점에 평가되도록 함수로 둔다
+// Kept as a function so it is evaluated at language switch time (withLang, etc.)
 const permPurpose = () => t("doctor.perm.purpose");
 
 const GITHUB_CHECK_TIMEOUT_MILLISECONDS = 5000;
 
-// GitHub REST 호출. 실패는 예외가 아니라 {ok:false}로 돌려 진단이 중단되지 않게 한다.
+// GitHub REST call. Failure returns {ok:false} instead of throwing, so the diagnosis does not stop.
 async function gh(path, token) {
   try {
     const res = await fetch(`https://api.github.com${path}`, {
       headers: { Authorization: `token ${token}`, Accept: "application/vnd.github+json",
                  "User-Agent": "projectops-doctor" },
-      signal: AbortSignal.timeout(GITHUB_CHECK_TIMEOUT_MILLISECONDS),   // 막힌 네트워크에서 진단이 멈추지 않게
+      signal: AbortSignal.timeout(GITHUB_CHECK_TIMEOUT_MILLISECONDS),   // Keeps the diagnosis from hanging on a blocked network
     });
     if (!res.ok) return { ok: false, status: res.status };
     return { ok: true, data: await res.json() };
@@ -43,7 +43,7 @@ async function gh(path, token) {
   }
 }
 
-// git remote에서 owner/repo 추출. 없으면 null.
+// Extract owner/repo from the git remote. null if missing.
 function detectSlug(cwd) {
   try {
     const url = execFileSync("git", ["remote", "get-url", "origin"],
@@ -55,7 +55,7 @@ function detectSlug(cwd) {
   }
 }
 
-// ── 로컬 점검 ─────────────────────────────────────────────────────────
+// ── Local checks ─────────────────────────────────────────────────────────
 export function localChecks(cwd = ".") {
   const rows = [];
   const add = (r) => rows.push(r);
@@ -68,11 +68,11 @@ export function localChecks(cwd = ".") {
           value: t("doctor.integ.noVersionYml"),
           detail: [t("doctor.integ.notIntegrated"),
                    t("doctor.integ.howTo")] });
-    return rows; // 통합 전이면 나머지 점검이 의미 없다
+    return rows; // Before integration the remaining checks are meaningless
   }
 
   add({ name: t("doctor.integ.name"), purpose: t("doctor.integ.purpose"), status: "OK",
-        // 템플릿 버전이 기록돼 있지 않으면 "vunknown" 이 아니라 사람이 읽는 문구로 — 옛 설치는 version.yml 에 이 값이 없다
+        // Without a recorded template version, show readable text instead of "vunknown" — old installs lack this value in version.yml
         value: existing.templateVersion
           ? t("doctor.integ.versions", { tpl: existing.templateVersion, proj: existing.version })
           : t("doctor.integ.versionsNoTemplate", { proj: existing.version }) });
@@ -86,7 +86,7 @@ export function localChecks(cwd = ".") {
         detail: files.length ? null : [t("doctor.wf.none"),
                                        t("doctor.wf.noneHint")] });
 
-  // 치환·Secret 판정은 설치 후 검증(#549)과 같은 모듈을 쓴다 — 두 곳에 두면 기준이 갈라진다.
+  // Substitution and secret checks use the same module as post-install verification (#549) — two copies would split the criteria.
   const v = verifyInstall(cwd);
   add({
     name: t("doctor.unres.name"), purpose: t("doctor.unres.purpose"),
@@ -100,7 +100,7 @@ export function localChecks(cwd = ".") {
     ],
   });
 
-  // 자동 트리거 + 예시 값 (#662) — 미치환 토큰 검사에 안 걸리는 your-project 류 값이 실패 런을 계속 만든다
+  // Automatic trigger + sample values (#662) — your-project-style values slip past the unreplaced token check and keep producing failed runs
   const autoPlaceholders = scanPlaceholderTriggers(wfDir);
   add({
     name: t("doctor.ph.name"), purpose: t("doctor.ph.purpose"),
@@ -126,9 +126,9 @@ export function localChecks(cwd = ".") {
     ] : null,
   });
 
-  // AI 요약 키 (#569) — "등록했는데 되는 건가?"를 확인할 수단이 없었다.
-  // 로컬에서는 저장소 Secret을 읽을 수 없으므로, 어떤 이름을 쓰면 되는지와
-  // 등록하지 않아도 무방하다는 사실을 알려준다. 실제 등록 여부는 원격 점검이 본다.
+  // AI summary keys (#569) — there was no way to check "I registered it, does it work?".
+  // Repo secrets cannot be read locally, so this tells which names to use
+  // and that not registering is fine. Whether they are actually registered is checked remotely.
   const AI_KEY_NAMES = ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"];
   const hasSummaryWf = files.some((f) => /AI-PR-SUMMARY|RELEASE-CHANGELOG/.test(f));
   if (hasSummaryWf) {
@@ -147,14 +147,14 @@ export function localChecks(cwd = ".") {
     });
   }
 
-  // 워크플로우 파일의 permissions 선언 점검 (#558).
-  // 저장소 설정(Settings > Actions)은 "요청할 수 있는 최대 범위"이고, 워크플로우의
-  // permissions 블록은 "실제로 요청한 범위"다. 둘은 다른 층이라 저장소 설정이 정상이어도
-  // 선언이 빠지면 API가 403을 준다 — #555가 정확히 그 사고였다.
+  // Check permissions declarations in workflow files (#558).
+  // Repo settings (Settings > Actions) are "the maximum that can be requested", while a workflow's
+  // permissions block is "what is actually requested". They are different layers, so even with healthy repo settings
+  // a missing declaration gets a 403 from the API — exactly the #555 accident.
   const needsActionsWrite = [];
   for (const f of files) {
     const body = readFileSync(join(wfDir, f), "utf8");
-    // 다른 워크플로우를 깨우는 파일만 — 주석 줄의 언급(깨워지는 쪽 설명)은 호출이 아니다
+    // Only files that wake other workflows — a mention in a comment line (describing the woken side) is not a call
     const code = body.split("\n").filter((line) => !/^\s*#/.test(line)).join("\n");
     if (!code.includes("dispatch_downstream.py")) continue;
     const perm = body.match(/^permissions:\r?\n((?:\s+.*\r?\n)+)/m);
@@ -175,8 +175,8 @@ export function localChecks(cwd = ".") {
     });
   }
 
-  // 은퇴한 구세대 워크플로우 (#809) — 업데이트는 감지만 하고 남겨 두므로 신형과 함께 돈다.
-  // 로그에만 남기면 doctor 가 "문제 없음"으로 보고하므로 여기서 잡는다.
+  // Retired old-generation workflows (#809) — updates only detect and leave them, so they run alongside the new ones.
+  // Logging alone would make doctor report "no problems", so they are caught here.
   const legacy = detectMigrations(cwd).confirm;
   add({
     name: t("doctor.legacy.name"), purpose: t("doctor.legacy.purpose"),
@@ -204,9 +204,9 @@ export function localChecks(cwd = ".") {
   return rows;
 }
 
-// ── 원격 점검 ─────────────────────────────────────────────────────────
-// permissions 블록을 한 번도 선언하지 않은 워크플로우 — 이때만 저장소 기본 권한(Settings)이 그대로 적용된다.
-// 선언이 있으면 저장소 기본값이 read 여도 선언한 범위로 동작한다 (조직 read 기본값에서 릴리스 automerge 실측, #723).
+// ── Remote checks ─────────────────────────────────────────────────────────
+// Workflows that never declare a permissions block — only then do the repo default permissions (Settings) apply as is.
+// With a declaration, it runs with the declared scope even if the repo default is read (measured on release automerge with an org read default, #723).
 export function workflowsWithoutPermissions(cwd = ".") {
   const wfDir = join(cwd, PATHS.workflowsDir);
   if (!existsSync(wfDir)) return [];
@@ -228,7 +228,7 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
     add({ name: "Workflow permissions", purpose: permPurpose(), status: "OK",
           value: "Read and write permissions" });
   } else if (undeclared.length === 0) {
-    // 모든 워크플로우가 permissions 를 스스로 선언 → 저장소 기본값(read)은 실제 동작에 영향이 없다
+    // Every workflow declares permissions itself → the repo default (read) does not affect actual behavior
     add({ name: "Workflow permissions", purpose: permPurpose(), status: "INFO",
           value: t("doctor.rm.roOk"),
           detail: [t("doctor.rm.roOkDetail")] });
@@ -269,7 +269,7 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
     } else {
       const have = new Set((sec.data?.secrets || []).map((s) => s.name));
 
-      // AI 요약 키가 실제로 등록돼 있는지 (#569) — 있으면 어느 서비스인지까지 보여준다.
+      // Whether AI summary keys are actually registered (#569) — if so, also shows which service.
       const AI_KEYS = { GEMINI_API_KEY: "Gemini", OPENAI_API_KEY: "OpenAI", ANTHROPIC_API_KEY: "Anthropic",
                         GROQ_API_KEY: "Groq", MISTRAL_API_KEY: "Mistral", MODEL_API_KEY: t("doctor.air.legacy") };
       const foundAi = Object.entries(AI_KEYS).filter(([n]) => have.has(n));
@@ -282,7 +282,7 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
           t("doctor.air.l2"),
         ],
       });
-      // AI 키는 위에서 따로 안내하는 선택 항목이다 — '배포에 필요한 값' 미등록 목록에 섞으면 필수처럼 읽힌다 (#723)
+      // AI keys are optional items covered separately above — mixing them into the unregistered 'needed for deploy' list makes them read as required (#723)
       const missing = requiredSecrets.filter((n) => !have.has(n) && !(n in AI_KEYS));
       add({
         name: t("doctor.sr.name"), purpose: t("doctor.sr.purpose"),
@@ -300,14 +300,14 @@ export async function remoteChecks(slug, token, requiredSecrets = [], undeclared
   return rows;
 }
 
-// ── 렌더 ──────────────────────────────────────────────────────────────
+// ── Render ──────────────────────────────────────────────────────────────
 const ICON = { OK: "✅", WARN: "⚠️", FAIL: "❌", INFO: "ℹ️" };
 
 export function renderRows(rows, write = (s) => process.stderr.write(s + "\n")) {
   const head = (r) => `${r.name}${r.purpose ? ` - ${r.purpose}` : ""}`;
   for (const r of rows) {
     write(`${ICON[r.status] || "·"} ${head(r)}: ${r.value}`);
-    // 정상 항목은 한 줄로 압축한다. 펼치는 것은 사용자가 무언가 해야 할 때뿐이다.
+    // Healthy items collapse to one line. Expand only when the user needs to do something.
     if (r.detail && r.status !== "OK") {
       for (const line of r.detail) write(`     ${line}`);
       write("");
@@ -321,7 +321,7 @@ export function renderRows(rows, write = (s) => process.stderr.write(s + "\n")) 
   return warn;
 }
 
-// 진입점. 반환: 살펴볼 항목 수 (exit code로 쓰지 않는다 — 진단은 실패가 아니다)
+// Entry point. Returns the number of items to look at (not used as the exit code — a diagnosis is not a failure)
 export async function runDoctor({ cwd = ".", token = process.env.GITHUB_TOKEN || "" } = {}) {
   const write = (s) => process.stderr.write(s + "\n");
   write("");

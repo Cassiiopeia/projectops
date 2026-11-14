@@ -1,4 +1,4 @@
-// migrate 영역 메시지 (en). 키는 <영역>.<의미> 형식.
+// migrate area messages (en). Keys use the <area>.<meaning> format.
 export default {
   "migrate.reason.gen1VersionControl": "1st-gen rename: running both bumps the version twice",
   "migrate.reason.releasePublish1": "removed from the template; its trunk-based branch calls a command that no longer exists (changelog_manager.py ai-summary) and fails at release time",

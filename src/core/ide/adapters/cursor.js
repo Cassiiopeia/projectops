@@ -1,5 +1,5 @@
-// Cursor 어댑터 (skills 복사·메타 기록·제거).
-// 마켓플레이스 없음 → ~/.cursor/skills/ 에 skills/ 폴더, ~/.cursor/scripts/ 에 공용 파이썬을 복사하고 meta.json으로 버전 추적.
+// Cursor adapter (copy skills, record meta, remove).
+// No marketplace → copy the skills/ folder to ~/.cursor/skills/ and the shared Python to ~/.cursor/scripts/, tracking the version in meta.json.
 import { join } from "node:path";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { migrateConfigRoot, isLegacyVersion } from "../legacy.js";
@@ -22,17 +22,17 @@ function detect(io) {
 }
 
 function apply(io, ctx = {}) {
-  migrateLegacy(io, ctx);   // 옛 이름/버전 감지 시 projectops 소유 항목 선별 삭제
-  migrateConfigRoot(io);    // 공용 config 루트 이관
+  migrateLegacy(io, ctx);   // On an old name/version, selectively delete projectops-owned entries
+  migrateConfigRoot(io);    // Migrate the shared config root
   return applyHomeSkills(io, ctx, homeSkillsOptions(io));
 }
 
-// 타 스킬(somansa-tools 등) 남으면 폴더 유지
+// Keep the folder if other skills (somansa-tools, etc.) remain
 function remove(io, ctx = {}) {
   return removeHomeSkills(io, ctx, homeSkillsOptions(io));
 }
 
-// 옛 이름/버전 meta면 projectops 소유 항목만 선별 삭제 → apply가 신규 재설치.
+// If meta has an old name/version, selectively delete only projectops-owned entries → apply reinstalls fresh.
 function migrateLegacy(io, ctx) {
   const mp = metaPath(io);
   if (!existsSync(mp)) return;
@@ -42,7 +42,7 @@ function migrateLegacy(io, ctx) {
   const oldVer = isLegacyVersion(meta.version, LEGACY_MAX_VERSION);
   if (!(oldName || oldVer)) return;
   for (const name of ownedEntries(skillsDir(io), ctx, META_FILE_NAME)) {
-    try { rmSync(join(skillsDir(io), name), { recursive: true, force: true }); } catch { /* 무시 */ }
+    try { rmSync(join(skillsDir(io), name), { recursive: true, force: true }); } catch { /* ignore */ }
   }
   io.log(t("ide.cursor.legacy", { name: meta.name, version: meta.version }));
 }

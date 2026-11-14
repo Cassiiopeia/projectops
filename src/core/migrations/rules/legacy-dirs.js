@@ -1,6 +1,6 @@
-// legacy-dir 카테고리 규칙 (#476) — 구명칭 산출물 폴더를 신명칭으로 이동.
-// 폴더 안은 사용자가 작성한 문서(이슈·보고서)라 삭제·무해화 대상이 아니다 — 손실 없는 이동만 한다.
-// 대상 폴더가 이미 있으면 재귀 병합하되 충돌 파일은 원위치에 남긴다(사용자 판단 존중).
+// legacy-dir category rule (#476) — move old-name output folders to the new name.
+// The folder holds user-written documents (issues, reports), so it is never deleted or neutralized — lossless move only.
+// If the target folder exists, merge recursively, leaving conflicting files in place (respects the user's judgment).
 import { existsSync, statSync, readdirSync, renameSync, mkdirSync, rmdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -10,7 +10,7 @@ export function detect(targetRoot, entry) {
   catch { return false; }
 }
 
-// 재귀 병합: 파일은 대상에 없을 때만 이동, 하위 폴더는 재귀. 다 비운 원본 폴더는 제거.
+// Recursive merge: files move only when absent at the target, subfolders recurse. Source folders emptied completely are removed.
 function mergeDir(from, to) {
   mkdirSync(to, { recursive: true });
   let moved = 0, skipped = 0;
@@ -21,12 +21,12 @@ function mergeDir(from, to) {
       const r = mergeDir(s, d);
       moved += r.moved; skipped += r.skipped;
     } else if (existsSync(d)) {
-      skipped++; // 동명 파일 충돌 — 원위치에 남긴다
+      skipped++; // Same-name file conflict — leave it in place
     } else {
       renameSync(s, d); moved++;
     }
   }
-  try { rmdirSync(from); } catch { /* 충돌 잔여로 비어있지 않으면 남긴다 */ }
+  try { rmdirSync(from); } catch { /* Not empty due to leftover conflicts — leave it */ }
   return { moved, skipped };
 }
 

@@ -1,14 +1,14 @@
-// 대화형 프롬프트 래핑 (메뉴·선택·질문).
-// node:readline 기반 자체 엔진 사용 (@clack/prompts 는 Windows TTY에서 Enter가 멈추는 버그로 제거).
-// 취소(ESC/Ctrl+C)는 각 함수가 CANCEL 심볼을 반환 → 호출부가 정상 종료(exit 0) 처리.
+// Interactive prompt wrappers (menus, selection, questions).
+// Uses an in-house node:readline engine (@clack/prompts was removed because Enter froze on Windows TTYs).
+// Cancel (ESC/Ctrl+C) makes each function return the CANCEL symbol → the caller exits normally (exit 0).
 import * as engine from "./readline-engine.js";
 import { t } from "../i18n/index.js";
 
 export const CANCEL = engine.CANCEL;
 
-// 모드 선택 — 한국어 라벨, 내부 키 반환. 취소 시 CANCEL.
-// update(#502): { from, to } — 기존 통합 레포로 판별된 경우. 맨 위에 업데이트 항목을 추가하고
-// 기본 선택으로 둔다 (첫 항목 = 기본). 신규 레포(update 미전달)는 현행 5개 그대로.
+// Mode selection — localized labels, returns the internal key. CANCEL on cancel.
+// update (#502): { from, to } — when detected as an already integrated repo. Adds the update item at the top
+// as the default selection (first item = default). New repos (no update passed) keep the current 5 items.
 export async function selectMode({ update = null } = {}) {
   const options = [];
   if (update) {
@@ -25,7 +25,7 @@ export async function selectMode({ update = null } = {}) {
   return engine.select({ message: t("mode.prompt"), options });
 }
 
-// 프로젝트 확인 화면 메뉴 (계속/수정/취소).
+// Project confirmation screen menu (continue/edit/cancel).
 export async function confirmProjectMenu() {
   return engine.select({
     message: t("confirm.prompt"),
@@ -37,9 +37,9 @@ export async function confirmProjectMenu() {
   });
 }
 
-// 수정 메뉴 — 어떤 항목을 고칠지. showOptional=full/workflows에서만 nexus/secret 노출.
-// axes(#498): applicableTargets(types) 결과 — 적용 불가 축의 항목은 숨긴다 (모바일 앱/basic 단독 등).
-// null이면 기존처럼 전부 노출 (테스트 스텁 하위호환).
+// Edit menu — which item to change. showOptional exposes nexus/secret only for full/workflows.
+// axes (#498): applicableTargets(types) result — items for non-applicable axes are hidden (mobile app/basic alone, etc.).
+// null shows everything as before (backward compat for test stubs).
 export async function editMenu({ showOptional = false, axes = null } = {}) {
   const options = [
     { value: "type", label: t("edit.type") },
@@ -49,9 +49,9 @@ export async function editMenu({ showOptional = false, axes = null } = {}) {
   if (showOptional) {
     const hasDeploy = axes == null || axes.deploy.length > 0;
     const hasPublish = axes == null || axes.publish.length > 0;
-    // #485 — 프로젝트 성격(intent): 재선택 시 배포/publish 축을 재유도한다. 축이 하나도 없으면 무의미 → 숨김.
+    // #485 — project nature (intent): re-selecting re-derives the deploy/publish axes. Meaningless with no axes → hidden.
     if (hasDeploy || hasPublish) options.push({ value: "intent", label: t("edit.intent") });
-    // #483 — 항목별 격리: 한 축만 골라 그 축만 재질문한다 (통짜 "배포/Publish 방식" 분해)
+    // #483 — per-item isolation: pick one axis and re-ask only that axis (splits the all-in-one "deploy/publish method")
     if (hasDeploy) options.push({ value: "deploy", label: t("edit.deploy") });
     if (hasPublish) options.push({ value: "publish", label: t("edit.publish") });
     options.push({ value: "code-review", label: t("edit.codeReview") });
@@ -63,7 +63,7 @@ export async function editMenu({ showOptional = false, axes = null } = {}) {
   return engine.select({ message: t("edit.prompt"), options });
 }
 
-// 타입 멀티선택.
+// Type multiselect.
 export async function selectTypes(current = []) {
   const all = ["spring", "flutter", "react", "react-native", "react-native-expo", "node", "python", "basic"];
   return engine.multiselect({
@@ -74,27 +74,27 @@ export async function selectTypes(current = []) {
   });
 }
 
-// 텍스트 입력 (빈 입력=기본값 유지).
+// Text input (empty input = keep default).
 export async function askText(message, defaultValue = "") {
   const v = await engine.text({ message, defaultValue });
   if (v === CANCEL) return CANCEL;
   return v === "" || v == null ? defaultValue : v;
 }
 
-// 예/아니오.
+// Yes/no.
 export async function askYesNo(message, initial = true) {
   return engine.confirm({ message, initialValue: initial });
 }
 
-// 배너·안내 출력.
+// Banner and notice output.
 export function intro(text) { engine.intro(text); }
 export function outro(text) { engine.outro(text); }
 export function note(text, title) { engine.note(text, title); }
-export function cancelMessage(text = "취소했습니다.") { engine.cancelMessage(text); }
+export function cancelMessage(text = "Cancelled.") { engine.cancelMessage(text); }
 
-// ── #446 첫 화면 UI 5층 + SP2-C 대화형 계층 실물 io ─────────────────
-// runInteractive는 io.<method>?.() 옵셔널 호출 — 테스트 스텁은 이 메서드들을 생략해
-// 시각 층·env 질문을 건너뛴다 (실행 계약은 그대로).
+// ── #446 first-screen UI 5 layers + SP2-C interactive layer real io ─────────────────
+// runInteractive calls io.<method>?.() optionally — test stubs omit these methods
+// to skip the visual layers and env questions (the run contract is the same).
 import { printBanner as _printBanner } from "./banner.js";
 import {
   printDetectionLog as _detLog, printAnalysisCard as _card,
@@ -110,7 +110,7 @@ export function installKind(info) { _installKind(info); }
 export function ideStatus() { _ideStatus(collectIdeStatuses(defaultIo())); }
 export function summary(ctx, targetRoot) { _summary(ctx, targetRoot); }
 
-// env 계획·경로 해석·충돌 메뉴가 쓰는 저수준 엔진 io (env-plan/paths-resolve의 io 계약)
+// Low-level engine io used by the env plan, path resolution and conflict menus (the io contract of env-plan/paths-resolve)
 export const engineIo = {
   select: engine.select,
   multiselect: engine.multiselect,

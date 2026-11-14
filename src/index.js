@@ -1,5 +1,5 @@
-// projectops CLI 진입 파이프라인 (인자 > 감지 > 모드별 통합 > 요약).
-// 감지 → 다운로드 → 모드 라우팅 → 통합 실행 → 정리. 비대화형(--force) 우선.
+// projectops CLI entry pipeline (args > detect > per-mode integration > summary).
+// Detect → download → route by mode → run integration → clean up. Non-interactive (--force) first.
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, existsSync } from "node:fs";
@@ -32,7 +32,7 @@ import { runIssues } from "./commands/issues.js";
 import { runInteractive } from "./commands/interactive.js";
 import { runSkills } from "./commands/skills.js";
 
-// projectops 패키지 버전 읽기 (-v/--version 출력용). src/../package.json.
+// Read the projectops package version (for -v/--version output). src/../package.json.
 function readPkgVersion() {
   try {
     const here = dirname(fileURLToPath(import.meta.url));
@@ -43,7 +43,7 @@ function readPkgVersion() {
   }
 }
 
-// 결정적 UTC 타임스탬프 (주입 가능 — 테스트/골든용)
+// Deterministic UTC timestamp (injectable — for tests/goldens)
 function utcNow(date = new Date()) {
   const p = (n) => String(n).padStart(2, "0");
   const d = `${date.getUTCFullYear()}-${p(date.getUTCMonth() + 1)}-${p(date.getUTCDate())}`;
@@ -52,14 +52,14 @@ function utcNow(date = new Date()) {
 }
 
 // run(argv, opts) → exitCode. opts: { cwd, source?, clock? }
-//   source: acquireTemplate용 (기본 git clone). 테스트는 {type:'local', path} 주입.
-//   clock: {now, today} 주입 (기본 현재 UTC).
+//   source: for acquireTemplate (default git clone). Tests inject {type:'local', path}.
+//   clock: inject {now, today} (default current UTC).
 export async function run(argv, options = {}) {
   try {
     return await runCore(argv, options);
   } catch (err) {
-    // 네트워크·git·권한 같은 환경 문제는 스택 트레이스 대신 한 줄 원인 + 조치로 알린다 (#672).
-    // 실행 기록(trace)은 runCore 의 finally 에서 이미 닫혔다.
+    // Environment problems like network, git or permissions are reported as a one-line cause + action instead of a stack trace (#672).
+    // The run trace was already closed in runCore's finally.
     reportFatal(err);
     return 1;
   }
@@ -80,7 +80,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   if (opts.showVersion) { console.log(readPkgVersion()); return 0; }
   if (opts.help) { console.log(helpText()); return 0; }
 
-  // options 모드 — 옵션 정본 출력. AI agent 가 문서를 뒤지지 않고 한 번에 읽는다. 읽기 전용·네트워크 없음.
+  // options mode — prints the option source of truth. AI agents read it in one go without digging through docs. Read-only, no network.
   if (opts.mode === "options") {
     const { buildSchema, renderText } = await import("./core/options-schema.js");
     const schema = buildSchema(readPkgVersion());
@@ -88,20 +88,20 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     return 0;
   }
 
-  // doctor 모드 (#558) — 읽기 전용 진단. 템플릿을 내려받지 않으므로 네트워크 없이도 동작한다.
+  // doctor mode (#558) — read-only diagnosis. Does not download the template, so it works without a network.
   if (opts.mode === "doctor") {
     const { runDoctor } = await import("./commands/doctor.js");
     await runDoctor({ cwd });
-    return 0;   // 진단은 실패가 아니다 — 살펴볼 항목이 있어도 0으로 끝낸다
+    return 0;   // A diagnosis is not a failure — ends with 0 even when there are items to look at
   }
 
-  // skills 모드 — IDE 스킬 설치/업데이트/제거 (템플릿 통합 없음).
-  // Cursor 복사용 skills/ 소스가 필요하므로 템플릿을 획득한 뒤 실행한다.
+  // skills mode — install/update/remove IDE skills (no template integration).
+  // Needs the skills/ source for the Cursor copy, so it runs after fetching the template.
   if (opts.mode === "skills") {
     const tempDir = join(cwd, PATHS.tempDir);
     const interactive = !opts.force && process.stdout.isTTY;
     try {
-      // skills 모드: 스킬 CLI 가 import 하는 scripts/common 필요 > 제외 대상에서 유지 (#994)
+      // skills mode: skill CLIs import scripts/common > keep it out of the exclusions (#994)
       acquireTemplate({ tempDir, source, keep: [SHARED_SCRIPTS_DIR_NAME] });
       const templateVersion = readTemplateVersion(tempDir);
       return await runSkills({ templateVersion, tempDir, interactive });
@@ -109,7 +109,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       remove(tempDir);
     }
   }
-  // 대화형 모드 — 인자 없이 실행 or --mode interactive
+  // Interactive mode — run with no args or --mode interactive
   if (opts.mode === "interactive") {
     if (!process.stdout.isTTY) {
       console.error(t("cli.nonTty"));
@@ -117,24 +117,24 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     }
     return await runInteractive({}, { cwd, source, clock });
   }
-  // 명시 모드인데 --force 없으면 (비대화형 CLI는 --force 필요)
+  // Explicit mode without --force (the non-interactive CLI needs --force)
   if (!opts.force && !process.stdout.isTTY) {
     console.error(t("cli.needForce"));
     return 1;
   }
 
-  // 실행 트레이스 (#494/#561) — 감지·판단 단계부터 기록해야 "왜 이렇게 정해졌는지"가 남는다.
+  // Run trace (#494/#561) — recording must start at the detect/decide steps so "why it was decided this way" is kept.
   const trace = createRunTrace();
   const recordArtifacts = opts.mode === "full" || opts.mode === "workflows";
   let disarmSignals = () => {};
   if (recordArtifacts) {
     trace.mirrorStart();
-    // Ctrl+C로 끊어도 여기까지의 기록이 남는다 (#561). 경로는 아래에서 확정되지만
-    // 신호는 언제든 올 수 있으므로 targetRoot만으로 먼저 무장한다.
+    // Even when cut off with Ctrl+C, the record up to here stays (#561). The path is settled below, but
+    // a signal can come at any time, so arm with targetRoot alone first.
     disarmSignals = trace.armSignals({ targetRoot: cwd, now: "" });
   }
 
-  // 기존 version.yml 로드 — version/version_code/project_paths 보존의 단일 진실
+  // Load the existing version.yml — single source of truth for keeping version/version_code/project_paths
   const vyPath = join(cwd, "version.yml");
   const existing = existsSync(vyPath) ? parseExisting(readFileSync(vyPath, "utf8")) : null;
   trace.event("detect", "existing-install", existing ? "found" : "none", {
@@ -143,26 +143,26 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     types: existing?.types || null,
   });
 
-  // 감지 (CLI 인자 우선, 없으면 자동 감지 — version.yml 우선 규칙은 detectTypes/detectVersion 내부)
+  // Detection (CLI args first, else auto-detect — the version.yml-first rule lives inside detectTypes/detectVersion)
   const types = opts.types.length ? opts.types : detectTypes(cwd);
   trace.event("detect", "types", types.join(",") || "(none)", {
     source: opts.types.length ? "cli-flag(--type)" : "auto-detect(marker file scan)",
   });
-  // version: 기존 version.yml 최우선(SSoT — 재실행 시 덮어쓰기 방지) → CLI 지정 → 파일 감지
+  // version: existing version.yml first (SSoT — prevents overwriting on re-run) → CLI value → file detection
   const version = (existing?.version) || opts.version || detectVersion(cwd);
   trace.event("detect", "version", version, {
     source: existing?.version ? "version.yml(existing value kept)"
       : (opts.version ? "cli-flag(--project-version)" : "project file detection"),
   });
-  const versionCode = existing?.versionCode ?? 1; // 기존 빌드번호 보존
+  const versionCode = existing?.versionCode ?? 1; // Keep the existing build number
   const branch = detectDefaultBranch(cwd);
   const repoName = detectRepoName(cwd);
   trace.event("detect", "repo", repoName || "(unknown)", { defaultBranch: branch, versionCode });
-  // 경로 확정 (비대화형 — --paths 우선 → 저장값 → 후보 1개 자동 → 루트 폴백)
+  // Settle paths (non-interactive — --paths first → saved value → single candidate automatically → root fallback)
   let cliPaths;
   try {
     cliPaths = parsePathsCsv(opts.pathsCsv);
-    validatePathsMap(cliPaths, { root: cwd, types });   // #674 — 파일을 쓰기 전에 거른다
+    validatePathsMap(cliPaths, { root: cwd, types });   // #674 — filter before writing any file
   } catch (e) {
     if (e instanceof CliError) {
       console.error(e.message);
@@ -178,7 +178,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   });
 
   for (const [ty, pth] of paths) {
-    // 근거로 "무엇을 보고 그 경로로 정했는지"까지 남긴다 — 경로가 틀렸을 때 추적의 시작점이다.
+    // Record the basis too: "what was seen to choose that path" — the starting point for tracing a wrong path.
     const marker = markerForType(ty);
     const at = pth === "." ? marker : `${pth}/${marker}`;
     trace.event("detect", "project-path", ty, {
@@ -192,7 +192,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   const { now, today } = clock || utcNow();
   const tempDir = join(cwd, PATHS.tempDir);
 
-  // 옵션 값은 resolve-options.js 한 곳에서 정한다 (#851) — 대화형과 같은 규칙.
+  // Option values are decided in one place, resolve-options.js (#851) — same rules as interactive.
   const { values: resolved, sources } = resolveOptions({
     flags: {
       intent: opts.intent, deployTarget: opts.deployTarget, publishTargets: opts.publishTargets,
@@ -204,11 +204,11 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   });
   const { intent, deployTarget, publishTargets } = resolved;
   const { before: beforeCleanup, applicable } = sources;
-  // 다국어 스토어인데 store_locales 미설정이면 안내만 한다 (#843) — 복사 전 상태로 판정
+  // Multi-language store with store_locales unset: notice only (#843) — judged on the state before copying
   const storeLocalesHint = detectStoreLocalesHint({ root: cwd, existing, paths, trace });
 
-  // 축 확정 근거 (#561) — "왜 이 값인가"가 가장 헷갈리는 자리다.
-  // CLI 플래그 / 저장값 / intent 유도 / 타입 적용성 정리 중 무엇이 이겼는지 남긴다.
+  // Basis for settling the axes (#561) — "why this value" is the most confusing spot.
+  // Records which won: CLI flag / saved value / intent derivation / type applicability cleanup.
   trace.event("resolve", "intent", String(intent ?? "(unset)"), { source: sources.intent });
   trace.event("resolve", "deploy", deployTarget, {
     source: sources.deploy,
@@ -227,12 +227,12 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     mode: opts.mode, force: true, types, version, versionCode, branch, paths,
     ...resolved,
     repoName,
-    // 실 resolver 4종 (spring-app-yml 포함)
+    // The 4 real resolvers (including spring-app-yml)
     resolvers: makeResolvers(cwd, repoName, paths),
     now, today,
   });
 
-  // 최종 확정값 스냅샷 (#561) — 이 한 줄로 "무엇이 어떻게 설치될 것인지"가 고정된다.
+  // Snapshot of the final values (#561) — this one line pins down "what will be installed and how".
   trace.event("resolve", "context", opts.mode || "", {
     types, version, versionCode, branch,
     deploy: deployTarget, publish: publishTargets, intent,
@@ -252,11 +252,11 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   });
 
   let result = null;
-  // trace/recordArtifacts는 감지 단계 기록을 위해 위에서 이미 생성했다 (#561)
+  // trace/recordArtifacts were already created above to record the detection steps (#561)
   let breakingReport = null;
   let migrationsResult = null;
   let orphanPending = [];
-  // 실행 경계(#561) — 로그만 보고 "무엇을 어떤 인자로 돌렸는지"를 알 수 있어야 한다.
+  // Run boundary (#561) — the log alone must show "what ran with which arguments".
   trace.event("run", "start", opts.mode || "", {
     cli: "non-interactive", types, version, branch,
     force: true, deploy: deployTarget, publish: publishTargets, intent,
@@ -266,10 +266,10 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     context.templateVersion = readTemplateVersion(tempDir);
     trace.event("detect", "template-version", context.templateVersion, { tempDir: PATHS.tempDir });
 
-    // 비대화형 축약 배너 (#446 확정 — 1줄, 로그 오염 최소)
+    // Short non-interactive banner (settled in #446 — 1 line, minimal log noise)
     printBannerCompact({ version: context.templateVersion, mode: opts.mode });
 
-    // Breaking Changes 게이트 (비대화형은 경고 후 진행)
+    // Breaking changes gate (non-interactive warns and proceeds)
     const proceed = await trace.stepAsync("breaking-check", () => runBreakingCheck({
       cwd, tempDir, templateVersion: context.templateVersion,
       onItems: (items) => { breakingReport = items; },
@@ -280,18 +280,18 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       return 0;
     }
 
-    // 레거시 마이그레이션 (#470) — 워크플로우를 만지는 모드에서만. 비대화형은 safe 티어 자동 적용.
+    // Legacy migration (#470) — only in modes that touch workflows. Non-interactive applies the safe tier automatically.
     if (recordArtifacts) {
       migrationsResult = await trace.stepAsync("legacy-migrations", () => runMigrations({ targetRoot: cwd, removeLegacy: opts.removeLegacy === true }));
       for (const a of migrationsResult.applied ?? []) trace.event("legacy", a.action === "error" ? "error" : "neutralized", a.from ?? a.id ?? "", { to: a.to ?? "", id: a.id ?? "" });
       for (const e of migrationsResult.confirmPending ?? []) trace.event("legacy", "leftover-old-gen", e.file, { replacement: e.replacedBy ?? "", reason: e.reason ?? "" });
     }
 
-    // 고아 타입 워크플로우 안내 (#487) — 비대화형은 자동 무해화 금지(배포 파이프라인일 수 있음), 안내만
+    // Orphan type workflow notice (#487) — non-interactive never neutralizes automatically (may be a deploy pipeline), notice only
     if (recordArtifacts) {
       const orphans = trace.step("orphan-scan",
         () => detectOrphanWorkflows({ tempDir, targetRoot: cwd, selectedTypes: types,
-          // 껐는데 남아 계속 도는 워크플로우도 함께 잡는다 (#566)
+          // Also catch workflows that were turned off but remain and keep running (#566)
           options: { includeSecretBackup: context.includeSecretBackup, aiPrSummary: context.aiPrSummary, projectsSync: context.projectsSync, deployTarget } }),
         { selectedTypes: types });
       orphanPending = orphans.map((o) => o.filename);
@@ -307,10 +307,10 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       case "workflows": result = trace.step("install-workflows", () => runWorkflows(context, tempDir, cwd, { trace })); break;
       case "issues": result = trace.step("install-issues", () => runIssues(context, tempDir, cwd)); break;
       default:
-        // 알 수 없는 모드 → 복사 0건, 에러 아님
+        // Unknown mode → 0 copies, not an error
         break;
     }
-    // 개발 브랜치 생성 (#715) — --create-development-branch 일 때만. 실패해도 실행은 계속(수동 명령 안내)
+    // Development branch creation (#715) — only with --create-development-branch. The run continues on failure (manual command shown)
     const developmentBranchResult = await runDevelopmentBranchStep({
       isRequested: opts.createDevelopmentBranch === true, targetRoot: cwd,
       branch: context.deployBranch || "develop", defaultBranch: branch, trace,
@@ -318,10 +318,10 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     });
     const isDevelopmentBranchReady = developmentBranchResult ? developmentBranchResult.status !== "failed" : null;
 
-    // 마이그레이션 기록 (#493/#494) — Layer 2/3 트레이스 파일 + Layer 1 가이드 엔트리
+    // Migration record (#493/#494) — Layer 2/3 trace files + Layer 1 guide entry
     let migrationGuidePath = null;
-    // 기록 파일 경로는 먼저 계산하고(가이드가 참조), 실제 쓰기는 완료 화면 출력 뒤로 미룬다 —
-    // 그래야 터미널 미러에 완료 화면까지 담긴다 (#561).
+    // Compute the record file paths first (the guide references them) and delay the actual write until after the finish screen —
+    // so the terminal mirror captures the finish screen too (#561).
     const files = recordArtifacts
       ? trace.paths({ fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now })
       : null;
@@ -330,7 +330,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
         now, mode: opts.mode, types, repoName,
         templateFrom: existing?.templateVersion || "", templateTo: context.templateVersion,
         options: { deploy: deployTarget, publish: publishTargets, secretBackup: context.includeSecretBackup, coderabbit: context.codeReviewCoderabbit, changelogProvider: context.changelogProvider, intent, semverAuto: context.semverAuto , appRelease: context.appRelease, language: context.language, labelStyle: context.labelStyle, closeOnRelease: context.closeOnRelease, projectsSync: context.projectsSync, excludedWorkflows: context.excludedWorkflows, storeLocales: context.storeLocales, storeLocalesIos: context.storeLocalesIos, storeLocalesPlay: context.storeLocalesPlay },
-        storeLocalesHint,                                              // #843 체크리스트 한 항목
+        storeLocalesHint,                                              // #843 one checklist item
         branches: { defaultBranch: branch, deployBranch: context.deployBranch || "develop", ready: isDevelopmentBranchReady,
           created: developmentBranchResult ? developmentBranchResult.status === "created" : null, result: developmentBranchResult },
         breaking: breakingReport, migrations: migrationsResult, orphans: { cleaned: [], pending: orphanPending },
@@ -339,22 +339,22 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       }).guidePath;
     }
 
-    // 완료 요약 (CLI 모드에서도 출력)
+    // Finish summary (printed in CLI mode too)
     printSummary({
       mode: opts.mode, types, version, deployBranch: context.deployBranch, migrationGuidePath,
-      developmentBranchResult,                                        // #715 생성 결과 (플래그 없으면 null)
-      shouldSuggestCreateBranchFlag: !developmentBranchResult,        // #715 플래그 없이 돌았으면 다음엔 쓰라고 안내
+      developmentBranchResult,                                        // #715 creation result (null without the flag)
+      shouldSuggestCreateBranchFlag: !developmentBranchResult,        // #715 ran without the flag, so suggest it next time
       counters: { workflows: result?.workflows?.copied ?? 0, workflowFiles: result?.workflows?.copiedFiles ?? [], utilModules: 0 },
-      skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 병합 안내
-      replacedBak: result?.workflows?.replacedBak ?? [],             // #673 기준점 없이 교체한 파일 안내
-      legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 신·구 세대 동시 실행 안내
-      notInstalled: result?.workflows?.notInstalled ?? [],            // #810 깔지 않은 워크플로우 안내
-      semverAutoNewlyOn: sources.semverAutoNewlyOn && context.semverAuto === true, // 업데이트가 켠 사실 안내
-      storeLocalesHint,                                               // #843 다국어 스토어 안내
-      verification: result?.verification,   // #549 설치 후 검증 결과 (full/workflows 모드에서만 존재)
-      // #569 — 고른 것만 안내하려면 선택값이 필요하다
+      skippedConflicts: result?.workflows?.skippedConflicts ?? [],   // #654 merge notice
+      replacedBak: result?.workflows?.replacedBak ?? [],             // #673 notice for files replaced without a reference point
+      legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 notice for old and new generations running together
+      notInstalled: result?.workflows?.notInstalled ?? [],            // #810 notice for workflows not installed
+      semverAutoNewlyOn: sources.semverAutoNewlyOn && context.semverAuto === true, // Notice that the update turned it on
+      storeLocalesHint,                                               // #843 multi-language store notice
+      verification: result?.verification,   // #549 post-install verification result (only in full/workflows modes)
+      // #569 — the chosen values are needed to mention only what was picked
       aiPrSummary: context.aiPrSummary, codeReviewCoderabbit: context.codeReviewCoderabbit,
-      logDir: files ? MIGRATION_DIR : null,   // #561 기록 위치 안내
+      logDir: files ? MIGRATION_DIR : null,   // #561 record location notice
       logFile: files?.logFile ?? null,
       traceFile: files?.traceFile ?? null,
     }, cwd);
@@ -364,15 +364,15 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       workflowsSkipped: result?.workflows?.skipped ?? 0,
     });
   } catch (err) {
-    // 실패 원인을 로그에 남긴다 (#561) — 서버 로그처럼 사후에 바로 짚을 수 있어야 한다.
+    // Log the failure cause (#561) — like a server log, it must be easy to pinpoint afterwards.
     trace.event("run", "error", opts.mode || "", {
       message: err?.message || String(err),
       stack: String(err?.stack || "").split("\n").slice(0, 3).join(" | "),
     });
     throw err;
   } finally {
-    // 어떤 경로로 빠져나가든 기록을 남긴다 (#561) — 조기 return·중간 취소·예외 포함.
-    // 완료 화면 출력이 try 안에 있어야 그 화면까지 미러에 담긴 채로 여기서 닫힌다.
+    // Leave a record however it exits (#561) — including early return, mid-run cancel and exceptions.
+    // The finish screen output must be inside try so it is captured in the mirror before closing here.
     if (recordArtifacts) {
       trace.finalize({ targetRoot: cwd, fromVersion: existing?.templateVersion || "", toVersion: context.templateVersion, now });
     } else {

@@ -1,5 +1,5 @@
-// Codex CLI 어댑터 (skills 관리·마켓플레이스 등록·제거).
-// marketplace 등록/업그레이드가 주 경로. native ~/.agents/skills/projectops 심링크는 감지·제거에 사용.
+// Codex CLI adapter (skills management, marketplace registration/removal).
+// Marketplace add/upgrade is the main path. The native ~/.agents/skills/projectops symlink is used for detection and removal.
 import { join } from "node:path";
 import { existsSync, lstatSync, rmSync } from "node:fs";
 import { migrateConfigRoot } from "../legacy.js";
@@ -47,12 +47,12 @@ function remove(io) {
 
 function manualHint() { return `  💡 Codex CLI: codex plugin marketplace add ${MARKETPLACE}`; }
 
-// 옛 native skills 폴더/심링크 + 옛 marketplace 정리. 실패 무해.
+// Clean up the old native skills folder/symlink + old marketplace. Failure is harmless.
 function migrateLegacy(io) {
   for (const name of LEGACY_NATIVES) {
     const old = join(io.home(), ".agents/skills", name);
     if (existsSync(old) || isSymlink(old)) {
-      try { rmSync(old, { recursive: true, force: true }); io.log(t("ide.codex.legacy", { name })); } catch { /* 무시 */ }
+      try { rmSync(old, { recursive: true, force: true }); io.log(t("ide.codex.legacy", { name })); } catch { /* ignore */ }
     }
   }
   if (io.which("codex")) for (const mp of LEGACY_MARKETPLACES) io.run("codex", ["plugin", "marketplace", "remove", mp]);

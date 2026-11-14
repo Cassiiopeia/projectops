@@ -1,4 +1,4 @@
-// PI 공용 경로·상태 로직 (pi 어댑터와 pi-harness 어댑터가 공유).
+// Shared PI paths and status logic (shared by the pi and pi-harness adapters).
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { t } from "../../../i18n/index.js";
@@ -6,15 +6,15 @@ import { TEMPLATE_REPO_OWNER, TEMPLATE_REPO_WEB_URL } from "../../paths.js";
 
 export const PI_PACKAGE_URL = TEMPLATE_REPO_WEB_URL;
 
-// 'pi list' 출력에 우리 레포가 잡히면 설치됨. (구 레포명·프로젝트명 모두 허용)
+// Installed if 'pi list' output shows our repo. (Both old repo names and the project name are accepted)
 export function piInstalled(io) {
   if (!io.which("pi")) return false;
-  const r = io.run("pi", ["list"]); // pi는 일부 출력을 stderr로 보냄 → 둘 다 검사
+  const r = io.run("pi", ["list"]); // pi sends some output to stderr → check both
   const out = (r.stdout || "") + (r.stderr || "");
   return /SUH-DEVOPS-TEMPLATE|projectops/i.test(out);
 }
 
-// pi 클론 경로(harness loader가 사는 곳). 레포명 변경 전 구 경로 하위호환.
+// pi clone path (where the harness loader lives). Backward compatible with the old path from before the repo rename.
 export function piCloneDir(io) {
   const base = join(io.home(), ".pi/agent/git/github.com", TEMPLATE_REPO_OWNER);
   const newDir = join(base, "projectops");
@@ -25,7 +25,7 @@ export function piCloneDir(io) {
 export function harnessLoaderPath(io) { return join(piCloneDir(io), "harness/harness-loader.ts"); }
 export function piSettingsPath(io) { return join(io.home(), ".pi/agent/settings.json"); }
 
-// settings.json의 extensions 배열에 loader가 등록돼 있는가.
+// Is the loader registered in the extensions array of settings.json?
 export function harnessEnabled(io) {
   const settings = piSettingsPath(io), loader = harnessLoaderPath(io);
   if (!existsSync(settings)) return false;
@@ -35,13 +35,13 @@ export function harnessEnabled(io) {
   } catch { return false; }
 }
 
-// extensions에 loader 추가(중복 방지). {ok, reason}.
+// Add the loader to extensions (no duplicates). {ok, reason}.
 export function harnessAdd(io) {
   const settings = piSettingsPath(io), loader = harnessLoaderPath(io);
   if (!existsSync(settings)) return { ok: false, reason: "no-settings" };
   if (!existsSync(loader)) return { ok: false, reason: "no-loader" };
   let s;
-  // 해석 실패 시 덮어쓰지 않음 ({} 로 쓰면 사용자 설정 키가 전부 지워진다)
+  // Do not overwrite on a parse failure (writing {} would wipe every user settings key)
   try { s = JSON.parse(readFileSync(settings, "utf8")); } catch { return { ok: false, reason: "invalid-settings" }; }
   if (s === null || typeof s !== "object" || Array.isArray(s)) return { ok: false, reason: "invalid-settings" };
   const exts = (Array.isArray(s.extensions) ? s.extensions : []).filter(Boolean);
@@ -51,7 +51,7 @@ export function harnessAdd(io) {
   return { ok: true };
 }
 
-// extensions에서 loader 제거. {ok}.
+// Remove the loader from extensions. {ok}.
 export function harnessRemove(io) {
   const settings = piSettingsPath(io), loader = harnessLoaderPath(io);
   if (!existsSync(settings)) return { ok: true };
@@ -64,8 +64,8 @@ export function harnessRemove(io) {
   return { ok: true };
 }
 
-// 신·구 clone 공존 시 옛 SUH-DEVOPS-TEMPLATE clone 제거 + settings.json에서 그 loader 경로 제거.
-// 공존일 때만 정리(옛것만 있으면 pi install이 신규를 만들 때까지 그대로 둔다). 실패 무해.
+// When old and new clones coexist, remove the old SUH-DEVOPS-TEMPLATE clone + its loader path from settings.json.
+// Clean up only when both exist (if only the old one exists, leave it until pi install makes the new one). Failure is harmless.
 export function migratePiLegacy(io) {
   const base = join(io.home(), ".pi/agent/git/github.com", TEMPLATE_REPO_OWNER);
   const oldDir = join(base, "SUH-DEVOPS-TEMPLATE");
@@ -80,7 +80,7 @@ export function migratePiLegacy(io) {
         s.extensions = s.extensions.filter((e) => e && e !== oldLoader);
         writeFileSync(settings, JSON.stringify(s, null, 2));
       }
-    } catch { /* 무시 */ }
+    } catch { /* ignore */ }
   }
-  try { rmSync(oldDir, { recursive: true, force: true }); io.log(t("ide.pi.legacyClone")); } catch { /* 무시 */ }
+  try { rmSync(oldDir, { recursive: true, force: true }); io.log(t("ide.pi.legacyClone")); } catch { /* ignore */ }
 }

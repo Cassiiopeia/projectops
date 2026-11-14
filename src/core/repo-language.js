@@ -1,13 +1,13 @@
-// 레포 문구 언어(#769): 영문("en")이 정본, 한국어("ko")는 오버레이다.
-// 한글 사본을 파일마다 따로 두면 두 벌이 어긋나므로, 한국어판은 .github/i18n/ko/ 한 곳에만 두고
-// language: ko 일 때 복사 직후 같은 상대경로로 덮는다.
+// Repo text language (#769): English ("en") is the source, Korean ("ko") is an overlay.
+// Keeping a Korean copy next to every file lets the two drift, so the Korean version lives only in .github/i18n/ko/
+// and, with language: ko, is copied over the same relative paths right after the copy.
 import { join, relative, dirname } from "node:path";
 import { existsSync, readdirSync, copyFileSync, mkdirSync, statSync } from "node:fs";
 
 export const REPO_LANGUAGES = ["en", "ko"];
 
-// version.yml 에 저장값이 없을 때의 결정. 신규 설치는 영문, 이미 설치된 레포는 한국어 유지.
-// (label_style 과 같은 원칙 — 업데이트만으로 사용자 레포의 문구가 바뀌면 안 된다.)
+// Decision when version.yml has no saved value. New installs get English; existing installs keep Korean.
+// (Same principle as label_style — an update alone must not change the text in a user repo.)
 export function resolveRepoLanguage({ flag, stored, existing }) {
   if (REPO_LANGUAGES.includes(flag)) return flag;
   if (REPO_LANGUAGES.includes(stored)) return stored;
@@ -24,11 +24,11 @@ function walk(dir) {
   return out;
 }
 
-// 한국어 모드: 오버레이의 모든 파일을 targetRoot/.github/ 아래 같은 상대경로로 복사한다.
-// 반환: { changed, failed }. changed 는 복사한 파일의 레포 루트 기준 상대경로(.github/...),
-// failed 는 복사하지 못한 { file, error }. en 이거나 오버레이가 없으면 둘 다 빈 배열이다.
-// 파일 하나가 실패해도 나머지는 계속 복사한다 — 첫 실패에서 멈추면 영문과 한글이 섞이거나 전부 영문으로 남는다.
-// 예외는 던지지 않는다: 영문 템플릿이 남을 뿐 설치를 죽일 이유가 아니다. 대신 호출부가 failed 를 알린다.
+// Korean mode: copy every overlay file to the same relative path under targetRoot/.github/.
+// Returns { changed, failed }. changed holds copied paths relative to the repo root (.github/...),
+// failed holds { file, error } entries that could not be copied. Both are empty for en or when there is no overlay.
+// One failure does not stop the rest — stopping at the first failure would leave English and Korean mixed, or all English.
+// Never throws: the English template simply remains, which is no reason to kill the install. The caller reports failed instead.
 export function applyRepoLanguage(tempDir, targetRoot, language) {
   const changed = [];
   const failed = [];

@@ -1,6 +1,6 @@
-// version 모드 (version.yml 생성·갱신).
-// 순서: version.yml → readme → scripts → config → gitignore → setup_guide.
-// (워크플로우 미복사 → deploy 블록 없음. util·issue·coderabbit도 없음.)
+// version mode (generate/update version.yml).
+// Order: version.yml → readme → scripts → config → gitignore → setup_guide.
+// (No workflow copy → no deploy block. No util, issue or coderabbit either.)
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { writeText } from "../core/fsutil.js";
@@ -15,14 +15,14 @@ import { ensureGitignore } from "../core/copy/gitignore.js";
 import { toTemplateOptions } from "../core/resolve-options.js";
 
 export function runVersion(context, tempDir, targetRoot = ".") {
-  // 옵션 값은 resolveOptions 가 정해 context 에 넣는다 — 여기서 기본값을 다시 고르지 않는다
+  // Option values are decided by resolveOptions and put in context — defaults are not picked again here
   const { version, types = [], paths = new Map(), branch = "main", versionCode = 1,
     now, today, templateVersion, deployBranch = "", recordMode = "version", labelStyle } = context;
 
   const pathMarkers = new Map();
   for (const [t] of paths) pathMarkers.set(t, markerForType(t));
 
-  // version.yml 은 전체 재생성이라, 읽지 않으면 이전 통합이 남긴 deploy 값(사용자 수정 포함)이 사라진다 (#670)
+  // version.yml is fully regenerated, so without reading it, deploy values left by a previous integration (including user edits) vanish (#670)
   const vyFile = join(targetRoot, PATHS.versionFile);
   const deployValues = mergeDeployValues(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", new Map());
 
@@ -30,11 +30,11 @@ export function runVersion(context, tempDir, targetRoot = ".") {
     buildVersionYml({
       version, types, paths, pathMarkers, branch, deployBranch, versionCode, now, today,
       deployValues,
-      // 생성기가 모르는 키(issue_helper 등)를 지킨다 — version.yml 을 매번 다시 쓰므로 안 그러면 업데이트마다 사라진다 (#835)
+      // Keep keys the generator does not know (issue_helper, etc.) — version.yml is rewritten every time, so otherwise they vanish on every update (#835)
       ...customYml(vyFile),
       updatedBy: resolveUpdatedBy(existsSync(vyFile) ? readFileSync(vyFile, "utf8") : "", targetRoot), // #811
-      // mode(#502): version 모드가 기존 full 통합 기록을 "version"으로 강등하지 않도록
-      // 호출부가 recordMode로 기존 값을 넘긴다 (full이 우세 — 업데이트 재실행 범위 축소 방지).
+      // mode (#502): so version mode does not downgrade an existing full integration record to "version",
+      // the caller passes the existing value as recordMode (full wins — prevents shrinking the update re-run scope).
       templateOptions: toTemplateOptions(context, { mode: recordMode, optionsDate: today }),
     }));
   addVersionSectionToReadme(version, targetRoot, context.language);

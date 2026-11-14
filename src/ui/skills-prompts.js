@@ -1,11 +1,11 @@
-// IDE Skills 대화형 프롬프트.
-// node:readline 기반 자체 엔진 사용 (@clack/prompts 는 Windows TTY Enter 버그로 제거).
+// IDE skills interactive prompts.
+// Uses an in-house node:readline engine (@clack/prompts was removed because of the Windows TTY Enter bug).
 import * as engine from "./readline-engine.js";
 import { t } from "../i18n/index.js";
 
 export const CANCEL = engine.CANCEL;
 
-// 동작 선택: 설치/업데이트 · 제거 · 그대로. 취소=skip.
+// Action choice: install/update · remove · leave as is. Cancel = skip.
 export async function selectAction() {
   const v = await engine.select({
     message: t("skills.action.prompt"),
@@ -18,7 +18,7 @@ export async function selectAction() {
   return v === CANCEL ? "skip" : v;
 }
 
-// IDE 멀티셀렉트. choices=[{id,label,disabled}], preselect=[id...], action.
+// IDE multiselect. choices=[{id,label,disabled}], preselect=[id...], action.
 export async function selectTargets(choices, preselect = [], action = "apply") {
   const options = choices.map((c) => ({
     value: c.id,

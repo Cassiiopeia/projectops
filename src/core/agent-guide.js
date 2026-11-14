@@ -1,10 +1,10 @@
-// 사용자 레포에 설치하는 AI agent 안내문 (.github/.projectops/AGENT-GUIDE.md).
+// AI agent guide installed into the user repo (.github/.projectops/AGENT-GUIDE.md).
 //
-// 왜 파일인가: 이 레포의 AGENTS.md 는 템플릿 전용이라 사용자 프로젝트로 가지 않는다. 그래서 projectops 가
-// 깔린 레포에서 일하는 agent 는 "이 레포가 무엇으로 관리되는지, 옵션을 어디서 확인하는지"를 알 길이 없었다.
-// 레포 루트의 AGENTS.md·CLAUDE.md 는 사용자 것이라 건드리지 않고, 폴더 안에 두고 한 줄 포인터만 안내한다.
+// Why a file: this repo's AGENTS.md is template-only and never reaches user projects, so agents working in a
+// repo with projectops installed had no way to know what manages the repo or where to check options.
+// The repo-root AGENTS.md and CLAUDE.md belong to the user, so we leave them alone, keep this inside the folder, and point to it in one line.
 //
-// 내용에 옵션 표를 박지 않는다 — 박으면 곧 낡는다. 표는 항상 `npx projectops --mode options --json` 이 정본이다.
+// No option table in the content — it would go stale fast. `npx projectops --mode options --json` is always the source of truth.
 import { join } from "node:path";
 import { writeText } from "./fsutil.js";
 import { TEMPLATE_REPO_WEB_URL } from "./paths.js";

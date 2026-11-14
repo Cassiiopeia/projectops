@@ -1,4 +1,4 @@
-// ide 영역 메시지 (en). 키는 <영역>.<의미> 형식.
+// ide area messages (en). Keys use the <area>.<meaning> format.
 export default {
   "ide.claude.legacy": "  Removed legacy plugin: {name} (scope: {scope})",
   "ide.claude.marketAdding": "Registering the Claude Code marketplace...",

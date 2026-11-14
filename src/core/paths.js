@@ -1,4 +1,4 @@
-// 경로 상수
+// Path constants
 export const PATHS = {
   tempDir: ".template_download_temp",
   versionFile: "version.yml",
@@ -7,7 +7,7 @@ export const PATHS = {
   projectTypesDir: "project-types",
 };
 
-// 템플릿 레포 주소 정본: 소유자/이름 > 웹·git·raw 주소 (src/ 직접 기재는 no-repo-url-literal 규칙이 막는다)
+// Template repo address source of truth: owner/name > web, git, raw URLs (the no-repo-url-literal rule blocks literals in src/)
 export const TEMPLATE_REPO_OWNER = "Cassiiopeia";
 export const TEMPLATE_REPO_SLUG = `${TEMPLATE_REPO_OWNER}/projectops`;
 export const TEMPLATE_REPO_WEB_URL = `https://github.com/${TEMPLATE_REPO_SLUG}`;

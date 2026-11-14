@@ -1,20 +1,20 @@
 import { t } from "../i18n/index.js";
 
-// 예기치 못한 예외를 사용자가 읽을 수 있는 한 줄 오류 + 조치 안내로 바꾼다 (#672).
-// 스택 트레이스는 사용자가 고칠 수 있는 정보가 아니므로 DEBUG 환경변수가 있을 때만 노출한다.
+// Turns unexpected exceptions into a readable one-line error + action hint (#672).
+// A stack trace is not something users can fix, so it is shown only when the DEBUG env var is set.
 
-// err → { message, hint }. 분류 근거는 Node 가 던지는 err.code / 메시지 형식이다.
+// err → { message, hint }. Classified by the err.code / message format Node throws.
 export function describeError(err) {
   const msg = String(err?.message || err);
   const code = err?.code;
 
-  // PATH 에 git 이 없음 — spawn 계열이 ENOENT 를 던진다
+  // git is not on PATH — spawn-family calls throw ENOENT
   if (code === "ENOENT" && /\bgit\b/.test(`${err?.path ?? ""} ${err?.syscall ?? ""} ${msg}`)) {
     return { message: t("errors.git.message"), hint: t("errors.git.hint") };
   }
-  // 템플릿 내려받기 실패 — execFileSync 가 "Command failed: git clone ..." 를 던진다
+  // Template download failed — execFileSync throws "Command failed: git clone ..."
   if (/Command failed: git clone/.test(msg)) {
-    // Windows 경로 길이 한계 — 네트워크 탓으로 안내하면 엉뚱한 곳을 보게 된다
+    // Windows path length limit — blaming the network would send people to the wrong place
     if (/Filename too long|cannot stat/i.test(msg)) {
       return { message: t("errors.clone.pathTooLong.message"), hint: t("errors.clone.pathTooLong.hint") };
     }
@@ -23,7 +23,7 @@ export function describeError(err) {
       hint: t("errors.clone.hint"),
     };
   }
-  // 권한/읽기 전용 파일시스템
+  // Permission / read-only filesystem
   if (code === "EACCES" || code === "EPERM" || code === "EROFS") {
     const where = err?.path ? ` (${err.path})` : "";
     return {
@@ -37,7 +37,7 @@ export function describeError(err) {
   return { message: t("errors.unexpected.message", { msg }), hint: t("errors.unexpected.hint") };
 }
 
-// 오류를 stderr 로 출력한다. 호출부는 비0 종료코드를 돌려주면 된다.
+// Print the error to stderr. The caller just returns a non-zero exit code.
 export function reportFatal(err, { env = process.env, write = (s) => process.stderr.write(s) } = {}) {
   const { message, hint } = describeError(err);
   write(`❌ ${message}\n`);

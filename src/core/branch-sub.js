@@ -1,20 +1,20 @@
-// 워크플로우 브랜치 치환 (#477) — 대상 레포의 브랜치 전략이 표준(main/develop)과 다를 때
-// 복사된 워크플로우의 브랜치 리터럴을 설정값으로 교체한다.
-// 표준값이면 입력을 그대로 반환(no-op) — 템플릿 원본과 바이트 동일이 유지되어야
-// isUnchanged 스킵 로직과 "표준 레포 무변화" 계약이 깨지지 않는다.
+// Workflow branch substitution (#477) — when the target repo's branch strategy differs from the standard (main/develop),
+// replace branch literals in the copied workflows with the configured values.
+// For standard values the input is returned as is (no-op) — staying byte-identical to the template keeps
+// the isUnchanged skip logic and the "standard repo stays unchanged" contract intact.
 //
-// 치환 대상은 실측 전수조사(#477)된 패턴만 다룬다 (글롭·전면 replace 금지 — 오살 방지):
-//   1) 트리거 인라인:   branches: ["main"] / [develop] / [ develop ] / ["develop"]
-//   2) 트리거 멀티라인: "  - main" / "  - develop" 단독 라인 (뒤 주석 허용)
-//   3) 릴리스 가드:     == 'develop'  (RELEASE-CHANGELOG automerge head 가드)
-//   4) step 내부:       git fetch origin main  (RELEASE-CHANGELOG 커밋 분석)
-//   5) 배포 트리거(#1114): 배포 워크플로 파일만, main > deployTriggerBranch (아래 DEPLOY_TRIGGER_WORKFLOWS)
-//   6) 배포 스크립트 안 브랜치 검사(#1114): [ "$BRANCH" == "main" ] (REACT-CICD 허용 브랜치 검사)
-//   7) CI 사용 시간 절약(#1114): ciMinutesSaver 일 때 ci-minutes-sub.js (브랜치 치환보다 먼저, 템플릿 원문 기준)
+// Only patterns found by a full survey (#477) are substituted (no globs or blanket replace — avoids collateral damage):
+//   1) inline trigger:     branches: ["main"] / [develop] / [ develop ] / ["develop"]
+//   2) multi-line trigger: "  - main" / "  - develop" alone on a line (trailing comment allowed)
+//   3) release guard:      == 'develop'  (RELEASE-CHANGELOG automerge head guard)
+//   4) inside a step:      git fetch origin main  (RELEASE-CHANGELOG commit analysis)
+//   5) deploy trigger (#1114): deploy workflow files only, main > deployTriggerBranch (DEPLOY_TRIGGER_WORKFLOWS below)
+//   6) branch check in deploy scripts (#1114): [ "$BRANCH" == "main" ] (REACT-CICD allowed-branch check)
+//   7) CI minutes saver (#1114): with ciMinutesSaver, ci-minutes-sub.js (before branch substitution, on the raw template)
 
 import { substituteCiMinutesSaver } from "./ci-minutes-sub.js";
 
-// main(기본 브랜치) 계열 치환
+// main (default branch) substitutions
 function subDefault(s, db) {
   s = s.replace(/^(\s*branches:\s*\[\s*["']?)main(["']?\s*\])/gm, `$1${db}$2`);
   s = s.replace(/^(\s*-\s*)main(\s*(?:#.*)?)$/gm, `$1${db}$2`);
@@ -23,7 +23,7 @@ function subDefault(s, db) {
   return s;
 }
 
-// develop(개발/릴리스 head 브랜치) 계열 치환
+// develop (development/release head branch) substitutions
 function subDeploy(s, dev) {
   s = s.replace(/^(\s*branches:\s*\[\s*["']?)develop(["']?\s*\])/gm, `$1${dev}$2`);
   s = s.replace(/^(\s*-\s*)develop(\s*(?:#.*)?)$/gm, `$1${dev}$2`);
@@ -31,9 +31,9 @@ function subDeploy(s, dev) {
   return s;
 }
 
-// 푸시되면 배포가 도는 워크플로 (파일 이름 정확 일치). 기본 브랜치와 배포 브랜치를 나눈 레포에서만 쓴다.
-// 공통 워크플로(버전 올림 · README 버전 · 릴리스 노트 · 이슈 닫기)는 여기 없다: 기본 브랜치를 따른다.
-// 배포 워크플로를 추가하면 이 표에도 넣는다 (안 넣으면 그 파일은 기본 브랜치에서 배포가 돈다)
+// Workflows that deploy when pushed (exact file name match). Used only in repos that split the default and deploy branches.
+// Common workflows (version bump · README version · release notes · issue close) are not here: they follow the default branch.
+// Add new deploy workflows to this table too (otherwise that file deploys from the default branch)
 export const DEPLOY_TRIGGER_WORKFLOWS = new Set([
   "PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml", "PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml",
   "PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml", "PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml",
@@ -42,7 +42,7 @@ export const DEPLOY_TRIGGER_WORKFLOWS = new Set([
   "PROJECT-SPRING-NEXUS-PUBLISH.yml", "PROJECT-SPRING-GITHUB-PACKAGES-PUBLISH.yml",
 ]);
 
-// 배포 트리거 브랜치 치환: 트리거 · 체크아웃 ref · pull · 실행 조건의 main
+// Deploy trigger branch substitution: main in triggers · checkout ref · pull · run conditions
 function subDeployTrigger(s, trigger) {
   s = s.replace(/^(\s*branches:\s*\[\s*["']?)main(["']?\s*\])/gm, `$1${trigger}$2`);
   s = s.replace(/^(\s*-\s*)main(\s*(?:#.*)?)$/gm, `$1${trigger}$2`);
@@ -53,10 +53,10 @@ function subDeployTrigger(s, trigger) {
   return s;
 }
 
-// content에 브랜치 설정(+ CI 사용 시간 절약)을 적용한 결과를 반환. branches 미지정/표준값이면 원본 그대로.
-// 플레이스홀더 2단 치환: 값 충돌 방지 (예: 기본 브랜치=develop인 레포에서 main→develop 치환 결과가
-// 곧이어 develop→X 치환에 다시 걸리는 연쇄 오염을 차단).
-// filename: 배포 트리거 치환(#1114)이 배포 워크플로 파일에만 걸리게 하는 기준. 없으면 배포 트리거 치환은 건너뛴다.
+// Returns content with the branch settings (+ CI minutes saver) applied. Unchanged when branches is unset or standard.
+// Two-stage placeholder substitution prevents value collisions (e.g. in a repo whose default branch is develop, the main→develop
+// result would otherwise be caught again by the following develop→X substitution).
+// filename: limits the deploy trigger substitution (#1114) to deploy workflow files. Without it, that substitution is skipped.
 export function substituteBranches(content, branches = null, filename = "") {
   if (!branches) return content;
   const db = branches.defaultBranch || "main";
@@ -67,7 +67,7 @@ export function substituteBranches(content, branches = null, filename = "") {
   const T_DB = "__PJOPS_DEFAULT__";
   const T_DEV = "__PJOPS_DEPLOY__";
   const T_TRIGGER = "__PJOPS_TRIGGER__";
-  // 배포 워크플로의 main 은 기본 브랜치가 아니라 배포 트리거 브랜치로 간다 (먼저 자리표시자로 빼 둠)
+  // main in deploy workflows goes to the deploy trigger branch, not the default branch (moved out to a placeholder first)
   if (trigger && DEPLOY_TRIGGER_WORKFLOWS.has(filename)) s = subDeployTrigger(s, T_TRIGGER);
   if (dev !== "develop") s = subDeploy(s, T_DEV);
   if (db !== "main") s = subDefault(s, T_DB);

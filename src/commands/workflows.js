@@ -1,6 +1,6 @@
-// workflows 모드 (워크플로우만 설치).
-// 순서: copy_workflows → update_version_yml_deploy(version.yml 있을 때만) → scripts → config → util(타입별) → setup_guide.
-// (version.yml 생성 안 함 — 기존 version.yml이 있을 때만 deploy 블록 추가.)
+// workflows mode (installs workflows only).
+// Order: copy_workflows → update_version_yml_deploy (only if version.yml exists) → scripts → config → util (per type) → setup_guide.
+// (Does not generate version.yml — adds the deploy block only when a version.yml already exists.)
 import { join } from "node:path";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { PATHS } from "../core/paths.js";
@@ -13,41 +13,41 @@ import { installAgentGuide } from "../core/agent-guide.js";
 import { verifyInstall } from "../core/verify.js";
 
 export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
-  const { types = [], force = true, labelStyle } = context;   // labelStyle 은 resolveOptions 가 정한다
+  const { types = [], force = true, labelStyle } = context;   // labelStyle is decided by resolveOptions
   const wf = copyWorkflows(context, tempDir, targetRoot, hooks);
 
   const vy = join(targetRoot, PATHS.versionFile);
 
-  // v4.1.0 이전 단수 project_type 최소 변환 (#471) — 여기서 복사되는 신형 version_manager가
-  // 단수 키를 거부하므로, 변환 없이 두면 버전 워크플로우가 전부 실패하는 깨진 상태가 된다.
+  // Minimal conversion of the pre-v4.1.0 singular project_type (#471) — the new version_manager copied here
+  // rejects the singular key, so without converting, every version workflow fails in a broken state.
   if (existsSync(vy)) {
     const converted = convertLegacySingularType(readFileSync(vy, "utf8"));
     if (converted !== null) writeFileSync(vy, converted);
   }
 
-  // update_version_yml_deploy: 기존 version.yml이 있고 ask 값이 있을 때만 deploy 블록 갱신
+  // update_version_yml_deploy: update the deploy block only when a version.yml exists and there are ask values
   if (existsSync(vy) && wf.deployValues && wf.deployValues.size) {
     const cur = readFileSync(vy, "utf8");
-    writeFileSync(vy, upsertDeployBlock(cur, mergeDeployValues(cur, wf.deployValues)));   // 기존 값 우선 (#670)
+    writeFileSync(vy, upsertDeployBlock(cur, mergeDeployValues(cur, wf.deployValues)));   // Existing values first (#670)
   }
 
   copyScripts(tempDir, targetRoot);
   copyConfigFolder(tempDir, targetRoot);
-  applyLabelStyle(targetRoot, labelStyle); // #776 — 워크플로우(QA 봇)와 라벨 정의를 같은 표기로 맞춘다
+  applyLabelStyle(targetRoot, labelStyle); // #776 — aligns workflows (QA bot) and label definitions to the same style
   for (const t of types) copyUtilModules(tempDir, t, { force }, targetRoot);
   copySetupGuide(tempDir, targetRoot);
   installAgentGuide(targetRoot, context.templateVersion);
 
-  // 설치 후 검증 (#549) — 워크플로우만 설치하는 모드라 오히려 더 필요하다.
+  // Post-install verification (#549) — all the more needed in a mode that installs only workflows.
   const verification = verifyInstall(targetRoot);
-  // detail 키 이름 주의: run-trace의 민감값 가드가 pat|token|secret|password|credential을
-  // 키에서 걸러낸다(#494). 여기서 다루는 값은 비밀이 아니라 "치환 플레이스홀더 이름"과
-  // "등록이 필요한 키 이름"이라 가드에 걸리지 않는 이름을 쓴다 — 가드 자체는 우회하지 않는다.
+  // Mind the detail key names: the run-trace sensitive value guard filters pat|token|secret|password|credential
+  // out of keys (#494). These values are not secrets but "substitution placeholder names" and
+  // "key names that need registering", so names that do not trip the guard are used — the guard itself is not bypassed.
   hooks.trace?.event("verify", "scan", "", {
     unresolved: verification.unresolved.length,
     requiredKeys: verification.secrets.size,
   });
-  // 미치환 값은 배포 시점에 실패할 자리다 — 어느 파일 몇 번째 줄인지 로그에 남긴다.
+  // Unreplaced values are spots that will fail at deploy time — log which file and line.
   for (const u of verification.unresolved) {
     hooks.trace?.event("verify", "unresolved", u.filename, { line: u.line, placeholder: u.token });
   }
@@ -58,24 +58,24 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   return { workflows: wf, verification };
 }
 
-// 기존 version.yml에서 deploy: 블록을 제거하고 새로 append (멱등).
+// Remove the deploy: block from the existing version.yml and append a new one (idempotent).
 export function upsertDeployBlock(content, deployValues) {
-  // 기존 deploy: 블록 제거 (deploy: 라인 ~ 다음 최상위 키 전까지)
+  // Remove the existing deploy: block (from the deploy: line up to the next top-level key)
   const lines = content.split(/\r?\n/);
   const out = [];
   let inDeploy = false;
   for (const line of lines) {
     if (/^deploy:/.test(line)) { inDeploy = true; continue; }
     if (inDeploy) {
-      // 4.28.0 이 만든 깨진 구조: deploy 아래 2칸 `template:` 은 deploy 내용이 아니라 metadata 의 자식이다 (#670)
+      // Broken structure made by 4.28.0: a 2-space `template:` under deploy is a child of metadata, not deploy content (#670)
       if (/^ {2}template:/.test(line)) inDeploy = false;
-      else if (/^\s/.test(line) || line === "") continue; // 들여쓰기/빈줄 = deploy 내부
+      else if (/^\s/.test(line) || line === "") continue; // Indented/blank line = inside deploy
       else inDeploy = false;
     }
     out.push(line);
   }
   let text = out.join("\n").replace(/\n+$/, "\n");
-  // 새 deploy 블록 append
+  // Append the new deploy block
   const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t)?.size);
   if (deployTypes.length) {
     text += `\ndeploy:                          # 마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)\n`;

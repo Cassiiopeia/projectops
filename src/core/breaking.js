@@ -1,4 +1,4 @@
-// 버전 비교: v 접두 제거, 3자리 숫자 비교, 누락 자리=0
+// Version compare: strip v prefix, compare 3 numeric parts, missing part = 0
 export function compareVersions(a, b) {
   const parse = (v) => String(v).replace(/^v/, "").split(".").map((n) => parseInt(n, 10) || 0);
   const pa = parse(a), pb = parse(b);
@@ -10,9 +10,9 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-// breaking-changes.json에서 current < ver <= target 범위 항목 수집.
-// ⚠️ target은 하드코딩 1.3.14가 아니라 실제 templateVersion을 넘긴다 (D2).
-// _ 로 시작하는 키(메타) 제외. severity critical / 그 외(warning).
+// Collect breaking-changes.json entries in the range current < ver <= target.
+// ⚠️ target is the real templateVersion, not a hardcoded 1.3.14 (D2).
+// Skip keys starting with _ (meta). severity: critical / anything else (warning).
 export function collectBreaking(json, current, target) {
   const critical = [], warnings = [];
   for (const [ver, entry] of Object.entries(json || {})) {
@@ -25,8 +25,8 @@ export function collectBreaking(json, current, target) {
   return { critical, warnings };
 }
 
-// 항목 문구 > 화면 언어: ko면 title_ko/message_ko, 없거나 그 외 언어면 영어 원문(title/message)
-// 영어 키가 정본 — 구버전 CLI는 main의 이 파일에서 title/message만 읽음 (#988)
+// Entry text > screen language: ko uses title_ko/message_ko; missing or other languages use the English original (title/message)
+// English keys are the source of truth — old CLIs read only title/message from this file on main (#988)
 export function localizeBreakingEntry(entry, lang) {
   const pickField = (field) => {
     const koreanText = lang === "ko" ? entry?.[`${field}_ko`] : null;

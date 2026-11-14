@@ -1,23 +1,23 @@
-// 레거시 마이그레이션 진입점 (#470) — 신호 기반·멱등.
-// 감지(registry × rules) → 계획 표시 → safe 티어 확인 1회 → 적용 → confirm 티어 안내.
-// 버전 번호를 믿지 않는다: 절반의 레거시 레포는 version.yml에 template 메타가 없다(실측).
+// Legacy migration entry point (#470) — signal-based and idempotent.
+// Detect (registry × rules) → show plan → confirm safe tier once → apply → notice for the confirm tier.
+// Version numbers are not trusted: half of legacy repos have no template metadata in version.yml (measured).
 import { MIGRATIONS } from "./registry.js";
 import { t } from "../../i18n/index.js";
 import * as workflowRule from "./rules/obsolete-workflows.js";
 import * as rootFileRule from "./rules/root-files.js";
 import * as legacyDirRule from "./rules/legacy-dirs.js";
 
-// 사유는 화면 언어로 번역(reasonKey), 키가 없으면 원문 그대로
+// Reasons are translated to the screen language (reasonKey); without a key, the original text as is
 const reasonOf = (e) => (e.reasonKey ? t(e.reasonKey) : e.reason);
 
 const RULES = {
   workflow: workflowRule,
   "root-file": rootFileRule,
   "legacy-dir": legacyDirRule,
-  "util-file": rootFileRule, // #500 — util 모듈 내 폐기 파일: 정확 경로 삭제 (root-file rule 재사용)
+  "util-file": rootFileRule, // #500 — obsolete files inside util modules: exact-path delete (reuses the root-file rule)
 };
 
-// 대상 레포에서 레거시 잔재 감지. 반환: { safe: [entry], confirm: [entry], ask: [entry] }
+// Detect legacy leftovers in the target repo. Returns { safe: [entry], confirm: [entry], ask: [entry] }
 export function detectMigrations(targetRoot = ".") {
   const safe = [];
   const confirm = [];
@@ -32,7 +32,7 @@ export function detectMigrations(targetRoot = ".") {
   return { safe, confirm, ask };
 }
 
-// 항목 일괄 적용 실행기 (safe·ask 티어 공용). 실패해도 나머지는 계속(부분 실패 허용 — 멱등이라 재실행으로 복구).
+// Batch apply runner for entries (shared by the safe and ask tiers). Continues on failure (partial failure allowed — idempotent, so a re-run recovers).
 export function applySafeMigrations(targetRoot, entries) {
   const results = [];
   for (const entry of entries) {
@@ -45,12 +45,12 @@ export function applySafeMigrations(targetRoot, entries) {
   return results;
 }
 
-// 마법사 배선 진입점.
-//   askYesNo - async(msg, defaultYes)→bool. null이면 비대화형(--force): safe 자동 적용
-//   log      - 한 줄 출력 함수 (기본 console.log)
-//   removeLegacy - true면 confirm 티어(구세대 배포 워크플로우)도 .bak 무해화 (--remove-legacy, #809)
-// 반환: { applied: [결과], confirmPending: [entry], askPending: [entry] }
-// 폐기 워크플로에서 옮긴 설정 > 화면과 실행 기록용 줄 (사용자가 설정이 옮겨졌는지 확인, #1060)
+// Wizard wiring entry point.
+//   askYesNo - async(msg, defaultYes)→bool. null means non-interactive (--force): safe applied automatically
+//   log      - one-line output function (default console.log)
+//   removeLegacy - when true, also neutralize the confirm tier (old-generation deploy workflows) as .bak (--remove-legacy, #809)
+// Returns { applied: [results], confirmPending: [entry], askPending: [entry] }
+// Settings moved from obsolete workflows > lines for the screen and run log (lets the user confirm settings moved, #1060)
 export function describeCarriedSettings(results) {
   const lines = [];
   for (const result of results) {
@@ -89,7 +89,7 @@ export async function runMigrations({ targetRoot = ".", askYesNo = null, log = c
     }
   }
 
-  // ask 티어 (#476) — 사용자 문서가 담긴 구명칭 폴더: 대화형은 확인 후 이동, 비대화형은 안내만
+  // ask tier (#476) — old-name folders holding user documents: interactive moves after confirmation, non-interactive only notifies
   let askPending = [];
   if (ask.length > 0) {
     log(t("migrate.dir.found", { n: ask.length }));
@@ -122,8 +122,8 @@ export async function runMigrations({ targetRoot = ".", askYesNo = null, log = c
       const arrow = e.replacedBy ? t("migrate.confirm.newer", { name: e.replacedBy }) : "";
       log(`   • ${e.file}${arrow}: ${reasonOf(e)}`);
     }
-    // 신·구 세대가 함께 돌면 같은 이벤트에 두 번 반응한다 (#809 — PR 닫힘마다 PREVIEW 두 벌).
-    // 현역 배포일 수 있어 기본은 손대지 않되, 명시 플래그나 대화형 확인이 있으면 .bak 으로 치운다(복원 가능).
+    // When old and new generations run together, they react twice to the same event (#809 — two PREVIEWs on every PR close).
+    // It may be the live deploy, so it is left alone by default, but moved aside as .bak (restorable) with the explicit flag or interactive confirmation.
     const yes = removeLegacy
       ? true
       : askYesNo ? await askYesNo(t("migrate.confirm.ask", { n: confirm.length }), false) : false;

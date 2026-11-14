@@ -1,5 +1,5 @@
-// PI 패키지 어댑터 (설치·제거).
-// pi install/update/remove. skill은 복사되지 않고 pi가 startup마다 스캔 → 설치 검증은 'pi list'.
+// PI package adapter (install/remove).
+// pi install/update/remove. Skills are not copied; pi scans them at every startup → install check is 'pi list'.
 import { PI_PACKAGE_URL, piInstalled, harnessEnabled, harnessRemove, migratePiLegacy } from "./pi-common.js";
 import { migrateConfigRoot } from "../legacy.js";
 import { t } from "../../../i18n/index.js";
@@ -36,7 +36,7 @@ function remove(io) {
   io.run("pi", ["remove", PI_PACKAGE_URL]);
   if (piInstalled(io)) io.log(t("ide.pi.stillThere"));
   else io.log(t("ide.pi.removed"));
-  // package 클론이 사라지면 harness loader 경로가 허공을 가리킴 → 함께 해제
+  // If the package clone disappears, the harness loader path points at nothing → disable it too
   if (harnessEnabled(io)) { io.log(t("ide.pi.harnessAlso")); harnessRemove(io); }
   return true;
 }

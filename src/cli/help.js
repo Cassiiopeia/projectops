@@ -1,9 +1,9 @@
 // --help text in each supported language. English is the default (see src/i18n).
 //
-// 이 화면은 사람보다 AI agent 가 더 많이 읽는다. 그래서 "무엇을 하는가"만이 아니라
-// 언제 질문이 나오는지 · 안 주면 무엇이 되는지 · 레포에서 무엇이 바뀌는지를 적는다.
-// 값 목록과 플래그별 상세는 src/core/options-schema.js 가 정본이고 `--mode options --json` 이 그대로 출력한다.
-// test/cli-docs-sync.test.js 가 args.js 의 모든 플래그가 영·한 두 본문에 있는지 검사한다 — 새 플래그는 둘 다에 적는다.
+// AI agents read this screen more than people do. So it states not only "what it does" but also
+// when questions appear · what happens if omitted · what changes in the repo.
+// Value lists and per-flag details live in src/core/options-schema.js (source of truth); `--mode options --json` prints them as is.
+// Every flag in args.js must appear in both the English and Korean help texts — add new flags to both.
 import { getLang } from "../i18n/index.js";
 
 const HELP_EN = `projectops — installs and updates GitHub automation (versioning, release notes, CI/CD, issue templates, agent skills)

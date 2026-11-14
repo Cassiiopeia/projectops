@@ -1,4 +1,4 @@
-// core 영역 메시지 (en). 키는 <영역>.<의미> 형식.
+// core area messages (en). Keys use the <area>.<meaning> format.
 export default {
   "args.mode": "--mode must be one of {values}: '{v}'",
   "args.projectVersion": "--project-version must look like x.y.z (e.g. 1.0.0): '{v}'",

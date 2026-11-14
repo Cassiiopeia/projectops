@@ -1,5 +1,5 @@
-// 홈 복사형 IDE(Cursor·Copilot) 설치·제거 흐름 공용: 소스 찾기 > 복사 > 진입점 > 로그
-// 메시지는 어댑터별 키 묶음(<messagePrefix>.copying 등)을 쓴다.
+// Shared install/remove flow for home-copy IDEs (Cursor, Copilot): find source > copy > entry points > log
+// Messages use per-adapter key sets (<messagePrefix>.copying, etc.).
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { t } from "../../i18n/index.js";
@@ -7,7 +7,7 @@ import { resolveSkillsSrc, resolveScriptsSrc, installHomeSkills, removeOwnedEntr
 import { refreshStableEntrypoints, projectopsHomeOf } from "./stable-entry.js";
 
 /**
- * 설치·업데이트: 스킬 소스 확인 > 스킬·공용 파이썬 복사 > 고정 진입점 > 결과 로그
+ * Install/update: check skill source > copy skills and shared Python > stable entry points > result log
  * options: { skillsDest, metaFileName, messagePrefix }
  */
 export function applyHomeSkills(io, ctx, { skillsDest, metaFileName, messagePrefix }) {
@@ -20,7 +20,7 @@ export function applyHomeSkills(io, ctx, { skillsDest, metaFileName, messagePref
       skillsSrc, scriptsSrc, skillsDest, metaFileName, templateVersion: ctx.templateVersion,
     });
     for (const name of obsoleteNames) io.log(t("ide.skillsCopy.obsolete", { name }));
-    // 공용 파이썬이 없으면 스킬 CLI 가 import 에 실패 → 알림만 (문서형 스킬은 동작)
+    // Without the shared Python, skill CLIs fail on import → notify only (doc-only skills still work)
     if (!hasSharedScripts) io.log(t("ide.skillsCopy.noScripts"));
     io.log(t(`${messagePrefix}.installed`, { dest: skillsDest, version: ctx.templateVersion || "unknown" }));
   } catch (e) {
@@ -32,7 +32,7 @@ export function applyHomeSkills(io, ctx, { skillsDest, metaFileName, messagePref
   return true;
 }
 
-// 진입점 실패는 설치 실패가 아니다 (CLI 첫 실행 때 파이썬이 다시 깐다)
+// An entry point failure is not an install failure (Python reinstalls it on the first CLI run)
 function installStableEntrypoints(io, skillsSrc, scriptsSrc) {
   try {
     const projectopsHome = projectopsHomeOf(io);
@@ -42,7 +42,7 @@ function installStableEntrypoints(io, skillsSrc, scriptsSrc) {
   } catch { io.log(t("ide.skillsCopy.entrypointFailed")); }
 }
 
-// 제거: 메타 없으면 건너뜀 > 우리 항목·공용 파이썬만 삭제 (남의 스킬이 남으면 폴더 유지)
+// Remove: skip if no meta > delete only our entries and the shared Python (keep the folder if others' skills remain)
 export function removeHomeSkills(io, ctx, { skillsDest, metaFileName, messagePrefix }) {
   if (!existsSync(join(skillsDest, metaFileName))) { io.log(t(`${messagePrefix}.removeNone`)); return true; }
   try {

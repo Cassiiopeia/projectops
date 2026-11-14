@@ -1,35 +1,35 @@
-// 스킬 폴더 복사 공용 (Cursor·Copilot): skills/ + 공용 파이썬 scripts/ > 홈 설치 루트, 테스트 제외, 폐기 정리, 메타 기록
-// 마켓플레이스 없이 SKILL.md 폴더를 그대로 읽는 IDE 가 같은 규칙을 쓰도록 한 곳에 둔다.
-// 설치 모양은 플러그인 캐시와 같다: <설치 루트>/skills/pro-*/scripts/x_cli.py + <설치 루트>/scripts/common
-//   (스킬 CLI bootstrap 이 x_cli.py 기준 3단계 위의 scripts/ 를 import 경로로 쓴다)
+// Shared skill folder copy (Cursor, Copilot): skills/ + shared Python scripts/ > home install root, tests excluded, obsolete cleanup, meta record
+// Kept in one place so IDEs that read SKILL.md folders directly without a marketplace use the same rules.
+// Install layout matches the plugin cache: <install root>/skills/pro-*/scripts/x_cli.py + <install root>/scripts/common
+//   (the skill CLI bootstrap uses scripts/ three levels above x_cli.py as an import path)
 import { dirname, join, relative } from "node:path";
 import { existsSync, readFileSync, mkdirSync, rmSync, writeFileSync, readdirSync } from "node:fs";
 import { copyPathSync } from "../fsutil.js";
 import { TEMPLATE_REPO_WEB_URL } from "../paths.js";
 
-// 스킬을 쓰는 사람에게 필요 없는 것. projectops 자신을 검사하는 테스트다.
-// skills/ 는 통째로 복사되므로 여기서 걸러내지 않으면 사용자 홈에 그대로 쌓인다.
+// Not needed by skill users. These are tests that check projectops itself.
+// skills/ is copied whole, so without filtering here they pile up in the user's home.
 export const SKIP_IN_COPY = new Set(["conftest.py", "pytest.ini"]);
 export const TEST_PATH = /(^|[\\/])(tests?|__pycache__)([\\/]|$)/;
-// 우리 스킬 접두사: pro- 현행, suh- 옛 이름
+// Our skill prefixes: pro- current, suh- old name
 const OWNED_SKILL_NAME = /^(pro|suh)-/;
-// 공용 파이썬 패키지 표식: scripts/common/__init__.py
+// Shared Python package marker: scripts/common/__init__.py
 const SHARED_SCRIPTS_MARKER = join("common", "__init__.py");
 export const SHARED_SCRIPTS_DIR_NAME = "scripts";
 const PYTHON_CACHE_DIR_NAME = "__pycache__";
-// 공용 파이썬 중 저장소 관리자만 쓰는 최상위 항목 3개: 안내 문서, 트러블슈팅 색인 생성기, extras 사본 동기화 (#988)
-// 허용 목록이 아니라 제외 목록인 이유: 새 런타임 모듈을 빠뜨리면 스킬이 import 에서 죽지만,
-// 새 개발 파일을 빠뜨리면 파일 하나가 더 갈 뿐이다. 런타임이 쓰는 항목이 여기 들어오면 test/ide-home-install-e2e.test.js 가 잡는다
+// 3 top-level shared Python entries used only by repo maintainers: guide doc, troubleshooting index generator, extras copy sync (#988)
+// Why an exclude list, not an allow list: missing a new runtime module kills skills on import,
+// while missing a new dev file only ships one extra file. test/ide-home-install-e2e.test.js catches runtime entries landing here
 export const SHARED_SCRIPTS_DEV_ONLY = new Set(["README.md", "build_troubleshooting.py", "sync_extras.py"]);
 
-// 스킬 소스: 다운로드된 템플릿(TEMP)/skills 우선, 없으면 로컬 skills/
+// Skill source: downloaded template (TEMP)/skills first, else local skills/
 export function resolveSkillsSrc(ctx = {}) {
   const cands = [ctx.sourceSkillsDir, ctx.tempDir && join(ctx.tempDir, "skills"), "skills"].filter(Boolean);
   for (const c of cands) if (existsSync(c)) return c;
   return "";
 }
 
-// 공용 파이썬 소스: 직접 지정 > 템플릿(TEMP)/scripts > 스킬 소스 옆 scripts/ (같은 레포)
+// Shared Python source: explicit > template (TEMP)/scripts > scripts/ next to the skill source (same repo)
 export function resolveScriptsSrc(ctx = {}, skillsSrc = "") {
   const cands = [ctx.sourceScriptsDir, ctx.tempDir && join(ctx.tempDir, SHARED_SCRIPTS_DIR_NAME),
     skillsSrc && join(dirname(skillsSrc), SHARED_SCRIPTS_DIR_NAME)].filter(Boolean);
@@ -37,7 +37,7 @@ export function resolveScriptsSrc(ctx = {}, skillsSrc = "") {
   return "";
 }
 
-// 메타 파일 > {installed, version, sharedScripts} (손상된 메타는 설치됐다고 봄)
+// Meta file > {installed, version, sharedScripts} (corrupt meta counts as installed)
 export function readSkillsMeta(metaFile) {
   if (!existsSync(metaFile)) return { installed: false, version: null, sharedScripts: [] };
   try {
@@ -46,15 +46,15 @@ export function readSkillsMeta(metaFile) {
   } catch { return { installed: true, version: null, sharedScripts: [] }; }
 }
 
-// 소스 최상위 항목 복사 (테스트·conftest 제외). 필터는 소스 기준 상대경로로 본다 —
-// 절대경로로 보면 소스가 ~/test/... 아래에 있을 때 전부 걸러진다.
-// skipNames: 추가로 빼는 최상위 이름 (공용 파이썬의 개발 전용 항목)
+// Copy top-level source entries (tests and conftest excluded). The filter uses paths relative to the source —
+// with absolute paths, everything would be filtered when the source sits under ~/test/....
+// skipNames: extra top-level names to leave out (dev-only shared Python entries)
 function copyEntriesWithoutTests(src, dest, skipNames = new Set()) {
   mkdirSync(dest, { recursive: true });
   const copiedNames = [];
   for (const e of readdirSync(src, { withFileTypes: true })) {
     if (SKIP_IN_COPY.has(e.name) || TEST_PATH.test(e.name) || skipNames.has(e.name)) continue;
-    // 이 저장소 자기 코드를 검사하는 테스트는 남의 컴퓨터로 나갈 이유가 없다 (#591).
+    // Tests that check this repo's own code have no reason to go to someone else's computer (#591).
     copyPathSync(join(src, e.name), join(dest, e.name), (p) => !TEST_PATH.test(relative(src, p)));
     copiedNames.push(e.name);
   }
@@ -62,13 +62,13 @@ function copyEntriesWithoutTests(src, dest, skipNames = new Set()) {
 }
 
 /**
- * 스킬 복사: 소스 > dest (테스트 제외) > 소스에서 사라진 우리 스킬 제거
- * 폐기한 스킬 이름 목록 반환. 복사 실패는 예외로 올린다 (호출부가 로그·false 처리).
+ * Copy skills: source > dest (tests excluded) > remove our skills that vanished from the source
+ * Returns the list of obsolete skill names. Copy failures are thrown (the caller logs and returns false).
  */
 export function copySkillsTree(src, dest, metaFileName) {
   copyEntriesWithoutTests(src, dest);
-  // 복사는 overlay 라 덮어쓰기만 하면 **폐기한 스킬이 남의 컴퓨터에 영영 남아** 계속 잡힌다 (#500).
-  // 남의 스킬은 접두사로 걸러 건드리지 않는다.
+  // The copy is an overlay, so overwriting alone leaves **obsolete skills on users' computers forever**, still picked up (#500).
+  // Others' skills are filtered out by prefix and left untouched.
   const srcNames = new Set(readdirSync(src));
   const obsoleteNames = [];
   for (const name of readdirSync(dest)) {
@@ -77,21 +77,21 @@ export function copySkillsTree(src, dest, metaFileName) {
     try {
       rmSync(join(dest, name), { recursive: true, force: true });
       obsoleteNames.push(name);
-    } catch { /* 무시 — 지우지 못해도 설치는 계속한다 */ }
+    } catch { /* ignore — keep installing even if it cannot be deleted */ }
   }
   return obsoleteNames;
 }
 
-// 공용 파이썬 교체 복사: 지난 설치 항목 제거 > 런타임 항목만 복사 (폐기 모듈·예전에 깔린 개발 파일이 남지 않게). 복사한 항목 이름 반환
+// Replace-copy the shared Python: remove last install's entries > copy runtime entries only (so obsolete modules and old dev files do not linger). Returns copied entry names
 function replaceSharedScripts(scriptsSrc, scriptsDest, previousNames) {
   removeNamedEntries(scriptsDest, previousNames);
   return copyEntriesWithoutTests(scriptsSrc, scriptsDest, SHARED_SCRIPTS_DEV_ONLY);
 }
 
-// 이름 목록 + 파이썬 실행이 만든 __pycache__ 삭제 > 폴더가 비면 폴더도 삭제
+// Delete the name list + __pycache__ made by Python runs > delete the folder too if empty
 function removeNamedEntries(dir, names) {
   for (const name of [...names, PYTHON_CACHE_DIR_NAME]) {
-    // 메타에서 읽은 이름이라 경로 이동(../) 차단
+    // Names come from meta, so block path traversal (../)
     if (!name || name.includes("/") || name.includes("\\") || name === "..") continue;
     rmSync(join(dir, name), { recursive: true, force: true });
   }
@@ -99,8 +99,8 @@ function removeNamedEntries(dir, names) {
 }
 
 /**
- * 홈 설치 1회: 스킬 복사 > 공용 파이썬 교체 복사 > 메타 기록
- * {obsoleteNames, hasSharedScripts} 반환. 실패는 예외로 올린다.
+ * One home install: copy skills > replace-copy shared Python > record meta
+ * Returns {obsoleteNames, hasSharedScripts}. Failures are thrown.
  */
 export function installHomeSkills({ skillsSrc, scriptsSrc, skillsDest, metaFileName, templateVersion }) {
   const metaFile = join(skillsDest, metaFileName);
@@ -112,18 +112,18 @@ export function installHomeSkills({ skillsSrc, scriptsSrc, skillsDest, metaFileN
   return { obsoleteNames, hasSharedScripts: !!scriptsSrc };
 }
 
-// projectops 가 이 폴더에 설치했다고 볼 항목: 소스 폴더명 ∪ pro-/suh- 접두사 ∪ 메타 파일
-// 접두어 없는 폴더(somansa-tools 등 남의 스킬)는 제외 → 보존
+// Entries considered installed here by projectops: source folder names ∪ pro-/suh- prefixes ∪ meta file
+// Folders without the prefix (others' skills like somansa-tools) are excluded → kept
 export function ownedEntries(dir, ctx, metaFileName) {
   if (!existsSync(dir)) return [];
   let srcNames = new Set();
   const src = resolveSkillsSrc(ctx);
   if (src && existsSync(src)) srcNames = new Set(readdirSync(src));
-  // 폐기한 스킬은 소스에 없으므로 srcNames 로는 잡히지 않는다 (#619).
+  // Obsolete skills are not in the source, so srcNames does not catch them (#619).
   return readdirSync(dir).filter((name) => srcNames.has(name) || OWNED_SKILL_NAME.test(name) || name === metaFileName);
 }
 
-// 우리 항목만 삭제 (메타에 적힌 공용 파이썬 포함) > 폴더가 비면 폴더도 삭제. 실패는 예외로 올린다.
+// Delete only our entries (including shared Python listed in meta) > delete the folder too if empty. Failures are thrown.
 export function removeOwnedEntries(dir, ctx, metaFileName) {
   const { sharedScripts } = readSkillsMeta(join(dir, metaFileName));
   for (const name of ownedEntries(dir, ctx, metaFileName)) rmSync(join(dir, name), { recursive: true, force: true });
@@ -132,13 +132,13 @@ export function removeOwnedEntries(dir, ctx, metaFileName) {
   if (sharedScripts.length && existsSync(scriptsDest)) removeNamedEntries(scriptsDest, sharedScripts);
 }
 
-// 메타 기록: 버전 추적용 (installedAt 은 첫 설치 시각 유지). extraFields: sharedScripts 등
+// Record meta: for version tracking (installedAt keeps the first install time). extraFields: sharedScripts, etc.
 export function writeSkillsMeta(destDir, metaFileName, templateVersion, extraFields = {}) {
   const version = templateVersion || "unknown";
   const now = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const file = join(destDir, metaFileName);
   let installedAt = now;
-  if (existsSync(file)) { try { installedAt = JSON.parse(readFileSync(file, "utf8")).installedAt || now; } catch { /* 무해 */ } }
+  if (existsSync(file)) { try { installedAt = JSON.parse(readFileSync(file, "utf8")).installedAt || now; } catch { /* harmless */ } }
   const meta = {
     name: "projectops", version, scope: "user",
     source: TEMPLATE_REPO_WEB_URL,

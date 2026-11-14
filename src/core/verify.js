@@ -1,23 +1,23 @@
-// 설치 후 검증 (#549) — 설치된 워크플로우를 다시 읽어 "이대로 돌아가는가"를 본다.
+// Post-install verification (#549) — rereads installed workflows to see "will this run as is".
 //
-// 왜 설치 전이 아니라 후인가: 치환은 파일 단위로 흩어져 일어나고 auto 토큰은 resolver 결과에
-// 의존한다. 최종 디스크 내용을 보는 것이 실제로 배포될 것과 같은 것을 보는 유일한 방법이다.
+// Why after, not before install: substitution happens scattered per file, and auto tokens depend on
+// resolver results. Looking at the final disk content is the only way to see what will actually deploy.
 import { join } from "node:path";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { PATHS } from "./paths.js";
 
-// 치환 대상이 아닌 토큰 — 워크플로우 스크립트 안의 heredoc 구분자다. 값이 아니라 문법이므로
-// 미치환 검사에서 제외한다. (예: cat <<'__SUH_FILE_CONTENT_EOF__')
+// Tokens that are not substitution targets — heredoc delimiters inside workflow scripts. They are syntax,
+// not values, so they are excluded from the unreplaced check. (e.g. cat <<'__SUH_FILE_CONTENT_EOF__')
 const SENTINEL_RE = /^__SUH_[A-Z0-9_]*__$/;
 const PLACEHOLDER_RE = /__[A-Z][A-Z0-9_]*__/g;
 
-// 주석으로 죽어 있는 줄 — 실행되지 않으므로 검사 대상이 아니다.
-// 템플릿에는 "[선택] ..." 예시 스텝이 통째로 주석 처리돼 들어 있는데, 이걸 세면
-// 쓰지도 않는 Secret을 "등록하세요"라고 안내하게 된다.
+// Commented-out lines — they never run, so they are not checked.
+// Templates ship whole "[optional] ..." sample steps commented out; counting them would
+// tell users to "register" secrets they never use.
 const isCommented = (line) => /^\s*#/.test(line);
 
-// 검사 대상 파일 목록. 호출부가 명시하지 않으면 설치된 워크플로우 전체를 스캔한다
-// (복사 결과 목록을 조합해 넘기는 것보다, 최종 디스크 상태를 그대로 보는 쪽이 목적에 맞다).
+// Files to check. If the caller does not specify, scan every installed workflow
+// (looking at the final disk state fits the purpose better than assembling the copy result list).
 function listWorkflowFiles(workflowsDir, filenames) {
   if (filenames && filenames.length) return filenames;
   if (!existsSync(workflowsDir)) return [];
@@ -41,12 +41,12 @@ function readLines(workflowsDir, filename) {
   }
 }
 
-// 미치환 플레이스홀더 스캔.
-// auto 토큰 계산이 실패해도(예: application.yaml을 못 찾아 경로가 빈 문자열) 그 줄을 건드리지
-// 않고 넘어가므로, __APPLICATION_YML_DIR__ 이 그대로 남은 워크플로우가 "설치 성공"으로 끝난다.
-// 문제는 배포 시점에야 그 이름의 디렉터리가 만들어지며 드러난다.
+// Unreplaced placeholder scan.
+// When an auto token computation fails (e.g. application.yaml not found, empty path), the line is left
+// untouched, so a workflow still holding __APPLICATION_YML_DIR__ ends as "install succeeded".
+// The problem only shows at deploy time, when a directory with that name gets created.
 //
-// 반환: [{ filename, line, token, text }] — 사람이 바로 고칠 수 있게 줄 번호까지 준다.
+// Returns [{ filename, line, token, text }] — includes line numbers so people can fix it right away.
 export function scanUnsubstituted(workflowsDir, filenames = []) {
   const found = [];
   for (const filename of listWorkflowFiles(workflowsDir, filenames)) {
@@ -63,23 +63,23 @@ export function scanUnsubstituted(workflowsDir, filenames = []) {
   return found;
 }
 
-// GITHUB_TOKEN은 Actions가 자동 주입하므로 사용자가 등록할 대상이 아니다.
+// GITHUB_TOKEN is injected by Actions automatically, so users do not register it.
 const AUTO_SECRETS = new Set(["GITHUB_TOKEN"]);
 
-// 없어도 워크플로우가 도는 secret — 폴백이 문서화돼 있다. 필수와 섞어 "등록해야 동작합니다"라고
-// 하면 안내 자체를 못 믿게 되므로 분리한다.
-//   MODEL_API_KEY      → 등록하면 외부 AI 요약, 없으면 Copilot → 커밋 분석 (#455·#566 사다리)
-//   _GITHUB_PAT_TOKEN  → 없으면 GITHUB_TOKEN으로 머지하고 후속 워크플로우를 직접 깨운다 (#551)
+// Secrets the workflow runs without — the fallback is documented. Mixing them with required ones under "needed to work"
+// would make the notice itself untrustworthy, so they are kept separate.
+//   MODEL_API_KEY      → if registered, external AI summary; otherwise Copilot → commit analysis (#455·#566 ladder)
+//   _GITHUB_PAT_TOKEN  → if missing, merge with GITHUB_TOKEN and wake follow-up workflows directly (#551)
 export const OPTIONAL_SECRETS = new Set(["MODEL_API_KEY", "_GITHUB_PAT_TOKEN"]);
 
 const SECRET_RE = /secrets\.([A-Z_][A-Z0-9_]*)/g;
 
-// 설치된 워크플로우가 요구하는 GitHub Secret 목록.
-// 완료 화면이 아무것도 안내하지 않는 바람에, 배포 워크플로우가 실제로 필요로 하는
-// SERVER_HOST·SSH_KEY 같은 값이 드러나지 않았다. 설치 직후 상태로는 배포가 돌지 않는데
-// 그 사실을 알 방법이 없다.
+// GitHub secrets required by the installed workflows.
+// Because the finish screen said nothing, values the deploy workflows actually need, like
+// SERVER_HOST and SSH_KEY, never surfaced. Right after install the deploy cannot run,
+// and there was no way to know it.
 //
-// 반환: Map<secretName, string[] 그 secret을 쓰는 파일명> (이름 오름차순)
+// Returns Map<secretName, string[] file names using that secret> (sorted by name)
 export function collectRequiredSecrets(workflowsDir, filenames = []) {
   const out = new Map();
   for (const filename of listWorkflowFiles(workflowsDir, filenames)) {
@@ -99,8 +99,8 @@ export function collectRequiredSecrets(workflowsDir, filenames = []) {
   return new Map([...out.entries()].sort(([a], [b]) => a.localeCompare(b)));
 }
 
-// 설치 직후 한 번에 돌리는 진입점. targetRoot 기준으로 워크플로우 폴더를 찾는다.
-// 반환: { unresolved: [...], secrets: Map, ok: boolean }
+// Entry point run once right after install. Finds the workflow folder under targetRoot.
+// Returns { unresolved: [...], secrets: Map, ok: boolean }
 export function verifyInstall(targetRoot = ".", filenames = []) {
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
   const unresolved = scanUnsubstituted(workflowsDir, filenames);

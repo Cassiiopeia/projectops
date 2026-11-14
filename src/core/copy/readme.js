@@ -1,20 +1,20 @@
-// README 버전 섹션 추가.
+// Add the README version section.
 import { join } from "node:path";
 import { existsSync, readFileSync, appendFileSync } from "node:fs";
 
 const MARKER = "<!-- AUTO-VERSION-SECTION";
-// ## (최신 버전|최신버전|Latest version|Version|버전) : vX.Y.Z (대소문자 무시)
+// ## (최신 버전|최신버전|Latest version|Version|버전) : vX.Y.Z (case-insensitive)
 const VERSION_LINE_RE = /##\s*(최신\s*버전|최신버전|Latest\s+version|Version|버전)\s*:\s*v[0-9]+\.[0-9]+\.[0-9]+/i;
 
-// 레포 언어별 섹션 문구 (.github/scripts/i18n 의 readme.version_heading 과 같은 값)
+// Section text per repo language (same values as readme.version_heading in .github/scripts/i18n)
 const SECTION_TEXT = {
   en: { heading: "Latest version", changelogLink: "View the full version history" },
   ko: { heading: "최신 버전", changelogLink: "전체 버전 기록 보기" },
 };
 
-// README.md 없으면 스킵. 마커 또는 버전 라인 있으면 스킵. 없으면 파일 끝에 append.
-// 반환: 'skip-no-readme' | 'skip-marker' | 'skip-version-line' | 'added'
-// language 미지정은 ko — 언어를 넘기지 않는 기존 호출부의 결과를 바꾸지 않기 위함
+// Skip if README.md is missing. Skip if the marker or a version line exists. Otherwise append at the end of the file.
+// Returns 'skip-no-readme' | 'skip-marker' | 'skip-version-line' | 'added'
+// language defaults to ko — keeps results unchanged for existing callers that pass no language
 export function addVersionSectionToReadme(version, targetRoot = ".", language = "ko") {
   const p = join(targetRoot, "README.md");
   if (!existsSync(p)) return "skip-no-readme";
@@ -23,7 +23,7 @@ export function addVersionSectionToReadme(version, targetRoot = ".", language = 
   if (VERSION_LINE_RE.test(content)) return "skip-version-line";
 
   const text = SECTION_TEXT[language] ?? SECTION_TEXT.ko;
-  // append 본문은 빈 줄 + "---"로 시작 (원본 파일이 개행으로 끝난다는 전제).
+  // The appended body starts with a blank line + "---" (assumes the original file ends with a newline).
   const section =
     "\n" +
     "---\n" +

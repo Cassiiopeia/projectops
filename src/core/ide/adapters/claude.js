@@ -1,5 +1,5 @@
-// Claude Code 어댑터 (플러그인 설치·제거, 플러그인 데이터 정리).
-// 마켓플레이스 Cassiiopeia/projectops, 플러그인 projectops@projectops-marketplace.
+// Claude Code adapter (plugin install/remove, plugin data cleanup).
+// Marketplace Cassiiopeia/projectops, plugin projectops@projectops-marketplace.
 import { join } from "node:path";
 import { existsSync, readdirSync, mkdirSync, copyFileSync, rmSync } from "node:fs";
 import { compareCacheName } from "../util.js";
@@ -23,25 +23,25 @@ function detect(io) {
       const name = String(p.name || p.id || "");
       if (name.includes("projectops@") || name === "projectops") { scope = p.scope || ""; version = p.version || null; break; }
     }
-  } catch { /* 파싱 실패 → 미설치 취급 */ }
+  } catch { /* Parse failure → treat as not installed */ }
   return { installed: !!scope, version, cliMissing: false, scope };
 }
 
 function apply(io, ctx = {}) {
   const st = detect(io);
   if (st.cliMissing) { io.log(manualHint(io)); return false; }
-  migrateLegacy(io);          // 옛 cassiiopeia 플러그인/마켓 정리
-  migrateConfigRoot(io);      // 공용 config 루트 이관
-  const st2 = detect(io);     // 정리 후 재감지
+  migrateLegacy(io);          // Clean up the old cassiiopeia plugin/marketplace
+  migrateConfigRoot(io);      // Migrate the shared config root
+  const st2 = detect(io);     // Re-detect after cleanup
   if (st2.installed) return update(io, st2.scope);
   return install(io, "user");
 }
 
-// 옛 이름(cassiiopeia) 플러그인·마켓 정리. 조용히, 로그만. 실패 무해(없으면 no-op).
+// Clean up the old-name (cassiiopeia) plugin and marketplace. Quietly, log only. Failure is harmless (no-op if missing).
 function migrateLegacy(io) {
   const r = io.run("claude", ["plugin", "list", "--json"]);
   let list = [];
-  try { const arr = JSON.parse(r.stdout || "[]"); list = Array.isArray(arr) ? arr : (arr.plugins || []); } catch { /* 무시 */ }
+  try { const arr = JSON.parse(r.stdout || "[]"); list = Array.isArray(arr) ? arr : (arr.plugins || []); } catch { /* ignore */ }
   for (const legacy of LEGACY_PLUGINS) {
     const hit = list.find((p) => {
       const name = String(p.name || p.id || "");
@@ -54,7 +54,7 @@ function migrateLegacy(io) {
     }
   }
   for (const mp of LEGACY_MARKETPLACES) {
-    io.run("claude", ["plugin", "marketplace", "remove", mp]); // 없으면 no-op
+    io.run("claude", ["plugin", "marketplace", "remove", mp]); // No-op if missing
   }
 }
 
@@ -94,7 +94,7 @@ function manualHint() {
   return t("ide.claude.manual", { market: MARKETPLACE, plugin: PLUGIN });
 }
 
-// ── 내부 헬퍼 ──
+// ── Internal helpers ──
 function latestCacheDir(root) {
   if (!existsSync(root)) return "";
   const dirs = readdirSync(root, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort(compareCacheName);
@@ -109,11 +109,11 @@ function migrateConfig(io, oldCache, newCache) {
     let copied = 0;
     for (const f of readdirSync(oldCfg)) if (f.endsWith(".json")) { copyFileSync(join(oldCfg, f), join(newCfg, f)); copied++; }
     if (copied) io.log(t("ide.claude.configMigrated"));
-  } catch { /* 무해 */ }
+  } catch { /* harmless */ }
 }
 function removePluginData(io) {
   const dataDir = join(io.home(), ".claude/plugins/data", PLUGIN);
-  if (existsSync(dataDir)) { try { rmSync(dataDir, { recursive: true, force: true }); io.log(t("ide.claude.dataRemoved")); } catch { /* 무해 */ } }
+  if (existsSync(dataDir)) { try { rmSync(dataDir, { recursive: true, force: true }); io.log(t("ide.claude.dataRemoved")); } catch { /* harmless */ } }
 }
 
 export const claudeAdapter = {

@@ -1,4 +1,4 @@
-// 파일시스템 공용 유틸 (LF 보존 바이트 복사). 텍스트는 그대로 복사해 원본 줄바꿈 유지.
+// Shared filesystem utilities (byte copy that keeps LF). Text is copied as is to keep the original line endings.
 import {
   copyFileSync as copyFileBytes, existsSync, lstatSync, readFileSync, readlinkSync, symlinkSync,
   writeFileSync, mkdirSync, readdirSync, rmSync,
@@ -13,14 +13,14 @@ export function writeText(p, s) {
   writeFileSync(p, s);
 }
 
-// 단일 파일 복사 (부모 디렉토리 자동 생성, 바이트 그대로)
+// Copy a single file (creates parent directories, byte for byte)
 export function copyFileSync(src, dst) {
   mkdirSync(dirname(dst), { recursive: true });
   copyFileBytes(src, dst);
 }
 
-// 파일·폴더·심볼릭 링크 재귀 복사. fs.cpSync 는 쓰지 않는다:
-// Windows + Node 22 이상에서 경로에 한글이 있으면 메시지 없이 프로세스가 죽는다.
+// Recursive copy of files, folders and symlinks. Avoids the built-in fs recursive copy (cp-sync):
+// on Windows with Node 22+, a non-ASCII (e.g. Korean) path kills the process with no message.
 export function copyPathSync(src, dst, filter) {
   if (filter && !filter(src)) return;
   const stat = lstatSync(src);
@@ -35,20 +35,20 @@ export function copyPathSync(src, dst, filter) {
   }
 }
 
-// 디렉토리 재귀 복사 (내용을 dst 하위로)
+// Recursive directory copy (contents go under dst)
 export function copyDirSync(src, dst, { filter } = {}) {
   mkdirSync(dst, { recursive: true });
   copyPathSync(src, dst, filter);
 }
 
-// 파일/폴더 삭제 (없어도 무해)
+// Delete a file/folder (harmless if missing)
 export function remove(p) {
   rmSync(p, { recursive: true, force: true });
 }
 
-// 디렉토리 직하위 .yaml/.yml 파일명 목록. 하위 폴더 제외.
-// 정렬: 확장자로 1차 그룹(.yaml 먼저 → .yml 나중), 각 그룹 안에서 알파벳순.
-// (순회 순서가 version.yml deploy 블록의 키 순서를 정함 — 기존 설치본과 바이트 동일 유지)
+// Names of .yaml/.yml files directly under a directory. Subfolders excluded.
+// Sort: group by extension first (.yaml before .yml), alphabetical within each group.
+// (Iteration order sets the key order of the version.yml deploy block — keeps output byte-identical to existing installs)
 export function listYamlFiles(dir) {
   if (!existsSync(dir)) return [];
   const names = readdirSync(dir, { withFileTypes: true })

@@ -1,4 +1,4 @@
-// doctor 영역 메시지 (en). 키는 doctor.* 형식.
+// doctor area messages (en). Keys use the doctor.* format.
 export default {
   "doctor.perm.purpose": "Automatic commits, tags and downstream workflow runs",
   "doctor.integ.name": "Integration status",

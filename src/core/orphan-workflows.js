@@ -1,14 +1,14 @@
-// 고아 타입 워크플로우 감지·정리 (#487) — 타입 변경으로 선택에서 빠진 타입의
-// 템플릿 워크플로우를 감지해 .bak 무해화한다 (레거시 마이그레이션과 동일 방식).
-// 안전 원칙: 템플릿 인벤토리와 "정확한 파일명 일치"만 대상 — prefix 매칭 금지
-// (사용자 커스텀 워크플로우 오살 방지). common/은 타입이 아니므로 순회에서 제외.
+// Orphan type workflow detection and cleanup (#487) — detects template workflows of types dropped from the selection
+// by a type change and neutralizes them as .bak (same approach as the legacy migration).
+// Safety rule: only exact file name matches against the template inventory — no prefix matching
+// (avoids hitting user custom workflows). common/ is not a type, so it is skipped in the loop.
 import { existsSync, renameSync, rmSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { PATHS } from "./paths.js";
 import { exists, listYamlFiles } from "./fsutil.js";
 import { commonOptionalGroups, SERVER_DEPLOY_DIR } from "./workflow-groups.js";
 
-// 템플릿의 project-types/<type>/ 인벤토리 — 직하위 + server-deploy/ + publish/*/ (copy 엔진과 동일 범위)
+// Template inventory of project-types/<type>/ — direct children + server-deploy/ + publish/*/ (same scope as the copy engine)
 function typeInventory(projectTypesDir, type) {
   const typeDir = join(projectTypesDir, type);
   const dirs = [typeDir, join(typeDir, SERVER_DEPLOY_DIR)];
@@ -26,10 +26,10 @@ function typeInventory(projectTypesDir, type) {
   return files;
 }
 
-// common/ 아래 "선택했을 때만 복사되는" 폴더들 (#566).
-// 켜면 복사 엔진이 넣어주지만, 끄면 이미 있던 파일이 그대로 남아 계속 실행됐다.
-// 축을 끈 사용자에게는 그게 곧 "껐는데 왜 도나"가 된다 — 여기서 고아로 잡는다.
-// 켜짐/꺼짐은 복사 엔진과 같은 표(workflow-groups.js)에서 읽는다 (#851).
+// Folders under common/ that are "copied only when selected" (#566).
+// Turning one on makes the copy engine add it, but turning it off left the existing files in place, still running.
+// For a user who turned the axis off that means "I turned it off, why does it run" — caught here as orphans.
+// On/off is read from the same table as the copy engine (workflow-groups.js) (#851).
 function commonOptionalOrphans(commonDir, opts) {
   const out = [];
   for (const group of commonOptionalGroups(commonDir, opts)) {
@@ -41,12 +41,12 @@ function commonOptionalOrphans(commonDir, opts) {
   return out;
 }
 
-// 선택 안 된 타입·옵션의 템플릿 워크플로우가 대상 레포에 실재하면 고아로 반환.
+// Returns as orphans the template workflows of unselected types/options that exist in the target repo.
 export function detectOrphanWorkflows({ tempDir, targetRoot = ".", selectedTypes = [], options = null }) {
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   if (!exists(projectTypesDir)) return [];
   const selected = new Set(selectedTypes);
-  // 선택된 타입이 쓰는 파일명 집합 — 교차 방어 (파일명은 타입 prefix로 유일하지만 안전망)
+  // File names used by the selected types — cross-check (names are unique by type prefix, but as a safety net)
   const keep = new Set();
   for (const t of selected) for (const f of typeInventory(projectTypesDir, t)) keep.add(f);
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
@@ -58,7 +58,7 @@ export function detectOrphanWorkflows({ tempDir, targetRoot = ".", selectedTypes
       if (existsSync(join(workflowsDir, f))) orphans.push({ filename: f, type: e.name });
     }
   }
-  // common의 조건부 폴더 — options를 준 호출부에서만 검사한다(구 호출부 동작 보존).
+  // Conditional folders under common — checked only for callers that pass options (keeps old callers' behavior).
   if (options) {
     const commonDir = join(projectTypesDir, "common");
     for (const o of commonOptionalOrphans(commonDir, options)) {
@@ -69,7 +69,7 @@ export function detectOrphanWorkflows({ tempDir, targetRoot = ".", selectedTypes
   return orphans.sort((a, b) => a.filename.localeCompare(b.filename));
 }
 
-// .bak 무해화 실행기 — 부분 실패 허용 (migrations applySafeMigrations와 동일 원칙).
+// .bak neutralizer — tolerates partial failure (same principle as migrations applySafeMigrations).
 export function applyOrphanCleanup(targetRoot, orphans) {
   const workflowsDir = join(targetRoot, PATHS.workflowsDir);
   const results = [];
@@ -77,7 +77,7 @@ export function applyOrphanCleanup(targetRoot, orphans) {
     try {
       const src = join(workflowsDir, filename);
       const bak = `${src}.bak`;
-      if (existsSync(bak)) rmSync(bak, { force: true }); // Windows rename은 대상 존재 시 실패
+      if (existsSync(bak)) rmSync(bak, { force: true }); // Windows rename fails when the target exists
       renameSync(src, bak);
       results.push({ filename, action: "bak" });
     } catch (err) {

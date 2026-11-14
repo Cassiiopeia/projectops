@@ -1,9 +1,9 @@
-// 비대화형 개발(릴리스 소스) 브랜치 생성 (#715) — --create-development-branch 를 준 실행에서만.
-// 대화형 ensureDeployBranch 를 "모든 질문에 예"로 다시 쓴다: 존재 판단·생성·push 경로를 한 벌로 유지.
-// 실패해도 예외를 던지지 않는다 — 통합 전체를 실패시키지 않고 수동 명령만 남긴다.
+// Non-interactive development (release source) branch creation (#715) — only when --create-development-branch is given.
+// Reuses the interactive ensureDeployBranch as "yes to every question": one code path for existence check, creation and push.
+// Never throws on failure — leaves a manual command instead of failing the whole integration.
 import { ensureDeployBranch } from "./options-ask.js";
 
-// ensureDeployBranch state > 결과 3종 (created · skipped · failed)
+// ensureDeployBranch state > 3 results (created · skipped · failed)
 const STATUS_BY_STATE = {
   "exists-local": "skipped",
   "exists-remote": "skipped",
@@ -14,7 +14,7 @@ const STATUS_BY_STATE = {
   "not-checked": "failed",
 };
 
-// 실패 사유별 수동 명령 (push 실패는 로컬 브랜치가 이미 생겼으므로 push 만)
+// Manual command per failure reason (push failure: the local branch already exists, so push only)
 function manualCommandFor(state, branch, base) {
   if (state === "push-failed") return `git push -u origin ${branch}`;
   if (state === "create-failed" && base) return `git branch ${branch} ${base} && git push -u origin ${branch}`;
@@ -22,12 +22,12 @@ function manualCommandFor(state, branch, base) {
 }
 
 /**
- * 개발 브랜치 확인 > 없으면 기본 브랜치에서 생성 > origin push
- * 반환: { status, reason, branch, base, pushed, manualCommand(실패 시만) }
+ * Check the development branch > create it from the default branch if missing > push to origin
+ * Returns { status, reason, branch, base, pushed, manualCommand (on failure only) }
  */
 export async function createDevelopmentBranchUnattended({ targetRoot = ".", branch = "develop", defaultBranch = "", say = () => {} }) {
   const answerYes = { confirm: async () => true };
-  // 무인 실행: 자격 증명을 묻지 않고 실패시켜 failed 경로(수동 명령)로 보낸다 (#988)
+  // Unattended run: fail instead of asking for credentials, sending it to the failed path (manual command) (#988)
   const outcome = await ensureDeployBranch({ targetRoot, deployBranch: branch, defaultBranch, io: answerYes, say, isNonInteractive: true });
   const status = STATUS_BY_STATE[outcome.state] ?? "failed";
   return {
@@ -41,8 +41,8 @@ export async function createDevelopmentBranchUnattended({ targetRoot = ".", bran
 }
 
 /**
- * 실행 단계 래퍼: 플래그 확인 > 생성 시도 > 실행 기록(trace) 남김
- * 플래그가 없으면 만들지 않고 "왜 안 만들었는지"만 기록. 반환: 결과 | null(플래그 없음)
+ * Step wrapper: check the flag > try to create > write the run trace
+ * Without the flag, creates nothing and records only why. Returns result | null (no flag)
  */
 export async function runDevelopmentBranchStep({ isRequested = false, targetRoot, branch, defaultBranch, trace = null, say = () => {} }) {
   const name = branch || "develop";
@@ -51,7 +51,7 @@ export async function runDevelopmentBranchStep({ isRequested = false, targetRoot
     return null;
   }
   const result = await createDevelopmentBranchUnattended({ targetRoot, branch: name, defaultBranch, say });
-  // action 이 곧 결과 — failed 는 로그에서 ERROR 로 보인다 (run-trace levelOf)
+  // action is the result — failed shows as ERROR in the log (run-trace levelOf)
   trace?.event("dev-branch", result.status, name, {
     base: defaultBranch || null, reason: result.reason, pushed: result.pushed, manualCommand: result.manualCommand,
   });

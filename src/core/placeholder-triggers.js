@@ -1,26 +1,26 @@
-// 자동 트리거 + 예시 값이 함께 남은 워크플로우 감지 (#662)
-// 예시 값(your-project 등)은 미치환 토큰(__X__) 검사에 걸리지 않아, 푸시·라벨마다 실패 런이 쌓여도 doctor 가 통과시켰다.
-// ⚠️ YAML 파서 없이 라인 단위로 본다 (의존성 0 — 설치 CLI 는 dependencies 가 비어 있다).
+// Detect workflows that keep both an automatic trigger and sample values (#662)
+// Sample values (your-project, etc.) slip past the unreplaced token (__X__) check, so doctor passed while failed runs piled up on every push or label.
+// ⚠️ Line-based, no YAML parser (zero dependencies — the installer CLI has empty dependencies).
 import { join } from "node:path";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 
-// 사람이 직접 눌러야 도는 트리거 3개 — 나머지는 전부 자동 트리거로 본다
+// The 3 triggers a person must fire by hand — everything else counts as automatic
 const MANUAL_EVENTS = new Set(["workflow_dispatch", "workflow_call", "repository_dispatch"]);
 
-// 예시 값 판정: your-/your_ 접두 단어, example.com 류 도메인, 미치환 토큰 (heredoc 구분자 __SUH_*__ 제외)
+// Sample value test: your-/your_ prefixed words, example.com-style domains, unreplaced tokens (excluding heredoc delimiters __SUH_*__)
 const PLACEHOLDER_VALUE_RES = [
   /(^|[^a-z0-9])your[-_][a-z0-9]/i,
   /(^|[.@/])example\.(com|org|net)\b/i,
   /__(?!SUH_)[A-Z][A-Z0-9_]*__/,
 ];
 
-// 환경변수형 줄만 본다: `  KEY: "값"` (run 스크립트 안 URL·문구 오탐 방지)
+// Only env-style lines: `  KEY: "value"` (avoids false hits on URLs and text inside run scripts)
 const ENV_LINE_RE = /^\s*([A-Z][A-Z0-9_]*):\s*(?:"([^"]*)"|'([^']*)'|([^\s#][^#]*?))\s*(?:#.*)?$/;
 
 const isCommented = (line) => /^\s*#/.test(line);
 
 /**
- * on: 블록 > 이벤트 이름 목록 (인라인 `on: push`, `on: [a, b]`, 블록 형식 3가지)
+ * on: block > event names (inline `on: push`, `on: [a, b]`, and block form — 3 shapes)
  */
 export function parseTriggerEvents(text) {
   const lines = String(text || "").split(/\r?\n/);
@@ -29,7 +29,7 @@ export function parseTriggerEvents(text) {
   const inline = lines[start].replace(/^[^:]*:\s*/, "").replace(/#.*$/, "").trim();
   if (inline) return inline.replace(/^\[|\]$/g, "").split(",").map((s) => s.trim()).filter(Boolean);
 
-  // 블록: 첫 하위 줄의 들여쓰기 깊이에 있는 키만 이벤트로 센다
+  // Block form: only keys at the indent depth of the first child line count as events
   const events = [];
   let depth = null;
   for (const line of lines.slice(start + 1)) {
@@ -45,7 +45,7 @@ export function parseTriggerEvents(text) {
 }
 
 /**
- * 워크플로우 본문 > 예시 값이 남은 환경변수 줄 [{ key, value, line }]
+ * Workflow body > env lines that still hold sample values [{ key, value, line }]
  */
 export function findPlaceholderValues(text) {
   const found = [];
@@ -62,7 +62,7 @@ export function findPlaceholderValues(text) {
 }
 
 /**
- * 설치된 워크플로우 폴더 > 자동 트리거와 예시 값을 함께 가진 파일 [{ file, triggers, values }]
+ * Installed workflow folder > files with both an automatic trigger and sample values [{ file, triggers, values }]
  */
 export function scanPlaceholderTriggers(workflowsDir) {
   if (!existsSync(workflowsDir)) return [];

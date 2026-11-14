@@ -1,15 +1,15 @@
-// CI 사용 시간 절약 치환 (#1114) — version.yml options.ci_minutes_saver: true 일 때만.
-// 비공개 레포는 Actions 분이 과금된다. 같은 커밋에 두 번 도는 CI·문서 변경 CI·macOS 러너(분당 10배)를 줄인다.
-// 꺼져 있으면 호출되지 않는다 (설치 결과 바이트 동일). 패턴을 못 찾으면(사용자 수정본) 그 변환만 건너뛴다.
-// 브랜치 치환보다 먼저 돈다 — 템플릿 원문(develop) 기준으로 패턴을 맞춘다.
+// CI minutes saver substitution (#1114) — only with version.yml options.ci_minutes_saver: true.
+// Private repos pay for Actions minutes. Cuts CI that runs twice on the same commit, CI on doc-only changes, and macOS runners (10x per minute).
+// Not called when off (install output byte-identical). If a pattern is not found (user-edited file), only that transform is skipped.
+// Runs before branch substitution — patterns match the raw template (develop).
 
-// PR 에서 문서만 바뀐 경우 CI 생략 (코드 경로를 고르는 paths 는 레포마다 달라 템플릿이 정할 수 없다)
+// Skip CI for PRs that change only docs (paths that select code differ per repo, so the template cannot decide them)
 const DOCS_ONLY_PATHS_IGNORE = `    paths-ignore: ["**/*.md", "docs/**", "LICENSE"]   # ci_minutes_saver: docs-only changes skip CI\n`;
 
-// on: 아래 push: 이벤트 블록 (자식 줄 4칸 이상). branches 필터만 있는 블록일 때만 지운다
+// push: event block under on: (child lines indented 4+). Removed only when the block holds just a branches filter
 const PUSH_BLOCK_RE = /^ {2}push:[ \t]*\n((?: {4,}.*\n|[ \t]*\n)*)/m;
 
-// 같은 변경에 PR 과 push 로 두 번 도는 CI > push 제거 (PR 만)
+// CI running twice for the same change via PR and push > drop push (PR only)
 function dropPushTrigger(s) {
   const pushBlock = s.match(PUSH_BLOCK_RE);
   if (!pushBlock) return s;
@@ -18,27 +18,27 @@ function dropPushTrigger(s) {
   return isBranchFilterOnly ? s.replace(PUSH_BLOCK_RE, "") : s;
 }
 
-// 이벤트(pull_request · push) 바로 아래에 문서 경로 제외 추가
+// Add doc path exclusions right under the events (pull_request · push)
 function addDocsPathsIgnore(s, event) {
   const re = new RegExp(`^( {2}${event}:[ \\t]*\\n)`, "m");
   if (!re.test(s) || s.includes("ci_minutes_saver: docs-only")) return s;
   return s.replace(re, `$1${DOCS_ONLY_PATHS_IGNORE}`);
 }
 
-// iOS(macOS 러너) 빌드 자동 실행 끔 — 수동 실행 입력 enable_ios 로만 켠다
+// Turn off automatic iOS (macOS runner) builds — enabled only via the manual input enable_ios
 function disableIosByDefault(s) {
-  // 한 글자 늘어난 만큼 뒤 공백 하나를 먹어 주석 열을 맞춘다
+  // Eat one trailing space for each added character to keep the comment column aligned
   return s.replace(/^( {2}ENABLE_IOS: )"true" ?/m, `$1"false"`);
 }
 
-// 파일 이름(정확 일치) > 적용할 변환 목록. 스토어 배포·댓글 트리거 빌드는 넣지 않는다
+// File name (exact match) > transforms to apply. Store deploys and comment-triggered builds are not included
 export const CI_MINUTES_SAVER_RULES = new Map([
   ["PROJECT-FLUTTER-CI.yaml", [dropPushTrigger, (s) => addDocsPathsIgnore(s, "pull_request"), disableIosByDefault]],
   ["PROJECT-PYTHON-CI.yaml", [dropPushTrigger, (s) => addDocsPathsIgnore(s, "pull_request")]],
   ["PROJECT-SPRING-NEXUS-CI.yml", [dropPushTrigger, (s) => addDocsPathsIgnore(s, "pull_request")]],
-  // PR 트리거가 없어 push 는 남기고 문서 변경만 거른다
+  // No PR trigger, so keep push and filter only doc changes
   ["PROJECT-REACT-CI.yaml", [(s) => addDocsPathsIgnore(s, "push")]],
-  // 푸시와 무관한 작업 > 수동 실행만
+  // Jobs unrelated to pushes > manual runs only
   ["PROJECT-COMMON-SECRET-FILE-UPLOAD.yaml", [dropPushTrigger]],
 ]);
 

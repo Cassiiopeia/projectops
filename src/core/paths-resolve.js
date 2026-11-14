@@ -1,22 +1,22 @@
-// 타입별 프로젝트 경로 감지·확정. 모노레포에서 각 타입의 버전 파일이
-// 어느 폴더에 있는지 5단계 우선순위로 확정한다.
+// Detect and settle per-type project paths. In a monorepo, decides which folder holds
+// each type's version file using a 5-step priority.
 //
-// io 주입 계약(readline-engine 시그니처 그대로):
+// io injection contract (same signatures as readline-engine):
 //   io.select({message, options:[{value,label}]}) → value | CANCEL(symbol)
 //   io.text({message, defaultValue})              → string | CANCEL
 //   io.confirm({message, initialValue})           → bool | CANCEL
-//   io.log(line)                                   → 안내 출력 (없으면 stderr)
+//   io.log(line)                                   → notice output (stderr if missing)
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { t as msg } from "../i18n/index.js";
 import { markerForType as baseMarkerForType, extraMarkers } from "./detect.js";
 import { normalizePath } from "../cli/args.js";
 
-// 취소(ESC/Ctrl+C)는 CANCEL 심볼 — ui를 import하지 않고 심볼 여부로만 판정 (core→ui 역참조 방지)
+// Cancel (ESC/Ctrl+C) is the CANCEL symbol — judged only by symbol identity, without importing ui (avoids a core→ui back reference)
 const isCancel = (v) => typeof v === "symbol";
 
-// 타입의 대표 마커 파일명.
-// detect.js는 미지 타입에 package.json을 기본 반환 — 여기서는 빈 문자열이 되도록 래핑.
+// Main marker file name of a type.
+// detect.js returns package.json for unknown types by default — wrapped here so it becomes an empty string.
 const KNOWN_MARKER_TYPES = new Set([
   "flutter", "react", "node", "react-native", "react-native-expo", "python", "spring",
 ]);
@@ -24,7 +24,7 @@ export function markerForType(type) {
   return KNOWN_MARKER_TYPES.has(type) ? baseMarkerForType(type) : "";
 }
 
-// 디렉토리에 실재하는 마커 파일명 반환 — 보조 마커 포함, 없으면 대표 마커 (표시용).
+// Returns the marker file name that actually exists in the directory — including secondary markers, else the main marker (for display).
 // (spring build.gradle/.kts/pom.xml, python pyproject/setup.py/requirements.txt)
 export function existingMarkerInDir(type, dir) {
   const primary = markerForType(type);
@@ -35,8 +35,8 @@ export function existingMarkerInDir(type, dir) {
   return primary;
 }
 
-// maxdepth 3 재귀 파일 탐색 — 매치 파일의 "디렉토리" 상대경로(루트는 ".")를 수집.
-// find의 maxdepth는 파일 경로 컴포넌트 수 기준(./a/b/f = depth 3)이므로 동일하게 계산.
+// Recursive file search with maxdepth 3 — collects the relative "directory" path of matching files (root is ".").
+// find's maxdepth counts path components of the file (./a/b/f = depth 3), so compute the same way.
 function walkFindDirs(root, { prune, match, maxDepth = 3 }) {
   const hits = [];
   const walk = (rel, depth) => {
@@ -46,34 +46,34 @@ function walkFindDirs(root, { prune, match, maxDepth = 3 }) {
       const childDepth = depth + 1;
       const childRel = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) {
-        // prune 폴더는 하위 전체 제외
+        // Pruned folders exclude everything below them
         if (prune.has(e.name)) continue;
-        // 자식 파일이 depth ≤ maxDepth 안에 들어올 때만 하강
+        // Descend only when child files stay within depth ≤ maxDepth
         if (childDepth < maxDepth) walk(childRel, childDepth);
-        // childDepth === maxDepth-0 인 디렉토리 내부 파일은 depth maxDepth+1 → find가 안 봄
-        else if (childDepth === maxDepth) { /* 파일만 maxDepth까지 — 디렉토리 하강 불필요 */ }
+        // Files inside a directory at childDepth === maxDepth-0 are at depth maxDepth+1 → find does not see them
+        else if (childDepth === maxDepth) { /* Files only up to maxDepth — no need to descend */ }
       } else if (childDepth <= maxDepth && match(e.name)) {
         hits.push(rel === "" ? "." : rel);
       }
     }
   };
   walk("", 0);
-  return [...new Set(hits)].sort(); // 중복 제거 + 정렬
+  return [...new Set(hits)].sort(); // Dedupe + sort
 }
 
-// 타입별 마커 파일 후보 검색.
-// 반환: 후보 디렉토리 상대경로 배열 (루트는 ".").
+// Search marker file candidates per type.
+// Returns an array of candidate directory relative paths (root is ".").
 export function findTypePathCandidates(root, type) {
-  // ── Spring 멀티모듈: settings.gradle(.kts) 폴더 = 모듈 루트로 축약 ──
-  // version_manager가 그 폴더 아래 build.gradle 전부를 갱신하므로 하위 모듈을 펼치지 않는다.
-  // android/ 의 settings.gradle(Flutter/RN)은 spring이 아니므로 prune.
+  // ── Spring multi-module: collapse to the settings.gradle(.kts) folder = module root ──
+  // version_manager updates every build.gradle under that folder, so submodules are not expanded.
+  // settings.gradle under android/ (Flutter/RN) is not spring, so prune it.
   if (type === "spring") {
     const mm = walkFindDirs(root, {
       prune: new Set(["node_modules", ".git", "build", "dist", ".gradle", "android", "ios"]),
       match: (n) => n === "settings.gradle" || n === "settings.gradle.kts",
     });
     if (mm.length) return mm;
-    // settings.gradle 없음 → 단일 모듈, 아래 build.gradle 폴백
+    // No settings.gradle → single module, fall back to build.gradle below
   }
 
   const namesByType = {
@@ -91,7 +91,7 @@ export function findTypePathCandidates(root, type) {
     "node_modules", ".git", "build", "dist", ".dart_tool", "android", "ios",
     ".gradle", "venv", ".venv", "__pycache__",
   ]);
-  // 우선순위 높은 마커에서 발견되면 그것만 사용
+  // If found by a higher-priority marker, use only that
   let found = [];
   for (const n of names) {
     found = walkFindDirs(root, { prune, match: (name) => name === n });
@@ -100,37 +100,37 @@ export function findTypePathCandidates(root, type) {
 
   return found.filter((d) => {
     if (type === "flutter") {
-      // example/ 제외 + lib/ 동반 확인 — 오탐 방지
+      // Exclude example/ + require lib/ alongside — avoids false hits
       if (d.includes("example")) return false;
       const libDir = d === "." ? join(root, "lib") : join(root, d, "lib");
       if (!existsSync(libDir)) return false;
     }
     if (type === "spring") {
-      // Flutter/RN의 android/build.gradle 오탐 제외
+      // Exclude false hits on android/build.gradle from Flutter/RN
       if (d.includes("android")) return false;
     }
     return true;
   });
 }
 
-// 선택된 모든 타입의 경로를 감지·확인하여 Map<type,path> 확정
-// (5단계 우선순위).
-//   ① paths에 이미 있음(--paths) → 유지
-//   ② 루트에 마커 존재 → "." 자동
-//   ③ existingPaths(version.yml 저장값)
-//   ④ 후보 스캔
-//   ⑤ 분기 — 비대화형: 기존값→후보1개→루트 폴백 / 대화형: 확인·선택·직접입력
+// Detect and confirm paths for all selected types and settle a Map<type,path>
+// (5-step priority).
+//   ① already in paths (--paths) → keep
+//   ② marker at the root → "." automatically
+//   ③ existingPaths (saved in version.yml)
+//   ④ candidate scan
+//   ⑤ branch — non-interactive: existing value → single candidate → root fallback / interactive: confirm, select, manual input
 export async function resolveProjectPaths({
   root, types = [], paths = new Map(), existingPaths = new Map(),
   force = false, tty = true, io = {},
 }) {
   const say = io.log || ((m) => process.stderr.write(`${m}\n`));
-  const result = new Map(paths); // --paths 사전값 유지 (호출부 Map은 불변)
-  const targets = types.filter((t) => t !== "basic"); // basic은 경로 불필요
+  const result = new Map(paths); // Keep --paths presets (the caller's Map is not mutated)
+  const targets = types.filter((t) => t !== "basic"); // basic needs no path
   if (targets.length === 0) return result;
 
   const total = targets.length;
-  // ── 도입부 안내 (감지 결과 + 무엇을 할지 설명) ──
+  // ── Intro notice (detection result + what will happen) ──
   say("");
   if (total > 1) say(msg("paths.multi", { total }));
   else say(msg("paths.single", { type: targets[0] }));
@@ -144,13 +144,13 @@ export async function resolveProjectPaths({
     idx += 1;
     const prog = `[${idx}/${total}]`;
 
-    // ① --paths 등으로 이미 지정됨 → 최우선
+    // ① already given via --paths etc. → top priority
     if (result.get(t)) {
       say(msg("paths.byFlag", { type: t, path: result.get(t) }));
       continue;
     }
 
-    // ② 루트에 마커 존재 → "." 자동 확정 (보조 마커 포함)
+    // ② marker at the root → settle "." automatically (including secondary markers)
     const rootMarker = existingMarkerInDir(t, root);
     if (rootMarker && existsSync(join(root, rootMarker))) {
       result.set(t, ".");
@@ -158,14 +158,14 @@ export async function resolveProjectPaths({
       continue;
     }
 
-    // ③ 기존 version.yml 저장값 → 기본 제안값
+    // ③ saved value in the existing version.yml → default suggestion
     const existing = existingPaths.get(t) || "";
 
-    // ④ 후보 검색
+    // ④ candidate search
     const candidates = findTypePathCandidates(root, t);
     let chosen = "";
 
-    // ── ⑤-a 비대화형 (--force 또는 TTY 없음) ──
+    // ── ⑤-a non-interactive (--force or no TTY) ──
     if (force || !tty) {
       if (existing) {
         chosen = existing;
@@ -181,8 +181,8 @@ export async function resolveProjectPaths({
       continue;
     }
 
-    // ── ⑤-b 대화형: 후보 개수별 분기 + 타입 탈출구 (#487) ──
-    const EXCLUDE = "이 타입 제외"; // 센티넬 — 한국어 value로 노출 (기존 "직접 입력" 패턴)
+    // ── ⑤-b interactive: branch by candidate count + type escape hatch (#487) ──
+    const EXCLUDE = "이 타입 제외"; // Sentinel — exposed as a Korean value (same pattern as the existing "직접 입력")
     let excluded = false;
     if (candidates.length === 1) {
       const cand = candidates[0];
@@ -201,11 +201,11 @@ export async function resolveProjectPaths({
       });
       if (sel === EXCLUDE) excluded = true;
       else if (!isCancel(sel) && sel != null && sel !== "직접 입력") chosen = sel;
-      // ESC/직접 입력 → 아래 직접입력 루프로
+      // ESC/manual input → manual input loop below
     } else if (candidates.length > 1) {
       say("");
       say(msg("paths.multiFound", { prog, type: t, count: candidates.length }));
-      // 후보들 + '직접 입력'/'이 타입 제외' 메뉴 — value 자체를 한국어로 (센티넬 노출 방지)
+      // Candidates + 'manual input'/'exclude this type' menu — the value itself is Korean (avoids exposing a sentinel)
       const options = candidates.map((c) => ({
         value: c,
         label: `${c} (${existingMarkerInDir(t, c === "." ? root : join(root, c))})`,
@@ -213,7 +213,7 @@ export async function resolveProjectPaths({
       options.push({ value: "직접 입력", label: msg("paths.manual") });
       options.push({ value: EXCLUDE, label: msg("paths.exclude", { type: t }) });
       const sel = await io.select({ message: msg("paths.selectPrompt", { type: t }), options });
-      // ESC(취소)도 직접 입력으로 폴백
+      // ESC (cancel) also falls back to manual input
       if (sel === EXCLUDE) excluded = true;
       else if (!isCancel(sel) && sel != null && sel !== "직접 입력") chosen = sel;
     } else {
@@ -221,18 +221,18 @@ export async function resolveProjectPaths({
       say(msg("paths.notFound", { prog, type: t }));
     }
 
-    // ── 직접 입력 루프 (위에서 미확정 시) — 제외 탈출구 포함 (#487) ──
+    // ── Manual input loop (when not settled above) — includes the exclude escape hatch (#487) ──
     while (!chosen && !excluded) {
       const hintMarker = existingMarkerInDir(t, root);
       let prompt = msg("paths.inputPrompt", { type: t, marker: hintMarker });
       if (existing) prompt += msg("paths.inputCurrent", { value: existing });
       prompt += "): ";
       let input = await io.text({ message: prompt, defaultValue: "" });
-      if (isCancel(input) || input == null) input = ""; // ESC → 빈값 (아래 폴백)
+      if (isCancel(input) || input == null) input = ""; // ESC → empty (fallback below)
       input = String(input).trim();
-      // 빈값 → 기존값 또는 루트 — normalizePath 전에 판정
+      // Empty → existing value or root — decided before normalizePath
       input = input === "" ? (existing || ".") : normalizePath(input);
-      // 검증: 입력 경로에 마커 존재 확인 (보조 마커 포함)
+      // Validate: check the marker exists at the entered path (including secondary markers)
       const m = existingMarkerInDir(t, input === "." ? root : join(root, input));
       if (m && existsSync(join(root, input === "." ? "" : input, m))) {
         chosen = input;
@@ -248,7 +248,7 @@ export async function resolveProjectPaths({
         });
         if (act === "force") chosen = input;
         else if (act === EXCLUDE) excluded = true;
-        // retry/ESC → 루프 계속
+        // retry/ESC → keep looping
       }
     }
 
@@ -261,10 +261,10 @@ export async function resolveProjectPaths({
     say(`  ✅ ${t} → ${chosen}`);
   }
 
-  // ── 요약 + 같은 마커 파일 중복 경고 ──
+  // ── Summary + warning for duplicate marker files ──
   say("");
   say(msg("paths.summary"));
-  const fileToTypes = new Map(); // 마커 파일 상대경로 → 그 파일을 쓰는 타입들
+  const fileToTypes = new Map(); // Marker file relative path → types using that file
   for (const [pt, pp] of result) {
     const m = existingMarkerInDir(pt, pp === "." ? root : join(root, pp));
     const file = pp === "." ? m : `${pp}/${m}`;
@@ -274,7 +274,7 @@ export async function resolveProjectPaths({
   }
   for (const [file, ts] of fileToTypes) {
     if (ts.length > 1) {
-      // 멱등 동작이라 막지는 않고 경고만
+      // Idempotent, so warn only instead of blocking
       say(msg("paths.duplicate", { types: ts.join(" "), file }));
       say(msg("paths.duplicateNote"));
     }
@@ -283,8 +283,8 @@ export async function resolveProjectPaths({
   return result;
 }
 
-// 경로 단계에서 제외된 타입 반영 (#487) — basic이 아니면서 paths에 없는 타입 제거.
-// 전부 제외되면 basic 폴백 (타입 0개 상태 금지). 비대화형은 제외가 불가능하므로 no-op.
+// Apply types excluded at the path step (#487) — remove non-basic types missing from paths.
+// If all are excluded, fall back to basic (zero types is not allowed). No-op for non-interactive, which cannot exclude.
 export function filterExcludedTypes(types, paths) {
   const kept = types.filter((t) => t === "basic" || paths.has(t));
   return kept.length ? kept : ["basic"];

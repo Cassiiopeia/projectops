@@ -1,15 +1,15 @@
-// projectops 옵션 정본 (AI agent·사람·문서가 같은 표를 본다).
+// projectops option source of truth (AI agents, people and docs all read the same table).
 //
-// 왜 필요한가: 옵션 설명이 문서 6곳(NPX-WIZARD, VERSION-CONTROL, ISSUE-AUTOMATION ...)에 흩어져 있어
-// agent가 "이 옵션이 있나, 기본값이 뭔가"를 확인하려면 문서를 뒤져야 했다. 이제 한 호출로 읽는다:
+// Why: option descriptions were spread over 6 docs (NPX-WIZARD, VERSION-CONTROL, ISSUE-AUTOMATION ...), so an
+// agent had to dig through docs to learn "does this option exist, what is its default". Now one call answers it:
 //   npx projectops --mode options --json
 //
-// 이 표는 손으로 쓰되, test/options-schema.test.js 가 실제 코드와 대조한다.
-//   - args.js 의 모든 CLI 플래그가 flags 에 있어야 한다
-//   - parseTemplateOptions 가 읽는 모든 키가 versionYml 에 있어야 한다
-// 새 플래그·옵션을 추가하고 여기에 안 쓰면 테스트가 실패한다.
+// The table is hand-written, but test/options-schema.test.js checks it against the real code.
+//   - every CLI flag in args.js must be in flags
+//   - every key parseTemplateOptions reads must be in versionYml
+// Adding a flag or option without listing it here fails the test.
 //
-// 설명은 영문이다 — 기계가 읽는 표이고, 화면 언어(i18n)와 무관하게 같아야 한다.
+// Descriptions are English — this is a machine-read table and must not change with the screen language (i18n).
 
 import { DEPLOY_TARGETS, PUBLISH_TARGETS, INTENT_VALUES, LABEL_STYLES, CHANGELOG_PROVIDERS } from "./constants.js";
 import { REPO_LANGUAGES } from "./repo-language.js";
@@ -29,7 +29,7 @@ export const MODES = [
   { name: "options", description: "Print this option table (add --json for machine-readable output). Read-only, no network." },
 ];
 
-// 프로젝트 타입은 context.js 의 VALID_TYPES 와 같아야 한다 (테스트가 대조).
+// Project types must match VALID_TYPES in context.js (checked by the test).
 export const FLAGS = [
   { flag: "--mode", alias: "-m", value: "MODE", values: MODES.map((m) => m.name), default: "interactive",
     description: "What to do. Agents and CI should always pass an explicit non-interactive mode together with --force." },
@@ -79,12 +79,12 @@ export const FLAGS = [
   { flag: "--json", description: "With --mode options: print machine-readable JSON instead of a table.", default: "off" },
   { flag: "--version", alias: "-v", description: "Print the projectops package version and exit." },
   { flag: "--help", alias: "-h", description: "Print the human-readable help and exit." },
-  // 지원 종료 예정 — 새 설정에는 쓰지 않는다
+  // Scheduled for removal — do not use in new setups
   { flag: "--nexus", negation: "--no-nexus", deprecated: "Use --publish nexus. Also implies --deploy none." },
   { flag: "--npm-publish", negation: "--no-npm-publish", deprecated: "Use --publish npm." },
 ];
 
-// version.yml 의 키. path 는 파일 안의 위치, parserKey 는 parseTemplateOptions 가 돌려주는 이름.
+// version.yml keys. path is the location in the file; parserKey is the name parseTemplateOptions returns.
 export const VERSION_YML = [
   { path: "version", type: "string", description: "Project version (x.y.z). The single source of truth; workflows sync it into build files.", edit: "workflow-managed" },
   { path: "version_code", type: "integer", description: "App build number. +1 on every release. Android release only; iOS and test builds use build_number.py.", edit: "workflow-managed" },
@@ -136,15 +136,15 @@ export const VERSION_YML = [
   { path: "metadata.template.options.changelog.base_url", parserKey: "changelogBaseUrl", type: "string", description: "Only for provider ollama.", edit: "by hand" },
 ];
 
-// ── agent 가 읽고 스스로 판단하게 하는 상세 설명 ───────────────────────────────────────────────
-// 짧은 description 만으로는 "언제 쓰나 · 쓰면 레포에서 정확히 무엇이 바뀌나 · 안 쓰면 어떻게 되나"를 알 수 없다.
-// 사람 없이 이 CLI 를 부르는 AI agent 가 추측하지 않도록 항목마다 적는다.
-//   when    : 이 값을 직접 정해야 하는 상황 / 그냥 둬도 되는 상황
-//   effect  : 레포에서 실제로 바뀌는 것 (어떤 파일이 생기고 사라지는지, 어떤 워크플로가 도는지)
-//   omitted : 안 주면 어떻게 정해지는가
-//   example : 그대로 실행할 수 있는 명령
-//   caution : 되돌리기 어렵거나 놓치기 쉬운 것
-// test/options-schema.test.js 가 모든 (폐기 아닌) 플래그·옵션에 when·effect 가 있는지 검사한다 — 새 항목은 여기에도 적는다.
+// ── Detailed notes so an agent can read and decide on its own ───────────────────────────────────────────────
+// A short description alone does not say "when to use it · what exactly changes in the repo · what happens if omitted".
+// Written per entry so an AI agent calling this CLI without a person does not guess.
+//   when    : when you must set this value yourself / when leaving it is fine
+//   effect  : what actually changes in the repo (which files appear or disappear, which workflows run)
+//   omitted : how the value is decided when not given
+//   example : a command you can run as is
+//   caution : what is hard to undo or easy to miss
+// test/options-schema.test.js checks that every (non-deprecated) flag and option has when and effect — add new entries here too.
 export const FLAG_DETAILS = {
   "--mode": {
     when: "Always pass it explicitly from an agent or CI. Without it the CLI opens interactive questions.",
@@ -316,7 +316,7 @@ export const KEY_DETAILS = {
   "metadata.template.options.changelog.base_url": { when: "Only with provider ollama.", effect: "Base URL of the Ollama server (OpenAI-compatible, ending in /v1).", omitted: "" },
 };
 
-// 자주 하는 일 → 그대로 실행할 명령. agent 가 옵션을 조합하다 틀리지 않게 한다.
+// Common tasks → commands to run as is. Keeps agents from combining options wrong.
 export const RECIPES = [
   { goal: "Install everything in a new repo (stack auto-detected)", command: "npx projectops --mode full --force", note: "Add --type spring,react for several stacks." },
   { goal: "Update an existing install to the newest templates", command: "npx projectops --mode full --force", note: "Files you modified are kept; read .github/.projectops/incoming/ and the completion summary for what was skipped." },
@@ -331,7 +331,7 @@ export const RECIPES = [
   { goal: "Install a library publish workflow", command: "npx projectops --mode workflows --force --type node --publish npm", note: "Needs the NPM_TOKEN secret." },
 ];
 
-// 이 CLI 를 사람 없이 쓰는 agent 가 지킬 규칙
+// Rules for an agent using this CLI without a person
 export const AGENT_RULES = [
   "Always pass an explicit --mode and --force. Without --force and without a TTY the command stops; with --mode interactive it needs a human.",
   "Read before you write: run --mode doctor (state) and --mode options --json (this table). Both are read-only and need no network.",
@@ -375,7 +375,7 @@ export function buildSchema(packageVersion = "") {
   };
 }
 
-// 사람이 읽는 표 — JSON 이 아닐 때 출력한다.
+// Human-readable table — printed when not JSON.
 export function renderText(schema) {
   const lines = [`projectops ${schema.packageVersion} — options (schema v${schema.schemaVersion})`, "", schema.usage, "", "MODES"];
   for (const m of schema.modes) lines.push(`  ${m.name.padEnd(12)} ${m.description}`);

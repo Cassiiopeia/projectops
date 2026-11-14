@@ -1,24 +1,24 @@
-// package.json 내용 분류 — 원본 파일 텍스트에 대한 부분문자열 매칭.
-// dependencies 파싱이 아니라 raw 텍스트 검사 (깨진 JSON에도 동작).
-// 입력은 package.json의 원문 문자열(raw). 순서 중요.
+// Classify package.json content — substring matching on the raw file text.
+// Checks raw text rather than parsing dependencies (works even on broken JSON).
+// Input is the raw package.json string. Order matters.
 export function classifyPackageText(raw) {
   const s = String(raw || "");
   if (s.includes("@react-native") || s.includes("react-native")) {
     return s.includes("expo") ? "react-native-expo" : "react-native";
   }
-  // next 타입은 v4.1.0에서 react로 흡수 — "next" 의존성이 있어도 react로 판정
+  // The next type was merged into react in v4.1.0 — a "next" dependency still classifies as react
   if (s.includes('"react"') || s.includes('"next"')) return "react";
   return "node";
 }
 
-// 편의: 파싱된 객체를 받는 경우 원문으로 재직렬화해 위 규칙 적용
+// Convenience: for a parsed object, re-serialize to text and apply the rules above
 export function classifyPackageJson(pkgOrRaw) {
   const raw = typeof pkgOrRaw === "string" ? pkgOrRaw : JSON.stringify(pkgOrRaw || {});
   return classifyPackageText(raw);
 }
 
-// 마커 스캔 (동작명세 §3.1). has(relpath)=>bool 주입. node는 다른 타입 있으면 미추가.
-// read(relpath)=>string|null 로 package.json 원문을 받아 classifyPackageText에 넘긴다.
+// Marker scan (behavior spec §3.1). Injects has(relpath)=>bool. node is not added when another type exists.
+// Receives raw package.json via read(relpath)=>string|null and passes it to classifyPackageText.
 export function detectTypesFromMarkers({ has, read }) {
   const types = [];
   if (has("pubspec.yaml")) types.push("flutter");
@@ -34,7 +34,7 @@ export function detectTypesFromMarkers({ has, read }) {
 
 const VERSION_RE = /^\d+\.\d+\.\d+$/;
 
-// 버전 감지 (동작명세 §3.3) — 순서대로 첫 성공. read(relpath)=>string|null 주입.
+// Version detection (behavior spec §3.3) — first success in order. Injects read(relpath)=>string|null.
 export function detectVersionFromFiles({ read, readJson, hasJq, gitTag }) {
   const pkg = readJson?.("package.json");
   if (hasJq && pkg?.version && VERSION_RE.test(pkg.version)) return pkg.version;
@@ -61,10 +61,10 @@ export function extraMarkers(type) {
   return { python: ["setup.py", "requirements.txt"], spring: ["build.gradle.kts", "pom.xml"] }[type] || [];
 }
 
-// 확장자 빈도 스캔 추천 (마커 없을 때 2단계, #458).
-// 마커가 전혀 없을 때(=basic 폴백)만 쓰는 2차 추천. files = 프루닝된 상대경로 목록.
-// 임계: dart≥1→flutter, java+kt+gradle≥3→spring, tsx+jsx≥3→react, py≥3→python,
-//       아무것도 없고 ts+js≥3→node. 반환은 메뉴 정의 순서로 정렬.
+// Extension frequency scan recommendation (step 2 when there are no markers, #458).
+// Secondary recommendation used only when there are no markers at all (= basic fallback). files = pruned relative paths.
+// Thresholds: dart≥1→flutter, java+kt+gradle≥3→spring, tsx+jsx≥3→react, py≥3→python,
+//       none of those and ts+js≥3→node. Returned in menu definition order.
 export function suggestTypesByExtScan(files) {
   const count = (re) => files.filter((f) => re.test(f)).length;
   const found = new Set();
