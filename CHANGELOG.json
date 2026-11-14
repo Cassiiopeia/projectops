@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T13:34:27Z",
-    "currentVersion": "4.104.5",
+    "lastUpdated": "2026-11-14T13:36:23Z",
+    "currentVersion": "4.104.6",
     "projectType": "basic",
-    "totalReleases": 415,
+    "totalReleases": 416,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.104.6",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1211,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Phone and Tablet in the mockup viewer and in capture now show full-page mockups at phone and tablet width (contributed by @EM-H20)",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Phone and Tablet in the mockup viewer and in capture now show full-page mockups at phone and tablet width (contributed by @EM-H20)"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.5",
       "project_type": "basic",
