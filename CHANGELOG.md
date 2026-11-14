@@ -1,7 +1,21 @@
 # Changelog
 
-**Current version:** 4.104.7  
-**Last updated:** 2026-11-14T14:14:44Z  
+**Current version:** 4.104.8  
+**Last updated:** 2026-11-14T17:09:44Z  
+
+---
+
+## [4.104.8] - 2026-11-14
+
+**PR:** #1217  
+
+**Bug fixes**
+- The deploy settings comment in version.yml follows the repository language
+- The Projects sync wizard now generates the same English-logging worker the setup scripts install (wizard 2.5.1)
+
+**Improvements**
+- The Spring PR preview workflow shows English job names
+- A new code rule catches history narration in English comments
 
 ---
 

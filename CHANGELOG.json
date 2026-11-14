@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T14:14:44Z",
-    "currentVersion": "4.104.7",
+    "lastUpdated": "2026-11-14T17:09:44Z",
+    "currentVersion": "4.104.8",
     "projectType": "basic",
-    "totalReleases": 417,
+    "totalReleases": 418,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.104.8",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1217,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * The deploy settings comment in version.yml follows the repository language\n  * The Projects sync wizard now generates the same English-logging worker the setup scripts install (wizard 2.5.1)\n\n* **Improvements**\n  * The Spring PR preview workflow shows English job names\n  * A new code rule catches history narration in English comments",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "The deploy settings comment in version.yml follows the repository language",
+            "The Projects sync wizard now generates the same English-logging worker the setup scripts install (wizard 2.5.1)"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "The Spring PR preview workflow shows English job names",
+            "A new code rule catches history narration in English comments"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.7",
       "project_type": "basic",
