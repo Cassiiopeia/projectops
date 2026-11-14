@@ -48,8 +48,28 @@ function buildSegment(containerId, choices, selected, onSelect) {
   }
 }
 
+// A full-document mockup has no .ui-device frame, so html[data-device] alone changes nothing.
+// A responsive page's media queries read the iframe viewport, so resize the iframe itself.
+// Keep in sync with FULL_DOCUMENT_WIDTHS in scripts/pro_ui_design/capture_worker.py
+const FRAME_WIDTHS = { phone: "390px", tablet: "820px" };
+function applyDeviceToFullDocument() {
+  let isResponsivePage = false;
+  try {
+    const doc = elements.frame.contentDocument;
+    isResponsivePage = Boolean(doc?.documentElement)
+      && !doc.documentElement.classList.contains("ui-design-frame")
+      && !doc.querySelector(".ui-device");
+  } catch { /* other origin: leave it */ }
+  const width = isResponsivePage ? FRAME_WIDTHS[viewerSettings.device] : undefined;
+  elements.frame.style.width = width || "";
+  elements.frame.style.maxWidth = width ? "100%" : "";
+  elements.frame.style.alignSelf = width ? "center" : "";
+  elements.frame.style.boxShadow = width ? "0 0 0 1px var(--line)" : "";
+}
+
 function sendSettingsToScreen() {
   document.documentElement.classList.toggle("dark", viewerSettings.theme === "dark");
+  applyDeviceToFullDocument();
   elements.frame.contentWindow?.postMessage({ type: "ui-design-settings", ...viewerSettings }, location.origin);
 }
 function sendCommandToScreen(type) {

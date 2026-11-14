@@ -16,6 +16,10 @@ from browser_path import find_browser_executable
 VIEWPORT_WIDTH = 1280
 VIEWPORT_HEIGHT = 900
 MAX_VIEWPORT_HEIGHT = 1600
+# Same widths as the viewer shell (assets/shell.js FRAME_WIDTHS)
+FULL_DOCUMENT_WIDTHS = {"phone": 390, "tablet": 820}
+IS_FULL_DOCUMENT_SCRIPT = ("!document.documentElement.classList.contains('ui-design-frame')"
+                           " && !document.querySelector('.ui-device')")
 PNG_SCALE = 2
 GIF_SCALE = 1
 GIF_COLORS = 128
@@ -48,6 +52,10 @@ def open_screen(browser, job: dict, scale: int):
     # 녹화용 클릭을 사용자 선택으로 기록하지 않음
     page.route("**/api/events", lambda route: route.fulfill(status=204))
     page.goto(build_screen_url(job), wait_until="load")
+    # A full-document mockup has no .ui-device frame and its media queries read the viewport: narrow it like the viewer does
+    width = FULL_DOCUMENT_WIDTHS.get(job.get("device"))
+    if width and not job.get("width") and page.evaluate(IS_FULL_DOCUMENT_SCRIPT):
+        page.set_viewport_size({"width": width, "height": VIEWPORT_HEIGHT})
     page.evaluate("document.fonts.ready")
     page.wait_for_function("[...document.images].every(i => i.complete)", timeout=30000)
     return page
