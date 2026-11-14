@@ -99,7 +99,8 @@ def cmd_run(args) -> dict:
             "name": args.name, "kind": args.kind, "provider": provider_name, "status": "candidate",
             "image": result["image"]["path"], "size": args.size, "alpha": args.alpha,
             "references": [str(path) for path in references], "prompt": prompt_text})
-    return result
+    # 실제로 넘긴 참조 목록 (빠진 참조가 응답에서 바로 보이게, #1183)
+    return {**result, "references": [str(path) for path in references]}
 
 
 def cmd_check(args) -> dict:
