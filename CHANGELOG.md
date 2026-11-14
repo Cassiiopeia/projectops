@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.104.3  
-**Last updated:** 2026-11-14T09:18:43Z  
+**Current version:** 4.104.4  
+**Last updated:** 2026-11-14T10:29:38Z  
+
+---
+
+## [4.104.4] - 2026-11-14
+
+**PR:** #1205  
+
+**Documentation**
+- The contributing guide explains when automated pull requests are closed without review
 
 ---
 

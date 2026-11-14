@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T09:18:43Z",
-    "currentVersion": "4.104.3",
+    "lastUpdated": "2026-11-14T10:29:38Z",
+    "currentVersion": "4.104.4",
     "projectType": "basic",
-    "totalReleases": 413,
+    "totalReleases": 414,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.104.4",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1205,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * The contributing guide explains when automated pull requests are closed without review",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The contributing guide explains when automated pull requests are closed without review"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.3",
       "project_type": "basic",
