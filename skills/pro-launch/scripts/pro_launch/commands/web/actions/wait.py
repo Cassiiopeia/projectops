@@ -10,6 +10,7 @@ import time
 from pro_launch.commands.web.frames import frame_scope
 from pro_launch.commands.web.session import safe_title
 from pro_launch.commands.web.targets import SELECTOR_SYNTAX_HINT, is_selector_syntax_error
+from pro_launch.commands.web.url_match import url_without_query
 from pro_launch.registry import Action
 
 # 조건을 다시 보는 간격(ms)
@@ -41,14 +42,6 @@ def wait_conditions(args) -> dict:
     """주어진 조건만 모은다. 이름 → 기대값"""
     named = {"url_contains": args.url_contains, "text": args.text, "gone": args.gone, "selector": args.selector}
     return {name: value for name, value in named.items() if value}
-
-
-def url_without_query(url: str, needle: str) -> str:
-    """--url-contains 비교 대상: ?검색어 · #조각을 뺀 주소 (로그인 주소의 continue= 에 걸리지 않게, #1177)
-    찾는 글자에 ? · # 이 있으면 주소 전체와 비교"""
-    if "?" in needle or "#" in needle:
-        return url
-    return url.split("#", 1)[0].split("?", 1)[0]
 
 
 def unmet_conditions(conditions: dict, url: str, visible_text: str, is_selector_visible: bool) -> list[str]:

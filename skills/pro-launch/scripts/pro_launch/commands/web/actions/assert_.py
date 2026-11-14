@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 from pro_launch.commands.web.frames import frame_scope
+from pro_launch.commands.web.url_match import url_without_query
 from pro_launch.registry import Action
 
 
@@ -12,9 +13,10 @@ def execute(page, args, state: dict) -> dict:
     if failure:
         return failure
     checks = []
+    # 주소는 ?검색어 · #조각을 빼고 비교 (wait --url-contains 와 같은 규칙, #1191)
     if args.url:
         checks.append({"expect_url": args.url, "got": page.url,
-                       "ok": args.url in page.url})
+                       "ok": args.url in url_without_query(page.url, args.url)})
     if args.text:
         checks.append({"expect_text": args.text,
                        "ok": scope.get_by_text(args.text).count() > 0})
