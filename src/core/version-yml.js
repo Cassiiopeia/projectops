@@ -144,7 +144,8 @@ const COMMENTS = {
     legacyDeployBranch: "development_branch 의 구 이름 — 구버전 스킬용으로 같은 값 유지",
   },
 };
-const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
+// Comment table for a repo language: ko > Korean, anything else > English
+export const commentsFor = (lang) => COMMENTS[lang === "ko" ? "ko" : "en"];
 
 // Decide last_updated_by (#811): the git user who ran it → existing value → template_integrator.
 // Overwriting with "template_integrator" every time loses who made the change.

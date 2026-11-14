@@ -8,7 +8,7 @@ import { copyWorkflows } from "../core/copy/workflows.js";
 import { applyLabelStyle } from "../core/label-style.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
-import { convertLegacySingularType, mergeDeployValues } from "../core/version-yml.js";
+import { convertLegacySingularType, mergeDeployValues, commentsFor } from "../core/version-yml.js";
 import { installAgentGuide } from "../core/agent-guide.js";
 import { verifyInstall } from "../core/verify.js";
 
@@ -28,7 +28,7 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // update_version_yml_deploy: update the deploy block only when a version.yml exists and there are ask values
   if (existsSync(vy) && wf.deployValues && wf.deployValues.size) {
     const cur = readFileSync(vy, "utf8");
-    writeFileSync(vy, upsertDeployBlock(cur, mergeDeployValues(cur, wf.deployValues)));   // Existing values first (#670)
+    writeFileSync(vy, upsertDeployBlock(cur, mergeDeployValues(cur, wf.deployValues), context.language));   // Existing values first (#670)
   }
 
   copyScripts(tempDir, targetRoot);
@@ -59,7 +59,8 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
 }
 
 // Remove the deploy: block from the existing version.yml and append a new one (idempotent).
-export function upsertDeployBlock(content, deployValues) {
+// language: resolved repo text language (en | ko), picks the deploy: line comment (#1214)
+export function upsertDeployBlock(content, deployValues, language) {
   // Remove the existing deploy: block (from the deploy: line up to the next top-level key)
   const lines = content.split(/\r?\n/);
   const out = [];
@@ -78,7 +79,7 @@ export function upsertDeployBlock(content, deployValues) {
   // Append the new deploy block
   const deployTypes = [...deployValues.keys()].filter((t) => deployValues.get(t)?.size);
   if (deployTypes.length) {
-    text += `\ndeploy:                          # 마법사가 기억하는 배포 설정 (비민감 / 직접 수정 가능)\n`;
+    text += `\ndeploy:                          # ${commentsFor(language).deploy}\n`;
     for (const t of deployTypes) {
       text += `  ${t}:\n`;
       for (const [k, v] of deployValues.get(t)) text += `    ${k}: "${v}"\n`;
