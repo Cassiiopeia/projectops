@@ -1,6 +1,6 @@
-"""기기 소유 게이트: 동작 선언(device_use)을 보고 남의 기기 조작을 거부·경고하고 이 세션의 사용을 기록한다 (#953).
+"""Device ownership gate: reads the action declaration (device_use) to refuse·warn on acting on someone else's device and records this session's use (#953).
 
-app · device 디스패처가 동작을 실행하기 **전에** 한 번 부른다. 동작 파일은 소유 코드를 갖지 않는다.
+The app · device dispatchers call it once **before** running an action. Action files hold no ownership code.
 """
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from pro_launch.runtime.output import add_response_fields, out
 
 def gate_device_use(device_use: str | None, want_device: str | None, project_root: str,
                     is_forced: bool) -> int | None:
-    """mutate: 남의 살아 있는 소유면 거부 응답(종료 코드) · read: 경고 필드만 · 통과면 None.
+    """mutate: refusal response (exit code) if someone else's live ownership · read: warning field only · None if it passes.
 
-    기기를 정할 수 없으면 통과시킨다 — 동작이 원래 오류(no_device 등)를 낸다.
+    Passes if the device cannot be determined — the action raises its own error (no_device, etc.).
     """
     if device_use in (None, "none"):
         return None

@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""pro-launch 버전 무관 진입점: 설치된 스크립트 중 가장 새것 찾기 > launch_cli.py 로 인자 그대로 넘김 (#897)
+"""Version-independent pro-launch entry point: find the newest installed scripts > pass args through to launch_cli.py (#897)
 
-이 파일 자체가 `~/.projectops/bin/launch_cli.py`(고정 진입점)로 복사된다 — 표준 라이브러리만 쓰고
-다른 모듈을 import 하지 않는다. 복사본은 원래 자리를 모르므로 스스로 찾아야 한다.
+This file itself is copied to `~/.projectops/bin/launch_cli.py` (fixed entry point) — it uses only the standard library
+and imports no other module. The copy does not know its origin, so it must find it itself.
 
-찾는 순서 4단계:
-  1. PROJECTOPS_LAUNCH_SCRIPTS (직접 지정)
-  2. 현재 폴더가 projectops 체크아웃 안이면 그 체크아웃
-  3. 플러그인 캐시(Claude · Codex, CLAUDE_CONFIG_DIR · ~/.claude* 포함) 중 가장 높은 버전 폴더
-  4. 버전 없는 설치본 (Cursor · GitHub Copilot · Gemini · pi)
+4-step lookup order:
+  1. PROJECTOPS_LAUNCH_SCRIPTS (set explicitly)
+  2. the checkout, if the current folder is inside a projectops checkout
+  3. the highest version folder in plugin caches (Claude · Codex, including CLAUDE_CONFIG_DIR · ~/.claude*)
+  4. unversioned installs (Cursor · GitHub Copilot · Gemini · pi)
 """
 from __future__ import annotations
 
@@ -18,21 +18,21 @@ import subprocess
 import sys
 from pathlib import Path
 
-# 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일을 고치면 +1 — 안 올리면 퍼지지 않음)
+# Fixed entry point content revision: overwrite only when higher than the installed one (+1 when editing this file — otherwise it does not spread)
 RESOLVER_REVISION = 4
 STABLE_ENTRYPOINT_NAME = "launch_cli.py"
 SCRIPTS_OVERRIDE_ENV = "PROJECTOPS_LAUNCH_SCRIPTS"
-# Claude Code 설정 폴더 바꾸기 (예: ~/.claude-b) — 그 아래 plugins/cache 에도 설치본이 있다 (#920)
+# Overridden Claude Code config folder (e.g. ~/.claude-b) — installs also live under its plugins/cache (#920)
 CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
-# Windows 의 python3 는 Microsoft Store 스텁일 수 있다
+# On Windows python3 may be the Microsoft Store stub
 STABLE_ENTRYPOINT_COMMAND = f"{'python' if sys.platform == 'win32' else 'python3'} ~/.projectops/bin/launch_cli.py"
-# 고정 진입점 권한: 직접 실행 가능 (rwxr-xr-x)
+# Fixed entry point permissions: directly executable (rwxr-xr-x)
 STABLE_ENTRYPOINT_MODE = 0o755
 
-# 플러그인 캐시: {base}/{마켓플레이스}/projectops/{버전}/skills/pro-launch/scripts
-# ~/.claude* glob 은 ~/.claude 자신과 ~/.claude-b 같은 설정 폴더를 함께 잡는다
+# Plugin cache: {base}/{marketplace}/projectops/{version}/skills/pro-launch/scripts
+# The ~/.claude* glob catches ~/.claude itself and config folders like ~/.claude-b
 _VERSIONED_CACHE_GLOBS = (".claude*/plugins/cache", ".codex/plugins/cache")
-# 버전 폴더가 없는 설치본 (best effort — 폴더 모양이 설치 도구마다 다름)
+# Installs without a version folder (best effort — folder layout differs per install tool)
 _UNVERSIONED_BASES = (".cursor/skills", ".copilot/skills", ".gemini/extensions", ".pi/agent/git")
 _SKILL_SCRIPTS_PARTS = ("skills", "pro-launch", "scripts")
 _UNVERSIONED_WALK_MAX_DEPTH = 6
@@ -41,18 +41,18 @@ _REVISION_PATTERN = re.compile(r"^RESOLVER_REVISION = (\d+)", re.MULTILINE)
 
 
 def is_launch_scripts_dir(path: Path) -> bool:
-    """진짜 pro-launch 스크립트 폴더인가 (진입점 + 구현 패키지). 고정 진입점 폴더 자신은 걸러진다."""
+    """Is this a real pro-launch scripts folder (entry point + implementation package). The fixed entry point folder itself is filtered out."""
     return (path / "launch_cli.py").is_file() and (path / "pro_launch" / "__init__.py").is_file()
 
 
 def parse_version(text: str) -> tuple[int, int, int] | None:
-    """'4.54.0' > (4, 54, 0), 버전 모양이 아니면 None"""
+    """'4.54.0' > (4, 54, 0), None if not version-shaped"""
     match = _SEMVER_PATTERN.match(text)
     return tuple(int(part) for part in match.groups()) if match else None  # type: ignore[return-value]
 
 
 def find_repo_checkout_scripts(start: Path) -> Path | None:
-    """start 부터 위로 올라가며 projectops 체크아웃의 pro-launch 스크립트 폴더 찾기"""
+    """Walk up from start to find the pro-launch scripts folder of a projectops checkout"""
     for folder in (start, *start.parents):
         candidate = folder.joinpath(*_SKILL_SCRIPTS_PARTS)
         if is_launch_scripts_dir(candidate):
@@ -61,7 +61,7 @@ def find_repo_checkout_scripts(start: Path) -> Path | None:
 
 
 def versioned_cache_roots(home: Path, environment: dict | None = None) -> list[Path]:
-    """플러그인 캐시 폴더 후보 (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex), 같은 실제 경로는 한 번만"""
+    """Plugin cache folder candidates (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex), each real path only once"""
     environment = os.environ if environment is None else environment
     candidates = []
     config_dir = environment.get(CLAUDE_CONFIG_DIR_ENV)
@@ -80,7 +80,7 @@ def versioned_cache_roots(home: Path, environment: dict | None = None) -> list[P
 
 def find_versioned_cache_scripts(home: Path, environment: dict | None = None
                                  ) -> list[tuple[tuple[int, int, int], Path]]:
-    """플러그인 캐시의 (버전, 스크립트 폴더) 전부. 버전 모양이 아닌 폴더는 제외"""
+    """All (version, scripts folder) in plugin caches. Non-version-shaped folders are excluded"""
     found = []
     for cache_root in versioned_cache_roots(home, environment):
         for candidate in cache_root.glob("*/projectops/*/" + "/".join(_SKILL_SCRIPTS_PARTS)):
@@ -91,7 +91,7 @@ def find_versioned_cache_scripts(home: Path, environment: dict | None = None
 
 
 def _walk_unversioned(base: Path) -> Path | None:
-    """깊이 제한 탐색 (node_modules · .git 제외)"""
+    """Depth-limited search (excluding node_modules · .git)"""
     if not base.is_dir():
         return None
     for root, directories, _files in os.walk(base):
@@ -105,13 +105,13 @@ def _walk_unversioned(base: Path) -> Path | None:
 
 
 def find_newest_installed_version(home: Path, environment: dict | None = None) -> tuple[int, int, int] | None:
-    """플러그인 캐시에 깔린 가장 높은 버전 (없으면 None)"""
+    """Highest version installed in plugin caches (None if none)"""
     versions = find_versioned_cache_scripts(home, environment)
     return max(versions)[0] if versions else None
 
 
 def readable_cwd(environment: dict | None = None) -> Path | None:
-    """현재 폴더 경로. getcwd 실패(macOS 보호 폴더 EPERM·지워진 폴더) 시 $PWD 로 재진입 후 재시도, 그래도 실패면 None (#1131)"""
+    """Current folder path. If getcwd fails (macOS protected folder EPERM · deleted folder) re-enter via $PWD and retry; None if it still fails (#1131)"""
     try:
         return Path.cwd()
     except OSError:
@@ -128,26 +128,26 @@ def readable_cwd(environment: dict | None = None) -> Path | None:
 
 def resolve_scripts_dir(cwd: Path | None = None, home: Path | None = None,
                         environment: dict | None = None) -> Path | None:
-    """찾는 순서 4단계(모듈 설명) 중 처음 나온 것"""
+    """First hit of the 4-step lookup order (see module docstring)"""
     environment = os.environ if environment is None else environment
     cwd = readable_cwd(environment) if cwd is None else cwd
     home = Path.home() if home is None else home
 
-    # 1. 직접 지정 (틀린 경로면 조용히 넘어가지 않고 None — 호출자가 알림)
+    # 1. Explicit (a wrong path returns None instead of silently moving on — the caller reports it)
     override = environment.get(SCRIPTS_OVERRIDE_ENV)
     if override:
         override_path = Path(override).expanduser()
         return override_path if is_launch_scripts_dir(override_path) else None
-    # 2. 체크아웃 (기여자가 고친 코드가 바로 돌게)
+    # 2. Checkout (so contributors' edits run immediately)
     checkout = find_repo_checkout_scripts(cwd.resolve()) if cwd else None
     if checkout:
         return checkout
-    # 3. 캐시 최고 버전
+    # 3. Highest cached version
     versioned = find_versioned_cache_scripts(home, environment)
     if versioned:
-        # 같은 버전이면 먼저 훑은 쪽 (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex) — 경로 사전순이 아니라
+        # On equal versions, the one scanned first (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex) — not path lexical order
         return max(versioned, key=lambda version_and_path: version_and_path[0])[1]
-    # 4. 버전 없는 설치본
+    # 4. Unversioned install
     for base in _UNVERSIONED_BASES:
         found = _walk_unversioned(home / base)
         if found:
@@ -157,9 +157,9 @@ def resolve_scripts_dir(cwd: Path | None = None, home: Path | None = None,
 
 def newer_installed_info(running_scripts_dir: Path, home: Path | None = None,
                          environment: dict | None = None) -> dict | None:
-    """캐시의 옛 버전에서 돌고 있으면 {running, installed, use}, 아니면 None (체크아웃·Cursor 는 비교하지 않음)"""
+    """{running, installed, use} when running from an old cached version, otherwise None (checkout·Cursor are not compared)"""
     running_parts = running_scripts_dir.resolve().parts
-    # 캐시 모양: .../projectops/{버전}/skills/pro-launch/scripts
+    # Cache layout: .../projectops/{version}/skills/pro-launch/scripts
     if len(running_parts) < 5 or running_parts[-5] != "projectops":
         return None
     running_version = parse_version(running_parts[-4])
@@ -179,17 +179,17 @@ def _installed_revision(entrypoint: Path) -> int:
 
 
 def refresh_stable_entrypoint(projectops_home: Path) -> bool:
-    """{projectops_home}/bin/launch_cli.py 를 이 파일 내용으로 맞춤. 바뀌었으면 True
+    """Sync {projectops_home}/bin/launch_cli.py to this file's content. True if changed
 
-    매 실행 호출 — 깔린 번호만 읽고 비교. 같거나 높은 번호면 쓰지 않음
-    (옛 버전 경로로 직접 불려도 새 진입점을 되돌리지 않게).
+    Called every run — reads and compares only the installed revision. Not written when the revision is equal or higher
+    (so being called directly via an old version path does not roll back a newer entry point).
     """
     entrypoint = projectops_home / "bin" / STABLE_ENTRYPOINT_NAME
     if _installed_revision(entrypoint) >= RESOLVER_REVISION:
         _ensure_executable(entrypoint)
         return False
     entrypoint.parent.mkdir(parents=True, exist_ok=True)
-    # 임시 파일 > 권한 > 교체 (다른 세션이 동시에 읽어도 반쯤 쓴 파일을 보지 않게)
+    # temp file > permissions > swap (so concurrent readers never see a half-written file)
     temporary = entrypoint.with_name(entrypoint.name + ".{}.tmp".format(os.getpid()))
     temporary.write_text(Path(__file__).read_text(encoding="utf-8"), encoding="utf-8")
     os.chmod(temporary, STABLE_ENTRYPOINT_MODE)
@@ -198,7 +198,7 @@ def refresh_stable_entrypoint(projectops_home: Path) -> bool:
 
 
 def _ensure_executable(entrypoint: Path) -> None:
-    """번호가 같아도 실행 권한이 없으면 붙임 (rev 1 은 644 로 깔림, #920). stat 한 번이라 매 실행 괜찮음"""
+    """Add the execute bit even when the revision matches (rev 1 was installed as 644, #920). One stat, so fine every run"""
     try:
         if not entrypoint.stat().st_mode & 0o100:
             os.chmod(entrypoint, STABLE_ENTRYPOINT_MODE)
@@ -207,8 +207,8 @@ def _ensure_executable(entrypoint: Path) -> None:
 
 
 def main(arguments: list[str]) -> int:
-    """찾기 > 실행 (종료 코드 그대로). 못 찾으면 MCP-style JSON 으로 알림"""
-    # 하위 CLI 도 상대 경로를 현재 폴더 기준으로 풀므로 traceback 대신 JSON 으로 멈춤
+    """Find > run (exit code passed through). If not found, report as MCP-style JSON"""
+    # Child CLIs also resolve relative paths against the current folder, so stop with JSON instead of a traceback
     if readable_cwd() is None:
         print('{"ok": false, "code": "cwd_unreadable", "summary": "cannot read the current folder (macOS privacy '
               'protection or a deleted folder)", "next": "cd into the project folder again (or cd ~ and pass '
@@ -224,7 +224,7 @@ def main(arguments: list[str]) -> int:
                                                                   SCRIPTS_OVERRIDE_ENV))
         return 2
     command = [sys.executable, str(scripts_dir / "launch_cli.py"), *arguments]
-    # POSIX 는 프로세스 교체(신호·stdin 그대로), Windows 는 execv 가 새 콘솔을 띄우므로 자식 실행
+    # POSIX replaces the process (signals·stdin kept); on Windows execv opens a new console, so run a child
     if os.name == "posix":
         sys.stdout.flush()
         os.execv(sys.executable, command)

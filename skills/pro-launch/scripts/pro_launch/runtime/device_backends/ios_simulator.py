@@ -1,4 +1,4 @@
-"""iOS 시뮬레이터 백엔드: simctl 목록 · 부팅 · 종료(device_boot 를 감싼다) · 만들기 · 초기화 · 지우기."""
+"""iOS simulator backend: simctl list · boot · shutdown (wraps device_boot) · create · erase · delete."""
 from __future__ import annotations
 
 import json
@@ -10,13 +10,13 @@ from pro_launch.runtime import device_boot
 from pro_launch.runtime.device_backends.base import (FORM_PHONE, FORM_TABLET, Capabilities, DeviceFacts,
                                                     RawCommandPattern, folder_bytes, is_os_satisfied)
 
-# simctl 런타임 id > OS 버전: com.apple.CoreSimulator.SimRuntime.iOS-18-3 > 18.3
+# simctl runtime id > OS version: com.apple.CoreSimulator.SimRuntime.iOS-18-3 > 18.3
 _RUNTIME_VERSION_PATTERN = re.compile(r"\.(?:iOS|iPadOS)-(\d+(?:-\d+)*)$")
 TABLET_NAME_PREFIX = "iPad"
-# 폼팩터 > simctl 기기 종류의 productFamily
+# form factor > productFamily of the simctl device type
 PRODUCT_FAMILY_BY_FORM = {FORM_PHONE: "iPhone", FORM_TABLET: "iPad"}
 SIMCTL_TIMEOUT_SECONDS = 120
-# 시뮬레이터 데이터 폴더: {이 폴더}/{UDID}
+# Simulator data folder: {this folder}/{UDID}
 SIMULATOR_DEVICES_FOLDER = Path.home() / "Library" / "Developer" / "CoreSimulator" / "Devices"
 
 
@@ -32,12 +32,12 @@ def form_of_name(name: str) -> str:
 class IosSimulatorBackend:
     name = "ios_simulator"
     platform = "ios"
-    # 복제 실측 (#955): 꺼진 원본만 된다 · 데이터·키체인 파일이 같다 · APFS 복제라 디스크 10MB · 8초
+    # Clone observed (#955): only powered-off sources work · data and keychain files match · APFS clone, so 10MB disk · 8 s
     capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True, can_clone=True,
                                 can_clone_keep_marks=True)
 
     def list_devices(self) -> list[DeviceFacts]:
-        # iOS 런타임만 (watchOS·tvOS·visionOS 는 이 백엔드가 다루지 않는다)
+        # iOS runtimes only (this backend does not handle watchOS·tvOS·visionOS)
         return [DeviceFacts(key=s["udid"], platform=self.platform, backend=self.name, name=s["name"],
                             form=form_of_name(s["name"]), os_version=os_version_of_runtime(s["runtime"]),
                             is_booted=s["state"] == "Booted", instance=s["udid"] if s["state"] == "Booted" else None)
@@ -55,7 +55,7 @@ class IosSimulatorBackend:
     def key_of_instance(self, instance: str) -> str | None:
         return instance if device_boot.is_udid(instance) else None
 
-    # ── 만들기 · 초기화 · 지우기 (#954) ──
+    # ── Create · erase · delete (#954) ──
 
     def _simctl(self, *arguments: str) -> tuple[bool, str]:
         try:
@@ -66,7 +66,7 @@ class IosSimulatorBackend:
         return result.returncode == 0, ((result.stdout or "") + (result.stderr or "")).strip()
 
     def choose_device_type(self, form: str, os_minimum: str | None) -> tuple[str, str] | None:
-        """(기기 종류 id, 런타임 id): 조건을 만족하는 가장 새 iOS 런타임 > 그 런타임이 지원하는 첫 기기 종류(가장 새 모델)."""
+        """(device type id, runtime id): newest iOS runtime meeting the conditions > first device type that runtime supports (newest model)."""
         is_ok, text = self._simctl("list", "runtimes", "-j")
         try:
             runtimes = json.loads(text).get("runtimes", []) if is_ok else []
@@ -114,7 +114,7 @@ class IosSimulatorBackend:
         return folder_bytes(SIMULATOR_DEVICES_FOLDER / key)
 
     def unavailable_devices(self) -> list[dict]:
-        """런타임이 사라져 쓸 수 없게 된 시뮬레이터 > [{udid, name, bytes}] (정리 대상)."""
+        """Simulators that became unusable because their runtime is gone > [{udid, name, bytes}] (cleanup targets)."""
         is_ok, text = self._simctl("list", "devices", "unavailable", "-j")
         try:
             groups = json.loads(text).get("devices", {}) if is_ok else {}

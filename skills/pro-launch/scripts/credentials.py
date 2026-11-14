@@ -1,20 +1,20 @@
-"""이름 붙은 자격증명 저장소 (pro-launch).
+"""Named credential store (pro-launch).
 
-pro-ssh · pro-github 가 `~/.projectops/config/config.json` 에 서버·PAT 를 두고 잘 쓰는 것과
-같은 방식이다. pro-launch 도 **다음 실행에서 다시 묻지 않도록** 같은 파일의 `launch` 섹션에 둔다.
+Same approach pro-ssh · pro-github use with servers and PATs in `~/.projectops/config/config.json`.
+pro-launch keeps them in the `launch` section of the same file **so the next run does not ask again**.
 
-    config["launch"]["credentials"][이름] = {
+    config["launch"]["credentials"][name] = {
         "kind": "ssh | dockerhub | db | http | github-org | other",
-        "use_when": "agent 가 이 자격증명을 써도 되는지 판단하는 근거",
-        "scope": "test-only | readonly | ...   (무엇까지 허용되는지)",
-        "notes": "알아둘 것(포트 범위, 지켜야 할 이름 규칙, 서버에 있는 운영 서비스 등)",
-        "ssh_server": "pro-ssh 에 등록된 서버 이름 — 있으면 host·port·user·password 를 거기서 가져온다",
-        ... 값(password · token · username · host ...)
+        "use_when": "grounds for the agent to decide whether it may use this credential",
+        "scope": "test-only | readonly | ...   (what is allowed)",
+        "notes": "things to know (port range, naming rules to keep, production services on the server, etc.)",
+        "ssh_server": "server name registered in pro-ssh — if set, host·port·user·password come from there",
+        ... values (password · token · username · host ...)
     }
 
-**왜 access.json 이 아니라 config.json 인가**: access.json 은 프로젝트별 "붙는 법" 기록이라
-비밀이 없어야 한다(find_secrets 가 막는다). 비밀은 사용자 홈의 이 파일 한 곳에만 둔다.
-access.json 에는 `{"cred": "이름"}` 처럼 이름만 적는다.
+**Why config.json and not access.json**: access.json records per-project "how to connect" and
+must hold no secrets (find_secrets blocks them). Secrets live only in this one file in the user home.
+access.json holds only the name, like `{"cred": "name"}`.
 """
 from __future__ import annotations
 
@@ -28,18 +28,18 @@ from common import config as cfg
 
 NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
-# 출력에 드러내지 않는 키. 이름이 이것을 포함하면 값을 가린다.
+# Keys never shown in output. Values are masked when the name contains one of these.
 SECRET_KEYS = ("password", "passwd", "token", "secret", "passphrase", "api_key", "apikey", "private_key")
 
 
 class CredError(Exception):
-    """저장·조회 실패. code 는 JSON 응답의 code 로 쓴다."""
+    """Save or lookup failure. code becomes the code of the JSON response."""
 
     def __init__(self, code: str, message: str, next_hint: str | None = None):
         super().__init__(message)
         self.code = code
         self.message = message
-        self.next_hint = next_hint                  # JSON 응답의 next (있을 때만)
+        self.next_hint = next_hint                  # next of the JSON response (only when present)
 
 
 def _is_secret_key(key: str) -> bool:
@@ -67,10 +67,10 @@ def load_all() -> dict:
 
 
 def ssh_servers() -> list[dict]:
-    """config.json 의 옛 pro-ssh `ssh` 섹션 서버 목록 (읽기 전용)."""
+    """Server list of the old pro-ssh `ssh` section in config.json (read-only)."""
     data = cfg.load() or {}
     servers = data.get("ssh")
-    if isinstance(servers, dict):                 # 구버전 형태 {"instances": [...]}
+    if isinstance(servers, dict):                 # old shape {"instances": [...]}
         servers = servers.get("instances")
     return [s for s in servers or [] if isinstance(s, dict)]
 
@@ -83,7 +83,7 @@ def _ssh_server(name: str) -> dict | None:
 
 
 def resolve(name: str) -> dict:
-    """이름으로 자격증명을 꺼낸다. `ssh_server` 참조가 있으면 pro-ssh 서버 값을 바탕으로 합친다."""
+    """Look up a credential by name. With an `ssh_server` reference, merge onto the pro-ssh server values."""
     entry = load_all().get(name)
     if not isinstance(entry, dict):
         known = ", ".join(sorted(load_all())) or "(none)"
@@ -103,7 +103,7 @@ def resolve(name: str) -> dict:
 
 
 def public_view(entry: dict, reveal: bool = False) -> dict:
-    """사람·agent 에게 보여 줄 모양. 비밀 값은 `<saved>` 로 가린다."""
+    """Shape shown to people and agents. Secret values are masked as `<saved>`."""
     if reveal:
         return dict(entry)
     return {k: ("<saved>" if (_is_secret_key(k) and v) else v) for k, v in entry.items()}
@@ -114,7 +114,7 @@ def secret_values(entry: dict) -> list[str]:
 
 
 def mask(text: str | None, entry: dict) -> str:
-    """출력에 비밀 값이 섞였으면 가린다 (서버가 환경변수를 되풀이해 찍는 경우 등)."""
+    """Mask secret values that leaked into output (e.g. a server echoing env vars)."""
     if not text:
         return text or ""
     for v in sorted(secret_values(entry), key=len, reverse=True):
@@ -124,7 +124,7 @@ def mask(text: str | None, entry: dict) -> str:
 
 
 def env_for(entry: dict) -> dict:
-    """저장된 값을 명령이 환경변수로 읽게 한다. 명령 문자열에 비밀을 적지 않아도 된다."""
+    """Let the command read stored values as env vars, so secrets need not be in the command string."""
     env = {"CRED_NAME": entry.get("name", ""), "CRED_KIND": str(entry.get("kind", ""))}
     mapping = {"host": "CRED_HOST", "port": "CRED_PORT", "user": "CRED_USER", "username": "CRED_USERNAME",
                "password": "CRED_PASSWORD", "token": "CRED_TOKEN", "db": "CRED_DB"}
@@ -132,7 +132,7 @@ def env_for(entry: dict) -> dict:
         if entry.get(k) not in (None, ""):
             env[var] = str(entry[k])
     if entry.get("password"):
-        env["SSHPASS"] = str(entry["password"])      # sshpass -e 가 읽는다
+        env["SSHPASS"] = str(entry["password"])      # read by sshpass -e
     return env
 
 
@@ -143,7 +143,7 @@ def validate_name(name: str | None) -> str:
 
 
 def _write_config(data: dict) -> Path:
-    """config.json 을 쓴다. 새로 쓸 때는 소유자만 읽게 한다(600) — 비밀이 들어 있는 파일이다."""
+    """Write config.json. New files are owner-readable only (600) — the file holds secrets."""
     path = cfg.config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".config.", suffix=".tmp")
@@ -151,7 +151,7 @@ def _write_config(data: dict) -> Path:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(json.dumps(data, ensure_ascii=False, indent=2))
         os.chmod(tmp, 0o600)
-        os.replace(tmp, path)                  # 쓰다 끊겨도 기존 파일이 깨지지 않는다
+        os.replace(tmp, path)                  # an interrupted write does not break the existing file
     except BaseException:
         try:
             os.unlink(tmp)
@@ -162,16 +162,16 @@ def _write_config(data: dict) -> Path:
 
 
 def save_credential(name: str, fields: dict, replace: bool = False) -> Path:
-    """다른 섹션(github · ssh ...)을 건드리지 않고 launch.credentials[name] 만 갱신한다."""
+    """Update only launch.credentials[name] without touching other sections (github · ssh ...)."""
     validate_name(name)
     if not isinstance(fields, dict) or not fields:
         raise CredError("value_required", "--json must be a non-empty JSON object")
     data = cfg.load()
     if data is None and cfg.config_path().exists():
-        # 파일은 있는데 읽지 못했다 = 깨졌다. 덮어쓰면 PAT·서버 정보가 전부 사라진다.
+        # File exists but cannot be read = broken. Overwriting would wipe all PAT and server info.
         raise CredError("config_unreadable", "Could not read config.json (it may be corrupted). It was not overwritten")
     if "login_policy" in fields:
-        # 정책은 키·값 검증과 키 단위 병합이 필요하다 > 전용 경로로만 (#905)
+        # Policy needs key/value validation and per-key merge > only through its own path (#905)
         raise CredError("use_cred_policy", "login_policy is not changed with cred set",
                         next_hint=f"cred policy set --name {name} --key <key> --value <ask|always|never>")
     data = data or {}
@@ -180,7 +180,7 @@ def save_credential(name: str, fields: dict, replace: bool = False) -> Path:
     base = {} if replace else existing
     base.update(fields)
     if replace and isinstance(existing.get("login_policy"), dict):
-        base["login_policy"] = existing["login_policy"]   # --replace 는 값만 바꾼다. 정책은 cred policy unset 으로
+        base["login_policy"] = existing["login_policy"]   # --replace changes values only. Policy goes through cred policy unset
     creds[name] = base
     return _write_config(data)
 
@@ -195,11 +195,11 @@ def delete_credential(name: str) -> bool:
     return True
 
 
-# ── 로그인 중간 화면 정책 (#905) ─────────────────────────────────────────
-# 판정: 계정 launch.credentials.<이름>.login_policy > 전체 launch.login_policy > ask
-# 화면 3종: 기기 신뢰(다시 묻지 않기) · 로그인 상태 유지 · 패스키·연락처 추가 같은 권유
+# ── Login interstitial policy (#905) ─────────────────────────────────────────
+# Resolution: account launch.credentials.<name>.login_policy > global launch.login_policy > ask
+# 3 screens: trust device (don't ask again) · stay signed in · prompts like adding a passkey or contact
 LOGIN_POLICY_KEYS = ("trust_device", "keep_signed_in", "skip_nags")
-# ask: 사용자에게 묻는다 · always: 묻지 않고 받아들인다(권유는 건너뛴다) · never: 묻지 않고 거절한다
+# ask: ask the user · always: accept without asking (prompts are skipped) · never: decline without asking
 LOGIN_POLICY_VALUES = ("ask", "always", "never")
 LOGIN_POLICY_DEFAULT_VALUE = "ask"
 
@@ -212,7 +212,7 @@ def _validate_login_policy(key: str, value: str | None = None) -> None:
 
 
 def _policy_of(holder) -> dict:
-    """login_policy 객체에서 올바른 키·값만 남긴다 (손으로 잘못 고친 값은 없는 것으로 본다)"""
+    """Keep only valid keys and values from a login_policy object (hand-edited bad values count as absent)"""
     policy = holder.get("login_policy") if isinstance(holder, dict) else None
     if not isinstance(policy, dict):
         return {}
@@ -220,9 +220,9 @@ def _policy_of(holder) -> dict:
 
 
 def resolve_login_policy(name: str | None) -> dict:
-    """최종 정책: 키마다 {"value", "source": credential | global | default}"""
+    """Final policy: per key {"value", "source": credential | global | default}"""
     data = cfg.load()
-    data = data if isinstance(data, dict) else {}       # 읽지 못했거나 객체가 아니면 저장된 선택 없음
+    data = data if isinstance(data, dict) else {}       # unreadable or not an object: no saved choice
     launch = data.get("launch") if isinstance(data.get("launch"), dict) else {}
     global_policy = _policy_of(launch)
     credential_policy = _policy_of(_section(data).get(name)) if name else {}
@@ -238,7 +238,7 @@ def resolve_login_policy(name: str | None) -> dict:
 
 
 def _load_for_policy_write() -> dict:
-    """정책을 쓸 config 를 읽는다. 깨진 파일은 덮어쓰지 않는다 (PAT·서버 정보 보호)"""
+    """Read the config to write the policy into. Broken files are not overwritten (protects PAT and server info)"""
     data = cfg.load()
     if (data is None and cfg.config_path().exists()) or (data is not None and not isinstance(data, dict)):
         raise CredError("config_unreadable", "Could not read config.json (it may be corrupted). It was not overwritten")
@@ -246,7 +246,7 @@ def _load_for_policy_write() -> dict:
 
 
 def _policy_holder(data: dict, name: str | None, create: bool) -> dict | None:
-    """정책을 담을 객체: 이름이 있으면 그 계정, 없으면 launch 섹션. 계정이 없으면 cred_not_found"""
+    """Object to hold the policy: the account if named, otherwise the launch section. cred_not_found if the account is missing"""
     if name:
         entry = _section(data).get(name)
         if not isinstance(entry, dict):
@@ -262,12 +262,12 @@ def _policy_holder(data: dict, name: str | None, create: bool) -> dict | None:
 
 
 def has_credential(name: str) -> bool:
-    """이름 붙은 항목이 있는지만 본다 (ssh_server 참조는 풀지 않는다)"""
+    """Only checks whether the named entry exists (ssh_server references are not resolved)"""
     return isinstance(load_all().get(name), dict)
 
 
 def set_login_policy(name: str | None, key: str, value: str) -> Path:
-    """정책 한 키 저장 — 이름이 있으면 그 계정에, 없으면 전체 기본값에"""
+    """Save one policy key — on the account if named, otherwise as the global default"""
     _validate_login_policy(key, value)
     data = _load_for_policy_write()
     holder = _policy_holder(data, name, create=True)
@@ -278,7 +278,7 @@ def set_login_policy(name: str | None, key: str, value: str) -> Path:
 
 
 def unset_login_policy(name: str | None, key: str) -> bool:
-    """정책 한 키 제거 (위 층으로 돌아간다). 마지막 키면 login_policy 객체도 지운다. 지웠으면 True"""
+    """Remove one policy key (falls back to the layer above). Removes the login_policy object when it was the last key. True if removed"""
     _validate_login_policy(key)
     data = _load_for_policy_write()
     holder = _policy_holder(data, name, create=False)

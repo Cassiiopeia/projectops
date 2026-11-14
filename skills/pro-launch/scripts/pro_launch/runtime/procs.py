@@ -1,4 +1,4 @@
-"""프로세스 확인 · 종료 — pro_launch 안의 OS 분기는 전부 여기서 갈린다 (생존 확인 원본은 common/proc.py)."""
+"""Process checks · termination — every OS branch in pro_launch splits here (liveness source is common/proc.py)."""
 from __future__ import annotations
 
 import json
@@ -9,12 +9,12 @@ import subprocess
 import sys
 import time
 
-# 생존 확인은 scripts/common 단일 원본 (common/state.py 와 공용) — 여기서는 재노출
+# Liveness checks have a single source in scripts/common (shared with common/state.py) — re-exported here
 from common.proc import _pid_alive_windows, pid_alive  # noqa: F401
 
 
 def _kill_browser_windows(pid: int, grace: float) -> bool:
-    """taskkill /T 로 자식 렌더러까지 정리한다. 정상 종료를 먼저, 안 죽으면 /F."""
+    """Clean up child renderers too with taskkill /T. Graceful first, /F if it does not die."""
     for force, wait in ((False, grace), (True, 3.0)):
         cmd = ["taskkill", "/PID", str(pid), "/T"] + (["/F"] if force else [])
         try:
@@ -30,22 +30,22 @@ def _kill_browser_windows(pid: int, grace: float) -> bool:
 
 
 def kill_browser(pid: int, grace: float = 5.0) -> bool:
-    """브라우저를 직접 정리한다. 정상 종료를 기다리다 안 죽으면 강제 종료한다. 살아 있으면 True.
+    """Clean up the browser directly. Wait for graceful exit and force-kill if it does not die. True if still alive.
 
-    CDP 로 붙어 close() 를 부르면 응답 없는 브라우저에서 제한 없이 멈춘다 (#712).
-    독립 프로세스로 띄웠으니 신호로 끝내는 편이 확실하다.
+    Attaching over CDP and calling close() hangs without limit on an unresponsive browser (#712).
+    It was launched as a separate process, so ending it by signal is more reliable.
     """
     if sys.platform == "win32":
         return _kill_browser_windows(pid, grace)
-    # 정상 종료는 본 프로세스에만 — 그룹 전체에 보내면 쿠키·로그인을 디스크에 쓰기 전에 끝난다 (실측, #956)
-    # 안 죽으면 그룹 전체를 강제 종료 (새 세션으로 띄웠으므로 pid 가 프로세스 그룹 id 이기도 하다)
+    # Graceful signal only to the main process — sending to the whole group ends it before cookies·sign-in are written to disk (observed, #956)
+    # If it does not die, force-kill the whole group (launched in a new session, so pid is also the process group id)
     for sig, wait, is_group in ((signal.SIGTERM, grace, False), (signal.SIGKILL, 3.0, True)):
         _send_signal(pid, sig, is_group)
         end = time.time() + wait
         while time.time() < end:
             if not pid_alive(pid):
                 if not is_group:
-                    _send_signal(pid, signal.SIGKILL, True)   # 남은 렌더러 정리
+                    _send_signal(pid, signal.SIGKILL, True)   # clean up remaining renderers
                 return False
             time.sleep(0.1)
     return pid_alive(pid)
@@ -66,17 +66,17 @@ def _send_signal(pid: int, sig, is_group: bool) -> None:
 
 
 def detach_options() -> dict:
-    """브라우저를 우리가 끝나도 살아 있게 띄우는 Popen 옵션 (POSIX 의 새 세션에 해당하는 것)."""
+    """Popen options that keep the browser alive after we exit (the equivalent of a new POSIX session)."""
     if sys.platform == "win32":
         return {"creationflags": 0x00000008 | 0x00000200}   # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
     return {"start_new_session": True}
 
 
 def process_command_lines() -> str | None:
-    """떠 있는 모든 프로세스의 명령줄을 한 덩어리로. 읽지 못하면 None.
+    """Command lines of all running processes as one blob. None if unreadable.
 
-    윈도우엔 ps 가 없고, 한글 경로가 든 명령줄은 기본 코드페이지로 읽으면 디코딩이 깨져
-    stdout 이 None 이 된다 — 인코딩을 명시한다.
+    Windows has no ps, and command lines with Korean paths fail to decode with the default code page,
+    making stdout None — so the encoding is explicit.
     """
     try:
         if sys.platform == "win32":
@@ -95,14 +95,14 @@ def process_command_lines() -> str | None:
 
 
 def manual_kill_command(pid: int) -> str:
-    """사용자가 직접 브라우저를 끝낼 때 칠 명령."""
+    """Command for the user to end the browser themselves."""
     return f"taskkill /PID {pid} /T /F" if sys.platform == "win32" else f"kill -9 {pid}"
 
 
 def spawn_detached(command: list[str], working_folder: str, log_path, is_stdout_logged: bool = False) -> int:
-    """우리가 끝나도 살아 있는 백그라운드 프로세스를 띄운다 > pid. 표준오류는 log_path 로 (덮어쓴다).
+    """Start a background process that outlives us > pid. stderr goes to log_path (overwritten).
 
-    is_stdout_logged: 표준출력도 같은 로그로 (에뮬레이터는 오류까지 stdout 에 씀, #987)
+    is_stdout_logged: stdout to the same log too (the emulator writes even errors to stdout, #987)
     """
     with open(log_path, "w", encoding="utf-8") as log_file:
         process = subprocess.Popen(command, stdin=subprocess.DEVNULL,
@@ -112,7 +112,7 @@ def spawn_detached(command: list[str], working_folder: str, log_path, is_stdout_
 
 
 def interrupt_process(pid: int, wait_seconds: float = 10.0) -> bool:
-    """SIGINT 를 보내 스스로 마무리하게 한다 (녹화 파일을 닫게). 끝났으면 True. 윈도우는 정상 종료 요청으로 대신한다."""
+    """Send SIGINT so it finishes on its own (to close the recording file). True if ended. Windows uses a graceful close request instead."""
     if sys.platform == "win32":
         return not kill_browser(pid, wait_seconds)
     try:
@@ -128,12 +128,12 @@ def interrupt_process(pid: int, wait_seconds: float = 10.0) -> bool:
 
 
 def kill_process_group(pid: int, grace: float = 5.0) -> bool:
-    """새 세션으로 띄운 프로세스와 그 자식(예: 중계 > maestro mcp > java)을 함께 끝낸다. 살아 있으면 True."""
+    """End a process started in a new session together with its children (e.g. relay > maestro mcp > java). True if still alive."""
     return kill_browser(pid, grace)
 
 
 def elapsed_seconds_from_ps(etime: str) -> int | None:
-    """ps etime([[일-]시:]분:초) > 초. 못 읽으면 None."""
+    """ps etime ([[days-]hours:]minutes:seconds) > seconds. None if unreadable."""
     try:
         days, _, clock = etime.strip().rpartition("-")
         parts = [int(part) for part in clock.split(":")]
@@ -160,9 +160,9 @@ def _process_table_windows() -> list[dict] | None:
 
 
 def process_table() -> list[dict] | None:
-    """떠 있는 프로세스 목록 > [{pid, ppid, elapsed_seconds, command}]. 읽지 못하면 None.
+    """Running process list > [{pid, ppid, elapsed_seconds, command}]. None if unreadable.
 
-    elapsed_seconds: 뜬 지 몇 초 (못 읽으면 None) — 막 띄운 것을 치우지 않는 근거
+    elapsed_seconds: seconds since start (None if unreadable) — grounds for not cleaning up just-started ones
     """
     if sys.platform == "win32":
         return _process_table_windows()
@@ -182,7 +182,7 @@ def process_table() -> list[dict] | None:
 
 
 def read_process(pid: int) -> dict | None:
-    """프로세스 하나 > {pid, ppid, elapsed_seconds, command}. 없거나 못 읽으면 None (전체 목록보다 빠르다)."""
+    """One process > {pid, ppid, elapsed_seconds, command}. None if missing or unreadable (faster than the full list)."""
     if sys.platform == "win32":
         return next((row for row in process_table() or [] if row["pid"] == pid), None)
     try:
@@ -198,7 +198,7 @@ def read_process(pid: int) -> dict | None:
 
 
 def try_lock_file(handle) -> bool:
-    """열린 파일에 배타 잠금을 시도한다 (기다리지 않음). macOS·Linux flock · Windows msvcrt (기기 원장, #953)."""
+    """Try an exclusive lock on an open file (no waiting). macOS·Linux flock · Windows msvcrt (device ledger, #953)."""
     try:
         if sys.platform == "win32":
             import msvcrt
@@ -221,11 +221,11 @@ def unlock_file(handle) -> None:
             import fcntl
             fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
     except OSError:
-        pass   # 파일을 닫으면 OS 가 잠금을 푼다
+        pass   # the OS releases the lock when the file closes
 
 
 def clone_tree(source: str, target: str) -> tuple[bool, str]:
-    """폴더 복제 > (성공, 오류). macOS 는 APFS 복제(cp -c, 블록 공유) · Linux 는 reflink 가능하면 · 그 밖은 일반 복사 (#959)."""
+    """Clone a folder > (success, error). macOS APFS clone (cp -c, shared blocks) · Linux reflink when possible · otherwise a plain copy (#959)."""
     if sys.platform == "darwin":
         command = ["cp", "-c", "-R", source, target]
     elif sys.platform.startswith("linux"):
@@ -245,9 +245,9 @@ def clone_tree(source: str, target: str) -> tuple[bool, str]:
 
 
 def read_windows_memory() -> dict | None:
-    """Windows 메모리 > {total_mb, available_mb, swap_total_mb, swap_used_mb}. Windows 가 아니면 None (#964).
+    """Windows memory > {total_mb, available_mb, swap_total_mb, swap_used_mb}. None when not Windows (#964).
 
-    GlobalMemoryStatusEx — 페이지 파일(commit) 중 물리 메모리를 뺀 몫을 스왑으로 본다.
+    GlobalMemoryStatusEx — the part of the page file (commit) beyond physical memory is treated as swap.
     """
     if sys.platform != "win32":
         return None
@@ -272,7 +272,7 @@ def read_windows_memory() -> dict | None:
 
 
 def process_memory_mb(pids: list[int]) -> int:
-    """프로세스들의 상주 메모리 합 (MB). 못 읽은 것은 0 — 기기 비용 측정용 (#964)."""
+    """Sum of resident memory of the processes (MB). Unreadable ones count 0 — for measuring device cost (#964)."""
     if not pids:
         return 0
     try:
@@ -285,7 +285,7 @@ def process_memory_mb(pids: list[int]) -> int:
             total_bytes = int(float((r.stdout or "0").strip() or 0))
             return total_bytes // (1024 * 1024)
         if sys.platform == "darwin":
-            # RSS 는 압축·스왑된 몫을 빼서 크게 줄어든다 (실측: 에뮬레이터 RSS 245MB, top MEM 5.6GB) — top 의 footprint
+            # RSS drops a lot by excluding compressed·swapped parts (observed: emulator RSS 245MB, top MEM 5.6GB) — top footprint
             command = ["top", "-l", "1", "-stats", "pid,mem"]
             for pid in pids:
                 command += ["-pid", str(pid)]
@@ -300,7 +300,7 @@ def process_memory_mb(pids: list[int]) -> int:
 
 
 def _size_to_mb(text: str) -> int:
-    """top 크기 표기 (512K · 5611M · 1.2G, 끝의 +/- 무시) > MB."""
+    """top size notation (512K · 5611M · 1.2G, trailing +/- ignored) > MB."""
     match = re.match(r"^([\d.]+)([KMGT]?)", text.rstrip("+-"))
     if not match:
         return 0
@@ -309,9 +309,9 @@ def _size_to_mb(text: str) -> int:
 
 
 def top_memory_processes(count: int) -> list[dict]:
-    """메모리를 가장 많이 쓰는 프로세스 > [{pid, name, memory_mb}] (#964).
+    """Processes using the most memory > [{pid, name, memory_mb}] (#964).
 
-    macOS 는 top footprint(압축·스왑 포함 — RSS 는 VM·에뮬레이터를 크게 줄여 보인다), Windows 는 WorkingSet, 그 밖은 RSS.
+    macOS uses top footprint (includes compressed·swap — RSS makes VMs·emulators look much smaller), Windows WorkingSet, others RSS.
     """
     try:
         if sys.platform == "darwin":
@@ -342,12 +342,12 @@ def top_memory_processes(count: int) -> list[dict]:
 
 
 def process_ids_with_text(text: str) -> list[int]:
-    """명령줄에 text 가 들어 있는 프로세스 pid (예: 시뮬레이터 UDID — 그 기기의 프로세스 묶음). 우리 프로세스는 뺀다."""
+    """pids of processes whose command line contains text (e.g. a simulator UDID — that device's process group). Our own processes excluded."""
     rows = process_table() or []
     return [row["pid"] for row in rows if text in (row.get("command") or "") and row["pid"] != os.getpid()]
 
 
-# 클립보드 읽기 명령 — OS 별, 위에서부터 있는 것
+# Clipboard read commands — per OS, the first one available from the top
 _CLIPBOARD_COMMANDS = {
     "darwin": (["pbpaste"],),
     "win32": (["powershell", "-NoProfile", "-Command", "Get-Clipboard -Raw"],),
@@ -357,7 +357,7 @@ _CLIPBOARD_COMMANDS = {
 
 
 def read_system_clipboard() -> tuple[str | None, str | None]:
-    """호스트 클립보드 글자 > (값, 실패 사유). macOS pbpaste · Windows Get-Clipboard · Linux wl-paste/xclip/xsel."""
+    """Host clipboard text > (value, failure reason). macOS pbpaste · Windows Get-Clipboard · Linux wl-paste/xclip/xsel."""
     platform_key = "linux" if sys.platform.startswith("linux") else sys.platform
     for command in _CLIPBOARD_COMMANDS.get(platform_key, ()):
         try:
@@ -371,9 +371,9 @@ def read_system_clipboard() -> tuple[str | None, str | None]:
 
 
 def process_ids_with_arguments(*arguments: str) -> list[int]:
-    """명령줄에 arguments 가 이 순서로 붙어 나오는 프로세스 pid (예: "-avd", "Pixel" — 이름 일부만 맞는 것은 뺀다).
+    """pids of processes whose command line has arguments adjacent in this order (e.g. "-avd", "Pixel" — partial name matches excluded).
 
-    읽지 못하면 빈 목록. 우리 프로세스는 뺀다.
+    Empty list if unreadable. Our own processes excluded.
     """
     try:
         if sys.platform == "win32":
@@ -401,7 +401,7 @@ def process_ids_with_arguments(*arguments: str) -> list[int]:
 
 
 def force_kill(pid: int) -> bool:
-    """정상 종료를 거치지 않고 바로 끝낸다 (emu kill 이 안 먹는 에뮬레이터 qemu). 살아 있으면 True."""
+    """End immediately without a graceful exit (emulator qemu that ignores emu kill). True if still alive."""
     if sys.platform == "win32":
         try:
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True, timeout=10)

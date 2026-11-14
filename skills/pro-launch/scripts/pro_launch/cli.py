@@ -1,7 +1,7 @@
-"""파서 조립과 `main()` — 명령 선언을 모아 CLI 하나로 만든다.
+"""Parser assembly and `main()` — gathers command declarations into one CLI.
 
-여기에는 명령별 지식이 없다. 무엇이 있는지는 `commands/` 가 선언하고, 이 파일은 모아서 돌릴 뿐이다.
-출력은 언제나 JSON 하나다 — 인자 오류도, 예상 못 한 예외도 트레이스백이 아니라 JSON 으로 끝낸다.
+No per-command knowledge here. `commands/` declares what exists; this file only gathers and runs it.
+Output is always a single JSON — argument errors and unexpected exceptions also end as JSON, not tracebacks.
 """
 from __future__ import annotations
 
@@ -16,14 +16,14 @@ from pro_launch.runtime.arg_diagnosis import diagnose, empty_value_options
 from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, OUTPUT_CTX, ROOT_CTX, TARGET_CTX
 from pro_launch.runtime.output import attach_known_fix, emit_shaped
 
-# 도움말에서 보이는 순서. 여기 없는 명령은 이름순으로 뒤에 붙는다 (등록 자체는 이 표와 무관하다)
+# Order shown in help. Commands not listed here follow by name (registration itself is independent of this table)
 HELP_ORDER = ("doctor", "detect", "devices", "device", "app", "web", "render", "http", "access", "db",
               "logs", "cred", "local", "ssh", "shrink", "mask", "redact", "recall", "learn", "tidy", "forget", "session-check",
               "kb", "journal", "harness", "get-output-path")
 
 
 def load_commands() -> list[Command]:
-    """commands/ 아래 선언을 모아 도움말 순서대로 돌려준다."""
+    """Gather declarations under commands/ and return them in help order."""
     from pro_launch import commands
 
     found = {c.name: c for c in registry.discover_commands(commands)}
@@ -35,7 +35,7 @@ def load_commands() -> list[Command]:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="launch_cli",
                                      description="Launch, drive and capture apps, web and servers")
-    # 출력 모양 옵션 (#898) — 실제로는 _pop_output_options 가 파서 전에 꺼낸다. 여기 둔 것은 도움말용
+    # Output shape options (#898) — actually taken out by _pop_output_options before parsing. Listed here for help
     parser.add_argument("--brief", action="store_true",
                         help="Output only the core keys: ok·code·summary·next·error·known_fix·memory·learn_hint·journal·harness, "
                              "plus the read result (lines·text·stdout·stderr·rows·json)")
@@ -51,10 +51,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _split_tail(raw: list[str], commands: list[Command]) -> tuple[list[str], list[str]]:
-    """`--` 를 쓰는 명령(local sudo -- <명령>)은 그 뒤를 파서에 넘기지 않는다.
+    """Commands that use `--` (local sudo -- <command>) do not pass what follows to the parser.
 
-    argparse 의 REMAINDER 는 앞의 --cred 같은 옵션까지 삼키므로 미리 잘라 두었다가
-    `args.<tail_dest>` 로 되돌려 준다 (#784).
+    argparse REMAINDER would also swallow earlier options like --cred, so it is cut off beforehand
+    and returned as `args.<tail_dest>` (#784).
     """
     if raw and "--" in raw:
         owner = next((c for c in commands if c.name == raw[0]), None)
@@ -69,10 +69,10 @@ FIELDS_OPTION = "--fields"
 
 
 def _pop_output_options(raw: list[str]) -> tuple[list[str], bool, list[str] | None, str | None]:
-    """--brief · --fields 를 어느 자리에 있든(서브커맨드 앞·뒤) 꺼낸다 > (나머지, is_brief, 키 목록, 오류).
+    """Take out --brief · --fields wherever they are (before or after the subcommand) > (rest, is_brief, key list, error).
 
-    서브파서마다 옵션을 다는 대신 파서 전에 꺼낸다 — 중첩 동작(web shot 등)까지 손대지 않고 전부 받는다.
-    `--` 뒤(local sudo -- <명령>)는 남의 명령 인자라 건드리지 않는다.
+    Taken out before parsing instead of added to each subparser — covers nested actions (web shot, etc.) without touching them.
+    What follows `--` (local sudo -- <command>) is someone else's command args, so it is left alone.
     """
     tail_start = raw.index("--") if "--" in raw else len(raw)
     head, rest = raw[:tail_start], raw[tail_start:]
@@ -104,23 +104,23 @@ def _pop_output_options(raw: list[str]) -> tuple[list[str], bool, list[str] | No
 
 def main(argv: list[str] | None = None) -> int:
     from common.stable_entry import refresh_and_check
-    refresh_and_check(sys.argv[0])   # 다른 스킬 CLI 와 같이 고정 진입점 갱신 (실패해도 명령을 막지 않음)
+    refresh_and_check(sys.argv[0])   # refresh the fixed entry point like other skill CLIs (never blocks the command on failure)
     parser = build_parser()
     raw = list(sys.argv[1:] if argv is None else argv)
     raw, is_brief, field_names, option_error = _pop_output_options(raw)
-    # 한 프로세스에서 main 을 여러 번 부르는 경우(테스트) 이전 호출의 모양이 새지 않게 매번 새로 적는다
+    # When main is called several times in one process (tests), write fresh each time so the previous call's shape does not leak
     OUTPUT_CTX.clear()
     OUTPUT_CTX.update(is_brief=is_brief, field_names=field_names)
     if option_error:
         return emit_shaped({"ok": False, "code": "bad_args", "error": f"Invalid arguments: {option_error}",
                             "next": "launch_cli.py <subcommand> --help"})
     raw, tail = _split_tail(raw, load_commands())
-    # 빈 값('' — $VAR 미설정)은 파서를 통과해도 동작에서 엉뚱한 오류가 된다. 실패 응답에 원인 옵션을 싣는다 (#886)
+    # Empty values ('' — unset $VAR) pass the parser but become odd errors in the action. Attach the offending option to the failure response (#886)
     INPUT_CTX.clear()
     INPUT_CTX.update(raw=raw, empty_values=empty_value_options(raw))
     err = io.StringIO()
     try:
-        # argparse 가 stderr 로 쓰는 원인 문구를 error 에 싣는다 (에이전트는 JSON 만 읽는다)
+        # Put the cause text argparse writes to stderr into error (the agent reads only JSON)
         with contextlib.redirect_stderr(err):
             args = parser.parse_args(raw)
         if getattr(args, "_tail_dest", None):
@@ -137,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
         payload = {"ok": False, "code": "bad_args",
                    "error": f"Invalid arguments: {reason}",
                    "next": "launch_cli.py <subcommand> --help"}
-        # 무엇이 틀렸는지 · 비슷한 이름 · 이 명령의 옵션 · 예시 (#886)
+        # What was wrong · similar names · this command's options · example (#886)
         diagnosis = diagnose(parser, raw, reason)
         payload.update(diagnosis)
         payload["summary"] = ("Argument error: unknown " + " ".join(diagnosis["unknown"])
@@ -148,17 +148,17 @@ def main(argv: list[str] | None = None) -> int:
         elif diagnosis.get("example"):
             payload["next"] = f"e.g. {diagnosis['example']}"
         if registry.LOAD_ERRORS:
-            # 모듈이 깨져서 서브커맨드가 안 보이는 것일 수 있다 — 원인을 알려 준다
+            # The subcommand may be missing because its module is broken — report the cause
             payload["load_errors"] = dict(registry.LOAD_ERRORS)
         attach_known_fix(payload)
         return emit_shaped(payload)
-    # 한 프로세스에서 main 을 여러 번 부르는 경우(테스트) 이전 호출의 표시가 새지 않게 한다
+    # When main is called several times in one process (tests), keep the previous call's markers from leaking
     ROOT_CTX.clear()
     ACCESS_CTX.clear()
     TARGET_CTX.clear()
     try:
         return args.func(args)
-    except Exception as e:   # 예상 못 한 입력이 트레이스백으로 끝나지 않게 — 에이전트는 JSON 만 읽는다 (#705)
+    except Exception as e:   # so unexpected input never ends in a traceback — the agent reads only JSON (#705)
         payload = {"ok": False, "code": "handler_error", "error": f"{type(e).__name__}: {e}",
                    "next": "Check the input (paths, values) and call again"}
         attach_known_fix(payload)

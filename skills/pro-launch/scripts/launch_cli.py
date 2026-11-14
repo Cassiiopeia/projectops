@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
-"""launch_cli — pro-launch 전용 CLI (projectops 3-layer 표준, Layer 2, #629).
+"""launch_cli — pro-launch CLI (projectops 3-layer standard, Layer 2, #629).
 
-앱·웹·서버를 **띄우고, 조작하고, 찍는** 능력만 담는다. 무엇을 왜 찍을지는 부르는
-작업 스킬(pro-agent-test · pro-ui-design · pro-figma)이 정한다.
+Holds only the ability to **launch, drive and capture** apps, web and servers. What to capture and why is decided
+by the calling task skills (pro-agent-test · pro-ui-design · pro-figma).
 
-원칙: **판단은 agent, 스크립트는 실행과 기록.** 프로젝트 구조를 알아맞히지 않는다.
+Principle: **the agent decides, scripts run and record.** It does not guess project structure.
 
-서브커맨드:
-    doctor           도구 설치 여부 · 저장 위치
-    detect           무엇을 띄울 수 있는지 (마커 파일 · 기기 · 브라우저)
-    devices          붙은 기기 · 부팅된 시뮬레이터 · AVD
-    device           역할을 기기에 묶는다 (list · bind · unbind · show)
-    app              앱 화면을 찍고(shot) 띄운다(launch)
-    web              브라우저 조작 (setup · open · goto · click · type · shot · assert ·
+Subcommands:
+    doctor           tool install status · storage locations
+    detect           what can be launched (marker files · devices · browsers)
+    devices          attached devices · booted simulators · AVDs
+    device           bind roles to devices (list · bind · unbind · show)
+    app              capture (shot) and launch (launch) app screens
+    web              browser control (setup · open · goto · click · type · shot · assert ·
                      console · close · viewport · route)
-    http             단건 HTTP 요청
-    access           붙는 법 기록 (show · set · unset)
-    db               SQL 실행 (붙는 법은 access 에 적어 둔 대로)
-    logs             서버 로그 (보는 법도 access 에 적어 둔 대로)
-    shrink           이슈 첨부용 축소 · WebP
-    mask · redact    이슈에 올리기 전 이미지 영역 덮기 · 비밀값, 개인정보 형식 가리기
-    recall · learn · forget   이 컴퓨터에서 먹힌 조작 방식을 기억한다 (쓸수록 정확해진다)
-    get-output-path  이번 실행 자리 + env.sh
+    http             single HTTP request
+    access           connection records (show · set · unset)
+    db               run SQL (connected as recorded in access)
+    logs             server logs (read as recorded in access)
+    shrink           downscale · WebP for issue attachments
+    mask · redact    cover image regions · hide secrets and personal-data patterns before posting to issues
+    recall · learn · forget   remember interaction methods that worked on this computer (more accurate with use)
+    get-output-path  this run's location + env.sh
 
-출력: MCP-style JSON (ok/code/summary/next 4필드 보장).
+Output: MCP-style JSON (ok/code/summary/next 4 fields guaranteed).
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-# 이 파일은 진입점일 뿐이다. 구현은 같은 폴더의 pro_launch 패키지에 있다 (지도: pro_launch/ARCHITECTURE.md).
+# This file is only the entry point. The implementation is in the pro_launch package in the same folder (map: pro_launch/ARCHITECTURE.md).
 _HERE = Path(__file__).resolve()
 if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
@@ -39,9 +39,9 @@ from pro_launch.cli import build_parser, main  # noqa: E402,F401
 
 
 def _refresh_stable_entrypoint() -> None:
-    """~/.projectops/bin/launch_cli.py(버전 무관 진입점) 갱신 + 옛 캐시 버전이면 응답 JSON 에 newer_installed (#897·#920).
+    """Refresh ~/.projectops/bin/launch_cli.py (version-independent entry point) + newer_installed in the response JSON when running an old cached version (#897·#920).
 
-    stderr 가 아니라 JSON 에 싣는다 — `2>&1 | json.load` 파이프가 깨지지 않게. 실패해도 명령은 돈다
+    Put in JSON, not stderr — so a `2>&1 | json.load` pipe does not break. The command runs even if this fails
     """
     try:
         import launch_resolver
@@ -49,7 +49,7 @@ def _refresh_stable_entrypoint() -> None:
         from pro_launch.runtime.plugin_version import set_newer_installed
         launch_resolver.refresh_stable_entrypoint(base_dir())
         set_newer_installed(launch_resolver.newer_installed_info(_HERE.parent))
-    except Exception:  # noqa: BLE001 — 부가 기능이 본 명령을 막지 않게
+    except Exception:  # noqa: BLE001 — an extra feature must not block the main command
         pass
 
 

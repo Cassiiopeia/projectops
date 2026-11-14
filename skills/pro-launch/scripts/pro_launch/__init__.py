@@ -1,9 +1,9 @@
-"""pro-launch 구현 패키지 — 앱·웹·서버를 띄우고, 조작하고, 찍는다.
+"""pro-launch implementation package — launches, drives and captures apps, web and servers.
 
-진입점은 `scripts/launch_cli.py` 다. 어디에 무엇이 있는지는 같은 폴더의 `ARCHITECTURE.md`.
+The entry point is `scripts/launch_cli.py`. What lives where is in `ARCHITECTURE.md` in the same folder.
 
-이 파일은 import 경로만 맞춘다. 같은 스킬의 보조 모듈(credentials · knowledge · stealth …)과
-공용 층(`<repo>/scripts/common`)을 스크립트로 불리든 테스트가 import 하든 찾게 한다.
+This file only fixes import paths, so the skill's helper modules (credentials · knowledge · stealth …) and
+the shared layer (`<repo>/scripts/common`) are found whether run as a script or imported by tests.
 """
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve()
-# skills/pro-launch/scripts — 보조 모듈이 있는 곳
+# skills/pro-launch/scripts — where the helper modules live
 SCRIPTS_DIR = _HERE.parent.parent
-# <repo>/scripts — 모든 스킬이 공유하는 common/ 이 있는 곳
+# <repo>/scripts — where common/, shared by every skill, lives
 COMMON_ROOT = _HERE.parents[4] / "scripts"
 
 for _p in (COMMON_ROOT, SCRIPTS_DIR):

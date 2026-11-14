@@ -1,6 +1,6 @@
-"""기기 수용량 측정: 기기당 메모리 · 부팅 · 캡처 시간 (#964). 켜진 기기가 있으면 그것을 재고, 없으면 실험 기기를 켠다.
+"""Device capacity measurement: memory · boot · capture time per device (#964). Measures running devices if any, otherwise boots test devices.
 
-빠른 측정은 종류마다 한 대, full 은 멈춤 신호까지 늘린다. 실험 기기는 언제나 지우고, 비정상 종료 대비 1시간 임시 기기로 기록한다.
+Quick measurement is one device per kind; full adds more until a stop signal. Test devices are always deleted and recorded as 1-hour temporary devices in case of abnormal exit.
 """
 from __future__ import annotations
 
@@ -13,26 +13,26 @@ from common.proc import sdk_tool
 
 from pro_launch.runtime import device_backends, device_capacity, device_marks, host_resources, procs
 
-# 켠 뒤 메모리가 자리 잡기를 기다리는 시간 (초)
+# Time to wait for memory to settle after boot (s)
 SETTLE_SECONDS = 30
-# 전체 측정에서 종류마다 최대 몇 대까지 늘리나
+# Max devices per kind in a full measurement
 FULL_MAXIMUM_DEVICES = 6
-# 멈춤 신호: 스왑 여유 (MB) · 처음보다 이만큼 느려지면 (배)
+# Stop signals: free swap (MB) · slowdown factor versus the first one (x)
 MINIMUM_SWAP_FREE_MB = 1024
 SLOW_BOOT_FACTOR = 2.5
 SLOW_SHOT_FACTOR = 3.0
-# 실험 기기를 켤 때 비용 말고 더 남아 있어야 하는 메모리 (MB) — acquire 의 여유분보다 작다:
-# 측정은 한 대씩 켜고 신호를 보며 멈추므로, acquire 기준을 쓰면 바쁜 컴퓨터에서는 영영 못 잰다
+# Memory (MB) that must remain beyond the cost when booting a test device — smaller than acquire's headroom:
+# measurement boots one at a time and stops on signals, so using acquire's threshold would never measure on a busy computer
 BENCHMARK_MINIMUM_FREE_MB = 1024
-# 측정한 비용에 더하는 안전 여유 (비율)
+# Safety margin added to the measured cost (ratio)
 COST_MARGIN_RATIO = 0.15
-# 실험 기기 원장 기한 (일, 1시간) — 비정상 종료로 남으면 gc 가 지운다
+# Ledger expiry for test devices (days, 1 hour) — gc removes them if left by an abnormal exit
 BENCHMARK_DEVICE_TTL_DAYS = 1 / 24
 DEVICE_PROCESS_NAMES = ("qemu-system", "launchd_sim", "Simulator", "emulator")
 
 
 def stop_signal(memory: dict, cost_mb: int) -> str | None:
-    """더 켜면 안 되는 신호 > 이유. 없으면 None."""
+    """Signal that no more should boot > reason. None if none."""
     pressure = host_resources.pressure_level(memory)
     if pressure == "critical":
         return "memory pressure is critical"
@@ -47,14 +47,14 @@ def stop_signal(memory: dict, cost_mb: int) -> str | None:
 
 
 def non_device_consumers(count: int = 5) -> list[dict]:
-    """기기가 아닌 큰 메모리 소비자 (이유에 보여 줄 것)."""
+    """Big non-device memory consumers (shown in the reason)."""
     rows = procs.top_memory_processes(count + 10)
     return [row for row in rows if not any(name in row["name"] for name in DEVICE_PROCESS_NAMES)][:count]
 
 
 def device_process_ids(platform: str, key: str) -> list[int]:
-    """그 기기가 쓰는 프로세스들. iOS 는 그 UDID 의 launchd_sim 과 그 아래 전부 — 안쪽 프로세스(SpringBoard 등)는
-    명령줄에 UDID 가 없어 UDID 로만 찾으면 대부분 빠진다 (실측: 82MB 로 잘못 잼)."""
+    """Processes the device uses. On iOS, that UDID's launchd_sim and everything under it — inner processes (SpringBoard etc.)
+    have no UDID on the command line, so finding by UDID alone misses most of them (observed: mismeasured as 82MB)."""
     if platform != "ios":
         return procs.process_ids_with_arguments("-avd", key)
     rows = procs.process_table() or []
@@ -67,7 +67,7 @@ def device_process_ids(platform: str, key: str) -> list[int]:
 
 
 def screenshot_seconds(platform: str, instance: str) -> float | None:
-    """캡처 한 장 걸리는 시간 (초). 실패하면 None."""
+    """Time to take one capture (s). None on failure."""
     started = time.monotonic()
     with tempfile.TemporaryDirectory() as folder:
         target = Path(folder) / "benchmark.png"
@@ -89,7 +89,7 @@ def screenshot_seconds(platform: str, instance: str) -> float | None:
 
 
 def _boot_and_sample(backend, platform: str, key: str) -> dict:
-    """한 대 켜고 재기 > {boot_seconds, footprint_mb, available_drop_mb, cost_mb, shot_seconds, problem}."""
+    """Boot one and measure > {boot_seconds, footprint_mb, available_drop_mb, cost_mb, shot_seconds, problem}."""
     before = host_resources.read_memory()
     started = time.monotonic()
     booted = backend.boot(key, "headless", None)
@@ -115,7 +115,7 @@ def _is_slowed(sample: dict, first: dict) -> str | None:
 
 
 def measure_running_devices() -> dict[str, dict]:
-    """이미 켜진 가상 기기의 실제 사용량 > {플랫폼: {samples, cost_mb, method: running}} — 새로 켜지 않는 측정."""
+    """Actual usage of already-running virtual devices > {platform: {samples, cost_mb, method: running}} — measurement without booting new ones."""
     measured: dict[str, list[dict]] = {}
     for facts in device_backends.all_device_facts():
         if not facts.is_booted or device_backends.backend_named(facts.backend).capabilities.is_physical:
@@ -130,7 +130,7 @@ def measure_running_devices() -> dict[str, dict]:
 
 
 def measure_platform(platform: str, is_full: bool) -> dict:
-    """한 종류 측정 > {platform, samples, cost_mb, healthy_count, stop_reason, skipped}. 실험 기기는 끝나면 지운다."""
+    """Measure one kind > {platform, samples, cost_mb, healthy_count, stop_reason, skipped}. Test devices are deleted at the end."""
     backend = next((b for b in device_backends.backends_for(platform) if b.capabilities.can_create), None)
     if backend is None:
         return {"platform": platform, "skipped": f"cannot create a {platform} device"}
@@ -157,7 +157,7 @@ def measure_platform(platform: str, is_full: bool) -> dict:
                 samples.pop()
                 break
     finally:
-        # (성공·실패·중단 공통) 실험 기기 정리
+        # (success·failure·interruption alike) clean up test devices
         for key in created:
             backend.shutdown(key, None)
             backend.delete(key)

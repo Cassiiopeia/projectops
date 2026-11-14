@@ -1,17 +1,17 @@
-"""반복하는 사이트·작업의 안내서(하네스)를 폴더 하나로 둔다 — 새 사이트는 폴더를 만드는 것으로 끝난다 (projectops#1023).
+"""Keeps the guide (harness) for a recurring site or task in one folder — a new site is just a new folder (projectops#1023).
 
-  ~/.projectops/launch/_machine/harness/<name>/        이 컴퓨터 전체 (기본)
-  ~/.projectops/launch/<owner__repo>/harness/<name>/   이 레포만 — 이름이 같으면 이쪽이 이긴다
+  ~/.projectops/launch/_machine/harness/<name>/        this whole computer (default)
+  ~/.projectops/launch/<owner__repo>/harness/<name>/   this repo only — wins on a name clash
 
-폴더 안:
-  README.md      agent 가 읽고 판단하며 따라가는 안내서 (목적 · 루프 · 판단 지점 · 막혔을 때 …)
-  harness.json   선택. {"description", "match": {"hosts": [...], "urls": [...], "apps": [...], "windows": [...]}, "areas": [...]}
-                 있으면 그 주소·호스트·앱·창으로 향하는 명령의 응답에 `harness` 로 실린다. 없으면 목록·보기만 된다
+Inside the folder:
+  README.md      guide the agent reads, judges and follows (purpose · loop · decision points · when stuck …)
+  harness.json   optional. {"description", "match": {"hosts": [...], "urls": [...], "apps": [...], "windows": [...]}, "areas": [...]}
+                 when present, attached as `harness` to responses of commands aimed at those URLs·hosts·apps·windows. Without it, list and show only
                  (apps·windows: projectops#1024)
-  그 밖          반복 클릭을 줄이는 도우미 스크립트 (선택). 스크립트는 안내서를 돕는 것이지 대신하지 않는다
+  anything else  optional helper scripts that cut repeated clicks. Scripts support the guide, they do not replace it
 
-일지(journal)는 작업 한 건의 맥락, 기억(learn)은 한 줄 결론, 하네스는 안내서 + 도우미다.
-비밀값은 어느 파일에도 쓰지 않는다 — 계정은 cred 에 둔다.
+The journal is the context of one task, memory (learn) is a one-line conclusion, a harness is a guide + helpers.
+No secrets in any file — accounts go in cred.
 """
 from __future__ import annotations
 
@@ -35,16 +35,16 @@ SEEN_FILE = "harness_seen.json"
 SCOPES = ("machine", "repo")
 NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,39}$")
 MAX_DESCRIPTION = 200
-SURFACE_LIMIT = 2         # 한 응답에 싣는 하네스 수
-EXCERPT_LINES = 8         # 응답에 싣는 README 발췌 줄 수
+SURFACE_LIMIT = 2         # harnesses attached per response
+EXCERPT_LINES = 8         # README excerpt lines attached to a response
 EXCERPT_CHARS = 600
-FILES_LIMIT = 12          # 응답에 싣는 도우미 파일 이름 수
-# 이 제목의 절이 있으면 발췌로 쓴다 (없으면 제목 바로 아래 소개 문단)
-SUMMARY_HEADINGS = ("요약", "summary", "tl;dr", "tldr")   # 요약 = 한국어 "요약"
+FILES_LIMIT = 12          # helper file names attached to a response
+# A section with one of these headings is used as the excerpt (otherwise the intro paragraph right under the title)
+SUMMARY_HEADINGS = ("요약", "summary", "tl;dr", "tldr")   # 요약 = Korean for "summary"
 TEMPLATE_DIR = Path(__file__).resolve().parent / "harness_templates"
 LANGUAGES = ("ko", "en")
 MATCH_KEYS = ("hosts", "urls", "apps", "windows")
-# app 명령의 영역. 기억 영역(knowledge.AREAS)은 플랫폼별(ios·android)이라 areas 에서 서로 통하게 한다
+# Areas of app commands. Memory areas (knowledge.AREAS) are per platform (ios·android), so areas treat them as interchangeable
 APP_AREA = "app"
 APP_PLATFORMS = ("ios", "android")
 
@@ -53,12 +53,12 @@ def machine_dir() -> Path:
     return base_dir() / "launch" / MACHINE_BUCKET / DIR_NAME
 
 
-# 루트 > 레포 하네스 폴더. 응답마다 불리므로 git 을 한 번만 본다
+# root > repo harness folder. Called on every response, so git is checked only once
 _REPO_DIRS: dict = {}
 
 
 def repo_dir(root: Path | None) -> Path | None:
-    """이 레포의 하네스 자리. 레포를 모르거나 임시 폴더면 None — 그런 버킷은 tidy 가 지울 수 있다."""
+    """This repo's harness location. None when the repo is unknown or a temp folder — tidy may remove such buckets."""
     if root is None:
         return None
     key = (str(root), str(base_dir()))
@@ -71,7 +71,7 @@ def repo_dir(root: Path | None) -> Path | None:
 
 
 def scope_dirs(root: Path | None) -> list[tuple[str, Path]]:
-    """찾는 순서: 레포 > 이 컴퓨터. 같은 이름이면 앞의 것이 이긴다."""
+    """Lookup order: repo > this computer. On a name clash the earlier one wins."""
     dirs = []
     repo = repo_dir(root)
     if repo is not None and repo != machine_dir():
@@ -89,7 +89,7 @@ def _string_list(value) -> list[str]:
 
 
 def _load_meta(folder: Path) -> tuple[dict, str | None]:
-    """harness.json > (내용, 오류). 없으면 ({}, None) · 깨졌으면 ({}, 이유) — 목록에서 빠지지 않고 이유가 보인다."""
+    """harness.json > (content, error). Missing: ({}, None) · broken: ({}, reason) — it stays in the list with the reason shown."""
     f = folder / META_FILE
     if not f.is_file():
         return {}, None
@@ -103,7 +103,7 @@ def _load_meta(folder: Path) -> tuple[dict, str | None]:
 
 
 def _readme_title(readme: Path) -> str:
-    """README 의 첫 제목(없으면 첫 글줄) — harness.json 이 없을 때의 설명."""
+    """First README heading (or first text line) — the description when harness.json is missing."""
     try:
         lines = readme.read_text(encoding="utf-8-sig", errors="replace").splitlines()
     except OSError:
@@ -125,7 +125,7 @@ def _helper_files(folder: Path) -> list[str]:
 
 
 def describe(folder: Path, scope: str) -> dict:
-    """하네스 폴더 하나 > 목록 항목."""
+    """One harness folder > list entry."""
     meta, meta_error = _load_meta(folder)
     readme = folder / README_FILE
     match = meta.get("match") if isinstance(meta.get("match"), dict) else {}
@@ -143,7 +143,7 @@ def describe(folder: Path, scope: str) -> dict:
 
 
 def list_all(root: Path | None) -> list[dict]:
-    """모든 하네스 (레포 것이 같은 이름의 컴퓨터 것을 가린다). 이름순."""
+    """All harnesses (repo ones hide same-named computer ones). Sorted by name."""
     found: dict[str, dict] = {}
     for scope, d in scope_dirs(root):
         try:
@@ -162,17 +162,17 @@ def find(root: Path | None, name: str) -> dict | None:
     return next((e for e in list_all(root) if e["name"] == name), None)
 
 
-# ── 맞추기 ────────────────────────────────────────────────────────────────
+# ── Matching ────────────────────────────────────────────────────────────────
 #
-# hosts: 호스트 이름(대소문자 무시, * 와일드카드). `호스트:포트` 로 적으면 주소의 포트까지 본다
-# urls : 주소 패턴(* 와일드카드). 경로 없이 적으면 그 사이트 전체(`/*`)로 본다
-# 호스트만 아는 명령(ssh)은 urls 패턴의 호스트 부분과도 맞춘다 — 같은 서버의 웹 하네스가 보이게
-# apps   : Android 패키지명 · iOS 번들 ID (대소문자 무시, * 와일드카드) — app 명령 (projectops#1024)
-# windows: desktop 창 제목 · 프로그램 이름 (대소문자 무시, * 와일드카드). 프로그램 이름은 .exe 를 떼고도 맞춘다
+# hosts: host names (case-insensitive, * wildcard). Written as `host:port`, the URL port is checked too
+# urls : URL patterns (* wildcard). Without a path, the whole site (`/*`) is meant
+# Host-only commands (ssh) also match the host part of urls patterns — so the web harness of the same server shows
+# apps   : Android package name · iOS bundle ID (case-insensitive, * wildcard) — app commands (projectops#1024)
+# windows: desktop window title · program name (case-insensitive, * wildcard). Program names also match without .exe
 
 
 def _normalize_url(url: str) -> str:
-    """scheme · 호스트는 소문자, 빈 경로는 / — 'https://h:1/' 와 'HTTPS://H:1' 을 같게 본다."""
+    """Lowercase scheme and host, empty path is / — treats 'https://h:1/' and 'HTTPS://H:1' as equal."""
     parts = urlsplit(url.strip())
     path = parts.path or "/"
     tail = (f"?{parts.query}" if parts.query else "") + (f"#{parts.fragment}" if parts.fragment else "")
@@ -211,7 +211,7 @@ def _host_matches(entry_host: str, host: str | None, port: int | None) -> bool:
 
 
 def _names(value) -> list[str]:
-    """app · window 값(문자열 하나 또는 여럿) > 비교할 이름들. 빈 값은 뺀다."""
+    """app · window value (one string or several) > names to compare. Empty values are dropped."""
     if isinstance(value, str):
         value = [value]
     return [str(v).strip() for v in (value or []) if v and str(v).strip()]
@@ -231,7 +231,7 @@ def _name_reason(kind: str, patterns: list[str], names: list[str]) -> str | None
 
 
 def area_applies(entry_areas: list[str], area: str | None) -> bool:
-    """areas 를 적은 하네스는 그 영역에만. app 과 ios·android 는 서로 통한다 (area 를 모르면 거르지 않는다)."""
+    """Harnesses listing areas apply only there. app and ios·android are interchangeable (no filtering when area is unknown)."""
     if not area or not entry_areas or area in entry_areas:
         return True
     if area in APP_PLATFORMS and APP_AREA in entry_areas:
@@ -241,8 +241,8 @@ def area_applies(entry_areas: list[str], area: str | None) -> bool:
 
 def match_reason(entry: dict, url: str | None = None, host: str | None = None,
                  app=None, window=None) -> str | None:
-    """이 하네스가 url · host · app · window 에 맞으면 맞은 규칙("url:<패턴>" · "host:<호스트>" ·
-    "app:<패턴>" · "window:<패턴>"), 아니면 None. app · window 는 문자열 하나 또는 여럿."""
+    """If this harness matches url · host · app · window, the matched rule ("url:<pattern>" · "host:<host>" ·
+    "app:<pattern>" · "window:<pattern>"), otherwise None. app · window are one string or several."""
     match = entry["match"]
     reason = _name_reason("app", match.get("apps") or [], _names(app))
     if reason:
@@ -255,7 +255,7 @@ def match_reason(entry: dict, url: str | None = None, host: str | None = None,
         try:
             parts = urlsplit(url.strip())
             parsed_host, port, normalized = parts.hostname, parts.port, _normalize_url(url)
-        except ValueError:   # 잘못된 포트·IPv6 괄호 — 맞추지 못한 것으로 친다
+        except ValueError:   # bad port or IPv6 brackets — counted as no match
             parsed_host, port, normalized = None, None, None
     if normalized:
         for pattern in entry["match"]["urls"]:
@@ -276,7 +276,7 @@ def match_reason(entry: dict, url: str | None = None, host: str | None = None,
 
 def matching(root: Path | None, url: str | None = None, host: str | None = None,
              area: str | None = None, app=None, window=None) -> list[dict]:
-    """url · host · app · window 에 맞는 하네스. areas 를 적은 하네스는 그 영역의 명령에만 맞는다 (area_applies)."""
+    """Harnesses matching url · host · app · window. Harnesses listing areas match only commands in those areas (area_applies)."""
     if not url and not host and not _names(app) and not _names(window):
         return []
     rows = []
@@ -289,11 +289,11 @@ def matching(root: Path | None, url: str | None = None, host: str | None = None,
     return rows
 
 
-# ── 응답에 싣기 ───────────────────────────────────────────────────────────
+# ── Attaching to responses ───────────────────────────────────────────────────────────
 
 
 def excerpt(readme: str | Path | None, max_lines: int = EXCERPT_LINES, max_chars: int = EXCERPT_CHARS) -> str:
-    """README 발췌: `## 요약`(Summary) 절 > 첫 제목 아래 소개 문단 > 첫 절 본문. 줄·글자 상한."""
+    """README excerpt: `## Summary` (or `## 요약`) section > intro paragraph under the first title > first section body. Line and character caps."""
     if not readme:
         return ""
     try:
@@ -304,7 +304,7 @@ def excerpt(readme: str | Path | None, max_lines: int = EXCERPT_LINES, max_chars
     for line in lines:
         heading = re.match(r"^(#{1,6})\s+(.*)$", line.strip())
         if heading and len(heading.group(1)) == 1 and len(sections) == 1 and not any(x.strip() for x in sections[0][1]):
-            continue   # 문서 제목(H1)은 건너뛴다
+            continue   # skip the document title (H1)
         if heading and len(heading.group(1)) == 2:
             sections.append((heading.group(2).strip().lower(), []))
             continue
@@ -320,7 +320,7 @@ def excerpt(readme: str | Path | None, max_lines: int = EXCERPT_LINES, max_chars
 def surface(root: Path | None, seen_file: Path, url: str | None = None, host: str | None = None,
             area: str | None = None, mark: bool = True, today: str | None = None,
             app=None, window=None) -> list[dict]:
-    """명령 응답에 실을 하네스. 하네스마다 하루 한 번 — 실패한 명령(mark=False)은 '보여 줌'으로 치지 않는다."""
+    """Harnesses to attach to a command response. Once a day per harness — a failed command (mark=False) does not count as shown."""
     now = today or dt.date.today().isoformat()
     rows = []
     for entry in matching(root, url=url, host=host, area=area, app=app, window=window):
@@ -336,11 +336,11 @@ def surface(root: Path | None, seen_file: Path, url: str | None = None, host: st
     return rows
 
 
-# ── 만들기 ────────────────────────────────────────────────────────────────
+# ── Creating ────────────────────────────────────────────────────────────────
 
 
 def resolve_language(lang: str | None, root: Path | None) -> str:
-    """README 뼈대 언어: 지정값 > 레포 팀 언어(version.yml) > 이 컴퓨터 로캘 > en."""
+    """README skeleton language: given value > repo team language (version.yml) > this computer's locale > en."""
     if lang in LANGUAGES:
         return lang
     team = (read_team_language(root) or "").lower() if root else ""
@@ -363,7 +363,7 @@ def _readme_skeleton(name: str, description: str, targets_list: list[str], lang:
 def create(root: Path | None, name: str, description: str = "", hosts: list[str] | None = None,
            urls: list[str] | None = None, areas: list[str] | None = None, scope: str = "machine",
            lang: str | None = None, apps: list[str] | None = None, windows: list[str] | None = None) -> dict:
-    """하네스 폴더 + harness.json + README 뼈대. 실패하면 {"error": 코드, "message": ...}."""
+    """Harness folder + harness.json + README skeleton. On failure {"error": code, "message": ...}."""
     hosts, urls, areas = _string_list(hosts or []), _string_list(urls or []), _string_list(areas or [])
     apps, windows = _string_list(apps or []), _string_list(windows or [])
     description = " ".join((description or "").split())
@@ -388,7 +388,7 @@ def create(root: Path | None, name: str, description: str = "", hosts: list[str]
     folder = base / name
     language = resolve_language(lang, root)
     match = {"hosts": hosts, "urls": urls}
-    # 앱·창 칸은 준 것만 적는다 — 웹 하네스의 harness.json 모양은 그대로 (projectops#1024)
+    # Write app and window fields only when given — web harness harness.json shape stays the same (projectops#1024)
     match.update({k: v for k, v in (("apps", apps), ("windows", windows)) if v})
     meta = {"description": description, "match": match, "areas": areas}
     folder.mkdir(parents=True, exist_ok=False)

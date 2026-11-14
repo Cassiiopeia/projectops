@@ -1,28 +1,28 @@
-"""자동화 표식 가리기 — Google·Apple 로그인이 자동화 브라우저를 막는 것을 피한다.
+"""Hide automation markers — avoids Google·Apple sign-in blocking automated browsers.
 
-gstack browse 의 `src/stealth.ts`(Layer C 기본값 + 자동화 흔적 정리)에서 옮겼다.
-gstack 전체(TS 2.6만 줄, Bun 바이너리 119MB)를 들이지 않고 로그인 차단을 피하는 핵심만 가져온다.
+Ported from gstack browse `src/stealth.ts` (Layer C defaults + automation artifact cleanup).
+Takes only the core that avoids sign-in blocks, without pulling in all of gstack (26k lines of TS, 119MB Bun binary).
 
-옮긴 것
-  - 실행 인자 `--disable-blink-features=AutomationControlled`
-      navigator.webdriver 를 브라우저 자체가 false 로 둔다. **페이지 스크립트가 아니라
-      실행 인자라서, 우리가 연결을 끊은 뒤 뜨는 로그인 팝업 창에도 걸린다** — 이 스킬은
-      명령마다 붙었다 떨어지므로 init 스크립트만으로는 팝업을 못 덮는다.
-  - UA 보정: headless 는 UA 에 `HeadlessChrome` 이 박힌다. 같은 버전의 일반 Chrome UA 로 바꾼다
-  - init 스크립트 두 개: 표식 가리기(webdriver · window.chrome · Notification 권한 ·
-    toString 위장 · 자동화 전역 삭제) + 흔적 정리(cdc_ 전역 · Permissions 응답)
+Ported
+  - Launch arg `--disable-blink-features=AutomationControlled`
+      The browser itself keeps navigator.webdriver false. **Because it is a launch arg, not a page script,
+      it also applies to sign-in popups that open after we disconnect** — this skill attaches and detaches
+      per command, so init scripts alone cannot cover popups.
+  - UA fix: headless puts `HeadlessChrome` in the UA. Replace it with the regular Chrome UA of the same version
+  - Two init scripts: marker hiding (webdriver · window.chrome · Notification permission ·
+    toString disguise · delete automation globals) + artifact cleanup (cdc_ globals · Permissions response)
 
-옮기지 않은 것
-  - EXTENDED 모드(플러그인·WebGL 위조): 원본도 "적극적으로 속여 사이트를 깨뜨릴 수 있다"며
-    기본값에서 뺀 탈출구다
-  - --gstack-* 인자: gstack 이 패치한 Chromium 에서만 뜻이 있다. 일반 Chromium 은 모른다
+Not ported
+  - EXTENDED mode (plugin·WebGL spoofing): an escape hatch the original also leaves off by default, saying
+    "aggressive spoofing can break sites"
+  - --gstack-* args: meaningful only in gstack's patched Chromium. Regular Chromium does not know them
 
-실측(#604): 소셜 로그인 통과를 가른 것은 stealth 가 아니라 **--headed** 였다. 그래서 이것은
-headed 를 대신하지 않는다 — 로그인이 막히면 여전히 `web open --headed` 가 먼저다.
-이 층은 headless 에서의 통과율을 올리고, 봇 판정으로 추가 인증이 붙는 것을 줄인다.
+Observed (#604): what decided social sign-in success was **--headed**, not stealth. So this does
+not replace headed — when sign-in is blocked, `web open --headed` still comes first.
+This layer raises the pass rate in headless and reduces extra verification triggered by bot detection.
 
 ---------------------------------------------------------------------------
-원본 라이선스 (gstack — https://github.com/garrytan/gstack)
+Original license (gstack — https://github.com/garrytan/gstack)
 
 MIT License
 
@@ -56,21 +56,21 @@ import sys
 
 LAUNCH_ARGS = ["--disable-blink-features=AutomationControlled"]
 
-# 버전을 못 읽을 때 쓰는 값. 너무 낡으면 그 자체가 표식이 된다
+# Value used when the version cannot be read. If too old, it becomes a marker itself
 _FALLBACK_VERSION = "131.0.0.0"
 
 
 def _platform_token() -> str:
-    """UA 의 OS 부분. 실제 OS 와 어긋나면 navigator.platform 과 교차 검사에 걸린다."""
+    """OS part of the UA. If it disagrees with the real OS it fails the cross-check with navigator.platform."""
     if sys.platform == "darwin":
-        return "Macintosh; Intel Mac OS X 10_15_7"   # 실제 Chrome 도 Apple Silicon 에서 이렇게 보낸다
+        return "Macintosh; Intel Mac OS X 10_15_7"   # real Chrome sends this on Apple Silicon too
     if sys.platform == "win32":
         return "Windows NT 10.0; Win64; x64"
     return "X11; Linux x86_64"
 
 
 def user_agent(chrome_exe: str) -> str:
-    """같은 버전의 일반 Chrome UA. 브랜드 문구를 넣지 않는다 — 그것 자체가 식별자가 된다."""
+    """Regular Chrome UA of the same version. No brand text — that alone becomes an identifier."""
     version = _FALLBACK_VERSION
     try:
         out = subprocess.run([chrome_exe, "--version"], capture_output=True, text=True, errors="replace",
@@ -89,9 +89,9 @@ def launch_args(chrome_exe: str) -> list[str]:
 
 
 def _hw() -> tuple[int, int]:
-    """이 기계의 실제 코어 수. 고정값을 쓰면 이 스킬을 쓰는 모든 사람이 같은 지문으로 묶인다."""
+    """Actual core count of this machine. A fixed value would group everyone using this skill under one fingerprint."""
     cores = os.cpu_count() or 8
-    return cores, 8   # deviceMemory 는 브라우저가 8 이상을 8 로 자른다
+    return cores, 8   # browsers clamp deviceMemory of 8 or more to 8
 
 
 def stealth_script() -> str:
@@ -101,12 +101,12 @@ def stealth_script() -> str:
 
 
 def init_scripts() -> list[str]:
-    """등록 순서가 곧 실행 순서다. toString 위장이 먼저 깔려야 뒤의 getter 가 가려진다."""
+    """Registration order is execution order. The toString disguise must be installed first so later getters are hidden."""
     return [stealth_script(), CLEANUP_SCRIPT]
 
 
-# gstack buildStealthScript — 순서가 중요하다: toString Proxy 가 먼저 설치되어야 뒤에서
-# 바꾼 getter 들이 모두 '[native code]' 로 보인다.
+# gstack buildStealthScript — order matters: the toString Proxy must be installed first so getters
+# changed later all look like '[native code]'.
 _STEALTH_TEMPLATE = r"""(() => {
   if (window.__projectops_stealth) return;
   try { Object.defineProperty(window, '__projectops_stealth', { value: true }); } catch {}
@@ -221,8 +221,8 @@ _STEALTH_TEMPLATE = r"""(() => {
   } catch {}
 })();"""
 
-# gstack AUTOMATION_ARTIFACT_CLEANUP_SCRIPT — CDP 가 심는 cdc_ 전역과, 자동화 Chromium 이
-# 알림 권한을 'denied' 로 답하는 표식을 정리한다 ('prompt' 로 맞춰 위 Notification 과 어긋나지 않게).
+# gstack AUTOMATION_ARTIFACT_CLEANUP_SCRIPT — cleans up the cdc_ globals CDP plants and the marker of automated Chromium
+# answering notification permission as 'denied' (set to 'prompt' so it agrees with Notification above).
 CLEANUP_SCRIPT = r"""(() => {
   const cleanup = () => {
     for (const key of Object.keys(window)) {

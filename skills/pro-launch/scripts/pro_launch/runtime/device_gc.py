@@ -1,7 +1,7 @@
-"""기기 정리 계획: 원장 + 기기 사실 > 지울 것 · 끌 것 · 보고만 할 것 (#955).
+"""Device cleanup plan: ledger + device facts > what to delete · power off · only report (#955).
 
-지우는 것은 원장이 만든 임시 기기뿐이다 — 기한이 지났고, 아무도 빌리지 않았고, 공들인 상태가 없을 때.
-기록 없는 기기 · mark 있는 기기 · 사람이 켠 기기는 손대지 않고 크기와 이유만 보고한다.
+Only temporary devices the ledger created are deleted — when expired, borrowed by nobody, and without prepared states.
+Unrecorded devices · devices with marks · human-started devices are left alone; only size and reason are reported.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pro_launch.runtime import device_backends, device_claims, device_ledger
 from pro_launch.runtime.device_marks import is_protected
 
-# 원장이 켠 기기를 아무도 안 쓴 채 이만큼 두면 끈다 (초, 20분)
+# Power off a ledger-booted device left unused this long (s, 20 min)
 POOL_BOOTED_IDLE_SHUTDOWN_SECONDS = 20 * 60
 
 ACTION_DELETE = "delete"
@@ -21,7 +21,7 @@ ACTION_KEEP = "keep"
 
 @dataclass
 class GcPlan:
-    """정리 계획. rows 는 기기마다 하나 (action · reason · bytes)."""
+    """Cleanup plan. rows has one entry per device (action · reason · bytes)."""
 
     rows: list[dict] = field(default_factory=list)
     unavailable: list[dict] = field(default_factory=list)
@@ -39,7 +39,7 @@ def _row(facts, action: str, reason: str, size: int, entry: dict) -> dict:
 
 
 def _decide_row(facts, entry: dict, live_leases: list[dict], now: float) -> tuple[str, str]:
-    """기기 하나 > (action, reason)."""
+    """One device > (action, reason)."""
     temporary = entry.get("temporary") or {}
     is_expired = bool(temporary) and now > float(temporary.get("expires_at") or 0)
     if live_leases:
@@ -63,9 +63,9 @@ def _decide_row(facts, entry: dict, live_leases: list[dict], now: float) -> tupl
 
 
 def build_plan(is_every_size_counted: bool = False) -> GcPlan:
-    """지금 기기·원장으로 정리 계획을 만든다 (아무것도 바꾸지 않는다).
+    """Build a cleanup plan from current devices·ledger (changes nothing).
 
-    크기는 지우거나 끌 기기 · 임시 기기만 센다 — 전부 세면 수십 GB 를 훑느라 수십 초 걸린다(실측 42초). 전부는 is_every_size_counted.
+    Sizes are counted only for devices to delete or power off · temporary devices — counting all scans tens of GB and takes tens of seconds (observed 42 s). All: is_every_size_counted.
     """
     ledger, now, probe = device_ledger.read_ledger(), time.time(), device_claims._HostProbe()
     plan = GcPlan()

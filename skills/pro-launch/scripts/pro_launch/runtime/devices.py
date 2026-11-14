@@ -1,4 +1,4 @@
-"""붙은 기기 찾기 · 역할 묶기 · 고르기 (Android adb, iOS simctl)."""
+"""Finding attached devices · binding roles · picking (Android adb, iOS simctl)."""
 from __future__ import annotations
 
 import json
@@ -44,9 +44,9 @@ def ios_udids(dev: dict) -> list[str]:
 
 
 def sole_device(platform: str | None = None) -> str | None:
-    """env.sh 기본 DEV 후보: 다른 세션이 쥔 기기를 뺀 붙은 기기(플랫폼을 주면 그 플랫폼만)가 정확히 하나면 그 id.
+    """Default DEV candidate for env.sh: the id if exactly one attached device remains after excluding those held by other sessions (only that platform if given).
 
-    이 세션이 쥔 기기가 하나면 그것이 먼저다. 정해지지 않으면 None — 남의 기기를 DEV 로 채우지 않는다 (#972).
+    If this session holds exactly one device, that comes first. None if undecided — never fills DEV with someone else's device (#972).
     """
     from pro_launch.runtime import device_claims
     try:
@@ -55,7 +55,7 @@ def sole_device(platform: str | None = None) -> str | None:
         found = [dev_id for kind, dev_id in found if platform in (None, kind)]
         free = [dev_id for dev_id in found if device_claims.check_device_owner(dev_id) is None]
         owned = [dev_id for dev_id in free if _is_live_own(device_claims.device_owner(dev_id), device_claims)]
-    except Exception:   # noqa: BLE001 — 기본값 고르기는 보조다. 못 고르면 비워 둔다
+    except Exception:   # noqa: BLE001 — picking a default is auxiliary. Left empty if none can be picked
         return None
     if len(owned) == 1:
         return owned[0]
@@ -66,10 +66,10 @@ def _is_live_own(owner: dict | None, device_claims) -> bool:
     return bool(owner and owner.get("is_live") and owner.get("session") == device_claims.session_identity())
 
 
-# ── 역할 ↔ 기기 (#583) ─────────────────────────────────────────────────
+# ── Role ↔ device (#583) ─────────────────────────────────────────────────
 #
-# 여기서는 **묶고 대조만** 한다. adb 를 감싸지 않는다 — 표면이 너무 넓어 감싸면 adb
-# 재구현이 되고, 탈출구를 만들면 거기로 `-s` 없는 명령이 다시 샌다.
+# Here we **only bind and compare**. adb is not wrapped — its surface is too wide; wrapping it becomes
+# an adb reimplementation, and any escape hatch lets commands without `-s` leak through again.
 _DEVICES_FILE = "devices.json"
 
 
@@ -82,7 +82,7 @@ def devices_path(root: Path) -> Path:
 
 
 def load_devices(root: Path) -> dict:
-    """{package, bindings:[{role, serial, note?}]} — **목록 순서가 곧 DEV1·DEV2 번호다.**"""
+    """{package, bindings:[{role, serial, note?}]} — **list order is the DEV1·DEV2 number.**"""
     p = devices_path(root)
     empty = {"package": None, "bindings": []}
     if not p.is_file():
@@ -115,8 +115,8 @@ def adb_shell(serial: str, *args: str, timeout: int = 20) -> str:
 
 
 def build_info(serial: str, package: str | None) -> dict:
-    """그 기기에 무엇이 깔려 있는지. **버전으로 재면 안 된다** — 컴파일타임 플래그만 바꾼
-    재빌드는 버전이 같다 (#603). APK 해시로 재야 한쪽만 재설치된 것을 본다."""
+    """What is installed on the device. **Do not measure by version** — a rebuild that only changed compile-time flags
+    has the same version (#603). Measuring by APK hash shows when only one side was reinstalled."""
     info: dict = {"screen": None, "package": package, "version": None,
                   "apk": None, "apk_by": None}
     m = re.search(r"Physical size:\s*(\d+x\d+)", adb_shell(serial, "wm", "size"))
@@ -152,7 +152,7 @@ def build_info(serial: str, package: str | None) -> dict:
 
 
 def build_mismatch(rows: list[dict]) -> list[dict]:
-    """역할끼리 설치된 빌드가 다른지. 같은 버전인데 해시가 다르면 한쪽만 재설치된 것이다."""
+    """Do installed builds differ between roles. Same version with different hashes means only one side was reinstalled."""
     seen = [(r["role"], (r.get("build") or {}).get("apk"),
              (r.get("build") or {}).get("version")) for r in rows if r.get("role")]
     known = [(role, apk, ver) for role, apk, ver in seen if apk]
@@ -165,7 +165,7 @@ def build_mismatch(rows: list[dict]) -> list[dict]:
 
 
 def pick_device(want: str | None) -> tuple[str | None, str | None, dict]:
-    """(플랫폼, id, 기기 목록). --device → $DEV → 붙은 게 한 대뿐이면 그것."""
+    """(platform, id, device list). --device → $DEV → the only attached device if there is just one."""
     dev = list_devices()
     udids = ios_udids(dev)
     cand = want or os.environ.get("DEV") or None
@@ -184,7 +184,7 @@ def pick_device(want: str | None) -> tuple[str | None, str | None, dict]:
 
 
 def shutdown_device_fields(target: str | None, dev: dict) -> dict | None:
-    """찾는 기기가 꺼진 시뮬레이터·AVD 면 device_shutdown 응답 필드. 아니면 None (#972)."""
+    """device_shutdown response field if the requested device is a powered-off simulator·AVD. Otherwise None (#972)."""
     if not target:
         return None
     from pro_launch.runtime import device_boot
@@ -207,7 +207,7 @@ def no_device_response(dev: dict, want: str | None) -> int:
     if shutdown is not None:
         return out(shutdown)
     is_boot_suggested = not (dev["android"] or dev["ios_booted"])
-    # 새 기기 부팅을 권하기 전에 호스트 메모리 확인 — critical 이면 부팅 대신 사용자 확인 (#883)
+    # Check host memory before suggesting a new device boot — on critical, ask the user instead of booting (#883)
     if is_boot_suggested:
         pressure_failure = critical_pressure_failure("device boot")
         if pressure_failure:

@@ -1,6 +1,6 @@
-"""Windows 마우스·키보드 입력 — 표준 라이브러리 ctypes 의 SendInput 만 쓴다 (#985).
+"""Windows mouse·keyboard input — uses only SendInput from standard-library ctypes (#985).
 
-좌표는 물리 픽셀이다. 프로세스를 Per-Monitor DPI Aware v2 로 켠 뒤에 부르므로 UIA 가 준 좌표와 같은 기준이다.
+Coordinates are physical pixels. Called after making the process Per-Monitor DPI Aware v2, so they share the basis of UIA coordinates.
 """
 from __future__ import annotations
 
@@ -15,10 +15,10 @@ MOUSEEVENTF_MOVE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_VIRTUALDESK = 0x0001, 0x8000
 MOUSE_BUTTON_FLAGS = {"left": (0x0002, 0x0004), "right": (0x0008, 0x0010), "middle": (0x0020, 0x0040)}
 KEYEVENTF_KEYUP, KEYEVENTF_UNICODE = 0x0002, 0x0004
 SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN = 76, 77, 78, 79
-# 누름과 뗌 사이 · 동작 사이 쉼 (초) — 너무 빠르면 일부 앱(설치 마법사)이 클릭을 놓친다
+# Pause between press and release · between actions (s) — too fast and some apps (installer wizards) miss clicks
 PRESS_GAP_SECONDS = 0.03
 
-# 이름 → 가상 키 코드
+# name → virtual key code
 VIRTUAL_KEYS = {
     "enter": 0x0D, "return": 0x0D, "tab": 0x09, "esc": 0x1B, "escape": 0x1B, "space": 0x20,
     "backspace": 0x08, "delete": 0x2E, "home": 0x24, "end": 0x23, "pageup": 0x21, "pagedown": 0x22,
@@ -67,7 +67,7 @@ def _key(vk: int = 0, scan: int = 0, flags: int = 0) -> INPUT:
 
 
 def absolute_coords(x: int, y: int, virtual: tuple[int, int, int, int]) -> tuple[int, int]:
-    """물리 픽셀 → SendInput 절대 좌표(0~65535, 가상 화면 전체 기준). 여러 모니터를 함께 다룬다."""
+    """Physical pixels → SendInput absolute coordinates (0-65535, over the whole virtual screen). Handles multiple monitors."""
     vx, vy, vw, vh = virtual
     nx = int(round((x - vx) * 65535 / max(vw - 1, 1)))
     ny = int(round((y - vy) * 65535 / max(vh - 1, 1)))
@@ -98,7 +98,7 @@ def click(x: int, y: int, button: str = "left", is_double: bool = False) -> tupl
 
 
 def type_text(text: str) -> tuple[bool, str]:
-    """유니코드로 한 글자씩 보낸다 — 한글·이모지도 키보드 배열과 무관하게 들어간다."""
+    """Send one character at a time as Unicode — Korean and emoji go in regardless of keyboard layout."""
     for ch in text:
         if ch == "\n":
             ok = _send(_key(VIRTUAL_KEYS["enter"]), _key(VIRTUAL_KEYS["enter"], flags=KEYEVENTF_KEYUP))

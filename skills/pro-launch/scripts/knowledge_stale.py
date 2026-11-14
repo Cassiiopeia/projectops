@@ -1,7 +1,7 @@
-"""기억의 낡음 처리: 대체 표시(superseded_by) · 알려진 낡은 항목 표 (#932).
+"""Memory staleness handling: superseded marker (superseded_by) · table of known stale entries (#932).
 
-기억은 기록 당시의 방식이다. 이후 공식 KB·신기능이 생기면 옛 항목이 현행과 어긋난다.
-지우지 않고 대체 표시를 달면 recall 이 맨 뒤로 보내고 응답에는 싣지 않는다.
+Memory is the method as of when it was recorded. Once an official KB entry or new feature appears, old entries drift from current practice.
+Instead of deleting, a superseded marker makes recall put it last and keeps it out of responses.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 
 import knowledge
 
-# (key, area, superseded_by, 이유). superseded_by: "kb:<id>" 공식 KB · "feature:<명령>" 신기능
+# (key, area, superseded_by, reason). superseded_by: "kb:<id>" official KB · "feature:<command>" new feature
 STALE_TABLE = (
     ("web.file_upload_cdp", "web", "feature:web upload", "the web upload command was added (#876)"),
     ("web.sticky_header_click", "web", "feature:web click --dom-click", "auto-recovery and --dom-click were added (#879)"),
@@ -21,12 +21,12 @@ STALE_TABLE = (
     ("android.maestro.driver", "android", "feature:app flow",
      "pkill maestro kills other sessions — app flow does not kill the host maestro"),
 )
-# 검증용 자격증명이 자동 학습으로 남은 테스트 오염 — 접두사로 지운다
+# Test pollution where verification credentials were left by auto-learning — removed by prefix
 LEAKED_KEY_PREFIXES = ("server.zz-verify.",)
 
 
 def mark_superseded(path: Path, key: str, by: str, area: str | None = None, reason: str | None = None) -> int:
-    """key 항목에 대체 표시를 단다 > 표시한 건수."""
+    """Mark the key entry as superseded > number marked."""
     normalized = knowledge.norm_key(key)
     entries = knowledge.load(path)
     marked = 0
@@ -42,7 +42,7 @@ def mark_superseded(path: Path, key: str, by: str, area: str | None = None, reas
 
 
 def stale_matches(path: Path) -> list[dict]:
-    """이 파일에서 낡은 항목 표에 걸리는 것: [{key, action: supersede|delete, by?, reason}] (표시가 이미 있으면 뺀다)."""
+    """Entries in this file hit by the stale table: [{key, action: supersede|delete, by?, reason}] (already marked ones are skipped)."""
     found = []
     for entry in knowledge.load(path):
         if entry["key"].startswith(LEAKED_KEY_PREFIXES):
@@ -55,7 +55,7 @@ def stale_matches(path: Path) -> list[dict]:
 
 
 def apply_stale_table(path: Path) -> list[dict]:
-    """낡은 항목 표를 적용한다 (대체 표시 · 테스트 오염 삭제) > 처리한 항목."""
+    """Apply the stale table (superseded markers · delete test pollution) > handled entries."""
     done = []
     for match in stale_matches(path):
         if match["action"] == "delete":

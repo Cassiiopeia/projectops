@@ -1,7 +1,7 @@
-"""인자 오류 진단: 모르는 옵션·서브커맨드 > 비슷한 이름 > 그 명령의 옵션 목록 > 예시 한 줄 (#886).
+"""Argument error diagnosis: unknown option·subcommand > similar names > that command's options > one example line (#886).
 
-bad_args 가 가장 잦은 실패인데 "usage 를 보라"뿐이라 agent 가 짐작으로 다시 불렀다.
-흔한 실수: 다른 스킬의 옵션(--project-root·--issue), --cred 없이 이름만 넘김, 빈 값('' — $VAR 미설정).
+bad_args is the most frequent failure, yet it only said "see usage", so the agent retried by guessing.
+Common mistakes: options from other skills (--project-root·--issue), passing a name without --cred, empty values ('' — unset $VAR).
 """
 from __future__ import annotations
 
@@ -9,8 +9,8 @@ import argparse
 import difflib
 import re
 
-# 다른 CLI·스킬에서 넘어오는 옵션 이름 > 이 CLI 의 이름 (받는 명령에만 제안한다)
-# 에이전트가 먼저 떠올리는 동작 이름 > 실제 이름 (철자가 멀어 difflib 이 못 찾음, #1149)
+# Option names coming from other CLIs·skills > this CLI's name (suggested only for commands that accept it)
+# Action names agents think of first > the real name (spelled too differently for difflib, #1149)
 ACTION_ALIASES = {
     "screenshot": "shot", "capture": "shot", "snap": "shot",
     "navigate": "goto", "visit": "goto", "go": "goto",
@@ -22,11 +22,11 @@ OPTION_ALIASES = {
     "--udid": "--device", "--serial": "--device",
     "--link": "--url", "--address": "--url",
     "--size": "--viewport",
-    # 글자로 누르기(click 은 --selector 'text=…') · 입력값 이름 혼동 — 실측에서 --timeout 이 잘못 제안됐다
+    # Pressing by text (click uses --selector 'text=…') · input value name mix-ups — --timeout was wrongly suggested in practice
     "--text": "--selector", "--value": "--text",
 }
 SIMILARITY_CUTOFF = 0.6
-# 위치 인자로 잘못 넘기기 쉬운 '이름' 옵션 (앞선 것이 우선)
+# 'name' options easily passed as positional args by mistake (earlier ones win)
 NAME_OPTIONS = ("--cred", "--name", "--key")
 
 
@@ -40,7 +40,7 @@ def _option_strings(parser: argparse.ArgumentParser) -> list[str]:
 
 
 def _long_options(parser: argparse.ArgumentParser) -> list[str]:
-    """옵션마다 대표 긴 이름 하나."""
+    """One representative long name per option."""
     names = []
     for action in parser._actions:
         longs = [o for o in action.option_strings if o.startswith("--") and o != "--help"]
@@ -57,7 +57,7 @@ def _suggest(name: str, choices: list[str]) -> str | None:
 
 
 def empty_value_options(raw: list[str]) -> list[str]:
-    """값이 빈 문자열로 넘어온 옵션 (`--preset ''`, `--url=`) — 대개 $VAR 가 비어 있다."""
+    """Options passed as empty strings (`--preset ''`, `--url=`) — usually an empty $VAR."""
     empty = []
     for index, token in enumerate(raw):
         if token.startswith("--") and token.endswith("=") and "=" in token:
@@ -68,7 +68,7 @@ def empty_value_options(raw: list[str]) -> list[str]:
 
 
 def _example(parser: argparse.ArgumentParser) -> str:
-    """동작 파서는 선언한 예시(epilog 의 '예: ...'), 없으면 usage 한 줄."""
+    """For action parsers, the declared example (the 'e.g. ...' in the epilog), otherwise the one-line usage."""
     match = re.search(r"e\.g\.\s*(.+)", parser.epilog or "")
     if match:
         return match.group(1).strip()
@@ -76,11 +76,11 @@ def _example(parser: argparse.ArgumentParser) -> str:
 
 
 def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> dict:
-    """bad_args 에 덧붙일 필드: unknown · did_you_mean · valid_options(또는 commands/actions) · example · empty_values."""
+    """Fields added to bad_args: unknown · did_you_mean · valid_options (or commands/actions) · example · empty_values."""
     found: dict = {}
     target, path = parser, []
     tokens = list(raw)
-    # 명령 > 동작 순으로 내려가며 대상 파서를 찾는다. 모르는 이름이면 거기서 멈추고 비슷한 이름을 준다
+    # Walk down command > action to find the target parser. On an unknown name, stop there and offer similar names
     while tokens and _subparsers(target):
         choices = _subparsers(target)
         head = tokens[0]
@@ -110,14 +110,14 @@ def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> di
 
 
 def _diagnose_options(found: dict, target: argparse.ArgumentParser, tokens: list[str], reason: str) -> None:
-    """모르는 옵션과 남는 위치 인자를 찾는다. 옵션 목록은 이 명령(동작) 것만 싣는다."""
+    """Find unknown options and leftover positional args. The option list covers only this command (action)."""
     known = _option_strings(target)
     valid = _long_options(target)
     unknown = [t.split("=", 1)[0] for t in tokens
                if t.startswith("--") and t.split("=", 1)[0] not in known]
     extra = re.search(r"unrecognized arguments:\s*(.+)$", reason)
     extras = extra.group(1).split() if extra else []
-    # 모르는 옵션 바로 뒤 토큰은 그 옵션의 값이다 — 위치 인자로 세지 않는다 (--issue 3)
+    # The token right after an unknown option is its value — not counted as a positional arg (--issue 3)
     positionals = [t for i, t in enumerate(extras)
                    if not t.startswith("-") and not (i > 0 and extras[i - 1].startswith("--"))]
     if unknown or positionals:

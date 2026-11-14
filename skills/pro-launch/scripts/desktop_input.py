@@ -1,53 +1,53 @@
-"""PC 화면(데스크톱)을 읽고 누르는 OS 백엔드 (#985).
+"""OS backends that read and press the PC (desktop) screen (#985).
 
-launch_cli.py 의 `desktop …` 동작이 이 모듈만 부른다. OS 차이는 전부 `desktop_backends/` 에 있다.
+launch_cli.py `desktop …` actions call only this module. Every OS difference lives in `desktop_backends/`.
 
-설계
-- **화면 구조(접근성 API)로 찾고, 마우스를 움직이지 않고 누르는 것이 기본**이다.
-  Windows 는 UI Automation 의 Invoke·Value·Toggle 패턴, macOS 는 AXPress·AXValue.
-  그래서 사용자 커서를 건드리지 않는다 (`transport: "invoke"`).
-- 패턴이 없는 요소만 마우스로 누른다 (`transport: "mouse"`). 그 전에 사용자가 마우스를 움직였는지 본다.
-- 모든 백엔드는 **같은 모양의 노드**를 돌려준다. `node_match.find_nodes` 가 그대로 쓰도록 text·id·desc 를 둔다.
-- CLI 호출마다 새 프로세스라 접근성 객체를 넘겨받을 수 없다. 그래서 요소를 **위치 정보(locator)** 로 기억하고
-  누르기 직전에 다시 찾는다 — 창 + 트리 속 경로 + 종류·이름. 어긋나면 `ref_stale`.
+Design
+- **Find through the screen tree (accessibility API) and press without moving the mouse** is the default.
+  Windows uses UI Automation Invoke·Value·Toggle patterns, macOS uses AXPress·AXValue.
+  So the user's cursor is never touched (`transport: "invoke"`).
+- Only elements without a pattern are pressed with the mouse (`transport: "mouse"`). Before that, check whether the user moved the mouse.
+- Every backend returns **nodes of the same shape**, with text·id·desc so `node_match.find_nodes` can use them as is.
+- Each CLI call is a new process, so accessibility objects cannot be passed along. Elements are remembered by **locator**
+  and found again right before pressing — window + path in the tree + kind and name. On mismatch: `ref_stale`.
 
-새 OS 추가
-1. `DesktopBackend` 를 상속한 클래스를 `desktop_backends/` 에 만든다.
-2. 아래 `BACKENDS` 에 등록한다 (키 = `platform_key()` 가 돌려주는 이름).
-3. tests/test_desktop_input.py 의 계약 테스트가 빠진 메서드를 잡는다.
+Adding an OS
+1. Make a class inheriting `DesktopBackend` in `desktop_backends/`.
+2. Register it in `BACKENDS` below (key = the name `platform_key()` returns).
+3. The contract test in tests/test_desktop_input.py catches missing methods.
 """
 from __future__ import annotations
 
 import importlib
 import sys
 
-# 노드 하나에 남기는 필드 — 결과 JSON 의 elements 항목 모양
+# Fields kept per node — shape of an elements entry in the result JSON
 NODE_FIELDS = ("ref", "text", "id", "desc", "role", "clickable", "enabled", "secret",
                "actions", "named_actions", "bounds", "center", "window", "mutating")
-# 누를 수 있다고 보는 종류 (UIA ControlType · AX role 을 소문자 짧은 이름으로 맞춘 값)
+# Kinds treated as pressable (UIA ControlType · AX role normalized to short lowercase names)
 CLICKABLE_ROLES = {"button", "checkbox", "radiobutton", "menuitem", "hyperlink", "link", "tabitem",
                    "listitem", "treeitem", "combobox", "splitbutton", "edit", "textfield", "cell"}
-# 마우스 없이 실행할 수 있는 동작 이름 (백엔드가 actions 에 넣는 값)
+# Action names that run without the mouse (values backends put in actions)
 ACTION_NAMES = ("invoke", "toggle", "select", "expand", "set_value")
-# 사용자가 마우스를 이만큼(픽셀) 넘게 움직였으면 입력하지 않는다 — 트랙패드 떨림은 넘긴다
+# Do not input if the user moved the mouse more than this (pixels) — trackpad jitter is ignored
 CURSOR_DRIFT_PIXELS = 4
-# 우리 마지막 입력 뒤 이만큼(초) 지나 들어온 입력만 사용자 것으로 본다 — 합성 입력 반영 지연·시계 오차 흡수 (#985)
+# Only input arriving this many seconds after our last input counts as the user's — absorbs synthetic-input lag and clock skew (#985)
 USER_INPUT_GRACE_SECONDS = 0.5
-# Windows GetTickCount 는 32비트 ms — 약 49.7일마다 0 으로 돌아간다
+# Windows GetTickCount is 32-bit ms — wraps to 0 about every 49.7 days
 TICK_WRAP_MILLISECONDS = 1 << 32
-# tree 기본 노드 수 상한 — 큰 앱(IDE·브라우저) 전체를 다 읽으면 수 초가 걸린다
+# Default node cap for tree — reading all of a big app (IDE, browser) takes seconds
 DEFAULT_MAX_NODES = 300
 DEFAULT_MAX_DEPTH = 25
 
 
-# ── 공통 순수 함수 (OS 없이 테스트된다) ─────────────────────────────────
+# ── Shared pure functions (tested without an OS) ─────────────────────────────────
 
 def make_desktop_node(*, text: str, id_: str, desc: str, role: str, enabled: bool, secret: bool,
                       actions: list[str], bounds: tuple[int, int, int, int] | None, window: str,
                       named_actions: list[str] | None = None) -> dict | None:
-    """원시 값 → 노드. 크기가 0 이거나 화면 밖이면 None (보이지 않는 요소는 누를 수 없다).
+    """Raw values → node. None if zero size or off screen (invisible elements cannot be pressed).
 
-    named_actions: 이름으로만 부르는 숨은 버튼 (macOS 알림 배너의 닫기·보기 등). `click --action` 이 쓴다.
+    named_actions: hidden buttons called only by name (close·show on macOS notification banners, etc.). Used by `click --action`.
     """
     if not bounds:
         return None
@@ -64,24 +64,24 @@ def make_desktop_node(*, text: str, id_: str, desc: str, role: str, enabled: boo
 
 
 def is_worth_listing(node: dict) -> bool:
-    """agent 에게 보여 줄 노드인가 — 글자가 있거나, 누를 수 있거나, 입력칸이다."""
+    """Is this node worth showing the agent — has text, is pressable, or is an input field."""
     return bool(node["text"] or node["desc"] or node["clickable"] or node["role"] in ("edit", "textfield"))
 
 
 def assign_refs(nodes: list[dict]) -> list[dict]:
-    """1 부터 번호를 붙인다. `find`·`tree` 결과와 `click --ref` 가 같은 번호를 쓴다."""
+    """Number from 1. `find`·`tree` results and `click --ref` share the same numbers."""
     return [{**n, "ref": i} for i, n in enumerate(nodes, start=1)]
 
 
 def public_node(node: dict) -> dict:
-    """결과에 싣는 모양 — locator(경로·핸들)는 상태 파일에만 둔다. 빈 값은 뺀다."""
+    """Shape included in results — locator (path·handle) stays only in the state file. Empty values are dropped."""
     return {k: node[k] for k in NODE_FIELDS if k in node and node[k] not in ("", None, [])}
 
 
 def locator_matches(saved: dict, current: dict) -> bool:
-    """ref 를 저장한 뒤 화면이 바뀌었는지 — 종류·이름이 같아야 같은 요소로 본다.
+    """Did the screen change since the ref was saved — kind and name must match to count as the same element.
 
-    위치는 창을 옮기면 바뀌므로 비교하지 않는다. 이름이 빈 요소는 id 로 비교한다.
+    Position is not compared since moving the window changes it. Elements with an empty name are compared by id.
     """
     if (saved.get("role") or "") != (current.get("role") or ""):
         return False
@@ -91,35 +91,35 @@ def locator_matches(saved: dict, current: dict) -> bool:
 
 
 def ratio_point(bounds: list[int], rx: float, ry: float) -> tuple[int, int]:
-    """창(또는 화면) 영역 안의 0~1 비율 → 물리 픽셀 좌표."""
+    """0-1 ratio within the window (or screen) area → physical pixel coordinates."""
     x1, y1, x2, y2 = bounds
     return int(round(x1 + (x2 - x1) * rx)), int(round(y1 + (y2 - y1) * ry))
 
 
 def scale_point(x: float, y: float, scale: float) -> tuple[int, int]:
-    """논리 좌표(macOS point 등) × 배율 → 물리 픽셀. 배율이 0 이하면 1 로 본다."""
+    """Logical coordinates (macOS points, etc.) × scale → physical pixels. Scale <= 0 is treated as 1."""
     s = scale if scale and scale > 0 else 1.0
     return int(round(x * s)), int(round(y * s))
 
 
 def cursor_moved_by_user(last: list[int] | None, now: tuple[int, int] | None,
                          threshold: int = CURSOR_DRIFT_PIXELS) -> bool:
-    """마지막으로 우리가 둔 커서 위치에서 사용자가 움직였는가. 기록이 없으면 판단하지 않는다(False)."""
+    """Did the user move away from where we last left the cursor. No record means no judgment (False)."""
     if not last or now is None:
         return False
     return abs(now[0] - last[0]) > threshold or abs(now[1] - last[1]) > threshold
 
 
 def tick_elapsed_seconds(now_milliseconds: int, last_milliseconds: int) -> float:
-    """32비트 틱 두 개 → 지난 초. 틱이 한 바퀴 돌아도 맞게 나머지로 뺀다 (GetLastInputInfo)."""
+    """Two 32-bit ticks → elapsed seconds. Subtracts modulo so it stays right across wraparound (GetLastInputInfo)."""
     return ((now_milliseconds - last_milliseconds) % TICK_WRAP_MILLISECONDS) / 1000.0
 
 
 def user_input_after(baseline_at: float | None, idle_seconds: float | None, now: float,
                      grace: float = USER_INPUT_GRACE_SECONDS) -> bool:
-    """우리 마지막 입력(baseline_at, epoch 초) 뒤에 사용자 입력이 있었는가.
+    """Was there user input after our last input (baseline_at, epoch seconds).
 
-    마지막 시스템 입력 시각 = now - idle_seconds. 값이 없으면(감지 불가) 판단하지 않는다(False — fail open).
+    Last system input time = now - idle_seconds. Without a value (cannot detect) no judgment is made (False — fail open).
     """
     if baseline_at is None or idle_seconds is None or idle_seconds < 0:
         return False
@@ -127,7 +127,7 @@ def user_input_after(baseline_at: float | None, idle_seconds: float | None, now:
 
 
 def ancestor_pids(own_pid: int, parent_by_pid: dict[int, int], limit: int = 64) -> set[int]:
-    """이 프로세스의 조상 pid (터미널·IDE·Claude 앱). 순환·끊긴 사슬에서도 멈춘다."""
+    """Ancestor pids of this process (terminal, IDE, Claude app). Stops on cycles or broken chains too."""
     found, pid = set(), parent_by_pid.get(own_pid)
     while pid and pid not in found and len(found) < limit:
         found.add(pid)
@@ -136,7 +136,7 @@ def ancestor_pids(own_pid: int, parent_by_pid: dict[int, int], limit: int = 64) 
 
 
 def platform_key(platform: str | None = None) -> str | None:
-    """sys.platform → 백엔드 이름. 지원하지 않는 OS 는 None."""
+    """sys.platform → backend name. None for unsupported OSes."""
     p = platform or sys.platform
     if p == "win32":
         return "windows"
@@ -145,51 +145,51 @@ def platform_key(platform: str | None = None) -> str | None:
     return None
 
 
-# ── 백엔드 계약 ──────────────────────────────────────────────────────────
+# ── Backend contract ──────────────────────────────────────────────────────────
 
 class DesktopBackend:
-    """OS 하나. 화면을 바꾸는 메서드는 (성공, 사람이 읽는 이유)를 돌려준다."""
+    """One OS. Methods that change the screen return (success, human-readable reason)."""
 
     name = ""
-    # venv 에 깔 패키지 · 설치 안내 (desktop setup 이 쓴다)
+    # Packages to install in the venv · install hint (used by desktop setup)
     packages: tuple[str, ...] = ()
     install_hint = ""
 
     def missing_modules(self) -> list[str]:
-        """가져올 수 없는 모듈 이름 — 비어 있으면 쓸 수 있다."""
+        """Module names that cannot be imported — usable when empty."""
         raise NotImplementedError
 
     def readiness(self) -> dict:
-        """권한·잠금화면·보안 화면 상태. {"locked": bool, "secure_desktop": bool, "permissions": {...}}"""
+        """Permission, lock-screen and secure-desktop state. {"locked": bool, "secure_desktop": bool, "permissions": {...}}"""
         raise NotImplementedError
 
     def windows(self) -> list[dict]:
-        """열린 창: {handle, pid, app, title, bounds, foreground, elevated}."""
+        """Open windows: {handle, pid, app, title, bounds, foreground, elevated}."""
         raise NotImplementedError
 
     def nodes(self, window: dict, max_nodes: int, max_depth: int) -> list[dict] | None:
-        """그 창의 노드 목록. 각 노드에 locator(`path`) 를 함께 둔다. 못 읽으면 None."""
+        """Node list of that window, each with its locator (`path`). None when it cannot be read."""
         raise NotImplementedError
 
     def focus(self, window: dict) -> tuple[bool, str]:
         raise NotImplementedError
 
     def perform(self, window: dict, node: dict, action: str, value: str | None = None) -> tuple[bool, str]:
-        """마우스 없이 실행 (invoke·toggle·select·expand·set_value)."""
+        """Run without the mouse (invoke·toggle·select·expand·set_value)."""
         raise NotImplementedError
 
     def cursor(self) -> tuple[int, int] | None:
         raise NotImplementedError
 
-    # 아래 값이 세는 입력 종류: "keyboard" · "keyboard_or_mouse". 빈 값이면 감지 불가
+    # Input kinds the value below counts: "keyboard" · "keyboard_or_mouse". Empty means cannot detect
     user_input_kind = ""
 
     def seconds_since_user_input(self) -> float | None:
-        """마지막 사용자 키보드(·마우스) 입력 뒤 지난 초. 못 읽으면 None — 막지 않고 넘긴다 (#985)."""
+        """Seconds since the last user keyboard (·mouse) input. None when unreadable — let it pass rather than block (#985)."""
         return None
 
     def parent_by_pid(self) -> dict[int, int]:
-        """pid → 부모 pid. 사용자가 agent 터미널에 답한 키를 개입으로 보지 않는 데 쓴다. 못 읽으면 빈 dict."""
+        """pid → parent pid. Used so keys the user typed into the agent terminal are not treated as interference. Empty dict when unreadable."""
         return {}
 
     def mouse_click(self, x: int, y: int, button: str = "left", is_double: bool = False) -> tuple[bool, str]:
@@ -202,11 +202,11 @@ class DesktopBackend:
         raise NotImplementedError
 
     def grab(self, region: list[int] | None = None) -> bytes | None:
-        """PNG bytes. region = [x1, y1, x2, y2] 물리 픽셀, None 이면 주 화면."""
+        """PNG bytes. region = [x1, y1, x2, y2] physical pixels, None for the main screen."""
         raise NotImplementedError
 
 
-# 이름 → "모듈:클래스". 백엔드 모듈은 OS 전용 라이브러리를 가져오므로 쓸 때만 불러온다.
+# name → "module:Class". Backend modules import OS-only libraries, so they load only when used.
 BACKENDS = {
     "windows": "desktop_backends.windows_uia:WindowsBackend",
     "macos": "desktop_backends.macos_ax:MacBackend",

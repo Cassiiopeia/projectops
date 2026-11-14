@@ -1,9 +1,9 @@
-"""데스크톱 입력 세션 · ref 스냅샷 기록 (#985).
+"""Desktop input session · ref snapshot records (#985).
 
-키보드·마우스는 컴퓨터에 하나뿐이라 입력 세션도 **컴퓨터 전체에 하나**다.
-`{base}/launch/_machine/desktop/session.json` 에 쥔 세션을 적고, 기기 원장과 같은 파일 잠금으로 고친다.
+A computer has only one keyboard and mouse, so the input session is also **one per computer**.
+The holding session is written to `{base}/launch/_machine/desktop/session.json` and updated under the same file lock as the device ledger.
 
-ref 는 세션마다 따로 적는다 (`snapshot-<세션>.json`). 다른 세션의 find 결과로 누르지 않게.
+refs are written per session (`snapshot-<session>.json`), so nobody presses using another session's find results.
 """
 from __future__ import annotations
 
@@ -19,14 +19,14 @@ from common.state import MACHINE_BUCKET, base_dir
 from pro_launch.runtime import procs
 from pro_launch.runtime.session_identity import session_identity
 
-# 입력이 이만큼(초) 없으면 세션이 풀린다 — 끝내지 않고 떠난 세션이 마우스를 계속 쥐지 않게
+# The session is released after this many seconds without input — so a session that left without ending does not keep holding the mouse
 SESSION_IDLE_SECONDS = 10 * 60
 LOCK_TIMEOUT_SECONDS = 10.0
 LOCK_RETRY_SECONDS = 0.05
 
 
 class DesktopLockBusy(RuntimeError):
-    """상태 파일 잠금을 상한 안에 얻지 못했다 (code: desktop_state_busy)."""
+    """Could not get the state file lock within the limit (code: desktop_state_busy)."""
 
 
 def state_dir() -> Path:
@@ -64,21 +64,21 @@ def _locked():
             procs.unlock_file(handle)
 
 
-# ── 입력 세션 ────────────────────────────────────────────────────────────
+# ── Input session ────────────────────────────────────────────────────────────
 
 def is_live(record: dict, now: float) -> bool:
-    """기록된 세션이 아직 유효한가 — 마지막 입력 뒤 SESSION_IDLE_SECONDS 안."""
+    """Is the recorded session still valid — within SESSION_IDLE_SECONDS of the last input."""
     return bool(record.get("session")) and now - float(record.get("last_used") or 0) < SESSION_IDLE_SECONDS
 
 
 def current_holder(now: float | None = None) -> dict | None:
-    """지금 입력 세션을 쥔 기록. 없거나 만료면 None."""
+    """Record of who holds the input session now. None if none or expired."""
     record = _read(state_dir() / "session.json")
     return record if is_live(record, now or time.time()) else None
 
 
 def start_session(purpose: str | None = None, now: float | None = None) -> tuple[bool, dict]:
-    """(얻었나, 기록). 다른 세션이 쥐고 있으면 (False, 그 기록). 같은 세션이면 갱신한다."""
+    """(acquired, record). If another session holds it (False, its record). The same session refreshes it."""
     now = now or time.time()
     me = session_identity()
     with _locked():
@@ -94,7 +94,7 @@ def start_session(purpose: str | None = None, now: float | None = None) -> tuple
 
 
 def stop_session() -> bool:
-    """이 세션이 쥔 경우에만 푼다. 풀었으면 True."""
+    """Release only if this session holds it. True if released."""
     me = session_identity()
     with _locked():
         path = state_dir() / "session.json"
@@ -105,13 +105,13 @@ def stop_session() -> bool:
 
 
 def my_session(now: float | None = None) -> dict | None:
-    """이 세션이 쥔 유효한 기록. 아니면 None."""
+    """Valid record held by this session. Otherwise None."""
     record = current_holder(now)
     return record if record and record.get("session") == session_identity() else None
 
 
 def touch_session(**changes) -> None:
-    """마지막 입력 시각·커서 위치·일시정지를 고친다. 이 세션 기록일 때만."""
+    """Update last input time · cursor position · pause. Only for this session's record."""
     me = session_identity()
     with _locked():
         path = state_dir() / "session.json"
@@ -123,7 +123,7 @@ def touch_session(**changes) -> None:
         _write(path, record)
 
 
-# ── ref 스냅샷 ───────────────────────────────────────────────────────────
+# ── ref snapshot ───────────────────────────────────────────────────────────
 
 def _snapshot_path() -> Path:
     key = hashlib.sha1(session_identity().encode("utf-8")).hexdigest()[:12]
@@ -131,7 +131,7 @@ def _snapshot_path() -> Path:
 
 
 def save_snapshot(window: dict, nodes: list[dict]) -> None:
-    """tree·find 가 보여 준 ref 를 적는다. click --ref 가 이 기록으로 요소를 다시 찾는다."""
+    """Write the refs tree·find showed. click --ref uses this record to find the element again."""
     _write(_snapshot_path(), {"taken_at": time.time(), "window": window, "nodes": nodes})
 
 

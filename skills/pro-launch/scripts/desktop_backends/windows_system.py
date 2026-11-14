@@ -1,4 +1,4 @@
-"""Windows 창 목록 · 권한 · 보안 화면 · 창 앞으로 — 표준 라이브러리 ctypes 만 쓴다 (#985)."""
+"""Windows window list · privileges · secure desktop · bring to front — uses only standard-library ctypes (#985)."""
 from __future__ import annotations
 
 import ctypes
@@ -20,16 +20,16 @@ UOI_NAME = 2
 DESKTOP_READOBJECTS = 0x0001
 SW_RESTORE = 9
 GW_OWNER = 4
-# 잠금화면·로그인 화면을 그리는 프로세스 — 이게 앞이면 사람이 풀어야 한다
+# Processes that draw the lock·login screen — if one is in front a person must unlock it
 LOCK_SCREEN_APPS = {"lockapp.exe", "logonui.exe"}
-# UAC 동의 창 (보안 데스크톱에 뜨면 아예 보이지 않고, 일반 데스크톱에 뜨는 설정이면 이 이름이다)
+# UAC consent window (invisible when on the secure desktop; this is its name when set to show on the normal desktop)
 CONSENT_APPS = {"consent.exe"}
-# 창 목록에서 뺄 셸 창 — agent 가 고를 일이 없다
+# Shell windows excluded from the window list — the agent never needs to pick them
 SHELL_CLASSES = {"Shell_TrayWnd", "Shell_SecondaryTrayWnd", "Progman", "WorkerW"}
 
 WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
 
-# 핸들을 돌려주는 함수는 반환형을 적는다 — 기본값(int)이면 64비트에서 값이 잘린다
+# Functions returning handles declare their return type — the default (int) truncates values on 64-bit
 kernel32.OpenProcess.restype = wintypes.HANDLE
 kernel32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
 kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
@@ -52,7 +52,7 @@ dwmapi.DwmGetWindowAttribute.argtypes = (wintypes.HWND, wintypes.DWORD, ctypes.c
 
 
 def enable_dpi_awareness() -> None:
-    """Per-Monitor DPI Aware v2 — UIA 좌표·SendInput·캡처가 모두 물리 픽셀로 맞는다. 이미 켜져 있으면 무시된다."""
+    """Per-Monitor DPI Aware v2 — UIA coordinates·SendInput·capture all line up in physical pixels. Ignored if already on."""
     try:
         user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4))
     except (AttributeError, OSError):
@@ -79,7 +79,7 @@ def _pid(hwnd) -> int:
 
 
 def _bounds(hwnd) -> list[int] | None:
-    """그림자를 뺀 실제 창 영역. DWM 이 없으면 GetWindowRect."""
+    """Real window area without the shadow. GetWindowRect if DWM is unavailable."""
     rect = wintypes.RECT()
     if dwmapi.DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, ctypes.byref(rect), ctypes.sizeof(rect)) != 0:
         if not user32.GetWindowRect(hwnd, ctypes.byref(rect)):
@@ -88,14 +88,14 @@ def _bounds(hwnd) -> list[int] | None:
 
 
 def _is_cloaked(hwnd) -> bool:
-    """다른 가상 데스크톱·숨은 UWP 창은 보이는 것처럼 굴지만 화면에 없다."""
+    """Windows on other virtual desktops·hidden UWP windows act visible but are not on screen."""
     cloaked = wintypes.DWORD()
     return dwmapi.DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, ctypes.byref(cloaked), ctypes.sizeof(cloaked)) == 0 \
         and cloaked.value != 0
 
 
 def process_image(pid: int) -> str:
-    """실행 파일 이름 (소문자). 못 읽으면 빈 문자열."""
+    """Executable name (lowercase). Empty string if unreadable."""
     handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not handle:
         return ""
@@ -110,7 +110,7 @@ def process_image(pid: int) -> str:
 
 
 def is_elevated(pid: int) -> bool | None:
-    """관리자 권한으로 도는가. 열어 볼 수 없으면 None (보호 프로세스 등)."""
+    """Is it running elevated. None if it cannot be opened (protected processes, etc.)."""
     handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
     if not handle:
         return None
@@ -137,7 +137,7 @@ def foreground_handle() -> int:
 
 
 def list_windows() -> list[dict]:
-    """보이는 최상위 창 (제목 있음, 소유자 없음, 숨김·다른 데스크톱 제외). 앞에 있는 것부터."""
+    """Visible top-level windows (with title, no owner, hidden·other-desktop excluded). Front first."""
     found: list[int] = []
 
     def collect(hwnd, _):
@@ -150,9 +150,9 @@ def list_windows() -> list[dict]:
     front = foreground_handle()
     mine = self_elevated()
     rows = []
-    for hwnd in found:   # EnumWindows 는 Z 순서(앞 → 뒤)
+    for hwnd in found:   # EnumWindows is in Z order (front → back)
         bounds = _bounds(hwnd)
-        # 크기 0 창은 고를 수 없다 — 대화상자를 띄우는 자리표시 창(OpenWith 실측)이 이렇게 남는다
+        # Zero-size windows cannot be picked — placeholder windows that spawn dialogs (OpenWith, observed) remain like this
         if not bounds or bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
             if not user32.IsIconic(hwnd):
                 continue
@@ -161,13 +161,13 @@ def list_windows() -> list[dict]:
         rows.append({"handle": int(hwnd), "pid": pid, "app": process_image(pid), "title": _text(hwnd),
                      "bounds": bounds, "foreground": int(hwnd) == front,
                      "minimized": bool(user32.IsIconic(hwnd)),
-                     # 우리보다 높은 권한의 창에는 OS 가 입력을 막는다 (UIPI)
+                     # The OS blocks input to windows with higher privileges than ours (UIPI)
                      "elevated": bool(elevated) and not mine})
     return rows
 
 
 def input_desktop_name() -> str | None:
-    """입력을 받는 데스크톱 이름. 보안 데스크톱(UAC·Ctrl+Alt+Del·잠금)이면 열 수 없어 None."""
+    """Name of the desktop receiving input. None on the secure desktop (UAC·Ctrl+Alt+Del·lock) since it cannot be opened."""
     desk = user32.OpenInputDesktop(0, False, DESKTOP_READOBJECTS)
     if not desk:
         return None
@@ -196,7 +196,7 @@ class LASTINPUTINFO(ctypes.Structure):
 
 
 def seconds_since_last_input() -> float | None:
-    """마지막 키보드·마우스 입력 뒤 지난 초 (GetLastInputInfo, 이 세션 전체). 실패하면 None (#985)."""
+    """Seconds since the last keyboard·mouse input (GetLastInputInfo, whole session). None on failure (#985)."""
     info = LASTINPUTINFO()
     info.cbSize = ctypes.sizeof(LASTINPUTINFO)
     if not user32.GetLastInputInfo(ctypes.byref(info)):
@@ -222,7 +222,7 @@ kernel32.Process32NextW.argtypes = (wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY
 
 
 def parent_by_pid() -> dict[int, int]:
-    """pid → 부모 pid (Toolhelp 스냅샷). 실패하면 빈 dict."""
+    """pid → parent pid (Toolhelp snapshot). Empty dict on failure."""
     snapshot = kernel32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
     if not snapshot or snapshot == INVALID_HANDLE_VALUE:
         return {}
@@ -240,7 +240,7 @@ def parent_by_pid() -> dict[int, int]:
 
 
 def bring_to_front(hwnd: int) -> tuple[bool, str]:
-    """최소화를 풀고 앞으로. Windows 는 다른 프로세스가 앞을 뺏는 것을 막아서 입력 스레드를 잠시 붙인다."""
+    """Restore from minimized and bring to front. Windows blocks other processes stealing the foreground, so input threads are briefly attached."""
     if user32.IsIconic(hwnd):
         user32.ShowWindow(hwnd, SW_RESTORE)
     if foreground_handle() == hwnd:

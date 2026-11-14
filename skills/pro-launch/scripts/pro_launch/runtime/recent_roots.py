@@ -1,10 +1,10 @@
-"""최근에 쓴 프로젝트 루트 기록 · 후보 찾기 (#885).
+"""Record of recently used project roots · finding candidates (#885).
 
-agent 셸은 호출마다 작업 폴더가 바뀐다. 레포 밖에서 불리면 루트를 못 찾아 git_not_found·browser_not_open 이 났다.
-이 스킬로 쓴 루트를 이 컴퓨터 공용 자리에 적어 두고, 작업 폴더가 레포가 아니면 가장 최근 것을 쓴다.
+Agent shells change the working folder every call. Called from outside a repo, the root was not found and git_not_found·browser_not_open followed.
+Roots used by this skill are recorded in this computer's shared spot, and the latest one is used when the working folder is not a repo.
 
-  ~/.projectops/launch/_machine/recent_roots.json   {"roots": [{"path", "at", "session"}]}  최근 것이 앞
-레포 밖 호출의 대체 루트는 이 세션이 쓴 것만 고른다 — 다른 세션의 레포(그 브라우저)에 붙지 않게
+  ~/.projectops/launch/_machine/recent_roots.json   {"roots": [{"path", "at", "session"}]}  newest first
+The fallback root for calls outside a repo is picked only from this session's — so it never attaches to another session's repo (and browser)
 """
 from __future__ import annotations
 
@@ -20,9 +20,9 @@ from pro_launch.runtime.procs import pid_alive
 from pro_launch.runtime.session_identity import ANONYMOUS_SESSION, session_identity
 
 RECENT_ROOTS_FILE = "recent_roots.json"
-# 세션마다 따로 남기므로 넉넉히 (공용 파일 하나)
+# Generous, since each session keeps its own entries (one shared file)
 MAX_RECENT_ROOTS = 30
-# 같은 루트를 이 간격 안에 다시 쓰면 파일을 다시 쓰지 않는다 (명령마다 쓰기 방지)
+# Using the same root again within this interval does not rewrite the file (avoids a write per command)
 REWRITE_INTERVAL_SECONDS = 600
 BROWSER_STATE_FILE = "browser.json"
 
@@ -32,7 +32,7 @@ def recent_roots_path() -> Path:
 
 
 def is_git_work_tree(path: Path) -> bool:
-    """path 가 git 작업 트리 안인가."""
+    """Is path inside a git work tree."""
     try:
         result = subprocess.run(["git", "-C", str(path), "rev-parse", "--is-inside-work-tree"],
                                 capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10)
@@ -42,19 +42,19 @@ def is_git_work_tree(path: Path) -> bool:
 
 
 def load_recent_roots() -> list[dict]:
-    """[{path, at}] 최근 순. 지금 없는 폴더는 뺀다. 못 읽으면 빈 목록."""
+    """[{path, at}] newest first. Folders that no longer exist are dropped. Empty list if unreadable."""
     try:
         data = json.loads(recent_roots_path().read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return []
     rows = data.get("roots") if isinstance(data, dict) else None
-    # 예전에 적힌 임시 폴더(jobs/tmp/formedit 등)는 후보에서 뺀다 (#932)
+    # Temp folders recorded earlier (jobs/tmp/formedit etc.) are excluded from candidates (#932)
     return [r for r in rows or [] if isinstance(r, dict) and r.get("path") and Path(r["path"]).is_dir()
             and not is_scratch_root(Path(r["path"]))]
 
 
 def remember_root(root: Path) -> None:
-    """이번에 쓴 루트를 (루트, 세션) 단위로 맨 앞에 둔다. 기록 실패는 명령을 막지 않는다."""
+    """Put the root used now first, per (root, session). A record failure does not block the command."""
     path_text = str(root)
     session = session_identity()
     rows = load_recent_roots()
@@ -75,7 +75,7 @@ def remember_root(root: Path) -> None:
 
 
 def last_used_root() -> Path | None:
-    """이 세션이 가장 최근에 쓴 루트. 세션을 모르면(anonymous) 이 컴퓨터 전체에서 가장 최근 것"""
+    """Root this session used most recently. If the session is unknown (anonymous), the most recent across this computer"""
     session = session_identity()
     rows = load_recent_roots()
     if session != ANONYMOUS_SESSION:
@@ -84,7 +84,7 @@ def last_used_root() -> Path | None:
 
 
 def has_live_browser(root: Path) -> bool:
-    """그 레포에 이 스킬이 띄운 브라우저가 살아 있나 (상태 파일의 pid 로 본다)."""
+    """Is a browser this skill launched for that repo alive (checked via the state file pid)."""
     try:
         state = json.loads(launch_file(root, BROWSER_STATE_FILE).read_text(encoding="utf-8"))
         return bool(state.get("cdp")) and bool(state.get("pid")) and pid_alive(int(state["pid"]))
@@ -93,7 +93,7 @@ def has_live_browser(root: Path) -> bool:
 
 
 def root_candidates() -> list[dict]:
-    """다시 부를 때 --root 로 넘길 후보: 최근 루트 + 브라우저가 살아 있는지. 살아 있는 것이 앞."""
-    paths = list(dict.fromkeys(r["path"] for r in load_recent_roots()))  # 세션별 줄이 같은 경로를 겹쳐 담음
+    """Candidates to pass as --root when rerunning: recent roots + whether a browser is alive. Live ones first."""
+    paths = list(dict.fromkeys(r["path"] for r in load_recent_roots()))  # per-session rows repeat the same path
     rows = [{"path": path, "has_live_browser": has_live_browser(Path(path))} for path in paths]
     return sorted(rows, key=lambda row: not row["has_live_browser"])

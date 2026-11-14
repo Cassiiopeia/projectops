@@ -1,7 +1,7 @@
-"""빌릴 기기 판정 (순수 함수): 조건 · 기기 사실 · 소유 · 자원 > verdict + 이유 (#953 · #954 · #964).
+"""Deciding which device to borrow (pure functions): conditions · device facts · ownership · resources > verdict + reasons (#953 · #954 · #964).
 
-단계(DECISION_STEPS) 순서대로 처음 결과를 낸 단계가 이긴다. 플랫폼 이름이 아니라 capabilities 만 본다.
-verdict 6개: reuse · reclaim · create · wait · ask · no_match
+The first step in DECISION_STEPS order that produces a result wins. Looks only at capabilities, never platform names.
+6 verdicts: reuse · reclaim · create · wait · ask · no_match
 """
 from __future__ import annotations
 
@@ -15,9 +15,9 @@ VERDICTS = ("reuse", "reclaim", "create", "wait", "ask", "no_match")
 
 @dataclass(frozen=True)
 class AcquireRequest:
-    """빌리는 조건. device 를 주면 그 기기 하나만 본다 (사람이 켠 기기 제외 규칙도 풀린다).
+    """Borrowing conditions. Given device, only that one device is considered (the human-started-device exclusion is lifted too).
 
-    needs: 있어야 하는 공들인 상태 ("login:kakao") · is_fresh_required: 아무도 쓰지 않은 새 폰
+    needs: prepared states that must exist ("login:kakao") · is_fresh_required: a new phone nobody has used
     """
 
     platform: str
@@ -27,37 +27,37 @@ class AcquireRequest:
     purpose: str | None = None
     needs: tuple[str, ...] = ()
     is_fresh_required: bool = False
-    # 사용자가 메모리 위험을 보고 켜도 된다고 답했다 (--user-approved) — 메모리 게이트만 넘는다, 디스크·남의 소유는 그대로
+    # The user saw the memory risk and said it may boot (--user-approved) — passes only the memory gate; disk and others' ownership still apply
     is_memory_risk_user_approved: bool = False
 
 
 @dataclass(frozen=True)
 class Candidate:
-    """기기 하나의 판정 재료. lease 목록은 부르는 쪽이 살아 있음·내 것 여부로 나눠 준다."""
+    """Decision inputs for one device. The caller splits the lease list into live and mine."""
 
     facts: DeviceFacts
     capabilities: Capabilities
     live_other_leases: tuple[dict, ...] = ()
     dead_other_leases: tuple[dict, ...] = ()
     own_leases: tuple[dict, ...] = ()
-    # 원장(acquire)이 켰고 아직 끄지 않은 기기 — 켜져 있어도 사람이 쓰는 기기가 아니다
+    # Device the ledger (acquire) powered on and has not powered off — not a human-used device even when on
     is_pool_booted: bool = False
     last_used: float | None = None
-    # 기록된 공들인 상태 ("kind:name") · create 로 만든 뒤 아무도 쓰지 않은 기기
+    # Recorded prepared states ("kind:name") · device nobody has used since create
     marks: tuple[str, ...] = ()
     is_pristine: bool = False
 
 
 @dataclass(frozen=True)
 class PoolContext:
-    """호스트 자원 · 대기 · 만들기 한도 (부르는 쪽이 사실을 채운다)."""
+    """Host resources · waiting · create limits (the caller fills in the facts)."""
 
     pressure: str = "ok"
     waited_seconds: float = 0.0
     wait_limit_seconds: float = 600.0
     can_create: bool = False
     is_disk_low: bool = False
-    # 새 기기를 켜면 안 되는 이유 (메모리 예산 초과 · 지금 여유 부족, device_capacity) — 없으면 None
+    # Why a new device must not boot (memory budget exceeded · not enough headroom now, device_capacity) — None if none
     boot_block: str | None = None
 
 
@@ -69,24 +69,24 @@ class Decision:
     is_boot_needed: bool = False
     reclaimed_from: dict | None = None
     busy_owners: tuple[dict, ...] = field(default_factory=tuple)
-    # ask 가 메모리 위험 때문이다 — 사용자 답을 받은 뒤 --user-approved 로 넘을 수 있다
+    # ask is due to memory risk — can be passed with --user-approved after the user answers
     is_memory_risk: bool = False
 
 
 @dataclass
 class _Working:
-    """단계들이 함께 채우는 중간 결과."""
+    """Intermediate result the steps fill in together."""
 
     matching: list[Candidate] = field(default_factory=list)
     eligible: list[Candidate] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
-    # 임시 기기를 못 만드는 이유 (자원 한도) — 있으면 마지막에 ask
+    # Why a temporary device cannot be created (resource limits) — if set, ask at the end
     create_block: str | None = None
     is_create_block_memory: bool = False
 
 
 def _memory_block(request: AcquireRequest, context: PoolContext) -> str | None:
-    """새로 켜면 안 되는 메모리 이유 (critical > 예산 초과). 사용자가 승인했으면 None."""
+    """Memory reason not to boot a new one (critical > budget exceeded). None if the user approved."""
     if request.is_memory_risk_user_approved:
         return None
     if context.pressure == "critical":
@@ -100,7 +100,7 @@ def _owner_phrase(lease: dict) -> str:
 
 
 def _filter_matching(request: AcquireRequest, candidates: list[Candidate], working: _Working) -> Decision | None:
-    """조건 필터 (platform · device 지정 · form · OS)."""
+    """Condition filter (platform · device selector · form · OS)."""
     for candidate in candidates:
         facts = candidate.facts
         if facts.platform != request.platform:
@@ -129,7 +129,7 @@ def _filter_matching(request: AcquireRequest, candidates: list[Candidate], worki
 
 
 def _filter_eligible(request: AcquireRequest, candidates: list[Candidate], working: _Working) -> Decision | None:
-    """자격 필터: 사람이 켠 기기 · 이 세션이 이미 쥔 기기 · 켤 수 없는 꺼진 기기를 뺀다 (device 지정 시 앞 둘은 유지)."""
+    """Eligibility filter: drops human-started devices · devices this session already holds · powered-off devices that cannot boot (the first two stay when a device is specified)."""
     for candidate in working.matching:
         facts, name = candidate.facts, candidate.facts.name
         is_unrecorded_booted = (facts.is_booted and not candidate.capabilities.is_physical and not candidate.is_pool_booted
@@ -149,7 +149,7 @@ def _filter_eligible(request: AcquireRequest, candidates: list[Candidate], worki
 
 def _choose_free(request: AcquireRequest, candidates: list[Candidate], working: _Working,
                  context: PoolContext) -> Decision | None:
-    """빈 기기: 켜져 있는 것(다시 켜는 비용 없음) > 최근 사용. 죽은 소유가 남아 있으면 reclaim."""
+    """Free device: powered on (no boot cost) > most recently used. reclaim if a dead ownership remains."""
     free = [c for c in working.eligible if not c.live_other_leases]
     if not free:
         return None
@@ -168,9 +168,9 @@ def _choose_free(request: AcquireRequest, candidates: list[Candidate], working: 
 
 def _create_if_allowed(request: AcquireRequest, candidates: list[Candidate], working: _Working,
                        context: PoolContext) -> Decision | None:
-    """빈 기기가 없을 때 임시 기기 만들기 — 특정 기기·공들인 상태 조건이면 만들지 않는다 (만들어도 소용없다).
+    """Create a temporary device when none is free — not when a specific device or prepared state is required (creating would not help).
 
-    자원 한도 3개: 메모리 critical · 디스크 부족 · 메모리 예산(device_capacity). 걸리면 이유를 남기고 다음 단계로.
+    3 resource limits: memory critical · low disk · memory budget (device_capacity). If one trips, record the reason and move on.
     """
     if request.device or request.needs or not context.can_create:
         return None
@@ -189,7 +189,7 @@ def _create_if_allowed(request: AcquireRequest, candidates: list[Candidate], wor
 
 def _wait_or_ask(request: AcquireRequest, candidates: list[Candidate], working: _Working,
                  context: PoolContext) -> Decision:
-    """맞는 기기가 남이 쓰는 중이면 대기 한도 전엔 wait, 넘으면 ask. 아무것도 없으면 no_match · 자원 한도면 ask."""
+    """If a matching device is in use by someone else, wait until the wait limit, then ask. no_match if nothing at all · ask on resource limits."""
     owners = tuple({"device": c.facts.name, "key": c.facts.key, **lease}
                    for c in working.eligible for lease in c.live_other_leases)
     if not owners:
@@ -215,7 +215,7 @@ DECISION_STEPS: tuple[Callable[..., Decision | None], ...] = (
 
 
 def decide(request: AcquireRequest, candidates: list[Candidate], context: PoolContext | None = None) -> Decision:
-    """조건에 맞는 기기 하나를 고른다 > Decision (reasons 는 항상 하나 이상)."""
+    """Pick one device matching the conditions > Decision (reasons always has at least one)."""
     working, chosen_context = _Working(), context or PoolContext()
     for step in DECISION_STEPS:
         decision = step(request, candidates, working, chosen_context)

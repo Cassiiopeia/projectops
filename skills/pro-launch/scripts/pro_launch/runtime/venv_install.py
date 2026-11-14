@@ -1,6 +1,6 @@
-"""전용 가상환경을 만들고 패키지를 까는 단계 — `web setup` 과 `desktop setup` 이 함께 쓴다 (#985).
+"""Step that creates the dedicated venv and installs packages — shared by `web setup` and `desktop setup` (#985).
 
-결과는 단계 목록(`steps`)으로 돌려준다. 부르는 쪽이 그 목록에 자기 단계를 이어 붙여 한 번에 보고한다.
+Results come back as a step list (`steps`). The caller appends its own steps and reports them all at once.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from common.state import venv_dir, venv_python
 
 
 def ensure_venv(steps: list, force: bool = False) -> tuple[Path | None, dict | None]:
-    """가상환경이 없으면(또는 force) 만든다. (venv 파이썬, 실패 결과) — 실패면 앞이 None."""
+    """Create the venv if missing (or force). (venv python, failure result) — the first is None on failure."""
     if not venv_python() or force:
         r = subprocess.run([sys.executable, "-m", "venv", str(venv_dir())],
                            capture_output=True, text=True, errors="replace")
@@ -29,7 +29,7 @@ def ensure_venv(steps: list, force: bool = False) -> tuple[Path | None, dict | N
 
 
 def pip_install(vpy: Path, packages: list[str], steps: list, timeout: int = 900) -> bool:
-    """venv 에 패키지를 깐다. 결과를 steps 에 남기고 성공 여부를 돌려준다."""
+    """Install packages into the venv. Records the result in steps and returns success."""
     try:
         r = subprocess.run([str(vpy), "-m", "pip", "install", "-q", *packages],
                            capture_output=True, text=True, errors="replace", timeout=timeout)

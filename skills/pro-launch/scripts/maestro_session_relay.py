@@ -1,8 +1,8 @@
-"""iOS 상주 Maestro 세션의 중계 프로세스 (#894 2단계) — `maestro mcp` 의 표준입출력을 소유하고 127.0.0.1 TCP 로 요청을 넘긴다.
+"""Relay process of the resident iOS Maestro session (#894 phase 2) — owns the stdio of `maestro mcp` and forwards requests over 127.0.0.1 TCP.
 
-`app session start` 가 백그라운드로 띄운다: python3 maestro_session_relay.py serve --device <UDID> ...
-준비 > 상태 파일 ready (포트·토큰) > 요청 처리 > 유휴 N분 · stop 요청이면 maestro mcp 와 함께 끝난다.
-표준 라이브러리 + 같은 폴더의 maestro_session(상태 파일·도구 이름)만 쓴다.
+Started in the background by `app session start`: python3 maestro_session_relay.py serve --device <UDID> ...
+Prepare > state file ready (port·token) > handle requests > on idle N min or a stop request, exit together with maestro mcp.
+Uses only the standard library + maestro_session in the same folder (state file · tool names).
 """
 from __future__ import annotations
 
@@ -23,25 +23,25 @@ from pathlib import Path
 
 from maestro_session import DEFAULT_IDLE_MINUTES, resolve_tool_names, write_session
 
-# 다른 maestro test 가 같은 기기에 붙으면 세션의 드라이버 연결이 끊긴다 (실측) — 이 문구면 다시 붙는다
+# If another maestro test attaches to the same device the session's driver connection drops (observed) — on this text, reattach
 DEVICE_UNREACHABLE_MARKERS = ("became unreachable", "Device unreachable", "Connection refused")
-# maestro mcp 기동·초기화 대기 · 기기 연결 예열 대기 · accept 확인 간격 (초)
+# maestro mcp startup·init wait · device connection warm-up wait · accept poll interval (s)
 CHILD_START_TIMEOUT_SECONDS = 40
 WARM_UP_TIMEOUT_SECONDS = 120
 ACCEPT_POLL_SECONDS = 2
-# 요청 한 줄 최대 크기 (바이트)
+# Max size of one request line (bytes)
 MAXIMUM_REQUEST_BYTES = 1_000_000
 MCP_PROTOCOL_VERSION = "2024-11-05"
 
 
 def _log(message: str) -> None:
-    # 중계의 stderr 는 상태 폴더의 <UDID>.log 로 간다. 도구 인자(flow·화면 문구)는 적지 않는다
+    # The relay's stderr goes to <UDID>.log in the state folder. Tool arguments (flow · screen text) are not written
     sys.stderr.write(time.strftime("%H:%M:%S ") + message + "\n")
     sys.stderr.flush()
 
 
 class MaestroChild:
-    """`maestro mcp` 프로세스 하나와 JSON-RPC 주고받기. 줄 읽기는 스레드 + 큐 (select 는 윈도우 파이프에서 안 된다)."""
+    """JSON-RPC with one `maestro mcp` process. Line reading uses a thread + queue (select does not work on Windows pipes)."""
 
     def __init__(self, maestro_path: str, working_folder: str):
         self.maestro_path, self.working_folder = maestro_path, working_folder
@@ -53,7 +53,7 @@ class MaestroChild:
         self.is_viewer_disabled = False
 
     def start(self) -> list[str]:
-        """기동 > initialize > tools/list. 도구 이름 목록을 돌려준다. --no-viewer 를 모르는 옛 버전이면 빼고 다시."""
+        """Start > initialize > tools/list. Returns the tool names. Older versions that do not know --no-viewer are retried without it."""
         for extra in (["--no-viewer"], []):
             self._spawn(["mcp", *extra])
             try:
@@ -61,7 +61,7 @@ class MaestroChild:
                                         "clientInfo": {"name": "pro-launch", "version": "1"}},
                          CHILD_START_TIMEOUT_SECONDS)
             except RuntimeError:
-                # 표준출력이 먼저 닫혀도 stderr 줄이 아직 덜 읽혔을 수 있다 — 끝날 때까지 잠깐 기다린다
+                # stderr lines may still be unread even if stdout closed first — wait briefly until it ends
                 try:
                     self.process.wait(timeout=3)
                 except subprocess.TimeoutExpired:
@@ -95,7 +95,7 @@ class MaestroChild:
         if line is None:
             return
         self.stderr_tail.append(line.rstrip())
-        # 뷰어를 끄지 못한 옛 버전: 'mcp_viewer_ready http://127.0.0.1:9999' (포트가 차 있으면 다음 빈 포트)
+        # Old versions that cannot disable the viewer: 'mcp_viewer_ready http://127.0.0.1:9999' (next free port if taken)
         match = re.search(r"mcp_viewer_ready\s+(\S+)", line)
         if match:
             self.viewer_url = match.group(1)
@@ -108,7 +108,7 @@ class MaestroChild:
         self.process.stdin.flush()
 
     def rpc(self, method: str, params: dict, timeout_seconds: float) -> dict:
-        """요청 하나 > result. 죽었거나 시간 초과·오류면 RuntimeError."""
+        """One request > result. RuntimeError if dead, timed out or errored."""
         if not self.is_alive():
             raise RuntimeError("maestro mcp is not running")
         self.next_id += 1
@@ -131,7 +131,7 @@ class MaestroChild:
             try:
                 message = json.loads(line)
             except ValueError:
-                continue   # 진행 안내 등 JSON 이 아닌 줄
+                continue   # non-JSON lines such as progress notices
             if message.get("id") != request_id:
                 continue
             if "error" in message:
@@ -139,13 +139,13 @@ class MaestroChild:
             return message.get("result") or {}
 
     def call_tool(self, name: str, arguments: dict, timeout_seconds: float) -> tuple[bool, str]:
-        """tools/call > (오류 여부, 본문 글자)."""
+        """tools/call > (is error, body text)."""
         result = self.rpc("tools/call", {"name": name, "arguments": arguments}, timeout_seconds)
         text = "\n".join(part.get("text", "") for part in result.get("content", []) if isinstance(part, dict))
         return bool(result.get("isError")), text
 
     def stop(self) -> None:
-        """표준입력을 닫아 스스로 끝나게 > 안 끝나면 terminate > kill."""
+        """Close stdin so it exits on its own > terminate if not > kill."""
         if not self.process:
             return
         try:
@@ -163,7 +163,7 @@ class MaestroChild:
 
 
 class Relay:
-    """중계 본체: 상태 파일 > maestro mcp 준비 > 127.0.0.1 요청 처리 > 유휴 종료."""
+    """Relay body: state file > prepare maestro mcp > handle 127.0.0.1 requests > exit on idle."""
 
     def __init__(self, device: str, idle_minutes: float, maestro_path: str, state_path: Path):
         self.device, self.idle_seconds = device, idle_minutes * 60
@@ -179,7 +179,7 @@ class Relay:
         write_session(self.state_path, self.state)
 
     def prepare(self) -> bool:
-        """도구 이름 확인 > 기기 연결 예열 (첫 호출 7~10초를 start 가 치른다). 실패면 상태에 사유를 적고 False."""
+        """Check tool names > warm up device connection (start pays the 7-10 s first-call cost). On failure write the reason to state and return False."""
         self.state_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             available = self.child.start()
@@ -217,7 +217,7 @@ class Relay:
         return not is_error
 
     def handle_call(self, tool: str, arguments: dict, timeout_seconds: float) -> dict:
-        """도구 호출. 기기 연결이 끊겼으면(다른 maestro test 가 붙었다) 다시 붙어 한 번 더."""
+        """Tool call. If the device connection dropped (another maestro test attached), reattach and try once more."""
         name = self.tools.get(tool)
         if not name:
             return {"ok": False, "reason": "session_tool_unknown"}
@@ -229,7 +229,7 @@ class Relay:
                     return {"ok": False, "reason": "session_restart_failed"}
                 is_error, text = self.child.call_tool(name, arguments, timeout_seconds)
             except TimeoutError:
-                # 응답 없는 호출이 maestro mcp 안에 남아 있다 — 다음 호출을 위해 새로 띄운다
+                # An unanswered call is stuck inside maestro mcp — restart it for the next call
                 self._restart_child()
                 return {"ok": False, "reason": "session_timeout"}
             except (RuntimeError, OSError) as error:
@@ -311,7 +311,7 @@ class Relay:
             pass
 
     def _remove_own_state(self) -> None:
-        # 다른 중계가 이미 자리를 차지했으면 그 파일은 건드리지 않는다
+        # If another relay already took the spot, do not touch its file
         try:
             current = json.loads(self.state_path.read_text(encoding="utf-8"))
             if current.get("relay_pid") == os.getpid():

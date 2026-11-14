@@ -1,13 +1,13 @@
-"""어떤 브라우저로 띄울지 정한다 — 내부망처럼 Playwright 번들 Chromium 을 못 받는 곳 대응 (#857).
+"""Decide which browser to launch — for places like intranets that cannot download Playwright's bundled Chromium (#857).
 
-"내부망인가"를 추측하지 않고 **쓸 수 있는 브라우저가 있나**로 판단한다.
-IP 대역·DNS 로 가르면 VPN·핫스팟에서 틀린다. 이 스킬은 브라우저를 독립 프로세스로 띄워
-CDP 로 붙으므로, 실행 파일 경로만 바뀌면 나머지는 그대로 돈다.
+Instead of guessing "is this an intranet", decide by **whether a usable browser exists**.
+Splitting by IP range or DNS is wrong on VPNs and hotspots. This skill launches the browser as a separate process
+and attaches over CDP, so only the executable path changes and the rest runs the same.
 
-우선순위
-  1. 환경변수 LAUNCH_CHROMIUM_PATH (명시한 것. 잘못된 경로면 조용히 넘어가지 않고 멈춘다)
-  2. Playwright 번들 Chromium (기존 동작)
-  3. 설치된 Chrome → Edge → Chromium (표준 위치 자동 탐지)
+Priority
+  1. Env var LAUNCH_CHROMIUM_PATH (explicit. A wrong path stops instead of silently moving on)
+  2. Playwright bundled Chromium (existing behavior)
+  3. Installed Chrome → Edge → Chromium (auto-detected in standard locations)
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ DEFAULT_DOWNLOAD_HOST = "https://cdn.playwright.dev"
 
 
 def system_candidates() -> list[tuple[str, Path]]:
-    """설치된 Chromium 계열 브라우저의 표준 위치. (이름, 경로) 를 쓸 만한 순서로 준다."""
+    """Standard locations of installed Chromium-family browsers. Yields (name, path) in order of preference."""
     found: list[tuple[str, Path]] = []
     if sys.platform == "win32":
         roots = [os.environ.get(k) for k in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA")]
@@ -49,9 +49,9 @@ def system_candidates() -> list[tuple[str, Path]]:
 
 
 def resolve(bundled: str | None, env: dict | None = None) -> dict:
-    """쓸 브라우저를 고른다.
+    """Pick the browser to use.
 
-    돌려주는 것: exe(없으면 None) · source(env|bundled|system) · label · reason · error(환경변수가 틀릴 때만)
+    Returns: exe (None if none) · source (env|bundled|system) · label · reason · error (only when the env var is wrong)
     """
     env = os.environ if env is None else env
     override = (env.get(ENV_VAR) or "").strip().strip('"')
@@ -74,14 +74,14 @@ def resolve(bundled: str | None, env: dict | None = None) -> dict:
 
 
 def download_host() -> str:
-    """Playwright 가 브라우저를 받는 곳. 사내 미러를 쓰는 사람은 PLAYWRIGHT_DOWNLOAD_HOST 로 이미 바꿔 둔다."""
+    """Where Playwright downloads browsers. People on a corporate mirror already changed it via PLAYWRIGHT_DOWNLOAD_HOST."""
     return (os.environ.get("PLAYWRIGHT_DOWNLOAD_HOST") or DEFAULT_DOWNLOAD_HOST).rstrip("/")
 
 
 def download_host_reachable(host: str | None = None, timeout: float = 3.0) -> bool:
-    """TLS 핸드셰이크까지 가 보고 안 닿으면 False. 100MB 받다 실패하는 것보다 먼저 안다.
+    """Try up to the TLS handshake and return False if unreachable. Better to know before failing a 100MB download.
 
-    TCP 연결만 보면 부족하다 — 사내 방화벽은 연결은 받아 두고 핸드셰이크에서 끊는다(실측).
+    A TCP connect alone is not enough — corporate firewalls accept the connection and drop at the handshake (observed).
     """
     u = urlparse(host or download_host())
     name = u.hostname
@@ -93,7 +93,7 @@ def download_host_reachable(host: str | None = None, timeout: float = 3.0) -> bo
             if u.scheme == "http":
                 return True
             ctx = ssl.create_default_context()
-            ctx.check_hostname = False          # 인증서가 아니라 길이 열렸는지만 본다
+            ctx.check_hostname = False          # only checks the path is open, not the certificate
             ctx.verify_mode = ssl.CERT_NONE
             raw.settimeout(timeout)
             with ctx.wrap_socket(raw, server_hostname=name):

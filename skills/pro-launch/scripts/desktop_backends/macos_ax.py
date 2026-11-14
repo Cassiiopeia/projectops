@@ -1,5 +1,5 @@
-"""macOS 백엔드: 접근성 API(AX)로 읽기, AXPress·AXValue 로 마우스 없이 누르기 (#985)
-pyobjc 는 메서드 안에서만 가져옴 — 클래스 import 와 macos_nodes 는 pyobjc 없이 동작
+"""macOS backend: read via the accessibility API (AX), press without the mouse via AXPress·AXValue (#985)
+pyobjc is imported only inside methods — class import and macos_nodes work without pyobjc
 """
 from __future__ import annotations
 
@@ -8,17 +8,17 @@ import importlib.util
 import desktop_input
 from desktop_backends import macos_input, macos_nodes, macos_system
 
-# 응답 없는 앱이 AX 호출을 붙잡는 최대 초 — 기본(약 6초)이면 tree 하나에 수십 초가 걸린다
+# Max seconds an unresponsive app can hold an AX call — the default (~6 s) makes one tree take tens of seconds
 AX_MESSAGING_TIMEOUT_SECONDS = 1.0
-# 이 개수 이하로 읽히면 Electron 이 접근성 트리를 끈 것으로 본다 (AXManualAccessibility 로 켠다)
+# At or below this many nodes, Electron is assumed to have its accessibility tree off (turned on via AXManualAccessibility)
 ELECTRON_EMPTY_NODE_COUNT = 3
-# 페이지 접근성 트리를 켠 뒤 브라우저가 트리를 만드는 시간 (초)
+# Time for the browser to build the tree after turning on the page accessibility tree (s)
 WEB_TREE_BUILD_SECONDS = 0.6
-# CG 창 ↔ AX 창 프레임 비교 허용 오차 (point)
+# Tolerance comparing CG window ↔ AX window frames (points)
 FRAME_TOLERANCE_POINTS = 2
-# 입력칸 값은 이름으로 쓰지 않는다 — 입력하면 이름이 바뀌어 다음 동작이 ref_stale 이 된다
+# Input field values are not used as names — typing changes the name and the next action becomes ref_stale
 VALUE_ROLES = ("textfield", "combobox")
-# 메뉴바 아이콘(AXExtrasMenuBar) 경로의 첫 칸
+# First segment of a menu bar icon (AXExtrasMenuBar) path
 EXTRAS_PATH_HEAD = -1
 
 
@@ -59,7 +59,7 @@ def _app_element(pid: int):
 
 
 def _ax_windows(app) -> list:
-    """앱의 AX 창. 알림 센터는 AXWindows 가 비고 AXChildren 에만 창이 있다 (실측)."""
+    """The app's AX windows. Notification Center has empty AXWindows and windows only in AXChildren (observed)."""
     wins = list(_attr(app, "AXWindows") or [])
     if wins:
         return wins
@@ -76,7 +76,7 @@ def _frame_matches(a, b) -> bool:
 
 
 def _banner_count(window) -> int:
-    """알림 센터 창 안의 배너 수 — 깊이 6 안쪽만 본다 (창 > 그룹 > 그룹 > 스크롤 > 배너, 실측 4단)."""
+    """Number of banners in the Notification Center window — only within depth 6 (window > group > group > scroll > banner, observed 4 levels)."""
     stack, count = [(window, 0)], 0
     while stack:
         el, depth = stack.pop()
@@ -96,7 +96,7 @@ class MacBackend(desktop_input.DesktopBackend):
     def __init__(self) -> None:
         self._screens = None
 
-    # ── 준비 ──
+    # ── Readiness ──
     def missing_modules(self) -> list[str]:
         return [m for m in ("mss", "ApplicationServices", "Quartz", "AppKit") if importlib.util.find_spec(m) is None]
 
@@ -111,9 +111,9 @@ class MacBackend(desktop_input.DesktopBackend):
     def _pixels(self, frame) -> list[int]:
         return list(macos_nodes.points_to_pixels(frame, self.screens()))
 
-    # ── 창 ──
+    # ── Windows ──
     def windows(self) -> list[dict]:
-        """일반 앱의 layer 0 창 + 시스템 대화상자·알림 배너(overlay). 앞에서 뒤 순서."""
+        """Regular apps' layer 0 windows + system dialogs·notification banners (overlay). Front to back."""
         rows = [r for r in macos_system.cg_windows()
                 if r["owner"] not in macos_system.EXCLUDED_OWNERS and r["frame"][2] > 0 and r["frame"][3] > 0
                 and r["alpha"] > 0]
@@ -137,12 +137,12 @@ class MacBackend(desktop_input.DesktopBackend):
         floating = {r["pid"] for r in rows if macos_nodes.is_floating_panel(r["layer"], r["frame"])}
         overlays = [o for pid in overlay_pids for o in self._overlays(pid, apps[pid], rows, pid in floating)]
         for o in overlays:
-            # 앞에 온 대화상자는 키를 받는다 (키 입력 전 keys_target_refusal 이 이 값을 본다)
+            # A dialog in front receives keys (keys_target_refusal checks this before key input)
             o["foreground"] = o["overlay_kind"] == "dialog" and o["pid"] == front_pid and not has_front
         return overlays + result
 
     def _overlays(self, pid: int, info: tuple[str, str, bool], rows: list[dict], has_panel: bool) -> list[dict]:
-        """에이전트 앱(알림 센터 · 인증 팝업 · 2FA 코드 창 등)의 창 중 대화상자·배너가 있는 것."""
+        """Windows of agent apps (Notification Center · auth popup · 2FA code window, etc.) that hold a dialog or banner."""
         app_name, bundle, _ = info
         app_name = app_name or next((r["owner"] for r in rows if r["pid"] == pid), "")
         found = []
@@ -165,7 +165,7 @@ class MacBackend(desktop_input.DesktopBackend):
         return found
 
     def _window_element(self, window: dict):
-        """창 dict > AX 창 요소. 프레임과 제목이 맞는 것, 없으면 None."""
+        """Window dict > AX window element. The one whose frame and title match, otherwise None."""
         app = _app_element(window["pid"])
         wins = _ax_windows(app)
         if window.get("overlay") and window.get("_ax_index", -1) < len(wins):
@@ -177,7 +177,7 @@ class MacBackend(desktop_input.DesktopBackend):
                 return app, win
         return app, (wins[0] if len(wins) == 1 else None)
 
-    # ── 읽기 ──
+    # ── Reading ──
     def _node(self, element, window_title: str) -> dict | None:
         role, subrole = _attr(element, "AXRole") or "", _attr(element, "AXSubrole")
         short = macos_nodes.role_name(role, subrole)
@@ -194,7 +194,7 @@ class MacBackend(desktop_input.DesktopBackend):
             named_actions=macos_nodes.named_actions(raw))
 
     def _walk(self, roots: list[tuple[object, list[int]]], window_title: str, max_nodes: int, max_depth: int):
-        """(노드, 경로, 요소) 깊이 우선. 경로는 자식 번호 목록 — 누르기 직전에 다시 찾는 열쇠다."""
+        """(node, path, element) depth-first. The path is a list of child indexes — the key for finding it again right before pressing."""
         stack = [(el, path, 0) for el, path in reversed(roots)]
         produced = 0
         while stack and produced < max_nodes:
@@ -230,13 +230,13 @@ class MacBackend(desktop_input.DesktopBackend):
                 rows = [{**n, "path": p} for n, p, _ in self._walk(self._roots(app, win, window), title,
                                                                    max_nodes, max_depth)]
             return rows
-        except Exception:   # noqa: BLE001 — 앱이 응답하지 않거나 창이 사라졌다
+        except Exception:   # noqa: BLE001 — the app is unresponsive or the window disappeared
             return None
 
     def _enable_web_tree(self, app) -> bool:
-        """Electron · Chrome 은 페이지 접근성 트리를 꺼 둔다 — 켠 뒤 잠시 기다려 다시 읽는다.
+        """Electron · Chrome keep the page accessibility tree off — turn it on, wait a moment and read again.
 
-        Electron: AXManualAccessibility. Chrome: AXEnhancedUserInterface (Chrome 에서는 -25208 을 돌려도 켜진다, 실측).
+        Electron: AXManualAccessibility. Chrome: AXEnhancedUserInterface (Chrome turns it on even when returning -25208, observed).
         """
         import time
 
@@ -260,9 +260,9 @@ class MacBackend(desktop_input.DesktopBackend):
             el = children[i]
         return el
 
-    # ── 조작 ──
+    # ── Actions ──
     def focus(self, window: dict) -> tuple[bool, str]:
-        """AX 동작은 포커스가 필요 없다 — overlay 는 앞으로 오지 못해도 성공으로 둔다 (키는 keys_target_refusal 이 막는다)."""
+        """AX actions need no focus — overlays count as success even if they cannot come to front (keys are blocked by keys_target_refusal)."""
         if window.get("overlay_kind") == "notification":
             return True, "notification — no focus needed"
         from ApplicationServices import AXUIElementPerformAction, AXUIElementSetAttributeValue
@@ -294,7 +294,7 @@ class MacBackend(desktop_input.DesktopBackend):
         elif action == "set_value":
             err = AXUIElementSetAttributeValue(el, "AXValue", value or "")
         elif action == "focus":
-            # 마우스 없이 입력칸에 초점 — 다른 창이 칸을 덮고 있어도 키가 그 칸으로 간다
+            # Focus the input without the mouse — keys go to that field even if another window covers it
             err = AXUIElementSetAttributeValue(el, "AXFocused", True)
         elif action in AX_FOR_ACTION:
             err = AXUIElementPerformAction(el, AX_FOR_ACTION[action])
@@ -340,7 +340,7 @@ class MacBackend(desktop_input.DesktopBackend):
         return macos_input.grab_points((x1, y1, x2 + 1, y2 + 1))
 
 
-# 계약 동작 이름 > AX 동작 (set_value 는 AXValue 를 쓴다)
+# Contract action name > AX action (set_value uses AXValue)
 AX_FOR_ACTION = {"invoke": "AXPress", "select": "AXPick"}
-# click --action 이 넘기는 이름 있는 동작 접두사
+# Prefix for named actions passed by click --action
 NAMED_PREFIX = "named:"

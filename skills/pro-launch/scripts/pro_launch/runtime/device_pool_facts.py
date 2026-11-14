@@ -1,6 +1,6 @@
-"""판정 재료 모으기: 기기 사실 + 원장 > Candidate · 호스트 자원·메모리 예산 > PoolContext · 한도와 출처 (#953 · #954 · #964).
+"""Gathering decision inputs: device facts + ledger > Candidate · host resources·memory budget > PoolContext · limits and sources (#953 · #954 · #964).
 
-판정(device_pool)은 순수 함수로 두고, 기기·원장·호스트를 읽는 일은 여기서 한다.
+Decisions (device_pool) stay pure functions; reading devices·ledger·host happens here.
 """
 from __future__ import annotations
 
@@ -12,10 +12,10 @@ from pro_launch.runtime import device_backends, device_capacity, device_claims, 
 from pro_launch.runtime.device_marks import mark_label
 from pro_launch.runtime.device_pool import Candidate, PoolContext
 
-# 합친 대기 한도 기본값 (분) — launch.devices.wait_limit_minutes
+# Default combined wait limit (min) — launch.devices.wait_limit_minutes
 WAIT_LIMIT_DEFAULT_MINUTES = 10
-# 디스크 여유 하한 (GB): 이보다 적으면 새 기기를 만들지 않는다 (launch.devices.min_free_disk_gb)
-# 비율은 쓰지 않는다 — 큰 디스크에서 45GB 남아도 "부족"이 됐다 (실측)
+# Minimum free disk (GB): below this no new device is created (launch.devices.min_free_disk_gb)
+# No ratio — on a big disk even 45GB free counted as "low" (observed)
 MIN_FREE_DISK_GB_DEFAULT = 20
 BYTES_PER_GB = 1024 ** 3
 
@@ -29,7 +29,7 @@ def _positive(value) -> float | None:
 
 
 def disk_status(path: Path | None = None) -> dict:
-    """{free_gb, minimum_gb, is_low} — 가상 기기가 쌓이는 홈 디스크 기준."""
+    """{free_gb, minimum_gb, is_low} — for the home disk where virtual devices pile up."""
     minimum_gb = _positive(devices_config().get("min_free_disk_gb")) or MIN_FREE_DISK_GB_DEFAULT
     usage = shutil.disk_usage(path or Path.home())
     free_gb = usage.free / BYTES_PER_GB
@@ -42,7 +42,7 @@ def wait_limit_minutes() -> tuple[float, str]:
 
 
 def limits_view() -> dict:
-    """판정에 쓴 한도와 출처 (응답 limits 필드)."""
+    """Limits used for the decision and their sources (limits field of the response)."""
     wait_minutes, wait_source = wait_limit_minutes()
     disk = disk_status()
     return {"wait_limit_minutes": {"value": wait_minutes, "source": wait_source},
@@ -54,7 +54,7 @@ def limits_view() -> dict:
 
 
 def build_candidates(platform: str) -> list[Candidate]:
-    """기기 사실 + 원장 > 판정 재료. 호스트 생존은 pid 마다 한 번만 본다."""
+    """Device facts + ledger > decision inputs. Host liveness is checked once per pid."""
     ledger, now, probe = device_ledger.read_ledger(), time.time(), device_claims._HostProbe()
     candidates = []
     for backend in device_backends.backends_for(platform):
@@ -78,7 +78,7 @@ def build_candidates(platform: str) -> list[Candidate]:
 
 
 def build_context(platform: str, waited_seconds: float) -> PoolContext:
-    """호스트 메모리 · 디스크 · 켜진 가상 기기의 메모리 예산 · 만들기 가능 여부 > PoolContext."""
+    """Host memory · disk · memory budget of running virtual devices · whether creating is possible > PoolContext."""
     memory = host_resources.read_memory()
     wait_minutes, _ = wait_limit_minutes()
     return PoolContext(pressure=host_resources.pressure_level(memory),
@@ -89,7 +89,7 @@ def build_context(platform: str, waited_seconds: float) -> PoolContext:
 
 
 def booted_virtual_counts() -> dict[str, int]:
-    """켜진 가상 기기 수 > {플랫폼: 대수} (실기기는 메모리를 쓰지 않으므로 뺀다). 어느 세션이 켰든 센다."""
+    """Running virtual device count > {platform: count} (physical devices excluded since they use no memory). Counted whichever session booted them."""
     counts: dict[str, int] = {}
     for facts in device_backends.all_device_facts():
         if facts.is_booted and not device_backends.backend_named(facts.backend).capabilities.is_physical:

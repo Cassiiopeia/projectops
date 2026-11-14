@@ -1,1 +1,1 @@
-"""OS 별 데스크톱 백엔드 (#985). 계약과 등록표는 `desktop_input.py` 에 있다."""
+"""Per-OS desktop backends (#985). The contract and registry are in `desktop_input.py`."""

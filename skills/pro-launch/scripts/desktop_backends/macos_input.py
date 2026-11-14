@@ -1,14 +1,14 @@
-"""macOS 마우스 · 키 · 캡처 (#985) — CGEvent 와 mss. 좌표는 전부 point (AX 와 같은 좌표계).
+"""macOS mouse · keys · capture (#985) — CGEvent and mss. All coordinates are points (same space as AX).
 
-입력은 접근성 동작(AXPress·AXValue)이 안 될 때만 쓰는 대체 경로다.
+Input is the fallback path used only when accessibility actions (AXPress·AXValue) do not work.
 """
 from __future__ import annotations
 
 import time
 
-# 키 이벤트 하나에 싣는 글자 수 — 1. 여러 글자를 한 이벤트에 실으면 한 칸 한 글자 입력칸(OTP)이 깨진다 (실측)
+# Characters per key event — 1. Putting several characters in one event breaks one-char-per-box inputs (OTP) (observed)
 TYPE_CHUNK_CHARS = 1
-# 이벤트 사이 간격 (초) — 너무 빠르면 앱이 눌림·뗌을 합친다
+# Interval between events (s) — too fast and apps merge press and release
 EVENT_GAP_SECONDS = 0.02
 
 
@@ -32,7 +32,7 @@ def click_points(x: float, y: float, button: str = "left", is_double: bool = Fal
         down, up, which = Q.kCGEventLeftMouseDown, Q.kCGEventLeftMouseUp, Q.kCGMouseButtonLeft
     point = (x, y)
     _post(Q.CGEventCreateMouseEvent(None, Q.kCGEventMouseMoved, point, which))
-    # 더블클릭은 같은 자리에서 click state 를 1 > 2 로 올려 보낸다
+    # A double click sends click state rising 1 > 2 at the same spot
     for state in ((1, 2) if is_double else (1,)):
         for kind in (down, up):
             event = Q.CGEventCreateMouseEvent(None, kind, point, which)
@@ -45,7 +45,7 @@ def type_unicode(text: str) -> tuple[bool, str]:
     import Quartz as Q
     for start in range(0, len(text), TYPE_CHUNK_CHARS):
         chunk = text[start:start + TYPE_CHUNK_CHARS]
-        # 길이는 UTF-16 단위 — 이모지·보조 평면 글자는 2칸
+        # Length in UTF-16 units — emoji and supplementary-plane characters take 2
         units = len(chunk.encode("utf-16-le")) // 2
         for is_down in (True, False):
             event = Q.CGEventCreateKeyboardEvent(None, 0, is_down)
@@ -64,7 +64,7 @@ def press_key(code: int, flags: int) -> tuple[bool, str]:
 
 
 def grab_points(region: tuple[float, float, float, float] | None) -> bytes | None:
-    """(x1, y1, x2, y2) point 영역 > PNG bytes. None 이면 주 화면. 화면 기록 권한이 없으면 None."""
+    """(x1, y1, x2, y2) point region > PNG bytes. None means the main screen. None without Screen Recording permission."""
     try:
         import mss
         import mss.tools
@@ -77,5 +77,5 @@ def grab_points(region: tuple[float, float, float, float] | None) -> bytes | Non
                            "height": max(1, int(y2 - y1))}
             shot = capture.grab(monitor)
             return mss.tools.to_png(shot.rgb, shot.size)
-    except Exception:   # noqa: BLE001 — 권한 없음 · 화면 밖 영역 — 캡처 없이 계속한다 (screen_changed: null)
+    except Exception:   # noqa: BLE001 — no permission · region off screen — continue without capture (screen_changed: null)
         return None

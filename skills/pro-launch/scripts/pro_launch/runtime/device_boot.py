@@ -1,9 +1,9 @@
-"""가상 기기 띄우기: iOS 시뮬레이터 · Android 에뮬레이터 — 창 모드(headless · small · normal)와 창 크기를 한 곳에서 정한다.
+"""Booting virtual devices: iOS simulator · Android emulator — window mode (headless · small · normal) and window size decided in one place.
 
-시뮬레이터 창이 맥북 화면을 가득 채워 자원과 디스크를 쓰는 문제가 근거다. 캡처 크기는 창 크기와 무관하다
-(캡처는 기기 화면을 그대로 읽고 --max-side 로 줄인다). 창은 사람이 디버깅할 때만 필요하다.
+Motivated by the simulator window filling the MacBook screen and using resources and disk. Capture size is independent of window size
+(capture reads the device screen directly and shrinks with --max-side). The window is only needed when a person debugs.
 
-**다른 세션이 쓰는 Simulator.app 은 끄지 않는다.** 떠 있으면 창 크기를 못 바꾸고 `window_scale_pending` 으로 알린다.
+**A Simulator.app used by another session is never closed.** If it is running, the window size cannot change and `window_scale_pending` reports it.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from common.state import MACHINE_BUCKET, base_dir
 from pro_launch.runtime import procs
 
 WINDOW_MODES = ("headless", "small", "normal")
-# small 의 기본 배율 — 디버깅은 되고 화면은 안 덮는 크기
+# Default scale for small — big enough to debug, small enough not to cover the screen
 SMALL_WINDOW_SCALE = 0.4
 WINDOW_SCALE_MINIMUM = 0.3
 WINDOW_SCALE_MAXIMUM = 1.0
@@ -29,15 +29,15 @@ SIMULATOR_PREFERENCES_DOMAIN = "com.apple.iphonesimulator"
 SIMCTL_BOOT_TIMEOUT_SECONDS = 90
 SIMCTL_BOOTSTATUS_TIMEOUT_SECONDS = 240
 SIMCTL_QUICK_TIMEOUT_SECONDS = 30
-# 에뮬레이터가 adb 에 나타나기를 기다리는 한도 (초)
+# Limit for waiting until the emulator appears in adb (s)
 EMULATOR_APPEAR_TIMEOUT_SECONDS = 120
 EMULATOR_PORT_FIRST, EMULATOR_PORT_LAST = 5554, 5584
-# 에뮬레이터 로그의 "가속 없음" 징후 — 이 상태는 부팅이 끝나지 않는다
+# "No acceleration" signs in the emulator log — boot never finishes in this state
 EMULATOR_NO_ACCELERATION_MARKERS = ("hvf is not enabled", "qemu_mprotect__osdep: mprotect failed")
-# 호스트 CPU 가상화 자체가 꺼짐 (BIOS VT-x/AMD-V · Windows 하이퍼바이저 · Linux KVM) — 에뮬레이터가 바로 종료 (#987)
+# Host CPU virtualization itself is off (BIOS VT-x/AMD-V · Windows hypervisor · Linux KVM) — the emulator exits right away (#987)
 EMULATOR_NO_VIRTUALIZATION_MARKERS = ("requires hardware acceleration", "kvm is required to run this avd",
                                       "/dev/kvm is not found", "/dev/kvm device: permission denied")
-# 실패 응답에 붙일 로그 끝부분 (줄 수 · 최대 글자)
+# Log tail attached to failed responses (lines · max characters)
 EMULATOR_LOG_TAIL_LINES = 20
 EMULATOR_LOG_TAIL_MAX_CHARACTERS = 2000
 SIMULATOR_WINDOW_HINT = ("Shrink it with Simulator's Window menu > Physical Size / Fit Screen "
@@ -46,7 +46,7 @@ _UDID_PATTERN = re.compile(r"^[0-9A-Fa-f]{8}-(?:[0-9A-Fa-f]{4}-){3}[0-9A-Fa-f]{1
 
 
 def resolve_window(window: str | None, scale: float | None) -> tuple[str, float | None]:
-    """(창 모드, 배율). 모드를 안 주면 headless, 배율만 주면 small. small 의 배율 기본은 0.4, normal 은 기본 크기 그대로(None)."""
+    """(window mode, scale). No mode means headless; scale alone means small. Default small scale 0.4; normal keeps the default size (None)."""
     mode = window or ("small" if scale is not None else "headless")
     if mode == "headless":
         return mode, None
@@ -73,7 +73,7 @@ def _run(command: list[str], timeout: int) -> tuple[bool, str]:
 
 
 def ios_simulators() -> list[dict]:
-    """simctl 이 아는 시뮬레이터 > [{udid, name, state, runtime}]. 사용 가능한 것만."""
+    """Simulators simctl knows > [{udid, name, state, runtime}]. Available ones only."""
     if not shutil.which("xcrun"):
         return []
     is_ok, text = _run(["xcrun", "simctl", "list", "devices", "available", "-j"], SIMCTL_QUICK_TIMEOUT_SECONDS)
@@ -90,7 +90,7 @@ def is_udid(value: str | None) -> bool:
 
 
 def find_ios_simulators(value: str) -> list[dict]:
-    """UDID 정확히, 아니면 이름 정확히 일치하는 시뮬레이터들 (이름은 여러 개일 수 있다)."""
+    """Simulators matching the UDID exactly, otherwise the name exactly (names can repeat)."""
     simulators = ios_simulators()
     if is_udid(value):
         return [s for s in simulators if s["udid"].lower() == value.lower()]
@@ -112,9 +112,9 @@ def _read_simulator_preferences() -> dict:
 
 
 def write_window_scale(udid: str, scale: float) -> tuple[bool, str]:
-    """그 시뮬레이터의 창 배율을 환경설정에 쓴다. Simulator.app 이 꺼져 있을 때만 의미가 있다.
+    """Write the simulator's window scale to preferences. Only meaningful while Simulator.app is closed.
 
-    DevicePreferences.<UDID>.SimulatorWindowGeometry.<화면 id>.WindowScale — 화면 id 는 이미 있는 항목에서 빌린다.
+    DevicePreferences.<UDID>.SimulatorWindowGeometry.<screen id>.WindowScale — the screen id is borrowed from an existing entry.
     """
     device_preferences = _read_simulator_preferences().get("DevicePreferences") or {}
     entry = dict(device_preferences.get(udid) or {})
@@ -131,9 +131,9 @@ def write_window_scale(udid: str, scale: float) -> tuple[bool, str]:
 
 
 def boot_ios(udid: str, window: str, scale: float | None) -> dict:
-    """시뮬레이터 부팅: (창 배율 쓰기) > simctl boot > bootstatus 대기 > (창 모드면 그 기기만 연다).
+    """Boot a simulator: (write window scale) > simctl boot > wait for bootstatus > (in window mode open only that device).
 
-    이미 켜져 있으면 아무것도 바꾸지 않는다. > {is_ok, already_booted, window, scale, window_scale_pending, ...}
+    Changes nothing if already booted. > {is_ok, already_booted, window, scale, window_scale_pending, ...}
     """
     state = next((s["state"] for s in ios_simulators() if s["udid"] == udid), None)
     result = {"is_ok": True, "udid": udid, "window": window, "scale": scale, "already_booted": state == "Booted",
@@ -146,7 +146,7 @@ def boot_ios(udid: str, window: str, scale: float | None) -> dict:
         result["window_scale_written"] = is_written
         if not is_written:
             result["window_scale_detail"] = detail[-200:]
-        # Simulator.app 이 떠 있으면 새 창이 쓰는 값인지 확인할 수 없다
+        # With Simulator.app running, there is no way to confirm the new window uses the value
         result["window_scale_pending"] = is_simulator_running
     is_booted, detail = _run(["xcrun", "simctl", "boot", udid], SIMCTL_BOOT_TIMEOUT_SECONDS)
     if not is_booted and "current state: Booted" not in detail:
@@ -155,7 +155,7 @@ def boot_ios(udid: str, window: str, scale: float | None) -> dict:
     if not is_ready:
         return {**result, "is_ok": False, "step": "bootstatus", "detail": detail[-300:]}
     if window != "headless" and not is_simulator_running:
-        # 이 기기 창만 연다 (다른 기기 창은 열지 않는다)
+        # Open only this device's window (other device windows stay closed)
         _run(["open", "-a", "Simulator", "--args", "-CurrentDeviceUDID", udid], SIMCTL_QUICK_TIMEOUT_SECONDS)
         result["window_opened"] = True
     if is_simulator_running:
@@ -166,7 +166,7 @@ def boot_ios(udid: str, window: str, scale: float | None) -> dict:
 
 def shutdown_ios(udid: str) -> tuple[bool, str]:
     is_ok, detail = _run(["xcrun", "simctl", "shutdown", udid], SIMCTL_BOOT_TIMEOUT_SECONDS)
-    # 이미 꺼져 있던 것은 실패가 아니다
+    # Already being off is not a failure
     return is_ok or "current state: Shutdown" in detail, detail
 
 
@@ -174,7 +174,7 @@ def shutdown_ios(udid: str) -> tuple[bool, str]:
 
 
 def adb_serials() -> list[str]:
-    """adb devices 의 모든 시리얼 (offline 포함)."""
+    """Every serial from adb devices (including offline)."""
     adb = sdk_tool("adb")
     if not adb:
         return []
@@ -183,7 +183,7 @@ def adb_serials() -> list[str]:
 
 
 def emulator_avd_name(serial: str) -> str | None:
-    """실행 중인 에뮬레이터의 AVD 이름. 에뮬레이터가 아니면 None."""
+    """AVD name of a running emulator. None if not an emulator."""
     adb = sdk_tool("adb")
     if not adb or not serial.startswith("emulator-"):
         return None
@@ -193,7 +193,7 @@ def emulator_avd_name(serial: str) -> str | None:
 
 
 def running_emulators() -> dict[str, str]:
-    """{시리얼: AVD 이름} (이름을 못 읽은 것은 뺀다)."""
+    """{serial: AVD name} (ones whose name cannot be read are skipped)."""
     return {s: n for s in adb_serials() if s.startswith("emulator-") and (n := emulator_avd_name(s))}
 
 
@@ -210,7 +210,7 @@ def emulator_log_path(avd: str) -> Path:
 
 def emulator_command(emulator: str, avd: str, window: str, scale: float | None, is_cold: bool,
                      port: int) -> list[str]:
-    """emulator 인자: headless 는 -no-window, 창 모드는 -scale. 콜드 부팅은 스냅샷을 읽지 않는다."""
+    """emulator args: -no-window for headless, -scale for window modes. Cold boot does not load snapshots."""
     command = [emulator, "-avd", avd, "-port", str(port)]
     if window == "headless":
         command.append("-no-window")
@@ -223,7 +223,7 @@ def emulator_command(emulator: str, avd: str, window: str, scale: float | None, 
 
 def launch_emulator(avd: str, window: str, scale: float | None, is_cold: bool,
                     port: int | None = None) -> dict:
-    """에뮬레이터를 백그라운드로 띄운다 > {is_ok, serial, pid, command, log}. 준비 완료 대기는 부르는 쪽이 한다."""
+    """Start the emulator in the background > {is_ok, serial, pid, command, log}. Waiting for readiness is up to the caller."""
     emulator = sdk_tool("emulator")
     if not emulator:
         return {"is_ok": False, "detail": "emulator not found (check emulator_path in doctor)"}
@@ -237,10 +237,10 @@ def launch_emulator(avd: str, window: str, scale: float | None, is_cold: bool,
 
 
 def emulator_start_problem(log_path: str | Path | None) -> str | None:
-    """에뮬레이터 로그에서 부팅이 끝나지 않을 징후 > 설명. 없으면 None.
+    """Signs in the emulator log that boot will never finish > description. None if none.
 
-    하드웨어 가속(HVF)을 못 얻으면 소프트웨어 모드로 떨어져 mprotect 실패를 반복하며 offline 에 멈춘다 —
-    실측: 스왑이 거의 찬 호스트(28.9/29.7GB)에서 새 VM 메모리를 못 받았다. 기다려도 끝나지 않는다.
+    Without hardware acceleration (HVF) it falls back to software mode, repeatedly failing mprotect and stalling offline —
+    observed: on a host with nearly full swap (28.9/29.7GB) it could not get new VM memory. Waiting does not help.
     """
     try:
         text = Path(log_path).read_text(encoding="utf-8", errors="replace") if log_path else ""
@@ -257,7 +257,7 @@ def emulator_start_problem(log_path: str | Path | None) -> str | None:
 
 
 def emulator_log_tail(log_path: str | Path | None) -> str:
-    """에뮬레이터 로그 끝 몇 줄 (실패 원인을 로그 파일 열지 않고 보게, #987). 못 읽으면 빈 문자열"""
+    """Last few lines of the emulator log (to see the failure cause without opening the log file, #987). Empty string if unreadable"""
     try:
         text = Path(log_path).read_text(encoding="utf-8", errors="replace") if log_path else ""
     except OSError:
@@ -266,14 +266,14 @@ def emulator_log_tail(log_path: str | Path | None) -> str:
 
 
 def _failed_to_appear(problem: str | None, log_path, pid: int | None) -> dict:
-    """나타나지 않음 > {is_ok, problem, log_tail, process_alive}. pid 모르면 process_alive None"""
+    """Did not appear > {is_ok, problem, log_tail, process_alive}. process_alive is None if pid is unknown"""
     return {"is_ok": False, "problem": problem, "log_tail": emulator_log_tail(log_path),
             "process_alive": procs.pid_alive(pid) if pid else None}
 
 
 def wait_for_emulator(serial: str, log_path: str | Path | None = None,
                       timeout_seconds: float = EMULATOR_APPEAR_TIMEOUT_SECONDS, pid: int | None = None) -> dict:
-    """adb 가 그 시리얼을 device 상태로 볼 때까지 > {is_ok, problem(, log_tail, process_alive)}. 로그에 멈춤 징후가 보이면 바로 끝낸다."""
+    """Until adb sees that serial in device state > {is_ok, problem(, log_tail, process_alive)}. Ends right away if the log shows stall signs."""
     adb = sdk_tool("adb")
     deadline = time.monotonic() + timeout_seconds
     while adb and time.monotonic() < deadline:
@@ -287,7 +287,7 @@ def wait_for_emulator(serial: str, log_path: str | Path | None = None,
 
 
 def kill_emulator(serial: str, avd: str) -> dict:
-    """에뮬레이터 끄기: adb emu kill > 안 죽으면 qemu 강제 종료. > {killed_by, forced_pids, is_gone}"""
+    """Stop the emulator: adb emu kill > force-kill qemu if it does not die. > {killed_by, forced_pids, is_gone}"""
     adb = sdk_tool("adb")
     pids = procs.process_ids_with_arguments("-avd", avd)
     if adb:
@@ -296,7 +296,7 @@ def kill_emulator(serial: str, avd: str) -> dict:
     while time.monotonic() < deadline and any(procs.pid_alive(p) for p in pids):
         time.sleep(1)
     survivors = [p for p in pids if procs.pid_alive(p)]
-    # emu kill 이 안 먹는다 (호스트 메모리 압박으로 응답 없는 qemu, 실측) — 강제 종료
+    # emu kill is ignored (qemu unresponsive under host memory pressure, observed) — force kill
     still_alive = [p for p in survivors if procs.force_kill(p)]
     return {"killed_by": "emu_kill" if not survivors else "force_kill", "forced_pids": survivors,
             "is_gone": not still_alive}

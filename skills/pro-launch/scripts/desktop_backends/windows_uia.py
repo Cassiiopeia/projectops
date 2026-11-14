@@ -1,6 +1,6 @@
-"""Windows 백엔드 — UI Automation(comtypes) 으로 읽고, 패턴으로 마우스 없이 누른다 (#985).
+"""Windows backend — reads via UI Automation (comtypes) and presses via patterns without the mouse (#985).
 
-구조는 CacheRequest 로 한 번에 읽는다 — 요소마다 COM 을 왕복하면 수 배 느리다.
+The structure is read in one go with a CacheRequest — a COM round-trip per element is several times slower.
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import importlib.util
 import desktop_input
 from desktop_backends import windows_input, windows_system
 
-# UIA ControlType id → 짧은 이름 (desktop_input.CLICKABLE_ROLES 와 맞춘다)
+# UIA ControlType id → short name (matches desktop_input.CLICKABLE_ROLES)
 CONTROL_TYPES = {
     50000: "button", 50001: "calendar", 50002: "checkbox", 50003: "combobox", 50004: "edit",
     50005: "hyperlink", 50006: "image", 50007: "listitem", 50008: "list", 50009: "menu",
@@ -20,7 +20,7 @@ CONTROL_TYPES = {
     50030: "document", 50031: "splitbutton", 50032: "window", 50033: "pane", 50034: "header",
     50035: "headeritem", 50036: "table", 50037: "titlebar", 50038: "separator",
 }
-# 동작 이름 → (패턴 id, 사용 가능 속성 이름, comtypes 인터페이스 이름)
+# action name → (pattern id, availability property name, comtypes interface name)
 PATTERNS = {
     "invoke": (10000, "UIA_IsInvokePatternAvailablePropertyId", "IUIAutomationInvokePattern"),
     "toggle": (10015, "UIA_IsTogglePatternAvailablePropertyId", "IUIAutomationTogglePattern"),
@@ -43,12 +43,12 @@ class WindowsBackend(desktop_input.DesktopBackend):
         self._uia = None
         self._dll = None
 
-    # ── 준비 ──
+    # ── Readiness ──
     def missing_modules(self) -> list[str]:
         return [m for m in ("mss", "comtypes") if importlib.util.find_spec(m) is None]
 
     def _automation(self):
-        """IUIAutomation 하나를 만들어 둔다. 타입 라이브러리 래퍼는 comtypes 가 처음 한 번 생성한다."""
+        """Create one IUIAutomation. comtypes generates the type library wrapper once on first use."""
         if self._uia is None:
             import comtypes.client
             self._dll = comtypes.client.GetModule("UIAutomationCore.dll")
@@ -61,7 +61,7 @@ class WindowsBackend(desktop_input.DesktopBackend):
     def windows(self) -> list[dict]:
         return windows_system.list_windows()
 
-    # ── 읽기 ──
+    # ── Reading ──
     def _cache_request(self):
         uia, dll = self._automation()
         req = uia.CreateCacheRequest()
@@ -89,7 +89,7 @@ class WindowsBackend(desktop_input.DesktopBackend):
             bounds=(rect.left, rect.top, rect.right, rect.bottom), window=window_title)
 
     def _walk(self, root, window_title: str, max_nodes: int, max_depth: int):
-        """(노드, 경로, 요소) 를 깊이 우선으로. 경로는 자식 번호 목록 — 누르기 직전에 다시 찾는 열쇠다."""
+        """(node, path, element) depth-first. The path is a list of child indexes — the key for finding it again right before pressing."""
         stack = [(root, [], 0)]
         produced = 0
         while stack and produced < max_nodes:
@@ -110,13 +110,13 @@ class WindowsBackend(desktop_input.DesktopBackend):
     def nodes(self, window: dict, max_nodes: int, max_depth: int) -> list[dict] | None:
         try:
             root = self._root(window)
-        except Exception:   # noqa: BLE001 — 창이 사라졌거나 UIA 가 거부했다
+        except Exception:   # noqa: BLE001 — the window disappeared or UIA refused
             return None
         return [{**node, "path": path} for node, path, _ in
                 self._walk(root, window.get("title") or "", max_nodes, max_depth)]
 
     def _element_at(self, window: dict, path: list[int]):
-        """경로로 요소를 다시 찾는다. 없으면 None."""
+        """Find the element again by path. None if missing."""
         el = self._root(window)
         for i in path:
             children = el.GetCachedChildren()
@@ -125,7 +125,7 @@ class WindowsBackend(desktop_input.DesktopBackend):
             el = children.GetElement(i)
         return el
 
-    # ── 조작 ──
+    # ── Actions ──
     def focus(self, window: dict) -> tuple[bool, str]:
         return windows_system.bring_to_front(window["handle"])
 
@@ -159,7 +159,7 @@ class WindowsBackend(desktop_input.DesktopBackend):
     def cursor(self) -> tuple[int, int] | None:
         return windows_input.cursor()
 
-    # GetLastInputInfo 는 키보드와 마우스를 함께 센다
+    # GetLastInputInfo counts keyboard and mouse together
     user_input_kind = "keyboard_or_mouse"
 
     def seconds_since_user_input(self) -> float | None:

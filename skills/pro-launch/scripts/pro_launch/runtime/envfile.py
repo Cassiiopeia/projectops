@@ -1,4 +1,4 @@
-"""`env.sh` 쓰기 — 실행 환경 변수(RUN_DIR·SHOT_DIR·DEV·PKG)를 쓰는 곳은 여기 하나뿐이다."""
+"""Writing `env.sh` — the only place that writes run environment variables (RUN_DIR·SHOT_DIR·DEV·PKG)."""
 from __future__ import annotations
 
 import os
@@ -9,37 +9,37 @@ from pro_launch.runtime.devices import sole_device
 
 
 def resolve_run_dir(args) -> Path | None:
-    """env.sh 를 어디에 쓸지. **추측하지 않는다** — 최근 폴더를 골라 주면 틀렸을 때 조용하다."""
+    """Where to write env.sh. **No guessing** — picking a recent folder fails silently when wrong."""
     v = getattr(args, "run_dir", None) or os.environ.get("RUN_DIR")
     return Path(v).resolve() if v else None
 
 
 def _sh_quote(value: str) -> str:
-    """셸에서 값이 그대로 쓰이도록 감싼다. 큰따옴표면 `$` 가 전개되어 **다른 값**이 된다."""
+    """Quote so the shell uses the value as is. With double quotes `$` expands into **a different value**."""
     return "'" + value.replace("'", "'\\''") + "'"
 
 
 def _run_var(skill: str) -> str:
-    """실행 이름을 담는 변수. launch → LAUNCH_RUN, agent-test → AGENT_TEST_RUN.
+    """Variable holding the run name. launch → LAUNCH_RUN, agent-test → AGENT_TEST_RUN.
 
-    공통 변수(RUN_DIR·SHOT_DIR·DEV·PKG)는 어느 스킬이 만들어도 같은 이름이다 —
-    문서 예시 수십 곳이 그 이름에 기대고 있다.
+    Shared variables (RUN_DIR·SHOT_DIR·DEV·PKG) have the same names whichever skill writes them —
+    dozens of doc examples rely on those names.
     """
     return re.sub(r"[^A-Z0-9]+", "_", skill.upper()).strip("_") + "_RUN"
 
 
 def write_env_sh(run_dir: Path, package: str | None,
                   bindings: list[dict] | None = None, skill: str | None = None) -> Path:
-    """실행 환경을 쓴다. **이 파일을 쓰는 곳은 여기 하나뿐이다.**
+    """Write the run environment. **This is the only place that writes this file.**
 
-    역할 이름을 **셸 변수명에 쓰지 않는다.** 한글·공백·하이픈이 든 이름은
-    `export DEV_{이름}=...` 이 거부되고 `$DEV_{이름}` 은 조용히 엉뚱한 값이 된다.
-    번호로 고정하고 이름은 값으로 담는다.
+    **Role names are never used in shell variable names.** Names with Korean, spaces or hyphens
+    make `export DEV_{name}=...` fail and `$DEV_{name}` silently become a wrong value.
+    They are fixed by number and the name goes in the value.
     """
     shots = run_dir / "screenshots"
     shots.mkdir(parents=True, exist_ok=True)
     env = run_dir / "env.sh"
-    # 스킬 이름을 모르면(device 가 나중에 다시 쓸 때) 처음 쓴 이름을 이어받는다
+    # If the skill name is unknown (device rewriting later), inherit the name written first
     if skill is None and env.is_file():
         m = re.search(r"^export ([A-Z0-9_]+_RUN)=", env.read_text(encoding="utf-8"), re.M)
         var = m.group(1) if m else _run_var("launch")
@@ -69,8 +69,8 @@ def write_env_sh(run_dir: Path, package: str | None,
                          % (n, _sh_quote(b["role"]), n, _sh_quote(b["serial"]), tail))
         lines += ["", "# Default device for commands that do not use roles", 'export DEV="$DEV1"']
     else:
-        # DEV 는 **반드시 정의한다.** 비어 있으면 `adb -s ` 가 되어 사용법 오류로 죽는다.
-        # 다른 세션이 쥔 기기는 후보에서 뺀다 — 정해지지 않으면 비워 두고 acquire 를 안내한다 (#972)
+        # DEV is **always defined.** If empty, it becomes `adb -s ` and dies with a usage error.
+        # Devices held by other sessions are excluded — if undecided, leave it empty and point to acquire (#972)
         one = sole_device()
         lines += ["", "# Only one device is free of other sessions, so it is the default"
                       if one else

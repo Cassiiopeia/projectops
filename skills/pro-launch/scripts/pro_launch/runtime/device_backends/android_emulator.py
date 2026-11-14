@@ -1,4 +1,4 @@
-"""Android 에뮬레이터 백엔드: AVD 목록 · 띄우기 · 끄기 · 만들기(기존 AVD 를 본으로) · 초기화 · 지우기. 키는 AVD 이름, 실행 중 id 는 시리얼."""
+"""Android emulator backend: AVD list · start · stop · create (using an existing AVD as template) · wipe · delete. Key is the AVD name, running id is the serial."""
 from __future__ import annotations
 
 import os
@@ -14,25 +14,25 @@ from pro_launch.runtime.device_backends.base import (FORM_PHONE, FORM_TABLET, Ca
                                                     RawCommandPattern, folder_bytes, is_os_satisfied)
 from pro_launch.runtime.devices import list_devices as list_attached_devices
 
-# 태블릿 판정 기준: 가장 짧은 변의 dp (Android 표준 sw600dp)
+# Tablet threshold: shortest side in dp (Android standard sw600dp)
 TABLET_SMALLEST_WIDTH_DP = 600
 BASELINE_DENSITY = 160
 _SYSTEM_IMAGE_API_PATTERN = re.compile(r"android-(\d+)")
 AVDMANAGER_TIMEOUT_SECONDS = 120
-# AVD 이름에 쓸 수 있는 글자 밖은 _ 로
+# Characters outside those allowed in AVD names become _
 _AVD_NAME_INVALID_PATTERN = re.compile(r"[^A-Za-z0-9._-]")
-# 데이터 초기화(-wipe-data 와 같은 효과)로 지우는 것: 사용자 데이터 · 캐시 · 스냅샷
-# 복제본에 가져가지 않는 실행 흔적 (에뮬레이터가 띄울 때마다 다시 만든다)
+# Removed by data wipe (same effect as -wipe-data): user data · cache · snapshots
+# Runtime artifacts not carried to clones (the emulator recreates them on every start)
 CLONE_SKIP_NAMES = ("hardware-qemu.ini", "emu-launch-params.txt", "multiinstance.lock", "read-snapshot.txt")
 CLONE_SKIP_SUFFIXES = (".lock",)
-# 본 AVD 가 없을 때 쓰는 하드웨어 프로필 (오래된 avdmanager 도 아는 id)
+# Hardware profile used when there is no template AVD (an id even old avdmanager knows)
 DEFAULT_DEVICE_PROFILE_BY_FORM = {FORM_PHONE: "pixel_6", FORM_TABLET: "pixel_c"}
 WIPE_FILE_NAMES = ("userdata-qemu.img", "userdata-qemu.img.qcow2", "cache.img", "cache.img.qcow2")
 WIPE_FOLDER_NAMES = ("snapshots",)
 
 
 def avd_home() -> Path:
-    """AVD 폴더: ANDROID_AVD_HOME > ANDROID_USER_HOME/avd > ~/.android/avd."""
+    """AVD folder: ANDROID_AVD_HOME > ANDROID_USER_HOME/avd > ~/.android/avd."""
     if os.environ.get("ANDROID_AVD_HOME"):
         return Path(os.environ["ANDROID_AVD_HOME"])
     if os.environ.get("ANDROID_USER_HOME"):
@@ -49,7 +49,7 @@ def _read_ini(path: Path) -> dict[str, str]:
 
 
 def _rewrite_ini(path: Path, values: dict[str, str]) -> None:
-    """ini 의 키 값을 바꾼다 (없으면 끝에 더한다). 다른 줄은 그대로."""
+    """Change a key's value in the ini (appended if missing). Other lines stay."""
     lines, seen = [], set()
     for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         key = line.partition("=")[0].strip()
@@ -63,19 +63,19 @@ def _rewrite_ini(path: Path, values: dict[str, str]) -> None:
 
 
 def avd_folder(name: str, home: Path | None = None) -> Path:
-    """AVD 폴더: <이름>.ini 의 path (이름과 폴더명이 다를 수 있다, 예: Medium_Phone_API_36.1 > Medium_Phone.avd) > <이름>.avd."""
+    """AVD folder: path in <name>.ini (name and folder may differ, e.g. Medium_Phone_API_36.1 > Medium_Phone.avd) > <name>.avd."""
     root = home or avd_home()
     declared = _read_ini(root / f"{name}.ini").get("path")
     return Path(declared) if declared and Path(declared).is_dir() else root / f"{name}.avd"
 
 
 def read_avd_config(name: str, home: Path | None = None) -> dict[str, str]:
-    """AVD 폴더의 config.ini > {키: 값}. 없으면 빈 dict."""
+    """config.ini of the AVD folder > {key: value}. Empty dict if missing."""
     return _read_ini(avd_folder(name, home) / "config.ini")
 
 
 def form_of_config(config: dict[str, str]) -> str:
-    """가장 짧은 변 px * 160 / density >= 600 이면 tablet. 못 읽으면 phone."""
+    """tablet if shortest side px * 160 / density >= 600. phone if unreadable."""
     try:
         width, height = int(config["hw.lcd.width"]), int(config["hw.lcd.height"])
         density = int(config["hw.lcd.density"])
@@ -85,11 +85,11 @@ def form_of_config(config: dict[str, str]) -> str:
 
 
 def avdmanager_of_emulator_sdk() -> tuple[str | None, Path | None]:
-    """(avdmanager 경로, SDK 루트): 에뮬레이터가 든 SDK 의 cmdline-tools 우선 > PATH 의 avdmanager."""
+    """(avdmanager path, SDK root): cmdline-tools of the SDK holding the emulator first > avdmanager on PATH."""
     emulator = sdk_tool("emulator")
     sdk_root = Path(emulator).resolve().parents[1] if emulator else None
     if sdk_root:
-        # latest 를 먼저, 없으면 버전 폴더 (Windows 는 avdmanager.bat)
+        # latest first, otherwise a version folder (avdmanager.bat on Windows)
         candidates = sorted((sdk_root / "cmdline-tools").glob("*/bin/avdmanager*"),
                             key=lambda path: (path.parent.parent.name != "latest", path.parent.parent.name))
         if candidates:
@@ -115,8 +115,8 @@ def api_level_of_config(config: dict[str, str]) -> str | None:
 class AndroidEmulatorBackend:
     name = "android_emulator"
     platform = "android"
-    # 복제 (#959): AVD 폴더 통째 복제 — qcow2 백업 경로가 상대 경로라 원본과 묶이지 않고, 로그인은 userdata 에 있어
-    # 스냅샷이 안 맞아 처음부터 부팅해도 남는다. 복제본 mark 는 확인 전으로 넘긴다
+    # Clone (#959): copy the whole AVD folder — qcow2 backing paths are relative so it is not tied to the original, and sign-in lives in userdata
+    # so it survives even a cold boot when snapshots do not match. The clone's mark is passed on as unverified
     capabilities = Capabilities(can_boot=True, can_shutdown=True, can_create=True, can_clone=True,
                                 can_clone_keep_marks=True)
 
@@ -158,16 +158,16 @@ class AndroidEmulatorBackend:
     def key_of_instance(self, instance: str) -> str | None:
         return device_boot.emulator_avd_name(instance) if instance.startswith("emulator-") else None
 
-    # ── 만들기 · 초기화 · 지우기 (#954) ──
+    # ── Create · wipe · delete (#954) ──
 
     def _avdmanager(self, *arguments: str) -> tuple[bool, str]:
-        """avdmanager 실행 > (성공, 오류 줄 또는 출력). 에뮬레이터와 같은 SDK 의 것을 쓴다 (PATH 의 Homebrew 것은 다른 SDK 를 본다, 실측)."""
+        """Run avdmanager > (success, error line or output). Uses the one from the emulator's SDK (Homebrew's on PATH sees a different SDK, observed)."""
         avdmanager, sdk_root = avdmanager_of_emulator_sdk()
         if not avdmanager:
             return False, "avdmanager not found (check the Android SDK cmdline-tools install)"
         environment = {**os.environ, **({"ANDROID_SDK_ROOT": str(sdk_root), "ANDROID_HOME": str(sdk_root)} if sdk_root else {})}
         try:
-            # 사용자 하드웨어 프로필을 만들지 묻는 질문에 no
+            # Answer no to the prompt asking whether to create a custom hardware profile
             result = subprocess.run([avdmanager, *arguments], input="no\n", capture_output=True, text=True, errors="replace",
                                     timeout=AVDMANAGER_TIMEOUT_SECONDS, env=environment)
         except (OSError, subprocess.SubprocessError) as error:
@@ -177,7 +177,7 @@ class AndroidEmulatorBackend:
         return result.returncode == 0, " ".join(error_lines) or text.strip()[-300:]
 
     def choose_templates(self, form: str, os_minimum: str | None) -> list[dict]:
-        """새 AVD 의 본 후보: 같은 폼팩터·OS 조건의 기존 AVD, API 높은 순 > [{package, device_name}] (같은 이미지는 하나)."""
+        """Template candidates for a new AVD: existing AVDs matching form factor·OS, highest API first > [{package, device_name}] (one per image)."""
         templates: dict[str, tuple[int, dict]] = {}
         for facts in self.list_devices():
             config = read_avd_config(facts.key)
@@ -188,7 +188,7 @@ class AndroidEmulatorBackend:
         return [template for _, template in sorted(templates.values(), key=lambda pair: pair[0], reverse=True)]
 
     def installed_image_templates(self, form: str, os_minimum: str | None) -> list[dict]:
-        """SDK 에 설치된 시스템 이미지 (API 높은 순) + 폼팩터 기본 프로필 > 본 후보 (본 AVD 가 실패했을 때)."""
+        """System images installed in the SDK (highest API first) + form-factor default profile > template candidates (when template AVDs failed)."""
         emulator = sdk_tool("emulator")
         images_root = Path(emulator).resolve().parents[1] / "system-images" if emulator else None
         if not images_root or not images_root.is_dir():
@@ -202,7 +202,7 @@ class AndroidEmulatorBackend:
         return [template for _, template in sorted(found, key=lambda pair: pair[0], reverse=True)]
 
     def create(self, name: str, form: str, os_minimum: str | None) -> dict:
-        """본 후보를 차례로 시도 (avdmanager 가 모르는 새 이미지 — 예: android-36.1 — 는 건너뛴다)."""
+        """Try template candidates in turn (new images avdmanager does not know — e.g. android-36.1 — are skipped)."""
         templates = self.choose_templates(form, os_minimum)
         tried = {template["package"] for template in templates}
         templates += [t for t in self.installed_image_templates(form, os_minimum) if t["package"] not in tried]
@@ -247,7 +247,7 @@ class AndroidEmulatorBackend:
         return folder_bytes(avd_folder(key))
 
     def orphan_avd_entries(self) -> list[dict]:
-        """짝이 깨진 AVD: 폴더만 있거나(.ini 없음) .ini 만 있음(폴더 없음) > [{name, path, bytes}] — 보고만 한다."""
+        """Broken AVD pairs: folder only (no .ini) or .ini only (no folder) > [{name, path, bytes}] — report only."""
         home, orphans = avd_home(), []
         if not home.is_dir():
             return []
@@ -264,7 +264,7 @@ class AndroidEmulatorBackend:
         return orphans
 
     def clone(self, key: str, name: str) -> dict:
-        """꺼진 AVD 폴더를 복제 > 새 .ini · config 의 AVD 이름 갱신 · 실행 흔적 제거."""
+        """Clone a powered-off AVD folder > new .ini · update AVD name in config · remove runtime artifacts."""
         if key in device_boot.running_emulators().values():
             return {"is_ok": False, "key": None, "detail": "a running emulator is not cloned"}
         home, clone_name = avd_home(), avd_name_of(name)

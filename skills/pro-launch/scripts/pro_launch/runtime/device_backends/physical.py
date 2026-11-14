@@ -1,4 +1,4 @@
-"""실기기 백엔드 (USB Android): 빌리기·반납만. 켜고 끄고 만들지 않는다."""
+"""Physical device backend (USB Android): borrow·return only. Never powers on, off or creates."""
 from __future__ import annotations
 
 from pro_launch.runtime.device_backends.base import FORM_PHONE, Capabilities, DeviceFacts, RawCommandPattern

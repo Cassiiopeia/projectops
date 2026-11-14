@@ -1,11 +1,11 @@
-"""호스트 자원 압박 진단: 메모리·스왑 > 압박 단계 > 큰 프로세스 > 켜진 가상 기기와 묶은 레포 (#883).
+"""Host resource pressure diagnosis: memory·swap > pressure level > big processes > running virtual devices and bound repos (#883).
 
-여러 세션이 한 맥에서 에뮬레이터·시뮬레이터를 함께 띄우면 스왑이 차서 기기 안 system server 가 죽고
-캡처가 조용히 실패한다. 재시도를 거듭하기 전에 호스트 상태를 먼저 보게 한다.
-**보고만 한다** — 다른 세션의 프로세스는 절대 끄지 않는다.
+When several sessions run emulators·simulators together on one Mac, swap fills, the system server inside the device dies,
+and captures fail silently. Make it look at host state before piling up retries.
+**Report only** — never kill another session's processes.
 
-표준 도구만 쓴다 (의존성 없음): macOS vm_stat·sysctl, Linux /proc/meminfo, 공통 ps.
-OS 분기는 '도구가 있는가'로 가른다 — sys.platform 분기는 procs.py 에만 둔다는 규칙을 지킨다.
+Uses only standard tools (no dependencies): macOS vm_stat·sysctl, Linux /proc/meminfo, ps everywhere.
+OS branching is by 'does the tool exist' — keeping the rule that sys.platform branches live only in procs.py.
 """
 from __future__ import annotations
 
@@ -24,21 +24,21 @@ PROC_MEMINFO = Path("/proc/meminfo")
 MEBIBYTE = 1024 * 1024
 TOP_PROCESS_COUNT = 5
 
-# 압박 단계 기준 (경험값). 스왑이 거의 찼는데 남은 메모리도 적으면 가상 기기가 죽기 시작한다
+# Pressure level thresholds (empirical). With swap nearly full and little free memory, virtual devices start dying
 CRITICAL_SWAP_USED_PERCENT = 90
 CRITICAL_AVAILABLE_WITH_FULL_SWAP_PERCENT = 20
 CRITICAL_AVAILABLE_PERCENT = 5
 HIGH_SWAP_USED_PERCENT = 75
 HIGH_AVAILABLE_PERCENT = 10
-# macOS kern.memorystatus_vm_pressure_level: 1 정상, 2 경고, 4 위험
+# macOS kern.memorystatus_vm_pressure_level: 1 normal, 2 warning, 4 critical
 MACOS_PRESSURE_LEVELS = {1: "ok", 2: "high", 4: "critical"}
 PRESSURE_ORDER = ("unknown", "ok", "high", "critical")
-# 과부하: 1분 평균 부하가 코어 수의 이 배수를 넘는다 (실측 load 46·128 에서 Maestro iOS 드라이버 기동이 시간 안에 못 끝났다)
+# Overloaded: 1-minute load average exceeds this multiple of the core count (observed at load 46·128: Maestro iOS driver startup did not finish in time)
 OVERLOAD_LOAD_PER_CORE = 2
 
 
 def read_memory() -> dict:
-    """{total_mb, available_mb, swap_total_mb, swap_used_mb, os_pressure} — 못 읽은 값은 None."""
+    """{total_mb, available_mb, swap_total_mb, swap_used_mb, os_pressure} — unreadable values are None."""
     if PROC_MEMINFO.is_file():
         return _read_proc_meminfo()
     if shutil.which("vm_stat"):
@@ -51,7 +51,7 @@ def read_memory() -> dict:
 
 
 def _read_proc_meminfo() -> dict:
-    """Linux: kB 단위 > MB."""
+    """Linux: kB > MB."""
     values: dict[str, int] = {}
     try:
         for line in PROC_MEMINFO.read_text(encoding="utf-8").splitlines():
@@ -69,7 +69,7 @@ def _read_proc_meminfo() -> dict:
 
 
 def _read_vm_stat() -> dict:
-    """macOS: 남은 메모리 = free + inactive + speculative + purgeable 페이지 (활동 모니터 '사용 가능'에 가깝다)."""
+    """macOS: available memory = free + inactive + speculative + purgeable pages (close to Activity Monitor's 'available')."""
     text = run(["vm_stat"])
     page_size_match = re.search(r"page size of (\d+) bytes", text)
     page_size = int(page_size_match.group(1)) if page_size_match else 4096
@@ -97,10 +97,10 @@ def _percent(part: int | None, whole: int | None) -> int | None:
 
 
 def pressure_level(memory: dict) -> str:
-    """수치 판정과 OS 판정(macOS) 중 더 나쁜 쪽 > ok | high | critical | unknown."""
+    """The worse of the numeric verdict and the OS verdict (macOS) > ok | high | critical | unknown."""
     available_percent = _percent(memory.get("available_mb"), memory.get("total_mb"))
-    # OS 가 압박 단계를 직접 알려 주면(macOS) 스왑 비율은 보지 않는다 — macOS 는 스왑을 쓰는 만큼 늘려 늘 90% 가깝다
-    # (실측 #964: 스왑 91% · OS 판정 경고인데 critical 로 올라 모든 부팅이 막혔다)
+    # When the OS reports the pressure level itself (macOS), swap ratio is ignored — macOS grows swap as it uses it, so it is always near 90%
+    # (observed in #964: swap 91% · OS verdict warning, yet it was raised to critical and blocked every boot)
     is_swap_judged = memory.get("os_pressure") is None
     swap_used_percent = _percent(memory.get("swap_used_mb"), memory.get("swap_total_mb")) if is_swap_judged else None
     level = "unknown" if available_percent is None else "ok"
@@ -118,7 +118,7 @@ def pressure_level(memory: dict) -> str:
 
 
 def top_processes(count: int = TOP_PROCESS_COUNT) -> list[dict]:
-    """메모리(RSS)를 가장 많이 쓰는 프로세스 > [{pid, name, rss_mb}]. ps 가 없으면 빈 목록."""
+    """Processes using the most memory (RSS) > [{pid, name, rss_mb}]. Empty list if ps is missing."""
     if not shutil.which("ps"):
         return []
     rows = []
@@ -132,7 +132,7 @@ def top_processes(count: int = TOP_PROCESS_COUNT) -> list[dict]:
 
 
 def device_owners() -> dict[str, list[str]]:
-    """기기 시리얼·UDID > 그 기기를 역할에 묶어 둔 레포 버킷들 (다른 세션이 쓰는 기기인지 가늠)."""
+    """Device serial·UDID > repo buckets that bound that device to a role (to gauge whether another session uses it)."""
     owners: dict[str, list[str]] = {}
     launch_dir = base_dir() / "launch"
     if not launch_dir.is_dir():
@@ -150,7 +150,7 @@ def device_owners() -> dict[str, list[str]]:
 
 
 def memory_summary() -> dict:
-    """짧은 요약 (devices 응답용): {pressure, available_mb, available_percent, swap_used_percent}."""
+    """Short summary (for the devices response): {pressure, available_mb, available_percent, swap_used_percent}."""
     memory = read_memory()
     return {"pressure": pressure_level(memory), "available_mb": memory.get("available_mb"),
             "available_percent": _percent(memory.get("available_mb"), memory.get("total_mb")),
@@ -158,7 +158,7 @@ def memory_summary() -> dict:
 
 
 def read_load() -> dict:
-    """{load_1m, load_5m, load_15m, cpu_count, is_overloaded} — 부하 평균이 없는 OS(윈도우)면 값이 None."""
+    """{load_1m, load_5m, load_15m, cpu_count, is_overloaded} — values are None on OSes without load averages (Windows)."""
     cpu_count = os.cpu_count()
     try:
         load_1m, load_5m, load_15m = (round(value, 1) for value in os.getloadavg())
@@ -169,7 +169,7 @@ def read_load() -> dict:
 
 
 def resource_report(devices: dict) -> dict:
-    """doctor --resources 전체 보고: 메모리 > 압박 단계 > 부하 > 큰 프로세스 > 켜진 가상 기기와 묶은 레포."""
+    """Full doctor --resources report: memory > pressure level > load > big processes > running virtual devices and bound repos."""
     memory = read_memory()
     owners = device_owners()
     booted = [{"platform": "android", "id": serial, "bound_by": owners.get(serial, [])}
@@ -184,7 +184,7 @@ def resource_report(devices: dict) -> dict:
 
 
 def pressure_advice(level: str) -> str | None:
-    """압박 단계별 다음 행동. 끄는 일은 사용자 몫이다."""
+    """Next action per pressure level. Shutting things down is the user's call."""
     if level == "critical":
         return ("host memory is critical — ask the user before booting another virtual device or running a build. "
                 "Do not stop other sessions' devices or processes (bound_by shows who uses them)")
@@ -193,30 +193,30 @@ def pressure_advice(level: str) -> str | None:
     return None
 
 
-# 메모리 위험 게이트(critical · 기기 예산)를 넘는 유일한 플래그 — --yes 로는 넘지 않는다 (#972)
+# The only flag that passes the memory risk gate (critical · device budget) — --yes does not pass it (#972)
 USER_APPROVED_FLAG = "--user-approved"
-# 위험 게이트에 걸렸을 때의 다음 행동 (acquire · boot 공용 문구)
+# Next action when the risk gate trips (wording shared by acquire · boot)
 MEMORY_RISK_NEXT = (f"Show the user reasons (and non_device_consumers), and after they answer call again with {USER_APPROVED_FLAG}. "
                     "Do not poll doctor --resources waiting for the pressure to ease")
-# 부를 플래그가 없는 동작(기기 없음 안내 등)의 다음 행동
+# Next action for actions with no flag to pass (no-device notices, etc.)
 MEMORY_RISK_ASK_NEXT = ("Show the user reasons (and non_device_consumers) and ask what to stop — the user decides about other sessions' "
                         "devices and builds. Do not poll doctor --resources waiting for the pressure to ease")
 
 
 def memory_risk_fields() -> dict:
-    """위험 게이트 응답에 싣는 기기 밖 큰 메모리 소비자 — 사용자가 끌 것을 고르게 (#964 · #972)."""
+    """Big memory consumers outside devices, attached to risk-gate responses — so the user can choose what to close (#964 · #972)."""
     from pro_launch.runtime.device_benchmark import non_device_consumers
     try:
         return {"non_device_consumers": non_device_consumers()}
-    except Exception:   # noqa: BLE001 — 소비자 목록은 보조다
+    except Exception:   # noqa: BLE001 — the consumer list is auxiliary
         return {}
 
 
 def critical_pressure_failure(action: str, is_user_approvable: bool = False) -> dict | None:
-    """가상 기기를 새로 띄우는 동작 앞에서 부른다. critical 이면 중간에 죽기 전에 멈추는 실패 결과 (#883).
+    """Call before actions that boot a new virtual device. On critical, a failure result that stops before dying midway (#883).
 
-    is_user_approvable: 그 동작이 --user-approved 를 받는다 (next 에 그 플래그를 안내).
-    부르는 쪽: `if (failure := critical_pressure_failure("device boot", True)): return out(failure)`.
+    is_user_approvable: the action accepts --user-approved (next mentions that flag).
+    Caller: `if (failure := critical_pressure_failure("device boot", True)): return out(failure)`.
     """
     summary = memory_summary()
     if summary["pressure"] != "critical":

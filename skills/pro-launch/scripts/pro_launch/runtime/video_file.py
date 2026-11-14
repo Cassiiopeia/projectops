@@ -1,5 +1,5 @@
-"""녹화 mp4 점검: 재생 가능(moov 상자 유무) · 실제 길이 (#1130)
-최상위 상자 훑기(표준 라이브러리) > 길이는 ffprobe > mvhd 순
+"""Recording mp4 check: playable (moov box present) · actual duration (#1130)
+Scan top-level boxes (standard library) > duration via ffprobe > mvhd, in that order
 """
 from __future__ import annotations
 
@@ -8,15 +8,15 @@ import struct
 import subprocess
 from pathlib import Path
 
-# ffprobe 길이 조회 시간 상한 (초)
+# ffprobe duration query time limit (s)
 FFPROBE_TIMEOUT_SECONDS = 30
-# 상자 머리: 크기(4) + 종류(4), 크기 1 이면 64비트 크기(8) 추가
+# Box header: size(4) + type(4); if size is 1, a 64-bit size(8) follows
 BOX_HEADER_BYTES = 8
 LARGE_BOX_HEADER_BYTES = 16
 
 
 def inspect_mp4(path: Path) -> dict:
-    """mp4 > {is_playable, duration_seconds, duration_source, problem}. problem 은 재생 불가 사유."""
+    """mp4 > {is_playable, duration_seconds, duration_source, problem}. problem is the reason it cannot play."""
     try:
         file_size_bytes = path.stat().st_size
         with open(path, "rb") as video:
@@ -37,7 +37,7 @@ def inspect_mp4(path: Path) -> dict:
 
 
 def _iter_boxes(video, start: int, end: int):
-    """[start, end) 구간 상자 > (종류, 시작, 머리 길이, 전체 크기). 잘린 상자에서 멈춤."""
+    """Boxes in [start, end) > (type, start, header length, total size). Stops at a truncated box."""
     position = start
     while position + BOX_HEADER_BYTES <= end:
         video.seek(position)
@@ -52,17 +52,17 @@ def _iter_boxes(video, start: int, end: int):
                 return
             size = struct.unpack(">Q", large_size)[0]
             header_length = LARGE_BOX_HEADER_BYTES
-        elif size == 0:   # 0: 파일 끝까지
+        elif size == 0:   # 0: to end of file
             size = end - position
         if size < header_length:
             return
-        # 끝이 잘린 상자도 종류는 알려 준다 (mdat 만 남은 파일 진단용)
+        # Still report the type of a box truncated at the end (to diagnose files with only mdat left)
         yield kind, position, header_length, min(size, end - position)
         position += size
 
 
 def _read_mvhd_seconds(video, moov: tuple) -> float | None:
-    """moov 안 mvhd > 길이(초). mvhd 버전 0: 32비트 · 1: 64비트 필드."""
+    """mvhd inside moov > duration (s). mvhd version 0: 32-bit · 1: 64-bit fields."""
     _, moov_start, moov_header, moov_size = moov
     for kind, start, header_length, _ in _iter_boxes(video, moov_start + moov_header, moov_start + moov_size):
         if kind != b"mvhd":
@@ -84,7 +84,7 @@ def _read_mvhd_seconds(video, moov: tuple) -> float | None:
 
 
 def _probe_seconds(path: Path) -> float | None:
-    """ffprobe 가 있으면 컨테이너 길이(초). 없거나 실패면 None."""
+    """Container duration (s) if ffprobe exists. None if missing or failed."""
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
         return None

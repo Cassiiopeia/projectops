@@ -1,15 +1,15 @@
-"""pro-launch 가 Maestro 를 띄운 시각 기록 · 그 밖에서 돈 Maestro 실행 세기 (#863) · 기계 단위 잠금 (#922).
+"""Records when pro-launch started Maestro · counts Maestro runs outside it (#863) · machine-wide lock (#922).
 
-Maestro 는 실행마다 ~/.maestro/tests/<yyyy-MM-dd_HHmmss>/ 를 남긴다. pro-launch 가 띄운 구간 기록과
-시각이 안 맞는 폴더 = launch_cli 를 거치지 않은 직접 실행 (그 사이 알게 된 방식은 기억에 안 남는다).
-세기는 폴더 이름 · 시각만 본다 — maestro.log 에 비밀 입력값이 평문으로 남을 수 있다.
-예외 하나: 실패 응답의 마지막 오류 줄은 **이번 호출이 띄운 실행의 폴더**에서만 읽는다
-(비밀 입력 flow 는 기록을 임시 폴더로 돌려 여기 안 남는다 · inputText 줄은 건너뛴다).
+Maestro leaves ~/.maestro/tests/<yyyy-MM-dd_HHmmss>/ per run. Folders whose time does not match the intervals
+pro-launch recorded = direct runs that bypassed launch_cli (methods learned there are not kept in memory).
+Counting looks only at folder names and times — maestro.log may hold secret input values in plaintext.
+One exception: the last error line of a failed response is read only from **the folder of the run this call started**
+(flows with secret input redirect logs to a temp folder so nothing stays here · inputText lines are skipped).
 
-기록: {PROJECTOPS_HOME}/launch/maestro_runs.json — [[시작, 끝], ...] 최근 RUNS_KEEP 건 (기기 공용)
-잠금: {PROJECTOPS_HOME}/launch/maestro.lock — {"pid", "acquired_at"}. Maestro 둘이 동시에 뜨면 iOS 드라이버
-연결이 끊긴다 (실측: Android·iOS 동시 실행 > ConnectException) — 기계 하나에 하나씩 띄운다.
-top-level 에서는 표준 라이브러리만 들인다 — 중계(standalone)가 maestro_session 을 거쳐 import 한다.
+Record: {PROJECTOPS_HOME}/launch/maestro_runs.json — [[start, end], ...] latest RUNS_KEEP entries (shared across devices)
+Lock: {PROJECTOPS_HOME}/launch/maestro.lock — {"pid", "acquired_at"}. Two Maestros at once drop the iOS driver
+connection (observed: Android·iOS concurrent runs > ConnectException) — one at a time per machine.
+Top level imports only the standard library — the relay (standalone) imports it via maestro_session.
 """
 from __future__ import annotations
 
@@ -24,38 +24,38 @@ from pathlib import Path
 
 RUNS_FILE_NAME = "maestro_runs.json"
 RUNS_KEEP = 200
-# 폴더 이름 시각(초 단위 · JVM 기동 지연) <-> 기록 구간 허용 오차
+# Tolerance between folder-name time (second precision · JVM startup lag) <-> recorded interval
 MATCH_SLACK_SECONDS = 15
 FOLDER_NAME_FORMAT = "%Y-%m-%d_%H%M%S"
 LOCK_FILE_NAME = "maestro.lock"
-# 다른 호출이 쥔 잠금 최대 대기 (초) — 넘으면 잠금 없이 진행하고 보고만 (호출당 시간 초과 90초 + 여유)
+# Max wait for a lock held by another call (s) — past it, proceed without the lock and just report (per-call 90 s timeout + margin)
 LOCK_WAIT_SECONDS = 150
 LOCK_POLL_SECONDS = 0.5
-# 쥔 프로세스가 살아 있어도 이보다 오래된 잠금은 버려진 것 (초)
+# A lock older than this is abandoned even if its holder is alive (s)
 LOCK_STALE_SECONDS = 600
-# 막 만들어 아직 빈 잠금 파일을 살아 있는 것으로 보는 시간 (초)
+# How long a freshly created, still-empty lock file counts as live (s)
 LOCK_FRESH_EMPTY_SECONDS = 5
-# 마지막 오류 줄: 찾는 문구 · 건너뛰는 줄(입력값이 실릴 수 있다) · 최대 글자 · 읽는 끝부분 (바이트)
+# Last error line: phrases to find · lines to skip (may carry input values) · max characters · tail bytes read
 ERROR_LINE_MARKERS = ("Exception", "Error", "FAILED", "[Failed]", "not found", "timed out")
 ERROR_LINE_EXCLUDED = ("inputText", "InputText")
 ERROR_LINE_MAXIMUM_CHARS = 300
 LOG_TAIL_BYTES = 65536
-# maestro.log 줄 머리: '10:53:18.395 [ INFO] '
+# maestro.log line prefix: '10:53:18.395 [ INFO] '
 LOG_LINE_PREFIX = re.compile(r"^\d{2}:\d{2}:\d{2}\.\d+\s+\[\s*(\w+)\]\s*")
 
-# 이 프로세스의 마지막 실행 구간 · 잠금 대기 합계 (launch_cli 는 호출마다 새 프로세스)
+# This process's last run interval · total lock wait (launch_cli is a new process per call)
 LAST_RUN: dict = {}
 LOCK_WAIT: dict = {"waited_seconds": 0.0, "holder_pid": None, "is_timed_out": False}
 _LOCK_DEPTH = [0]
 
 
 def maestro_tests_folder() -> Path:
-    """Maestro 기본 기록 자리 (부를 때 HOME 기준)."""
+    """Maestro's default log location (relative to HOME at call time)."""
     return Path.home() / ".maestro" / "tests"
 
 
 def runs_file() -> Path:
-    from common.state import base_dir   # 중계는 standalone 이라 여기서만 들인다
+    from common.state import base_dir   # the relay is standalone, so import only here
     return base_dir() / "launch" / RUNS_FILE_NAME
 
 
@@ -73,19 +73,19 @@ def read_runs() -> list[list[float]]:
 
 
 def record_run(started_at: float, ended_at: float) -> None:
-    """구간 하나 덧붙이기. 기록 실패는 본 명령을 망치지 않는다."""
+    """Append one interval. A record failure does not spoil the main command."""
     LAST_RUN.update(started_at=started_at, ended_at=ended_at)
     try:
         path = runs_file()
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps([*read_runs(), [started_at, ended_at]][-RUNS_KEEP:]), encoding="utf-8")
-    except Exception:   # noqa: BLE001 — 기록은 보조다
+    except Exception:   # noqa: BLE001 — the record is auxiliary
         pass
 
 
 @contextlib.contextmanager
 def recording():
-    """이 블록 동안 Maestro 가 돈다고 기록 (성공·실패·예외 공통)."""
+    """Record that Maestro runs during this block (success·failure·exception alike)."""
     started_at = time.time()
     try:
         yield
@@ -94,26 +94,26 @@ def recording():
 
 
 def run_recorded(command: list[str], **options) -> subprocess.CompletedProcess:
-    """subprocess.run 과 같다 + 기계 단위 잠금 + 실행 구간 기록. 시간 초과면 이번 실행이 남긴 고아 드라이버 정리."""
+    """Same as subprocess.run + machine-wide lock + run-interval record. On timeout, cleans up orphan drivers this run left."""
     started_at = time.time()
     with start_lock(), recording():
         try:
             return subprocess.run(command, **options)
         except subprocess.TimeoutExpired:
-            # 시간 초과는 직계(JVM)만 끝낸다 — 그 아래 xcodebuild 드라이버가 고아로 남는다
+            # A timeout kills only the direct child (JVM) — the xcodebuild driver below it is left orphaned
             import maestro_drivers
             device = command[command.index("--device") + 1] if "--device" in command[:-1] else None
             maestro_drivers.clean_after_timeout(device, time.time() - started_at)
             raise
 
 
-# ── 기계 단위 잠금 ───────────────────────────────────────────────────────
+# ── Machine-wide lock ───────────────────────────────────────────────────────
 
 @contextlib.contextmanager
 def start_lock(wait_seconds: float = LOCK_WAIT_SECONDS):
-    """Maestro 를 띄우는 구간 잠금: 잡기 > 쥔 쪽이 살아 있으면 대기(상한) > 블록 > 자기 것만 풀기.
+    """Lock around starting Maestro: acquire > wait while the holder is alive (capped) > block > release only our own.
 
-    같은 프로세스 안에서는 겹쳐 잡아도 된다. 기다린 시간은 LOCK_WAIT 에 쌓인다 (응답의 maestro_lock).
+    Nested acquisition in the same process is fine. Wait time accumulates in LOCK_WAIT (maestro_lock in the response).
     """
     if _LOCK_DEPTH[0]:
         _LOCK_DEPTH[0] += 1
@@ -141,7 +141,7 @@ def start_lock(wait_seconds: float = LOCK_WAIT_SECONDS):
 
 
 def _try_acquire() -> tuple[bool, int | None]:
-    """> (잡았나, 쥔 pid). 버려진 잠금(쥔 쪽 죽음 · 너무 오래됨)은 걷고 다시. 자리를 못 쓰면 (False, None) — 잠금 없이."""
+    """> (acquired, holder pid). Abandoned locks (holder dead · too old) are cleared and retried. If the spot is unusable (False, None) — no lock."""
     from common.proc import pid_alive
     path = lock_file()
     for _ in range(2):
@@ -168,7 +168,7 @@ def _try_acquire() -> tuple[bool, int | None]:
 
 
 def _read_lock(path: Path) -> dict:
-    """잠금 내용. 막 만들어 아직 비었으면 쥔 쪽 모름(pid -1)으로 살아 있는 것 취급."""
+    """Lock contents. A freshly created empty lock has an unknown holder (pid -1) and counts as live."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else {}
@@ -181,7 +181,7 @@ def _read_lock(path: Path) -> dict:
 
 
 def _release() -> None:
-    """자기가 쥔 잠금만 지운다."""
+    """Remove only the lock we hold."""
     path = lock_file()
     if _read_lock(path).get("pid") == os.getpid():
         with contextlib.suppress(OSError):
@@ -189,16 +189,16 @@ def _release() -> None:
 
 
 def lock_wait_report() -> dict:
-    """응답에 붙일 잠금 대기: {"maestro_lock": {waited_seconds, holder_pid, is_timed_out}}. 기다린 적 없으면 {}."""
+    """Lock wait to attach to the response: {"maestro_lock": {waited_seconds, holder_pid, is_timed_out}}. {} if it never waited."""
     if not LOCK_WAIT["waited_seconds"]:
         return {}
     return {"maestro_lock": {key: value for key, value in LOCK_WAIT.items() if value not in (None, False)}}
 
 
-# ── 마지막 오류 줄 ────────────────────────────────────────────────────────
+# ── Last error line ────────────────────────────────────────────────────────
 
 def last_error_line() -> str | None:
-    """이번 프로세스의 마지막 실행이 남긴 maestro.log 의 마지막 오류 줄 (ERROR 수준 우선). 없으면 None."""
+    """Last error line of maestro.log left by this process's last run (ERROR level first). None if none."""
     if not LAST_RUN:
         return None
     folder = _own_run_folder(LAST_RUN["started_at"], LAST_RUN["ended_at"])
@@ -220,7 +220,7 @@ def last_error_line() -> str | None:
 
 
 def _own_run_folder(started_at: float, ended_at: float) -> Path | None:
-    """실행 구간 안에서 생긴 기록 폴더 중 시작에 가장 가까운 것."""
+    """The log folder created within the run interval that is closest to its start."""
     try:
         folders = [path for path in maestro_tests_folder().iterdir() if path.is_dir()]
     except OSError:
@@ -230,10 +230,10 @@ def _own_run_folder(started_at: float, ended_at: float) -> Path | None:
     return min(inside, key=lambda pair: abs(pair[0] - started_at))[1] if inside else None
 
 
-# ── 밖에서 돈 실행 세기 ───────────────────────────────────────────────────
+# ── Counting runs from outside ───────────────────────────────────────────────────
 
 def folder_started_at(folder: Path) -> float | None:
-    """폴더 이름(로컬 시각) > epoch 초. 이름 형식이 다르면 폴더 수정 시각 (stat 만, 내용은 안 읽는다)."""
+    """Folder name (local time) > epoch seconds. Folder mtime if the name format differs (stat only, contents not read)."""
     try:
         return dt.datetime.strptime(folder.name, FOLDER_NAME_FORMAT).timestamp()
     except ValueError:
@@ -245,7 +245,7 @@ def folder_started_at(folder: Path) -> float | None:
 
 
 def count_outside_runs(window_seconds: float, tests_folder: Path | None = None, now: float | None = None) -> int:
-    """최근 window_seconds 안의 Maestro 기록 폴더 중 pro-launch 실행 구간에 안 들어가는 개수."""
+    """Number of Maestro log folders within the last window_seconds that fall outside pro-launch run intervals."""
     now = now if now is not None else time.time()
     tests_folder = tests_folder or maestro_tests_folder()
     try:
@@ -254,8 +254,8 @@ def count_outside_runs(window_seconds: float, tests_folder: Path | None = None, 
         return 0
     runs = read_runs()
     if not runs:
-        return 0                                    # 기록이 없으면 안팎을 가를 수 없다
-    # 기록을 남기기 시작한 뒤의 폴더만 센다 — 그 전 실행은 전부 '밖'으로 잡힌다
+        return 0                                    # without records, inside and outside cannot be told apart
+    # Count only folders after recording began — earlier runs would all count as 'outside'
     counted_since = max(now - window_seconds, min(start for start, _ in runs) - MATCH_SLACK_SECONDS)
     count = 0
     for folder in folders:

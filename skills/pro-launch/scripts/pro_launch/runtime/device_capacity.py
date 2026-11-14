@@ -1,6 +1,6 @@
-"""기기 켜기 예산: 종류별 메모리 비용 · 기기 예산 · 여유분 (#964). 값은 device benchmark 가 설정에 넣는다(없으면 기본값).
+"""Device boot budget: memory cost per kind · device budget · headroom (#964). Values are put into settings by device benchmark (defaults otherwise).
 
-켜기 판정 2가지: 켜진 기기 비용 합 + 새 기기 <= 예산 · 지금 남은 메모리 >= 새 기기 + 여유분
+2 boot checks: sum of running device costs + new device <= budget · memory free now >= new device + headroom
 """
 from __future__ import annotations
 
@@ -10,13 +10,13 @@ from common import config as common_config
 
 from pro_launch.runtime import host_resources
 
-# 재기 전 기본 비용 (MB) — 실측(2026-10-21, 18GB 맥): iOS 시뮬레이터 약 1GB · Android 에뮬레이터 약 5.6GB(footprint)
+# Default cost before measuring (MB) — observed (2026-10-21, 18GB Mac): iOS simulator about 1GB · Android emulator about 5.6GB (footprint)
 DEFAULT_BOOT_COST_MB = {"ios": 1500, "android": 6000}
-# 지금 판정에서 남겨 둘 여유 (MB) — 호스트·다른 세션 몫
+# Headroom kept in the current check (MB) — share for the host·other sessions
 DEFAULT_MEMORY_RESERVE_MB = 3072
-# 재기 전 기기 예산: 전체 RAM 에서 호스트 몫을 뺀 것 (MB)
+# Device budget before measuring: total RAM minus the host share (MB)
 HOST_SHARE_MB = 8192
-# 이보다 오래된 측정은 다시 재라고 권한다 (일)
+# Measurements older than this suggest re-measuring (days)
 BENCHMARK_STALE_DAYS = 30
 SECONDS_PER_DAY = 24 * 60 * 60
 
@@ -30,7 +30,7 @@ def _positive(value) -> float | None:
 
 
 def boot_cost_mb(platform: str) -> tuple[int, str]:
-    """(그 종류 기기 하나의 메모리 비용, 출처 benchmark|default)."""
+    """(memory cost of one device of that kind, source benchmark|default)."""
     measured = _positive((devices_settings().get("boot_cost_mb") or {}).get(platform))
     if measured:
         return int(measured), "benchmark"
@@ -42,7 +42,7 @@ def memory_reserve_mb() -> int:
 
 
 def memory_budget_mb(total_mb: int | None) -> tuple[int | None, str]:
-    """(기기 예산, 출처 benchmark|default). RAM 을 못 읽고 측정도 없으면 (None, unknown) — 예산 판정은 건너뛴다."""
+    """(device budget, source benchmark|default). (None, unknown) if RAM is unreadable and there is no measurement — budget check is skipped."""
     measured = _positive(devices_settings().get("memory_budget_mb"))
     if measured:
         return int(measured), "benchmark"
@@ -52,7 +52,7 @@ def memory_budget_mb(total_mb: int | None) -> tuple[int | None, str]:
 
 
 def boot_block_reason(platform: str, booted_counts: dict[str, int], memory: dict | None = None) -> str | None:
-    """새 기기 하나를 켜면 안 되는 이유 (예산 초과 · 지금 여유 부족). 켜도 되면 None."""
+    """Why one more device must not boot (budget exceeded · not enough headroom now). None if it may boot."""
     memory = memory if memory is not None else host_resources.read_memory()
     cost, _ = boot_cost_mb(platform)
     budget, _ = memory_budget_mb(memory.get("total_mb"))
@@ -69,7 +69,7 @@ def boot_block_reason(platform: str, booted_counts: dict[str, int], memory: dict
 
 
 def capacity_view(memory: dict | None = None) -> dict:
-    """응답·doctor 용 요약: 비용 · 예산 · 여유분 · 측정 시각 · 다시 재야 하나."""
+    """Summary for responses·doctor: cost · budget · headroom · measured at · needs re-measuring."""
     memory = memory if memory is not None else host_resources.read_memory()
     benchmark = devices_settings().get("benchmark") or {}
     measured_at = benchmark.get("measured_at")
@@ -85,7 +85,7 @@ def capacity_view(memory: dict | None = None) -> dict:
 
 
 def save_benchmark(costs: dict[str, int], budget_mb: int, reserve_mb: int, details: dict) -> None:
-    """측정 결과를 설정에 넣는다 (config 전체를 읽어 launch.devices 만 바꾼다 — 다른 섹션 보존)."""
+    """Put measurement results into settings (reads the whole config and changes only launch.devices — other sections preserved)."""
     data = common_config.load() or {}
     launch = data.setdefault("launch", {})
     devices = launch.setdefault("devices", {})

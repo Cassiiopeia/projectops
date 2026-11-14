@@ -1,7 +1,7 @@
-"""기기 원장 파일 `{base}/launch/_machine/device-claims.json`: 읽기(schema 1 받아들임) · 잠금 > 읽기 > 고치기 > 저장 (#953).
+"""Device ledger file `{base}/launch/_machine/device-claims.json`: read (accepts schema 1) · lock > read > modify > save (#953).
 
-모양: {"schema": 2, "devices": {키: {leases, settings, pool_booted_at, marks, origin, temporary}}, "waits": {대기 키: {started_at, updated_at}}}
-키: iOS UDID · Android AVD 이름 · 실기기 시리얼 (Android 시리얼은 lease 의 instance). 저장은 임시 파일 > 바꿔치기.
+Shape: {"schema": 2, "devices": {key: {leases, settings, pool_booted_at, marks, origin, temporary}}, "waits": {wait key: {started_at, updated_at}}}
+Key: iOS UDID · Android AVD name · physical device serial (the Android serial is the lease's instance). Saved via temp file > swap.
 """
 from __future__ import annotations
 
@@ -18,20 +18,20 @@ from pro_launch.runtime import procs
 
 LEDGER_FILE_NAME = "device-claims.json"
 LEDGER_SCHEMA = 2
-# 잠금 대기 상한 (초) — 넘으면 LedgerBusyError
+# Lock wait cap (s) — LedgerBusyError beyond it
 LOCK_TIMEOUT_SECONDS = 10.0
 LOCK_RETRY_SECONDS = 0.05
-# 대기 기록 보관 (초) — 이보다 오래된 것은 저장할 때 버린다 (1시간)
+# Wait record retention (s) — older ones are dropped on save (1 hour)
 WAIT_RECORD_KEEP_SECONDS = 60 * 60
 
-# 이 중 하나라도 있으면 기기 항목을 남긴다 (lease · 설정 기록 · 켠 표시 · 공들인 상태 · 출처 · 임시 기기 기록)
+# A device entry is kept if any of these exist (lease · settings record · powered-on mark · prepared state · origin · temporary device record)
 KEPT_ENTRY_FIELDS = ("leases", "settings", "pool_booted_at", "marks", "origin", "temporary")
 
 ResultType = TypeVar("ResultType")
 
 
 class LedgerBusyError(RuntimeError):
-    """잠금을 상한 안에 얻지 못했다 — 조작하지 않고 실패로 알린다 (code: ledger_busy)."""
+    """Could not get the lock within the cap — report failure without acting (code: ledger_busy)."""
 
 
 def ledger_path() -> Path:
@@ -43,7 +43,7 @@ def empty_ledger() -> dict:
 
 
 def _from_schema1(claims: dict) -> dict:
-    """schema 1 {claims: {id: claim}} > 기기마다 lease 1개 (호스트 기록 없음)."""
+    """schema 1 {claims: {id: claim}} > one lease per device (no host record)."""
     devices = {}
     for key, claim in claims.items():
         if not isinstance(claim, dict):
@@ -58,7 +58,7 @@ def _from_schema1(claims: dict) -> dict:
 
 
 def read_ledger() -> dict:
-    """원장 > schema 2 dict. 없거나 깨진 파일은 빈 원장 (다음 저장이 고친다)."""
+    """Ledger > schema 2 dict. Missing or broken files give an empty ledger (the next save fixes it)."""
     try:
         data = json.loads(ledger_path().read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -76,7 +76,7 @@ def read_ledger() -> dict:
 
 
 def _prune(ledger: dict, now: float) -> dict:
-    """빈 기기 항목 · 오래된 대기 기록을 뺀다."""
+    """Drop empty device entries · stale wait records."""
     devices = {k: v for k, v in ledger["devices"].items()
                if any(v.get(field) for field in KEPT_ENTRY_FIELDS)}
     waits = {k: v for k, v in ledger.get("waits", {}).items()
@@ -93,7 +93,7 @@ def _write(ledger: dict) -> None:
 
 @contextlib.contextmanager
 def locked_ledger(timeout_seconds: float = LOCK_TIMEOUT_SECONDS):
-    """원장 잠금 구간. 상한 안에 못 얻으면 LedgerBusyError."""
+    """Ledger lock section. LedgerBusyError if not acquired within the cap."""
     path = ledger_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path.with_name(f"{path.name}.lock"), "a+b") as handle:
@@ -109,7 +109,7 @@ def locked_ledger(timeout_seconds: float = LOCK_TIMEOUT_SECONDS):
 
 
 def update_ledger(mutate: Callable[[dict], ResultType]) -> ResultType:
-    """잠금 > 읽기 > mutate(원장 dict 를 고친다) > 정리 > 저장. mutate 의 반환값을 돌려준다."""
+    """lock > read > mutate (modifies the ledger dict) > tidy > save. Returns mutate's return value."""
     with locked_ledger():
         ledger = read_ledger()
         result = mutate(ledger)

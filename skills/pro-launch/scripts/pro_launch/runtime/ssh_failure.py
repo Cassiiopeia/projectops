@@ -1,9 +1,9 @@
-"""ssh 실패 분류: 연결·인증이 안 된 것과, 연결은 됐는데 원격 명령이 0 이 아니게 끝난 것을 가른다 (#946)."""
+"""ssh failure classification: tells connection·auth failures apart from a connected remote command that exited non-zero (#946)."""
 from __future__ import annotations
 
-SSH_CONNECTION_ERROR_EXIT = 255  # ssh 자신의 오류(연결 실패·인증 실패 등)
+SSH_CONNECTION_ERROR_EXIT = 255  # ssh's own errors (connection failure, auth failure, etc.)
 
-# (stderr 에 들어 있는 문구, code, 다음 행동) — 위에서부터 먼저 맞는 것
+# (text found in stderr, code, next action) — first match from the top wins
 _SSH_STDERR_RULES = (
     ("REMOTE HOST IDENTIFICATION HAS CHANGED", "host_key_changed",
      "The server may have changed. Tell the user; do not delete known_hosts on your own"),
@@ -19,9 +19,9 @@ _SSH_STDERR_RULES = (
 
 
 def classify_ssh_failure(returncode: int, stderr_text: str) -> tuple[str, str]:
-    """(code, next). 종료코드 255 이거나 ssh 오류 문구가 있으면 연결·인증 실패, 그 외 비정상 종료는 원격 명령 결과.
+    """(code, next). Exit code 255 or ssh error text means connection·auth failure; other non-zero exits are remote command results.
 
-    sshpass 는 비밀번호 오류를 5 로 끝내는데 원격 명령의 5 와 겹치므로 종료코드가 아니라 stderr 문구로 가른다.
+    sshpass exits 5 on a wrong password, which clashes with a remote command's 5, so it is told apart by stderr text, not exit code.
     """
     for needle, code, advice in _SSH_STDERR_RULES:
         if needle in stderr_text:

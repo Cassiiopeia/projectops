@@ -1,4 +1,4 @@
-"""`render scaffold` — Flutter 임시 렌더 폴더 생성 (폰트 로더 · 골든 테스트 뼈대 · shots/) (#948)."""
+"""`render scaffold` — create a temporary Flutter render folder (font loader · golden test skeleton · shots/) (#948)."""
 from __future__ import annotations
 
 import json
@@ -12,14 +12,14 @@ from pro_launch.runtime.context import state_home
 
 
 #
-# 매 실행마다 하네스를 손으로 다시 짜느라 도구 호출 80-150회가 들었다 (#948).
-# 폴더 하나를 통째로 이 명령이 만들고, 이미 있으면 거절한다 — 남의 작업을 덮지 않는다.
-# 만든 목록은 manifest(레포 밖 상태 폴더)에 남겨 run 의 청소·재시도 판단에 쓴다.
+# Rewriting the harness by hand on every run cost 80-150 tool calls (#948).
+# This command creates the whole folder and refuses if it already exists — never overwrites someone else's work.
+# The created list is kept in a manifest (state folder outside the repo) for run's cleanup and retry decisions.
 SCAFFOLD_FOLDER = "test/_launch_render"
 SCAFFOLD_MANIFEST = "render-scaffold.json"
-# 렌더 레시피 문서 (unsupported_stack 일 때 next 로 안내)
+# Render recipe doc (pointed to by next on unsupported_stack)
 RENDER_RECIPE = "references/render.md"
-# Flutter 외 스택 마커: 파일명 > 스택 이름
+# Non-Flutter stack markers: file name > stack name
 _OTHER_STACK_MARKERS = (("package.json", "react/node"), ("build.gradle", "spring"),
                         ("build.gradle.kts", "spring"), ("pom.xml", "maven"),
                         ("pyproject.toml", "python"), ("requirements.txt", "python"))
@@ -41,7 +41,7 @@ def read_scaffold_manifest(root: Path) -> dict | None:
 
 
 def settle_scaffold_after_run(root: Path) -> dict | None:
-    """run 청소 뒤 scaffold 상태: 폴더가 사라졌으면 manifest 삭제, 남았으면 경고용 정보"""
+    """scaffold state after run cleanup: delete the manifest if the folder is gone, otherwise info for a warning"""
     saved = read_scaffold_manifest(root)
     if saved is None:
         return None
@@ -54,7 +54,7 @@ def settle_scaffold_after_run(root: Path) -> dict | None:
 
 
 def _project_paths_flutter(root: Path) -> str | None:
-    """version.yml project_paths.flutter 값 (모노레포 하위 폴더). 없으면 None"""
+    """version.yml project_paths.flutter value (monorepo subfolder). None if absent"""
     f = root / "version.yml"
     if not f.is_file():
         return None
@@ -81,12 +81,12 @@ def _is_flutter_app(folder: Path) -> bool:
 
 
 def _resolve_flutter_app(root: Path, app_arg: str | None) -> Path | None:
-    """Flutter 앱 폴더 찾기: --app > version.yml project_paths > pubspec.yaml 탐색"""
+    """Find the Flutter app folder: --app > version.yml project_paths > pubspec.yaml search"""
     for candidate in (app_arg, _project_paths_flutter(root)):
         if candidate and _is_flutter_app(root / candidate):
             return (root / candidate).resolve()
     if app_arg:
-        return None   # 명시한 폴더가 Flutter 앱이 아니면 엉뚱한 앱을 고르지 않는다
+        return None   # if the given folder is not a Flutter app, do not pick some other app
     found = find_flutter_root(root)
     return found.resolve() if found else None
 
@@ -104,8 +104,8 @@ def _package_name(app: Path) -> str:
     return m.group(1) if m else "your_app"
 
 
-# 폰트 로더: 앱 FontManifest(pubspec fonts·MaterialIcons·패키지 아이콘) + SDK Roboto·MaterialIcons
-# 아이콘이 □ 로 나오던 함정(render.md)을 뼈대가 미리 막는다 (#948)
+# Font loader: app FontManifest (pubspec fonts·MaterialIcons·package icons) + SDK Roboto·MaterialIcons
+# The skeleton pre-empts the trap of icons rendering as □ (render.md) (#948)
 _FONT_CONFIG_DART = """\
 // Created by `launch_cli.py render scaffold` (#948) — deleted with this folder after render run.
 // Applies only to tests in this folder: loads real fonts so text and icons are not drawn as boxes.
@@ -179,8 +179,8 @@ Future<void> _loadSdkFonts(Set<String> loaded) async {
 }
 """
 
-# 테스트 엔진엔 시스템 글꼴 대체가 없다 (#1179): fontFamily 없는 스타일 > 테스트 글꼴(전부 □),
-# Roboto 에 없는 한글 > □. 기기에선 시스템 글꼴이 채운다. renderTheme 가 테마에서 둘 다 메운다
+# The test engine has no system font fallback (#1179): styles without fontFamily > test font (all □),
+# Korean glyphs missing from Roboto > □. On devices the system font fills in. renderTheme fills both from the theme
 _RENDER_THEME_DART = """\
 // Created by `launch_cli.py render scaffold` (#1179) — deleted with this folder after render run.
 // The test engine has no system font to fall back to, so text a device draws fine can come out as boxes.
@@ -221,7 +221,7 @@ ThemeData renderTheme(ThemeData theme) {
 }
 """
 
-# 골든 뼈대: 상태 1개 예시 (아이콘 + 텍스트). agent 가 실제 화면 위젯으로 바꾼다
+# Golden skeleton: one-state example (icon + text). The agent replaces it with the real screen widget
 _RENDER_TEST_DART = """\
 // Created by `launch_cli.py render scaffold` (#948) — deleted with this folder after render run.
 // Replace the example with the real screen widget and fake data. One testWidgets per state.
@@ -264,7 +264,7 @@ def _rel(root: Path, target: Path) -> str:
 
 
 def render_scaffold(root: Path, app_arg: str | None, take_baseline) -> dict:
-    """Flutter 앱 찾기 > 폴더 존재 시 거절 > 기준선 확보 > 파일 생성 > manifest 기록"""
+    """Find the Flutter app > refuse if the folder exists > take baseline > create files > record manifest"""
     app = _resolve_flutter_app(root, app_arg)
     if app is None:
         others = _other_stacks(root)
@@ -287,7 +287,7 @@ def render_scaffold(root: Path, app_arg: str | None, take_baseline) -> dict:
                 "next": (f"A previous scaffold left it: remove it with render run --cmd true --cleanup {folder_rel}, then scaffold again"
                          if is_ours else "Someone else's files may be there. Do not delete them; ask the user")}
 
-    # 기준선은 임시 파일을 만들기 **전**에 (render.md ① — 빠뜨린 청소가 흔적으로 잡히게)
+    # Take the baseline **before** creating temp files (render.md ① — so missed cleanup shows up as leftovers)
     baseline = take_baseline()
 
     shots = folder / "shots"

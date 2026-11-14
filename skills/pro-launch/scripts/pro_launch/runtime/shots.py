@@ -1,4 +1,4 @@
-"""캡처를 둘 곳과 이름 · 줄이기. app 과 web 이 같은 규칙을 쓴다."""
+"""Where to put captures, their names · shrinking. app and web use the same rules."""
 from __future__ import annotations
 
 import json
@@ -12,17 +12,17 @@ from pro_launch.runtime.context import state_home
 from pro_launch.runtime.output import add_response_fields
 from pro_launch.runtime.session_identity import session_identity
 
-# get-output-path 가 남기는 실행 폴더 기록: <상태 폴더>/last_run.json {"sessions": {세션: {run_dir, screenshots, at}}} (#931)
-# 세션별 기록 — 같은 레포를 쓰는 다른 세션의 실행 폴더에 캡처가 섞이지 않게 (#972)
+# Run folder record left by get-output-path: <state folder>/last_run.json {"sessions": {session: {run_dir, screenshots, at}}} (#931)
+# Per-session records — so captures do not mix into the run folder of another session on the same repo (#972)
 LAST_RUN_FILE = "last_run.json"
-# 이 시간 안의 기록만 쓴다 — 며칠 전 실행 폴더에 오늘 캡처가 섞이지 않게 (12시간)
+# Only records within this window are used — so today's captures do not land in a run folder from days ago (12 hours)
 LAST_RUN_VALID_SECONDS = 12 * 60 * 60
-# 캡처 자리의 출처 3개: env(SHOT_DIR) · last_run(이 세션의 최근 get-output-path) · state(상태 폴더 shots)
+# 3 capture-location sources: env (SHOT_DIR) · last_run (this session's latest get-output-path) · state (state folder shots)
 SHOT_DIR_SOURCES = ("env", "last_run", "state")
 
 
 def _read_last_runs(root: Path) -> dict:
-    """{세션: 기록}. 세션 키가 없는 옛 모양(한 건)은 누구 것인지 몰라 버린다."""
+    """{session: record}. The old shape without session keys (single entry) is dropped since its owner is unknown."""
     try:
         data = json.loads((state_home(root) / LAST_RUN_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -32,7 +32,7 @@ def _read_last_runs(root: Path) -> dict:
 
 
 def _is_recent_row(row: dict, now: float) -> bool:
-    """기록이 유효 시간 안인지. at 이 깨진 행은 만료로 본다 (get-output-path 를 죽이지 않게)"""
+    """Is the record within its valid window. Rows with a broken at count as expired (so get-output-path never dies)"""
     try:
         return now - float(row.get("at") or 0) < LAST_RUN_VALID_SECONDS
     except (TypeError, ValueError):
@@ -40,7 +40,7 @@ def _is_recent_row(row: dict, now: float) -> bool:
 
 
 def record_last_run(root: Path, run_dir: Path, screenshots: Path) -> None:
-    """get-output-path 가 부른다 — 이 세션 칸만 바꾼다. 기록 실패는 명령을 막지 않는다."""
+    """Called by get-output-path — changes only this session's slot. A record failure does not block the command."""
     target = state_home(root) / LAST_RUN_FILE
     sessions = _read_last_runs(root)
     now = time.time()
@@ -54,7 +54,7 @@ def record_last_run(root: Path, run_dir: Path, screenshots: Path) -> None:
 
 
 def _fresh_run(row: dict) -> Path | None:
-    """유효한(12시간 안 · 실행 폴더가 남아 있는) 기록의 screenshots 폴더."""
+    """screenshots folder of a valid record (within 12 hours · run folder still exists)."""
     try:
         is_fresh = time.time() - float(row.get("at") or 0) < LAST_RUN_VALID_SECONDS
         run_dir, screenshots = Path(row["run_dir"]), Path(row["screenshots"])
@@ -64,7 +64,7 @@ def _fresh_run(row: dict) -> Path | None:
 
 
 def _last_run_screenshots(root: Path) -> Path | None:
-    """이 세션의 최근 실행 screenshots 폴더. 다른 세션 것만 있으면 쓰지 않고 응답에 경고를 싣는다."""
+    """screenshots folder of this session's latest run. If only other sessions' records exist, do not use them and attach a warning to the response."""
     sessions = _read_last_runs(root)
     own = sessions.get(session_identity())
     if own is not None and (folder := _fresh_run(own)) is not None:
@@ -76,7 +76,7 @@ def _last_run_screenshots(root: Path) -> Path | None:
 
 
 def resolve_shot_folder(root: Path) -> tuple[Path, str]:
-    """(캡처 자리, 출처). 순서: $SHOT_DIR > 최근 get-output-path 실행 폴더 > 상태 폴더 shots."""
+    """(capture location, source). Order: $SHOT_DIR > latest get-output-path run folder > state folder shots."""
     env_shot = os.environ.get("SHOT_DIR")
     if env_shot:
         return Path(env_shot), "env"
@@ -87,22 +87,22 @@ def resolve_shot_folder(root: Path) -> tuple[Path, str]:
 
 
 def shot_dir_source(root: Path) -> str:
-    """캡처 자리 출처 > "env" | "last_run" | "state" — 결과에 싣게 (env.sh 를 안 불렀는지 알린다)."""
+    """Capture location source > "env" | "last_run" | "state" — attached to results (tells whether env.sh was not sourced)."""
     return resolve_shot_folder(root)[1]
 
 
 def shot_folder(root: Path) -> Path:
-    """캡처를 둘 곳 (resolve_shot_folder 의 자리). 없으면 만든다."""
+    """Where to put captures (the location from resolve_shot_folder). Created if missing."""
     d = resolve_shot_folder(root)[0]
     d.mkdir(parents=True, exist_ok=True)
     return d
 
 
 def shot_target(root: Path, name: str | None, ext: str = ".png") -> tuple[Path, bool]:
-    """(저장 경로, 경로를 직접 줬는가). 이름만 주면 SHOT_DIR 아래에 둔다."""
+    """(save path, was the path given directly). A bare name goes under SHOT_DIR."""
     if name and (os.sep in name or "/" in name):
         p = Path(name)
-        # 확장자가 없으면 붙인다 — 브라우저 캡처가 unsupported mime type 으로 실패한다 (#972)
+        # Add an extension if missing — browser capture fails with unsupported mime type (#972)
         if not p.suffix:
             p = p.with_name(p.name + ext)
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -112,14 +112,14 @@ def shot_target(root: Path, name: str | None, ext: str = ".png") -> tuple[Path, 
 
 
 def finish_shot(raw: Path, explicit: bool, args) -> Path:
-    """경로를 직접 줬거나 --keep-format 이면 그대로, 아니면 줄이고 WebP 로."""
+    """Keep as is if the path was given directly or --keep-format; otherwise shrink and convert to WebP."""
     if explicit or getattr(args, "keep_format", False):
         return raw
     return to_webp(raw, quality=args.quality, max_side=args.max_side or None) or raw
 
 
 def add_shot_args(p) -> None:
-    # 세션 토큰은 해상도에서만 줄어든다. 0 을 주면 원본 크기 그대로 둔다.
+    # Session tokens shrink only with resolution. 0 keeps the original size.
     p.add_argument("--max-side", type=int, default=SHOT_MAX_SIDE,
                    help=f"Longest side limit (default {SHOT_MAX_SIDE}, 0 keeps the original)")
     p.add_argument("--quality", type=int, default=WEBP_QUALITY,

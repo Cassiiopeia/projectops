@@ -1,14 +1,14 @@
-"""했던 작업을 자유롭게 적어 두고, 다음에 같은 곳으로 돌아오면 다시 읽히게 한다 (작업 일지).
+"""Free-form notes of past work, read again when you come back to the same place (work journal).
 
-`knowledge`(learn) 가 '이 방식이 먹혔다'는 한 줄 결론을 받는다면, 여기는 **작업 한 건의 맥락**을 받는다.
-무엇을 왜 했고 어떤 순서였고 결과가 어땠는지, 다음에 헷갈릴 점이 무엇인지 — 형식은 정하지 않는다.
-쓸지 말지, 무엇을 적을지는 agent 가 사용자와 정한다. 도구는 저장하고 다시 꺼내 줄 뿐이다.
+Where `knowledge` (learn) takes a one-line conclusion like "this method worked", this takes **the context of one task**.
+What was done and why, in what order, how it turned out, what may confuse next time — no fixed format.
+Whether and what to write is up to the agent and the user. The tool only stores and brings it back.
 
   ~/.projectops/launch/<owner__repo>/journal.jsonl
 
-읽기는 agent 호출에 맡기지 않는다 — 같은 영역을 다시 열면 launch_cli 가 응답에 `journal` 로 싣는다.
-`--brief`·`--fields` 에도 남고, 실패한 응답에서는 소모되지 않는다 (projectops#1023).
-적힌 것은 **참고**일 뿐 자동 실행하지 않는다. 변경 작업은 사용자 확인을 거친다.
+Reading is not left to the agent — when the same area is opened again launch_cli attaches it as `journal`.
+It survives `--brief`·`--fields` and is not consumed by failed responses (projectops#1023).
+What is written is **reference** only and never auto-run. Changes go through user confirmation.
 """
 from __future__ import annotations
 
@@ -24,11 +24,11 @@ from common.state import state_dir
 import knowledge
 
 FILE = "journal.jsonl"
-MAX_TEXT = 1500      # 한 건 글자 수 상한 — 읽을 때 토큰이 한 번에 쏟아지지 않게
+MAX_TEXT = 1500      # max characters per entry — so reading does not flood tokens at once
 MAX_TITLE = 80
-MAX_ENTRIES = 40     # 넘으면 오래된 것부터 지운다
-SURFACE_LIMIT = 2    # 응답에 싣는 최근 건수
-SURFACE_CHARS = 400  # 응답에 실을 때 한 건당 글자 수
+MAX_ENTRIES = 40     # oldest removed first when exceeded
+SURFACE_LIMIT = 2    # recent entries attached to a response
+SURFACE_CHARS = 400  # characters per entry when attached to a response
 
 
 def store_path(root: Path) -> Path:
@@ -36,7 +36,7 @@ def store_path(root: Path) -> Path:
 
 
 def load(path: Path) -> list[dict]:
-    """못 읽으면 빈 일지로 계속한다 — 일지가 깨졌다고 작업이 멈추면 안 된다."""
+    """On read failure continue with an empty journal — work must not stop because the journal is broken."""
     rows: list[dict] = []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -55,7 +55,7 @@ def load(path: Path) -> list[dict]:
 
 
 def _save(path: Path, rows: list[dict]) -> None:
-    """임시 파일에 쓰고 바꿔치기한다 — 여러 세션이 동시에 써도 반쯤 쓴 파일이 남지 않는다."""
+    """Write to a temp file and swap — no half-written file even with concurrent sessions."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     tmp.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
@@ -64,7 +64,7 @@ def _save(path: Path, rows: list[dict]) -> None:
 
 def add(path: Path, text: str, title: str = "", area: str = "", site: str = "",
         now: str | None = None) -> dict:
-    """일지에 한 건을 더한다. 실패하면 {"error": 코드, "message": ...}."""
+    """Add one entry to the journal. On failure {"error": code, "message": ...}."""
     text = (text or "").strip()
     title = " ".join((title or "").split())[:MAX_TITLE]
     if not text:
@@ -90,7 +90,7 @@ def add(path: Path, text: str, title: str = "", area: str = "", site: str = "",
 
 def recent(path: Path, limit: int = SURFACE_LIMIT, area: str | None = None,
            site: str | None = None) -> list[dict]:
-    """최근 것부터. site 는 부분 일치다 (주소 일부로 찾는다)."""
+    """Newest first. site is a partial match (find by part of the URL)."""
     rows = load(path)
     if area:
         rows = [r for r in rows if r["area"] == area or not r["area"]]
@@ -100,7 +100,7 @@ def recent(path: Path, limit: int = SURFACE_LIMIT, area: str | None = None,
 
 
 def forget(path: Path, title: str) -> int:
-    """제목이 정확히 같은 항목을 지운다."""
+    """Remove entries whose title matches exactly."""
     rows = load(path)
     keep = [r for r in rows if r["title"] != title]
     if len(keep) != len(rows):
@@ -110,17 +110,17 @@ def forget(path: Path, title: str) -> int:
 
 def surface(path: Path, area: str, seen_file: Path, limit: int = SURFACE_LIMIT,
             today: str | None = None, mark: bool = True) -> list[dict]:
-    """명령 응답에 실을 최근 일지. 레포·영역마다 하루 한 번만 돌려준다 (토큰 절약).
+    """Recent journal entries to attach to a command response. Once a day per repo and area (saves tokens).
 
-    mark=False(실패한 명령)면 싣기만 하고 '오늘 보여 줌'으로 치지 않는다 — 다음 성공 응답에 다시 실린다.
-    실패 응답은 버려지기 쉬워 거기서 소모되면 그날 다시 안 보였다 (projectops#1023).
+    mark=False (failed command) attaches without counting as 'shown today' — it is attached again on the next success.
+    Failed responses are easily discarded, so consuming it there meant it did not show again that day (projectops#1023).
     """
     now = today or dt.date.today().isoformat()
     if memory.seen_today(seen_file, area, now, mark=False):
         return []
     rows = recent(path, limit, area=area)
     if not rows:
-        # 보여 준 것이 없으면 '오늘 보여 줌'으로 치지 않는다 — 같은 날 나중에 적은 기록이 가려진다
+        # Nothing shown does not count as 'shown today' — otherwise entries written later that day would be hidden
         return []
     if mark:
         memory.seen_today(seen_file, area, now)

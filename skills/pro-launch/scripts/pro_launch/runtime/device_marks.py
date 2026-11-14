@@ -1,8 +1,8 @@
-"""기기의 공들인 상태(mark) · 출처 · 임시 기기 기록 (#954).
+"""Device prepared states (mark) · origin · temporary device records (#954).
 
-mark: 기기 밖에서 읽을 수 없는 상태 — 로그인 · 테스트 데이터 · 권한 · 설정. kind·name 은 자유 문자열(공급자 목록을 박지 않는다).
-mark 가 하나라도 있는 기기는 보호된다: 자동 정리에서 빠지고 초기화·삭제는 --yes 로만.
-출처(origin): recorded(create 로 만든 것) · adopted(기존 기기를 원장에 올린 것). 없으면 unrecorded.
+mark: state not readable from outside the device — sign-in · test data · permissions · settings. kind·name are free strings (no hard-coded provider list).
+Devices with any mark are protected: excluded from auto cleanup, and wipe·delete only with --yes.
+origin: recorded (made by create) · adopted (existing device added to the ledger). unrecorded if absent.
 """
 from __future__ import annotations
 
@@ -14,11 +14,11 @@ from pro_launch.runtime import device_ledger
 from pro_launch.runtime.device_claims import resolve_instance_key
 from pro_launch.runtime.session_identity import session_identity
 
-# 권장 kind (강제하지 않는다 — 문서·도움말용)
+# Recommended kinds (not enforced — for docs and help)
 RECOMMENDED_MARK_KINDS = ("login", "data", "permission", "config", "other")
-# mark 확인 주기 기본값 (일) — 넘으면 stale 로 표시 (launch.devices.mark_stale_days)
+# Default mark check period (days) — marked stale past it (launch.devices.mark_stale_days)
 MARK_STALE_DAYS_DEFAULT = 14
-# 임시 기기 기본 보관 (일) — launch.devices.temporary_ttl_days
+# Default retention for temporary devices (days) — launch.devices.temporary_ttl_days
 TEMPORARY_TTL_DAYS_DEFAULT = 3
 ORIGIN_RECORDED = "recorded"
 ORIGIN_ADOPTED = "adopted"
@@ -39,16 +39,16 @@ def temporary_ttl_days() -> float:
 
 
 def mark_label(mark: dict) -> str:
-    """kind:name (acquire --need 와 같은 모양)."""
+    """kind:name (same shape as acquire --need)."""
     return f"{mark.get('kind')}:{mark.get('name')}"
 
 
 def mark_views(entry: dict, now: float | None = None) -> list[dict]:
-    """응답용 mark 목록 (is_stale 포함)."""
+    """mark list for responses (with is_stale)."""
     current = now or time.time()
     limit = mark_stale_seconds()
     def last_verified(mark: dict) -> float:
-        # verified_at 0 은 "확인 전"(복제본) — recorded_at 로 대신하지 않는다
+        # verified_at 0 means "unverified" (clone) — do not substitute recorded_at
         value = mark.get("verified_at")
         return float(value if value is not None else mark.get("recorded_at") or 0)
 
@@ -70,7 +70,7 @@ def _entry(ledger: dict, key: str) -> dict:
 
 
 def add_mark(dev_id: str, kind: str, name: str, note: str | None = None) -> dict:
-    """mark 기록 (같은 kind·name 은 갱신 — 처음 기록 시각 유지). 출처가 없으면 adopted 로 올린다."""
+    """Record a mark (same kind·name updates — first record time kept). Without an origin, it is added as adopted."""
     key, now = resolve_instance_key(dev_id), time.time()
 
     def mutate(ledger: dict) -> dict:
@@ -82,7 +82,7 @@ def add_mark(dev_id: str, kind: str, name: str, note: str | None = None) -> dict
             found = {"kind": kind, "name": name, "recorded_at": now}
             marks.append(found)
         found.update({"note": note or found.get("note"), "recorded_by_session": session_identity(), "verified_at": now})
-        # 공들인 상태가 생기면 더 이상 새 폰이 아니다
+        # Once a prepared state exists it is no longer a new phone
         entry.pop("is_pristine", None)
         return dict(found)
 
@@ -102,7 +102,7 @@ def remove_mark(dev_id: str, kind: str, name: str) -> bool:
 
 
 def verify_mark(dev_id: str, kind: str, name: str) -> dict | None:
-    """mark 가 아직 살아 있음을 확인했다 — verified_at 갱신. 없으면 None."""
+    """Confirmed the mark is still alive — update verified_at. None if missing."""
     key, now = resolve_instance_key(dev_id), time.time()
 
     def mutate(ledger: dict) -> dict | None:
@@ -116,13 +116,13 @@ def verify_mark(dev_id: str, kind: str, name: str) -> dict | None:
 
 
 def adopt_device(dev_id: str) -> str:
-    """원장에 없는 기기를 올린다 > 출처 (이미 있으면 그대로)."""
+    """Add a device missing from the ledger > origin (unchanged if already present)."""
     key = resolve_instance_key(dev_id)
     return device_ledger.update_ledger(lambda ledger: _entry(ledger, key).setdefault("origin", ORIGIN_ADOPTED))
 
 
 def record_created(key: str, reason: str, ttl_days: float, backend: str) -> dict:
-    """create 로 만든 임시 기기 기록 > temporary 기록. 새로 만든 기기는 pristine(아무도 쓰지 않은 새 폰)."""
+    """Record a temporary device made by create > temporary record. Newly created devices are pristine (a new phone nobody used)."""
     now = time.time()
     temporary = {"reason": reason, "created_by_session": session_identity(), "created_at": now,
                  "expires_at": now + ttl_days * SECONDS_PER_DAY, "backend": backend}
@@ -136,7 +136,7 @@ def record_created(key: str, reason: str, ttl_days: float, backend: str) -> dict
 
 
 def copy_marks_as_unverified(source_key: str, target_key: str) -> list[dict]:
-    """복제본에 원본 mark 를 옮긴다 — 확인 시각을 0 으로 두어 stale (복제본에서 로그인이 살아 있는지 확인 전)."""
+    """Copy the source's marks to a clone — verify time set to 0 so it is stale (sign-in on the clone not yet confirmed)."""
     def mutate(ledger: dict) -> list[dict]:
         source = ledger["devices"].get(source_key) or {}
         copied = [{**mark, "verified_at": 0, "note": f"{mark.get('note') or ''} (clone — not verified)".strip(),
@@ -154,7 +154,7 @@ def clear_pristine(key: str) -> None:
 
 
 def reset_after_erase(key: str) -> None:
-    """초기화한 기기: 공들인 상태 · 설정 기록이 사라졌다 > mark · 설정 기록을 지우고 새 폰으로 표시."""
+    """Wiped device: prepared states · settings records are gone > clear marks · settings records and mark it as a new phone."""
     def mutate(ledger: dict) -> None:
         entry = _entry(ledger, key)
         entry["marks"], entry["settings"], entry["is_pristine"] = [], [], True
@@ -163,12 +163,12 @@ def reset_after_erase(key: str) -> None:
 
 
 def forget_device(key: str) -> None:
-    """삭제한 기기 항목을 원장에서 지운다."""
+    """Remove a deleted device's entry from the ledger."""
     device_ledger.update_ledger(lambda ledger: ledger["devices"].pop(key, None))
 
 
 def record_views() -> dict[str, dict]:
-    """원장 전체 요약 > {키: {origin, marks, temporary, is_pristine, lease_count}} (device records 용)."""
+    """Whole-ledger summary > {key: {origin, marks, temporary, is_pristine, lease_count}} (for device records)."""
     now = time.time()
     return {key: {"origin": entry.get("origin"), "marks": mark_views(entry, now), "temporary": entry.get("temporary"),
                   "is_temporary_expired": bool(entry.get("temporary")) and now > float(entry["temporary"].get("expires_at") or 0),

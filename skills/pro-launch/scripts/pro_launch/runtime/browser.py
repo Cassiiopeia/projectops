@@ -1,4 +1,4 @@
-"""브라우저 상태 파일 · Playwright 준비 상태 · 어떤 브라우저로 띄울지. web 과 doctor 가 함께 쓴다."""
+"""Browser state file · Playwright readiness · which browser to launch. Shared by web and doctor."""
 from __future__ import annotations
 
 import json
@@ -16,12 +16,12 @@ from pro_launch.runtime.context import state_home
 from pro_launch.runtime.procs import pid_alive, process_table
 
 
-# 마지막으로 쓴 뒤 이만큼 지나면 "방치됐다"고 본다 — 다른 세션이 쓰는 중인지 가를 근거 (#825)
+# Considered "abandoned" this long after last use — grounds for telling whether another session is using it (#825)
 _STALE_BROWSER_HOURS = 6
 
 
 def idle_hours(state: dict) -> float | None:
-    """마지막 사용(없으면 연 시각) 뒤 지난 시간. 기록이 없거나 못 읽으면 None."""
+    """Time since last use (or open time if none). None if no record or unreadable."""
     used = state.get("last_used") or state.get("opened_at")
     try:
         return round((time.time() - time.mktime(time.strptime(used, "%Y-%m-%d %H:%M:%S"))) / 3600, 1)
@@ -30,7 +30,7 @@ def idle_hours(state: dict) -> float | None:
 
 
 def open_browser_status(state_f: Path) -> dict | None:
-    """이 레포에 떠 있는 브라우저가 있나, 언제 마지막으로 썼나. 없으면 None."""
+    """Is a browser running for this repo, and when was it last used. None if none."""
     st = read_state(state_f) if state_f.is_file() else {}
     pid = st.get("pid")
     if not pid:
@@ -46,14 +46,14 @@ def open_browser_status(state_f: Path) -> dict | None:
 
 
 #
-# agent가 스크린샷을 보고 다음 수를 정하므로 조작이 여러 번의 CLI 호출로 쪼개진다.
-# 상주 데몬을 만들지 않고 **CDP 재연결**로 푼다:
-#   open  → --remote-debugging-port 로 띄우고 포트를 상태파일에 적는다
-#   이후  → connect_over_cdp 로 그 브라우저에 붙었다 떨어진다 (세션·쿠키 유지)
+# The agent looks at screenshots to decide the next move, so actions are split across many CLI calls.
+# Solved with **CDP reconnect** instead of a resident daemon:
+#   open  → launch with --remote-debugging-port and write the port to the state file
+#   after → connect_over_cdp attaches to that browser and detaches (session·cookies kept)
 #
-# ⚠️ 붙어 있는 동안에만 사는 것이 있다 — 콘솔 훅·뷰포트·응답 바꿔치기. 연결이 끊기면
-# 같이 사라진다(#625 실측). 그래서 상태 파일에 적어 두고 **붙을 때마다 다시 건다.**
-# 브라우저 상태 파일 이름 — 레포 버킷 · 공용 프로필 폴더 공통 (#956)
+# ⚠️ Some things live only while attached — console hooks · viewport · response overrides. They vanish
+# when the connection drops (observed in #625). So they are written to the state file and **reapplied on every attach.**
+# Browser state file name — shared by the repo bucket · shared profile folder (#956)
 WEB_STATE_FILE_NAME = "browser.json"
 _WEB_STATE = WEB_STATE_FILE_NAME
 
@@ -91,10 +91,10 @@ def update_state_for_browser(f: Path, expected_pid, change) -> bool:
 
 
 def require_playwright() -> tuple[object | None, dict | None]:
-    """Playwright를 불러온다. 전용 가상환경 → 시스템 순으로 본다.
+    """Load Playwright. Checks the dedicated venv → system, in that order.
 
-    함수 안에서 import하는 이유: 웹을 안 쓰는 프로젝트에서 이 스크립트가 통째로
-    죽으면 안 된다. 앱·서버는 Playwright 없이 돌아가야 한다.
+    Imported inside the function because this script must not die entirely in projects
+    that do not use the web. Apps and servers must run without Playwright.
     """
     sp = venv_site_packages()
     if sp and str(sp) not in sys.path:
@@ -118,7 +118,7 @@ def require_playwright() -> tuple[object | None, dict | None]:
 
 
 def bundled_chromium_path() -> str | None:
-    """Playwright 번들 Chromium 이 있어야 할 자리. Playwright 가 없거나 못 읽으면 None."""
+    """Where Playwright's bundled Chromium should be. None if Playwright is missing or unreadable."""
     sync_playwright, err = require_playwright()
     if err:
         return None
@@ -138,33 +138,33 @@ def playwright_state() -> dict:
 
 
 def browser_choice() -> dict:
-    """이번에 쓸 브라우저. 어느 것을 왜 골랐는지까지 — 조용히 바꾸지 않는다 (#857)."""
+    """The browser to use this time, including which one and why — never switched silently (#857)."""
     return browser_pick.resolve(bundled_chromium_path())
 
 
-# ── 버려진 브라우저 찾기 (#921) ──────────────────────────────────────────
+# ── Finding abandoned browsers (#921) ──────────────────────────────────────────
 #
-# web open 은 브라우저를 부모 없는 독립 프로세스로 띄운다. 상태 파일이 지워지거나(테스트 임시 폴더)
-# 다른 프로필로 다시 띄우면 아무도 그 브라우저를 끄지 않는다 — headless Chrome 이 쌓여 사용자의
-# Chrome(파일 열기)을 가로챘다(실측). 우리 프로필로 뜬 것만 본다. 사용자 Chrome 은 프로필이 달라 안 걸린다.
+# web open launches the browser as an orphan, independent process. If the state file is deleted (test temp folder)
+# or it is relaunched with another profile, nobody closes that browser — headless Chromes piled up and hijacked the user's
+# Chrome (file open) (observed). Only ones launched with our profile are considered. The user's Chrome has a different profile and is not caught.
 
-# web open 이 쓰는 프로필 폴더 이름 (state_home/.browser-profile)
+# Profile folder name web open uses (state_home/.browser-profile)
 PROFILE_FOLDER_NAME = ".browser-profile"
-# 명령줄의 프로필 경로 — 우리 프로필은 항상 .browser-profile 로 끝난다 (공백 경로 포함)
+# Profile path on the command line — ours always ends in .browser-profile (paths with spaces included)
 _USER_DATA_DIR_PATTERN = re.compile(r'--user-data-dir=("?)(.+?[\\/]\.browser-profile)\1(?=\s|$)')
-# 상태 루트가 임시 폴더여도(PROJECTOPS_HOME 을 돌린 테스트) 이 모양이면 우리 것
+# Even if the state root is a temp folder (tests that redirect PROJECTOPS_HOME), this shape means it is ours
 _LAUNCH_PATH_MARKERS = ("/.projectops/launch/", "/.projectops/agent-test/")
-# 첫 인자 앞 실행 파일 이름: 알려진 브라우저만 정리 대상 (모르는 실행 파일은 끄지 않음)
+# Executable name before the first arg: only known browsers are cleanup targets (unknown executables are left alone)
 _BROWSER_EXECUTABLE_PATTERN = re.compile(
     r"(?:^|[\\/ ])(?:chrome|chromium|chrome for testing|chrome-headless-shell|headless_shell|msedge|"
     r"microsoft edge|brave|brave browser|vivaldi|opera)(?:\.exe)?$", re.IGNORECASE)
-# 첫 단어가 셸·인터프리터면 브라우저 아님 (명령 본문에 브라우저 인자가 글자로 들어 있을 뿐)
+# If the first word is a shell or interpreter it is not a browser (browser args merely appear as text in the command)
 _NON_BROWSER_FIRST_WORD_PATTERN = re.compile(
     r'^"?(?:\S*[\\/])?(?:sh|bash|zsh|dash|fish|ksh|cmd|powershell|pwsh|python[\d.]*|node|ruby|perl|env|sudo)'
     r'(?:\.exe)?"?(?:\s|$)', re.IGNORECASE)
-# 상태 파일이 가리키는데도 정리하는 방치 시간(시간)
+# Idle time (hours) after which it is cleaned up even if the state file points at it
 STALE_REAP_IDLE_HOURS = 12
-# 막 띄워 아직 상태 파일을 안 쓴 브라우저를 건드리지 않는 시간(초) — open 의 포트 대기는 최대 약 15초
+# Time (s) to leave a just-launched browser that has not written the state file yet — open waits up to about 15 s for the port
 STARTING_GRACE_SECONDS = 120
 
 
@@ -173,7 +173,7 @@ def _normalized_path(path: str) -> str:
 
 
 def is_owned_profile(profile: str) -> bool:
-    """pro-launch 가 띄운 프로필인가: 지금 상태 루트 아래 · 또는 .projectops/launch 모양의 경로."""
+    """Is this a profile pro-launch launched: under the current state root · or a path shaped like .projectops/launch."""
     normalized = _normalized_path(profile)
     if any(marker in normalized for marker in _LAUNCH_PATH_MARKERS):
         return True
@@ -181,14 +181,14 @@ def is_owned_profile(profile: str) -> bool:
 
 
 def is_browser_executable_command(command: str) -> bool:
-    """명령줄의 실행 파일이 브라우저인가 (인자 글자만 담은 셸·에이전트 명령을 끄지 않게, #1027)"""
+    """Is the command line's executable a browser (so shell·agent commands that only contain the args as text are not killed, #1027)"""
     if _NON_BROWSER_FIRST_WORD_PATTERN.match(command):
         return False
     return bool(_BROWSER_EXECUTABLE_PATTERN.search(command.split(" --", 1)[0].strip().strip('"')))
 
 
 def owned_browser_processes(table: list[dict]) -> list[dict]:
-    """프로세스 목록 > 우리 프로필로 뜬 브라우저 본 프로세스들 (렌더러 · GPU 같은 --type= 자식 제외)."""
+    """Process list > main browser processes launched with our profile (--type= children like renderer · GPU excluded)."""
     found = []
     for row in table:
         command = row.get("command") or ""
@@ -202,7 +202,7 @@ def owned_browser_processes(table: list[dict]) -> list[dict]:
 
 
 def _stale_reasons(process: dict, maximum_idle_hours: float) -> tuple[list[str], dict]:
-    """(정리할 사유들, 상태 정보). 사유 3개: profile_gone · state_not_pointing · idle"""
+    """(cleanup reasons, state info). 3 reasons: profile_gone · state_not_pointing · idle"""
     profile = Path(process["profile"])
     state = read_state(profile.parent / _WEB_STATE) if profile.parent.is_dir() else {}
     elapsed = process.get("elapsed_seconds")
@@ -212,14 +212,14 @@ def _stale_reasons(process: dict, maximum_idle_hours: float) -> tuple[list[str],
     if not profile.is_dir():
         return ["profile_gone"], info
     if str(state.get("pid")) != str(process["pid"]):
-        # 막 띄운 것은 상태 파일을 아직 안 썼을 수 있다
+        # A just-launched one may not have written the state file yet
         if is_starting:
             return [], info
         # The state lost its pid but the profile is in recent use: the next web open on it reattaches (#1154)
         if _is_adoptable_orphan(state, idle, maximum_idle_hours):
             return [], {**info, "adoptable": True}
         return ["state_not_pointing"], info
-    # 부모 없음: POSIX 는 PPID 1 로 넘어가고, 윈도우는 죽은 부모 번호가 남는다
+    # Orphaned: on POSIX it moves to PPID 1; on Windows the dead parent's number remains
     parent_pid = process.get("ppid")
     is_orphan = not parent_pid or parent_pid == 1 or not pid_alive(int(parent_pid))
     if is_orphan and idle is not None and idle >= maximum_idle_hours:
@@ -235,9 +235,9 @@ def _is_adoptable_orphan(state: dict, idle: float | None, maximum_idle_hours: fl
 
 
 def find_stale_browsers(maximum_idle_hours: float = STALE_REAP_IDLE_HOURS) -> dict:
-    """pro-launch 브라우저를 버려진 것(stale) · 쓰는 중(kept)으로 가른다. doctor 와 web close --stale 이 쓴다.
+    """Split pro-launch browsers into abandoned (stale) · in use (kept). Used by doctor and web close --stale.
 
-    > {"readable", "stale": [{pid, profile, reasons, ...}], "kept": [...]}. 프로세스 목록을 못 읽으면 readable False
+    > {"readable", "stale": [{pid, profile, reasons, ...}], "kept": [...]}. readable is False if the process list cannot be read
     """
     table = process_table()
     if table is None:

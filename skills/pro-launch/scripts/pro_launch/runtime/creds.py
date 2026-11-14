@@ -1,4 +1,4 @@
-"""저장된 자격증명을 명령에서 꺼내 쓰는 얇은 층. 저장·마스킹 자체는 credentials.py."""
+"""Thin layer for commands to use stored credentials. Storage and masking themselves are in credentials.py."""
 from __future__ import annotations
 
 
@@ -6,10 +6,10 @@ import credentials
 
 
 #
-# pro-ssh · pro-github 가 config.json 에 서버·PAT 를 두고 쓰는 것과 같은 방식이다.
-# 비밀은 사용자 홈의 config.json(launch.credentials) 한 곳에만 두고, access.json 에는 이름만 적는다.
+# Same approach pro-ssh · pro-github use with servers and PATs in config.json.
+# Secrets live only in config.json in the user home (launch.credentials); access.json holds only the name.
 def load_cred(name: str | None):
-    """(자격증명, None) 또는 (None, 오류 JSON 을 낼 payload)."""
+    """(credential, None) or (None, payload for the error JSON)."""
     if not name:
         return None, None
     try:
@@ -20,21 +20,21 @@ def load_cred(name: str | None):
 
 
 def cred_name_for(args, saved) -> str | None:
-    """--cred 가 없으면 access 기록에 적힌 cred 이름을 쓴다."""
+    """Without --cred, use the cred name written in the access record."""
     if getattr(args, "cred", None):
         return args.cred
     return saved.get("cred") if isinstance(saved, dict) else None
 
 
 def cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
-    """저장된 자격증명에서 입력할 값 하나를 꺼낸다 (기본 password). (값, None) 또는 (None, 오류)."""
+    """Take one value to type from a stored credential (default password). (value, None) or (None, error)."""
     cred, err = load_cred(name)
     if err:
         return None, err
     f = field or "password"
     v = cred.get(f)
     if v in (None, ""):
-        # 입력할 수 있는 값(글자·숫자)만 고를 거리로 보여 준다 — login_policy 같은 객체는 뺀다
+        # Show only typeable values (text·numbers) as choices — objects like login_policy are excluded
         keys = sorted(k for k, x in cred.items() if isinstance(x, (str, int, float)) and x != ""
                       and k not in ("name", "kind"))
         return None, {"ok": False, "code": "cred_field_missing",
@@ -44,14 +44,14 @@ def cred_field(name: str, field: str | None) -> tuple[str | None, dict | None]:
 
 
 def with_login_policy(payload: dict, cred_name: str | None) -> dict:
-    """로그인 입력 결과에 최종 정책을 싣는다 (#905). 성공·사용자 인계(needs_user)에만, 그 외 실패는 그대로
+    """Attach the final policy to the login input result (#905). Only on success and user handoff (needs_user); other failures as is
 
-    agent 는 이 값을 보고 로그인 중간 화면(기기 신뢰·로그인 유지·권유)을 묻지 않고 처리할지 정한다.
+    The agent uses this to decide whether to handle sign-in interstitials (trust device · stay signed in · prompts) without asking.
     """
     if payload.get("ok") is False and payload.get("code") != "needs_user":
         return payload
     try:
         payload["login_policy"] = credentials.resolve_login_policy(cred_name)
     except Exception:
-        pass                                        # 정책을 못 읽어도 입력 결과는 그대로 내보낸다
+        pass                                        # the input result is emitted even if the policy cannot be read
     return payload
