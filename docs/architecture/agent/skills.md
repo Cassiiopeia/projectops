@@ -53,6 +53,10 @@ skills/
 
 > **skill CLI(`skills/pro-*/scripts/<scope>_cli.py`)에 새 서브커맨드를 추가할 때는 `skills/references/mcp-subcommand-rules.md`를 먼저 읽는다.** 입력 계약·JSON 스키마(`ok`/`verdict`/`summary`/`next`)·gh_client와 command 레이어 분리·테스트 패턴을 코드 템플릿과 체크리스트로 정리해 둔 구체적 구현 레퍼런스다. 모범 사례는 `actions`·`deploy-status` 서브커맨드.
 
+> **출력 옵션(`--brief`·`--field`·`--fields`)은 세 곳에 구현돼 있다 — 동작을 바꾸면 셋을 함께 고친다.** 규칙의 원본은 `skills/references/output-schemas.md` 하나다.
+> `scripts/common/cli_parser.py` `_extract_output_options` (공용 `run_cli`) · `skills/pro-launch/scripts/pro_launch/cli.py` `_pop_output_options` (자체 런타임) · `skills/pro-image/scripts/image_cli.py` `_extract_output_options` (공용 코드를 쓰지 않는 독립 CLI — Windows 비UTF-8 콘솔에서 한글 경로 보존, #1102).
+> 합치지 않은 이유: 40줄 남짓에 각자 실행 환경이 달라, 생성 사본 체계를 두는 비용이 더 크다 (7차 점검 판단, 2026-11-14). `--fields` 는 경로가 하나여도 JSON (#1187), `--brief` 는 읽기 결과 키를 남긴다 (#1188).
+
 #### 1. 로직은 재사용 스크립트 파일에 둔다
 
 - **진입 파일은 얇게, 서브커맨드는 패키지로, 파일당 450줄.** 진입 `<scope>_cli.py`는 파서·등록만 두고 서브커맨드 구현은 옆 패키지에 둔다 (모범: `skills/pro-launch/scripts/pro_launch/`).

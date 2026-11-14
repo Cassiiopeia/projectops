@@ -37,7 +37,7 @@
 
 ## 결정이 필요한 것
 
-- **출력 옵션 처리가 세 벌**: `scripts/common/cli_parser.py:75` `_extract_output_options`, `pro-launch/.../cli.py:71` `_pop_output_options`, `pro-image/scripts/image_cli.py:39` `_extract_output_options`(#1181). 세 번째에 공통화한다는 규칙에 걸린다. 다만 pro-launch는 자체 런타임이고, pro-image는 Windows 콘솔에서 한글 경로를 지키려고 공용 코드를 일부러 쓰지 않는다. 공통화한다면 `proc.py`처럼 원본 하나를 두고 `sync_extras.py` 방식의 생성 사본을 쓰는 안이 맞다. 동작이 같은지 실행 대조가 필요한 리팩터링이라 이번에는 하지 않았다.
+- **출력 옵션 처리가 세 벌**: `scripts/common/cli_parser.py:75` `_extract_output_options`, `pro-launch/.../cli.py:71` `_pop_output_options`, `pro-image/scripts/image_cli.py:39` `_extract_output_options`(#1181). 세 번째에 공통화한다는 규칙에 걸린다. 다만 pro-launch는 자체 런타임이고, pro-image는 Windows 콘솔에서 한글 경로를 지키려고 공용 코드를 일부러 쓰지 않는다. 공통화한다면 `proc.py`처럼 원본 하나를 두고 `sync_extras.py` 방식의 생성 사본을 쓰는 안이 맞다. **판단: 합치지 않는다.** 40줄 남짓에 실행 환경이 셋 다 달라 생성 사본 체계를 두는 비용이 더 크다. 대신 `docs/architecture/agent/skills.md`에 세 곳을 함께 고치라는 규칙과 위치를 적었다 (규칙 원본은 `output-schemas.md`).
 
 ## 동결 후보
 
