@@ -44,11 +44,8 @@ def wait_conditions(args) -> dict:
 
 
 def url_without_query(url: str, needle: str) -> str:
-    """--url-contains 비교 대상: 주소에서 ?검색어 · #조각을 뺀 앞부분 (#1177)
-
-    로그인 주소의 continue=https://목적지 에 걸려 이동 전에 끝나던 것을 막는다.
-    찾는 글자에 ? · # 이 있으면 그 부분을 보려는 것이라 주소 전체와 비교한다.
-    """
+    """--url-contains 비교 대상: ?검색어 · #조각을 뺀 주소 (로그인 주소의 continue= 에 걸리지 않게, #1177)
+    찾는 글자에 ? · # 이 있으면 주소 전체와 비교"""
     if "?" in needle or "#" in needle:
         return url
     return url.split("#", 1)[0].split("?", 1)[0]

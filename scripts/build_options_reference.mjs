@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSchema } from "../src/core/options-schema.js";
 
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 // 블록을 넣을 문서 (영어·한국어 짝)
 const targetDocPaths = ["docs/en/cli.md", "docs/CLI.md"];
 const blockStartMarker = "<!-- generated: options -->";
@@ -91,7 +91,7 @@ const isCheckMode = process.argv.includes("--check");
 const generatedBlock = renderOptionsReference(buildSchema());
 const staleDocPaths = [];
 for (const documentPath of targetDocPaths) {
-  const absolutePath = join(repoRoot, documentPath);
+  const absolutePath = join(repositoryRoot, documentPath);
   const currentText = readFileSync(absolutePath, "utf8");
   const nextText = replaceGeneratedBlock(currentText, generatedBlock, documentPath);
   if (nextText === currentText) continue;

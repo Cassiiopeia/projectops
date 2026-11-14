@@ -143,11 +143,8 @@ def _strip_trailing_mentions(raw: str) -> tuple:
 
 
 def _paths_to_add(git, root: str, paths: list) -> list:
-    """--paths > git add 대상: 줄바꿈·공백으로 이어진 값 분리, 이미 스테이징된 삭제 경로 제외
-
-    스테이징된 삭제(`git rm`·`git mv` 의 옛 경로)를 다시 add 하면 pathspec 오류로 커밋 전체가 멈춘다 (#971)
-    zsh 는 `--paths $P` 를 나누지 않아 "a b c" 한 값으로 온다 (#1184)
-    """
+    """--paths > git add 대상: 공백·줄바꿈으로 붙은 값 분리 (zsh `$P`, #1184), 이미 스테이징된 삭제 경로 제외 (#971)
+    스테이징된 삭제 경로를 다시 add 하면 pathspec 오류로 커밋 전체가 멈춘다"""
     split_paths = []
     for value in paths:
         for line in value.splitlines():

@@ -160,10 +160,10 @@ def _failure_detail(text: str) -> str:
     return text[-FAILURE_DETAIL_MAX_CHARS:]
 
 
-def _install_failure(serial: str, step: str, text: str, retried: bool) -> dict:
+def _install_failure(serial: str, step: str, text: str, has_retried: bool) -> dict:
     """push · install 실패 > 저장 공간 부족이면 insufficient_storage + /data 공간, 아니면 install_failed"""
     failure = {"is_ok": False, "code": "install_failed", "step": step, "detail": _failure_detail(text),
-               "retried": retried}
+               "retried": has_retried}
     if any(marker.lower() in text.lower() for marker in _INSUFFICIENT_STORAGE_MARKERS):
         failure.update(code="insufficient_storage", data_storage=read_data_storage(serial),
                        next=low_storage_next(serial))
@@ -191,13 +191,13 @@ def install_apk(serial: str, apk_path: Path) -> dict:
     if pushed.is_timeout:
         return _unresponsive(serial, "push", pushed.text)
     if not pushed.is_ok:
-        return _install_failure(serial, "push", pushed.text, retried=False)
+        return _install_failure(serial, "push", pushed.text, has_retried=False)
 
-    retried = False
+    has_retried = False
     installed = adb(serial, "shell", "pm", "install", "-r", "-t", remote, timeout=INSTALL_TIMEOUT_SECONDS)
     if not installed.is_timeout and any(m in installed.text for m in _SERVICE_NOT_READY_MARKERS):
         # 부팅 직후 서비스가 아직 안 떴다 — 돌아올 때까지 기다린 뒤 한 번만 다시
-        retried = True
+        has_retried = True
         if not wait_for_package_service(serial):
             return _unresponsive(serial, "install_retry", "package service did not come back after Broken pipe")
         installed = adb(serial, "shell", "pm", "install", "-r", "-t", remote, timeout=INSTALL_TIMEOUT_SECONDS)
@@ -206,5 +206,5 @@ def install_apk(serial: str, apk_path: Path) -> dict:
     if installed.is_timeout:
         return _unresponsive(serial, "install", installed.text)
     if "Success" not in installed.text:
-        return _install_failure(serial, "install", installed.text, retried)
-    return {"is_ok": True, "code": "ok", "step": "install", "detail": "Success", "retried": retried}
+        return _install_failure(serial, "install", installed.text, has_retried)
+    return {"is_ok": True, "code": "ok", "step": "install", "detail": "Success", "retried": has_retried}

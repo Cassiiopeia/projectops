@@ -11,9 +11,9 @@
     const fallback = textByLanguage.en;
     const text = { ...fallback, ...(textByLanguage[language] || {}) };
     document.querySelectorAll("[data-text]").forEach((element) => {
-      const value = text[element.dataset.text];
-      if (value === undefined) return;
-      if (element.hasAttribute("data-html")) element.innerHTML = value; else element.textContent = value;
+      const localizedText = text[element.dataset.text];
+      if (localizedText === undefined) return;
+      if (element.hasAttribute("data-html")) element.innerHTML = localizedText; else element.textContent = localizedText;
     });
     return text;
   };
