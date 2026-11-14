@@ -56,10 +56,35 @@ def _unique(dst: Path) -> Path:
         n += 1
 
 
+def _split_cleanup_paths(values: list[str] | None) -> list[str]:
+    """--cleanup 값들 > 경로 목록 (반복 플래그 · 쉼표 목록 둘 다, #1178)"""
+    return [part.strip() for value in values or [] for part in value.split(",") if part.strip()]
+
+
+# 렌더 명령이 도구 부산물로 만드는 파일 (--cwd 기준) — 명령 전에 없던 것만 지운다 (#1178)
+# flutter test 가 macOS 호스트에서 macos/Podfile 을 매번 새로 만든다
+_TOOL_GENERATED_FILES = ("macos/Podfile", "ios/Podfile")
+
+
+def _missing_tool_generated(cwd: Path) -> list[Path]:
+    """명령 실행 전 아직 없는 도구 부산물 경로"""
+    return [cwd / rel for rel in _TOOL_GENERATED_FILES if not (cwd / rel).exists()]
+
+
+def _remove_tool_generated(root: Path, candidates: list[Path]) -> list[str]:
+    """명령 전에 없다가 생긴 도구 부산물만 지운다 > 지운 경로(레포 기준)"""
+    removed = []
+    for target in candidates:
+        if target.is_file() and _inside(root, target):
+            target.unlink()
+            removed.append(target.resolve().relative_to(root.resolve()).as_posix())
+    return removed
+
+
 def _cleanup(root: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     """지정한 경로만 지운다. **레포 밖은 거절한다** — 오타 하나로 남의 폴더가 날아간다."""
     removed, refused = [], []
-    for raw in paths or []:
+    for raw in _split_cleanup_paths(paths):
         t = (root / raw) if not Path(raw).is_absolute() else Path(raw)
         if not _inside(root, t) or t.resolve() == root.resolve():
             refused.append(raw)
@@ -135,6 +160,7 @@ def cmd_render(args) -> int:
         return out({"ok": False, "code": "cwd_not_found",
                     "error": f"--cwd folder does not exist: {cwd}",
                     "next": "--cwd is a path relative to the repo root (--root)"})
+    tool_generated_candidates = _missing_tool_generated(cwd)
     try:
         r = subprocess.run([bash_executable(), "-lc", args.cmd], cwd=str(cwd), capture_output=True,
                            text=True, errors="replace", timeout=args.timeout, stdin=subprocess.DEVNULL)
@@ -160,6 +186,7 @@ def cmd_render(args) -> int:
 
     # 실패해도 청소는 한다 — 임시 테스트 파일이 남으면 그것이 곧 흔적이다
     removed, refused = _cleanup(root, args.cleanup)
+    removed_generated = _remove_tool_generated(root, tool_generated_candidates)
     after = _git_status(root)
     residue = None
     if before is not None and after is not None:
@@ -170,7 +197,7 @@ def cmd_render(args) -> int:
     scaffold_state = settle_scaffold_after_run(root)
 
     payload = {"exit_code": rc, "collected": collected, "saved_under_new_name": renamed or None, "removed": removed,
-               "refused_cleanup": refused or None, "residue": residue,
+               "removed_tool_generated": removed_generated or None, "refused_cleanup": refused or None, "residue": residue,
                "git_checked": before is not None, "baseline": baseline_from}
     if rc != 0:
         first_error = find_first_error(output)
@@ -186,7 +213,7 @@ def cmd_render(args) -> int:
     elif residue:
         # 지우지 않는다 — 다른 세션의 변경일 수 있다
         payload.update({"ok": False, "code": "residue",
-                        "summary": f"Render left {len(residue)} leftover path(s) in the repo",
+                        "summary": f"Render left {len(residue)} leftover path(s) in the repo: {_residue_preview(residue)}",
                         "next": "Check the leftover paths: if you created them, add them to --cleanup and run again, or delete them yourself. "
                                 "Leave changes you do not recognize alone"})
     elif not collected:
@@ -203,6 +230,17 @@ def cmd_render(args) -> int:
     if refused:
         payload["warning"] = f"Not deleted because outside the repo: {', '.join(refused)}"
     return out(payload)
+
+
+# summary 에 보여 줄 흔적 경로 수 — 나머지는 residue 필드
+_RESIDUE_PREVIEW_COUNT = 3
+
+
+def _residue_preview(residue: list[str]) -> str:
+    """git status 줄 > 경로 몇 개 ('?? a, ?? b (+2 more)') — --brief 로 residue 가 빠져도 보이게"""
+    shown = ", ".join(residue[:_RESIDUE_PREVIEW_COUNT])
+    rest = len(residue) - _RESIDUE_PREVIEW_COUNT
+    return shown + (f" (+{rest} more)" if rest > 0 else "")
 
 
 def _take_baseline(root: Path) -> dict:
@@ -248,7 +286,8 @@ def configure_render(p) -> None:
     p.add_argument("--collect", action="append", default=None,
                    help="Glob of images to collect (relative to the repo root, repeatable). e.g. client/test/_launch_render/**/*.png")
     p.add_argument("--cleanup", action="append", default=None,
-                   help="Path to delete afterwards (inside the repo only, repeatable). Temporary test files and folders")
+                   help="Path to delete afterwards (inside the repo only; repeat the flag or give a comma list). Temporary test files and folders. "
+                        "macos/Podfile · ios/Podfile created by the command are removed without it")
     p.add_argument("--cwd", default=None, help="Where to run the command (relative to the repo root, e.g. client)")
     p.add_argument("--timeout", type=int, default=600)
     p.add_argument("--root", default=".", help="Target repo root — the base for the leftover check")
