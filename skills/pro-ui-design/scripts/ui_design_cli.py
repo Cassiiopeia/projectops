@@ -22,8 +22,6 @@
 from __future__ import annotations
 
 import argparse
-import contextlib
-import io
 import sys
 from pathlib import Path
 
@@ -33,7 +31,7 @@ if str(_HERE.parent) not in sys.path:
     sys.path.insert(0, str(_HERE.parent))
 
 import pro_ui_design  # noqa: E402,F401  (common import 경로를 맞춘다)
-from common.emit import emit  # noqa: E402
+from common.cli_parser import JSONArgumentParser, run_cli  # noqa: E402
 from common.stable_entry import refresh_and_check  # noqa: E402
 
 from pro_ui_design.ascii_wire import cmd_ascii  # noqa: E402
@@ -64,7 +62,8 @@ from pro_ui_design.settings import MAX_PNG_WIDTH  # noqa: E402,F401
 # =========================================================================
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ui_design_cli", description="See and pick UI mockups locally; assemble a design request for a designer")
+    # 공용 파서: bad_args JSON(usage 포함), 전역 --brief · --field(s) 를 다른 CLI 와 같게 (#1181)
+    parser = JSONArgumentParser(prog="ui_design_cli", description="See and pick UI mockups locally; assemble a design request for a designer")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("config", help="Resolve / save the settings, or list every option")
@@ -182,20 +181,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     refresh_and_check(__file__)   # 옛 고정 진입점이 이 스킬 이름을 몰라도 직접 호출 한 번으로 복구
-    parser = build_parser()
-    err = io.StringIO()
-    try:
-        # argparse 가 stderr 로 쓰는 원인 문구를 error 에 싣는다 (에이전트는 JSON 만 읽는다)
-        with contextlib.redirect_stderr(err):
-            args = parser.parse_args(argv)
-    except SystemExit as e:
-        if e.code in (0, None):
-            raise
-        sys.stderr.write(err.getvalue())
-        reason = err.getvalue().strip().splitlines()[-1] if err.getvalue().strip() else ""
-        return emit({"ok": False, "code": "bad_args", "error": f"Invalid arguments: {reason}",
-                     "next": "ui_design_cli.py <subcommand> --help"})
-    return args.func(args)
+    return run_cli(build_parser(), argv)
 
 
 if __name__ == "__main__":
