@@ -10,7 +10,7 @@
   --brief        안내 필드(ok·code·summary·next·error·hint·usage·example) + 목록의 최소 행(번호·제목·상태)
   --field a.b.0  성공 응답의 그 값만 (문자열이면 글자 그대로). 인라인 파이썬으로 키를 짐작해 파싱하지 않게 한다.
                  오류 응답에는 적용하지 않는다 (원인을 가리지 않는다)
-  --fields a,b   여러 경로 > {경로: 값} JSON. 하나면 --field 와 같다
+  --fields a,b   {경로: 값} JSON — 경로가 하나여도 JSON (#1187)
 """
 import difflib
 import json
@@ -33,13 +33,16 @@ _BRIEF_ROW_KEYS = ("number", "id", "run_id", "job_id", "title", "name", "state",
 # field_not_found 후보로 펼칠 중첩 깊이
 _CANDIDATE_PATH_DEPTH = 3
 
-_output_options: dict = {"brief": False, "field": None, "extra": {}}
+_output_options: dict = {"brief": False, "field": None, "should_return_object": False, "extra": {}}
 
 
-def configure_output(brief: bool = False, field: Optional[str] = None, extra: Optional[dict] = None) -> None:
-    """--brief / --field(s) 를 켠다 (run_cli 가 호출). field 에 쉼표가 있으면 여러 경로. extra: 첫 응답에 덧붙일 키"""
+def configure_output(brief: bool = False, field: Optional[str] = None, extra: Optional[dict] = None,
+                     should_return_object: bool = False) -> None:
+    """--brief / --field(s) 를 켠다 (run_cli 가 호출). field 에 쉼표가 있으면 여러 경로. extra: 첫 응답에 덧붙일 키
+    should_return_object: --fields 로 받음 > 경로 하나여도 {경로: 값}"""
     _output_options["brief"] = brief
     _output_options["field"] = field
+    _output_options["should_return_object"] = should_return_object
     _output_options["extra"] = dict(extra or {})
 
 
@@ -130,7 +133,8 @@ def _emit_fields(payload: dict, field: str) -> int:
                     "next": "call again with a path from did_you_mean", "error": f"the response has no '{path}'",
                     "did_you_mean": _suggest_paths(payload, path), "available_keys": list(payload)})
             return 1
-    _write(values[paths[0]] if len(paths) == 1 else values)
+    is_single_value = len(paths) == 1 and not _output_options["should_return_object"]
+    _write(values[paths[0]] if is_single_value else values)
     return 0
 
 

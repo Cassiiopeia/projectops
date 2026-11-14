@@ -73,8 +73,9 @@ _FIELD_OPTIONS = ("--field", "--fields")
 
 
 def _extract_output_options(argv: list) -> tuple:
-    """argv 에서 전역 출력 옵션(--brief, --field(s) X)을 꺼낸다. (남은 argv, brief, field)"""
-    rest, brief, field, skip_next = [], False, None, False
+    """argv 에서 전역 출력 옵션(--brief, --field(s) X)을 꺼낸다. (남은 argv, brief, field, should_return_object)
+    should_return_object: --fields 로 받았으면 경로 하나여도 {경로: 값} JSON (#1187)"""
+    rest, brief, field, should_return_object, skip_next = [], False, None, False, False
     for position, token in enumerate(argv):
         option_name = token.split("=", 1)[0]
         if skip_next:
@@ -83,11 +84,13 @@ def _extract_output_options(argv: list) -> tuple:
             brief = True
         elif token in _FIELD_OPTIONS and position + 1 < len(argv):
             field, skip_next = argv[position + 1], True
+            should_return_object = token == "--fields"
         elif option_name in _FIELD_OPTIONS and "=" in token:
             field = token.split("=", 1)[1]
+            should_return_object = option_name == "--fields"
         else:
             rest.append(token)
-    return rest, brief, field
+    return rest, brief, field, should_return_object
 
 
 def _did_you_mean(message: str, parser: argparse.ArgumentParser) -> list:
@@ -103,9 +106,9 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
     실패: stdout에 JSON emit 후 1 반환.
     --help: argparse 기본 동작 그대로 (SystemExit 0).
     """
-    argv, brief, field = _extract_output_options(list(sys.argv[1:] if argv is None else argv))
+    argv, brief, field, should_return_object = _extract_output_options(list(sys.argv[1:] if argv is None else argv))
     from common.stable_entry import refresh_and_check
-    configure_output(brief=brief, field=field, extra={"newer_installed": info} if (info := refresh_and_check(sys.argv[0])) else None)
+    configure_output(brief=brief, field=field, should_return_object=should_return_object, extra={"newer_installed": info} if (info := refresh_and_check(sys.argv[0])) else None)
     try:
         args = parser.parse_args(argv)
     except _BadArgsExit as e:

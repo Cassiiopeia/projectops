@@ -7,7 +7,7 @@ The response is always one line of JSON, with **`ok` · `code` · `summary` · `
 | Option | Effect |
 |---|---|
 | `--field a.b.0` | Returns only that value of a success response, as text (`--field issue.title`, `--field runs.0.run_id`). For a path that does not exist, returns `field_not_found` with `did_you_mean` (nested path candidates, for example `issue.labels`) and `available_keys`. Not applied to error responses |
-| `--fields a,b` | Another spelling of the same option as `--field`. With several paths, returns one JSON object `{path: value}` |
+| `--fields a,b` | Returns one JSON object `{path: value}`, even for a single path (`--fields verdict` → `{"verdict": "changed"}`). Use `--field` for the bare value |
 | `--brief` | Keeps `ok · code · summary · next · error · hint · usage · example · count · warning(s)`, and for list values keeps only each row's identifying keys (`number · id · run_id · job_id · title · name · state · status · conclusion`). Saves calling a list response again |
 
 A `bad_args` response contains `usage` (how to use that subcommand) and `did_you_mean` (similar subcommands) — do not call `--help` separately.
