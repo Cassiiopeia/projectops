@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.103.2  
-**Last updated:** 2026-11-13T14:16:44Z  
+**Current version:** 4.103.3  
+**Last updated:** 2026-11-14T04:49:34Z  
+
+---
+
+## [4.103.3] - 2026-11-14
+
+**PR:** #1190  
+
+**Documentation**
+- A redesigned README: one look across every image, a real release cycle drawn from this project, feature cards and a skill map
+- The UI mockup demo now shows a polished customer app and kitchen display
 
 ---
 

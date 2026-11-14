@@ -1,14 +1,34 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-13T14:16:44Z",
-    "currentVersion": "4.103.2",
+    "lastUpdated": "2026-11-14T04:49:34Z",
+    "currentVersion": "4.103.3",
     "projectType": "basic",
-    "totalReleases": 408,
+    "totalReleases": 409,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.103.3",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1190,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * A redesigned README: one look across every image, a real release cycle drawn from this project, feature cards and a skill map\n  * The UI mockup demo now shows a polished customer app and kitchen display",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "A redesigned README: one look across every image, a real release cycle drawn from this project, feature cards and a skill map",
+            "The UI mockup demo now shows a polished customer app and kitchen display"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.103.2",
       "project_type": "basic",
