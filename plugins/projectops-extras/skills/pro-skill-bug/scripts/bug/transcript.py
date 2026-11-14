@@ -1,6 +1,6 @@
-"""Claude Code 세션 기록(jsonl) 찾기 · 줄 단위 정규화
+"""Find Claude Code session transcripts (jsonl) · normalize line by line
 
-기록 위치: <설정 폴더>/projects/<작업 경로의 / . 를 - 로>/<세션 ID>.jsonl
+Location: <config dir>/projects/<working path with / and . turned into ->/<session ID>.jsonl
 """
 from __future__ import annotations
 
@@ -9,17 +9,17 @@ import os
 from pathlib import Path
 from typing import Iterator
 
-# 현재 세션 ID · 설정 폴더 환경변수 (Claude Code 가 넣는다)
+# Current session ID · config dir env vars (set by Claude Code)
 SESSION_ID_ENV = "CLAUDE_CODE_SESSION_ID"
 CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
-# 대화 행만 읽음 (api-request-blob 등은 같은 블록 사본)
+# Read conversation rows only (api-request-blob etc. are copies of the same blocks)
 CONVERSATION_ROW_TYPES = ("user", "assistant")
-# 사용자 말이 아닌 주입 메시지 머리 (명령 · 알림 · 이미지 표식)
+# Heads of injected messages that are not user text (commands · notifications · image markers)
 SYSTEM_MESSAGE_PREFIXES = ("<", "[Image")
 
 
 def config_dirs() -> list[Path]:
-    """찾을 설정 폴더: $CLAUDE_CONFIG_DIR > ~/.claude (중복 제거)"""
+    """Config dirs to search: $CLAUDE_CONFIG_DIR > ~/.claude (deduplicated)"""
     candidates = []
     if os.environ.get(CONFIG_DIR_ENV):
         candidates.append(Path(os.environ[CONFIG_DIR_ENV]).expanduser())
@@ -32,13 +32,13 @@ def config_dirs() -> list[Path]:
 
 
 def project_slug(cwd: Path) -> str:
-    """작업 경로 > 기록 폴더 이름 (/Users/a/b.c > -Users-a-b-c)"""
+    """Working path > transcript folder name (/Users/a/b.c > -Users-a-b-c)"""
     return str(cwd).replace("/", "-").replace(".", "-")
 
 
 def find_transcript(session_id: str | None, cwd: Path | None = None,
                     dirs: list[Path] | None = None) -> Path | None:
-    """세션 기록 파일: 작업 경로 폴더 먼저 > 없으면 projects/* 전체에서 같은 ID"""
+    """Session transcript file: working-path folder first > else the same ID anywhere under projects/*"""
     session_id = session_id or os.environ.get(SESSION_ID_ENV) or ""
     if not session_id:
         return None
@@ -47,7 +47,7 @@ def find_transcript(session_id: str | None, cwd: Path | None = None,
         direct = base / "projects" / project_slug(cwd) / f"{session_id}.jsonl"
         if direct.is_file():
             return direct
-        # 세션 도중 작업 경로를 옮겼으면 다른 폴더에 있다
+        # If the working path moved mid-session, it lives in another folder
         matches = sorted((base / "projects").glob(f"*/{session_id}.jsonl"))
         if matches:
             return matches[0]
@@ -82,7 +82,7 @@ def _is_user_words(text: str) -> bool:
 
 
 def iter_rows(path: Path) -> Iterator[dict]:
-    """기록 줄 > 원본 행 (깨진 줄 · 대화 아닌 행 건너뜀, cwd 등 행 메타가 필요할 때)"""
+    """Transcript lines > raw rows (skips broken and non-conversation rows; for when row metadata like cwd is needed)"""
     with path.open(encoding="utf-8", errors="replace") as handle:
         for line in handle:
             try:
@@ -94,8 +94,8 @@ def iter_rows(path: Path) -> Iterator[dict]:
 
 
 def iter_events(path: Path) -> Iterator[dict]:
-    """기록 줄 > 정규화 이벤트 (user · assistant_text · tool_use · tool_result)
-    건너뜀 5종: 깨진 줄, 대화 아닌 행, isMeta(스킬 본문 주입), 시스템 태그 메시지, 같은 id 사본"""
+    """Transcript lines > normalized events (user · assistant_text · tool_use · tool_result)
+    5 kinds skipped: broken lines, non-conversation rows, isMeta (injected skill body), system-tag messages, same-id copies"""
     seen_block_ids: set[tuple[str, str]] = set()
     with path.open(encoding="utf-8", errors="replace") as handle:
         for index, line in enumerate(handle):

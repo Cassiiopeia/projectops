@@ -1,4 +1,4 @@
-"""Actions Secret: 목록, PyNaCl 암호화 후 생성·갱신."""
+"""Actions secrets: list, create or update after PyNaCl encryption."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from common.github_rest.transport import _API_BASE, PyNaClMissingError
 
 
 def list_secrets(owner: str, repo: str, pat: str) -> list[dict]:
-    """Actions Secret 목록을 반환한다."""
+    """Return the list of Actions secrets."""
     data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/actions/secrets?per_page=100", None, pat)
     return [
         {"name": item["name"], "updated_at": item.get("updated_at")}
@@ -21,7 +21,7 @@ def list_secrets(owner: str, repo: str, pat: str) -> list[dict]:
 
 
 def _load_nacl_public():
-    """PyNaCl을 로드한다. 없으면 한 번 설치를 시도한다."""
+    """Load PyNaCl. If missing, try installing it once."""
     try:
         from nacl import encoding, public
         return encoding, public
@@ -48,7 +48,7 @@ def _encrypt_secret(public_key: str, value: str) -> str:
 
 
 def set_secret(owner: str, repo: str, name: str, value: str, pat: str) -> dict:
-    """Actions Secret을 암호화해 생성 또는 갱신한다."""
+    """Encrypt an Actions secret and create or update it."""
     key = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/actions/secrets/public-key", None, pat)
     encrypted_value = client._encrypt_secret(key["key"], value)
     client._request(

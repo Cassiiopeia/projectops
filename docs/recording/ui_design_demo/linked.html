@@ -1,10 +1,10 @@
 <h2>{{title}}</h2>
 <p class="subtitle">{{subtitle}}</p>
 <style>
-  /* 무대: GIF 녹화 영역(.ui-screens) = 손님 폰 + 가운데 흐름 안내 + 주방 폰 */
+  /* Stage: GIF recording area (.ui-screens) = customer phone + center flow guide + kitchen phone */
   .ui-screens { width: 900px; margin: 0 auto; padding: 30px 26px 34px; gap: 22px; flex-wrap: nowrap; align-items: center;
     background: #f1f0fa; }
-  /* 바깥 여백(녹화 영역 +12px)도 무대색: GIF 가 한 장의 판으로 보이게 */
+  /* Outer margin (recording area +12px) also in stage color so the GIF reads as one board */
   html.ui-design-frame body { background: #f1f0fa; }
   .ui-screens > div:nth-child(2) { order: 0; }
   .ui-screens > .ui-steps { order: 1; }
@@ -12,7 +12,7 @@
   .ui-screen-label { display: flex; justify-content: center; margin-bottom: 14px; }
   .ui-screen-label { font: 600 12.5px/1 var(--app-font); letter-spacing: .02em; color: #555a72; }
 
-  /* 기기 틀: 금속 테두리 + 다이내믹 아일랜드 + 측면 버튼 */
+  /* Device frame: metal bezel + Dynamic Island + side buttons */
   .ui-device { --ui-device-width: 286px; --ui-device-height: 588px; --ui-device-radius: 48px; position: relative; padding: 10px;
     background: #17181f; box-shadow: 0 0 0 1.5px #4a4e5c inset, 0 14px 28px -14px rgba(30, 27, 75, .5); }
   .ui-device::before { content: ""; position: absolute; right: -3px; top: 150px; width: 3px; height: 64px; border-radius: 0 2px 2px 0; background: #2b2e39; }
@@ -20,7 +20,7 @@
   .ui-device-screen { font-family: var(--app-font); -webkit-font-smoothing: antialiased; letter-spacing: -0.01em; }
   :root { --app-font: "Pretendard Variable", Pretendard, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", sans-serif; }
 
-  /* 가운데 흐름 안내: 단계 2개 + 공유 상태 연결선 */
+  /* Center flow guide: 2 steps + shared-state connector */
   .ui-steps { width: 150px; background: none; padding: 0; text-align: center; font-family: var(--app-font); }
   .ui-steps h4 { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6c6aa8; margin: 0 0 14px; }
   .ui-steps ol { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; counter-reset: step; }
@@ -37,14 +37,14 @@
   .sync.live i:nth-child(2) { animation-delay: .15s; } .sync.live i:nth-child(3) { animation-delay: .3s; }
   @keyframes flow { 0%, 100% { opacity: .25; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
 
-  /* 상태 막대 */
+  /* Status bar */
   .status { height: 50px; padding: 18px 26px 0; display: flex; justify-content: space-between; font-size: 13px; font-weight: 650; }
   .status .icons { display: flex; gap: 5px; align-items: center; }
   .status .icons b { width: 16px; height: 9px; border-radius: 2.5px; border: 1.5px solid currentColor; position: relative; opacity: .9; }
   .status .icons b::after { content: ""; position: absolute; inset: 1px; right: 4px; border-radius: 1px; background: currentColor; }
   .status .icons s { width: 14px; height: 9px; background: linear-gradient(90deg, currentColor 0 2px, transparent 2px 4px, currentColor 4px 6px, transparent 6px 8px, currentColor 8px 10px, transparent 10px 12px, currentColor 12px); clip-path: polygon(0 100%, 100% 0, 100% 100%); }
 
-  /* 손님 화면 (밝은 테마) */
+  /* Customer screen (light theme) */
   .customer { position: absolute; inset: 0; background: #fbfaf7; color: #1b1a17; }
   .greet { padding: 6px 20px 0; }
   .greet small { font-size: 12.5px; color: #8a857a; font-weight: 500; }
@@ -66,7 +66,7 @@
   @keyframes pop { from { transform: scale(.4); } to { transform: none; } }
   button:focus, button:focus-visible { outline: none; }
 
-  /* 상품 사진 (CSS 그림): 라떼 아트, 참깨 베이글, 오렌지 단면 */
+  /* Product photos (CSS art): latte art, sesame bagel, orange slice */
   .photo.latte { background: #f1e4d3; }
   .latte .cup { width: 44px; height: 44px; border-radius: 50%; background: #fff; box-shadow: 0 2px 0 #dcc7ad; display: grid; place-items: center; }
   .latte .coffee { width: 36px; height: 36px; border-radius: 50%; position: relative; background: #7a4a2a; box-shadow: inset 0 0 0 3px #5e3920; }
@@ -86,7 +86,7 @@
   .orange .slice i::after { content: ""; display: block; width: 100%; height: 100%; border-radius: 50%;
     background: radial-gradient(circle, #fff3dc 0 8%, transparent 9%), repeating-conic-gradient(#ffa62b 0 32deg, #fff3dc 32deg 36deg); }
 
-  /* 장바구니 막대 + 보냄 알림 */
+  /* Cart bar + sent toast */
   .cart { position: absolute; left: 12px; right: 12px; bottom: 26px; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px;
     border-radius: 22px; background: #1b1a17; color: #fff; box-shadow: 0 16px 30px -12px rgba(27, 26, 23, .55); }
   .cart.enter { animation: rise .35s cubic-bezier(.2, .9, .3, 1.2); }
@@ -102,7 +102,7 @@
   .sent small { font-size: 11.5px; color: #3f7f77; }
   @keyframes rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-  /* 주방 화면 (어두운 주방 디스플레이) */
+  /* Kitchen screen (dark kitchen display) */
   .kitchen { position: absolute; inset: 0; background: #0f1322; color: #eef0f8; }
   .kitchen .status { color: #eef0f8; }
   .k-head { display: flex; align-items: center; justify-content: space-between; padding: 6px 18px 0; }
@@ -131,7 +131,7 @@
   @keyframes drop { from { transform: translateY(-18px) scale(.97); opacity: 0; } to { transform: none; opacity: 1; } }
   .k-home { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); width: 104px; height: 4px; border-radius: 4px; background: #eef0f8; opacity: .8; }
 
-  /* 누른 자리 표시 (녹화에서 클릭이 보이게) */
+  /* Tap marker (so clicks show in the recording) */
   .tap { position: fixed; width: 34px; height: 34px; margin: -17px 0 0 -17px; border-radius: 50%; background: rgba(91, 87, 214, .28); border: 2px solid rgba(91, 87, 214, .7);
     pointer-events: none; z-index: 2000; animation: tap .55s ease-out forwards; }
   @keyframes tap { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.3); opacity: 0; } }
@@ -139,7 +139,7 @@
 <div id="stage"></div>
 <script>
   const TEXT = {{text}};
-  // 상품 3개: 그림 종류 + 문구 + 가격(센트·원 단위 정수)
+  // 3 products: art kind + text + price (integer cents or won)
   const PRODUCTS = TEXT.menu.map((name, index) => ({ name, note: TEXT.notes[index], price: TEXT.prices[index], art: ["latte", "bagel", "orange"][index] }));
   const ART_HTML = {
     latte: '<div class="cup"><div class="coffee"></div></div>',
@@ -157,7 +157,7 @@
   syncIndicator.innerHTML = `<i></i><i></i><i></i><span>${TEXT.shared}</span>`;
   document.querySelector(".ui-steps").append(syncIndicator);
 
-  // 수량: 장바구니 안 같은 상품 개수
+  // Quantity: count of the same product in the cart
   const countOf = (cart, index) => cart.filter((itemIndex) => itemIndex === index).length;
 
   function renderCustomer(element, state) {
@@ -208,7 +208,7 @@
     { id: "kitchen", label: TEXT.kitchen, render: renderKitchen },
   ], store, document.getElementById("stage"));
 
-  // 누른 자리 물결 (실제 포인터 이벤트 좌표)
+  // Tap ripple (real pointer event coordinates)
   document.addEventListener("pointerdown", (event) => {
     const ripple = document.createElement("div");
     ripple.className = "tap";

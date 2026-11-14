@@ -1,12 +1,12 @@
-"""스킬이 쌓는 상태의 자리 — 프로젝트 밖(홈)에 둔다 (pro-launch · pro-agent-test 공용, #629).
+"""Where skills keep their state: outside the project, under home (shared by pro-launch · pro-agent-test, #629).
 
     ~/.projectops/launch/<owner__repo>/      devices.json · browser.json · access.json ·
                                              .browser-profile/ · shots/
     ~/.projectops/launch/.venv               Playwright · Pillow
-    ~/.projectops/agent-test/<owner__repo>/  learned.json · 시나리오 · flows/
+    ~/.projectops/agent-test/<owner__repo>/  learned.json · scenarios · flows/
 
-실행·캡처("붙는 법")는 pro-launch, 시나리오·지식은 agent-test 소유.
-옛 agent-test 폴더에 남은 launch 파일은 첫 호출 때 옮긴다.
+Running and capturing ("how to attach") belongs to pro-launch; scenarios and knowledge belong to agent-test.
+Launch files left in the old agent-test folder are moved on the first call.
 """
 from __future__ import annotations
 
@@ -22,30 +22,30 @@ from common.proc import pid_alive
 
 KINDS = ("launch", "agent-test")
 
-# launch 가 가져가는 몫. 나머지(learned.json · 시나리오 · flows)는 agent-test 에 남는다.
+# launch's share. The rest (learned.json · scenarios · flows) stays with agent-test.
 LAUNCH_OWNED = ("devices.json", "browser.json", "access.json", ".browser-profile", "shots")
-# 브라우저가 떠 있는 동안 옮기면 안 되는 것 — 프로필을 쓰는 중이고 상태 파일이 그 경로를 가리킨다
+# Must not move while the browser is up: the profile is in use and the state file points to that path
 _BROWSER_FILES = ("browser.json", ".browser-profile")
 
 
-# 레포를 알 수 없을 때(스킬·플러그인 캐시 폴더에서 불림) 쓰는 이 컴퓨터 공용 버킷 (#836)
+# Machine-wide bucket used when the repo is unknown (called from a skill or plugin cache folder) (#836)
 MACHINE_BUCKET = "_machine"
 
-# 스킬·플러그인이 놓이는 자리. 여기서 불렸는데 git 원격이 없으면 사용자 프로젝트가 아니다.
+# Where skills and plugins live. Called from here without a git remote, it is not a user project.
 _SKILL_PATH_MARKERS = ("/skills/pro-", "/plugins/cache/")
 
-# git 도 프로젝트 마커도 없는 폴더(scratchpad·/tmp·jobs/tmp)의 버킷 자리: <kind>/_scratch/<폴더명>-<경로 해시 8자> (#932)
+# Bucket for folders with no git and no project marker (scratchpad · /tmp · jobs/tmp): <kind>/_scratch/<folder name>-<8-char path hash> (#932)
 SCRATCH_BUCKET = "_scratch"
-# 이 파일이 루트에 있으면 git 이 아니어도 사용자 프로젝트로 본다 (폴더명 키 유지)
+# If this file is at the root, treat it as a user project even without git (folder-name key kept)
 PROJECT_MARKER_FILES = ("pubspec.yaml", "package.json", "pyproject.toml", "build.gradle", "build.gradle.kts",
                         "settings.gradle", "settings.gradle.kts", "pom.xml", "Podfile", "Cargo.toml", "go.mod",
                         "version.yml")
 
 
 def base_dir() -> Path:
-    """상태 루트. PROJECTOPS_HOME 이 있으면 그것 — 테스트가 실제 홈을 건드리지 않게 하는 탈출구다 (#836).
+    """State root. PROJECTOPS_HOME if set; the escape hatch that keeps tests off the real home (#836).
 
-    HOME 을 바꾸면 macOS Chrome 이 멈추므로(실측) 브라우저 테스트는 이 변수만 바꾼다.
+    Changing HOME hangs Chrome on macOS (measured), so browser tests change only this variable.
     """
     env = os.environ.get("PROJECTOPS_HOME")
     if env:
@@ -62,28 +62,28 @@ def _origin_url(root: Path) -> str:
 
 
 def in_skill_path(root: Path) -> bool:
-    """root 가 스킬·플러그인 캐시 폴더 안인가 (경로만 본다 — git 은 부르지 않는다)."""
+    """Whether root is inside a skill or plugin cache folder (path check only; git is not called)."""
     s = Path(root).resolve().as_posix() + "/"
     return any(m in s for m in _SKILL_PATH_MARKERS)
 
 
 def repo_unknown(root: Path) -> bool:
-    """어느 프로젝트인지 알 수 없다 — 스킬·플러그인 캐시 폴더에서 불렸고 git 원격도 없다.
+    """The project is unknown: called from a skill or plugin cache folder with no git remote.
 
-    이때 폴더 이름(`scripts` 등)을 레포 키로 쓰면 가짜 버킷이 생겨 상태·기억이 흩어진다 (#833·#836).
-    개발 체크아웃처럼 원격이 있으면 정상 레포로 본다.
+    Using the folder name (`scripts`, etc.) as the repo key would create fake buckets and scatter state and memory (#833·#836).
+    A checkout with a remote, like a dev checkout, counts as a normal repo.
     """
     return in_skill_path(root) and not _origin_url(root)
 
 
 def is_inside_git_work_tree(root: Path) -> bool:
-    """root 또는 그 위 폴더에 .git(폴더·워크트리 파일)이 있나 — git 을 부르지 않는다 (명령마다 불림)."""
+    """Whether root or a parent has .git (folder or worktree file); git is not called (runs on every command)."""
     resolved = Path(root).resolve()
     return any((folder / ".git").exists() for folder in (resolved, *resolved.parents))
 
 
 def is_scratch_root(root: Path) -> bool:
-    """git 도 프로젝트 마커도 없는 임시 폴더인가. 폴더 이름(tmp·root·site)이 버킷 키면 남의 상태와 섞인다 (#932)."""
+    """Whether this is a temp folder with no git and no project marker. Folder names (tmp · root · site) as bucket keys would mix with others' state (#932)."""
     resolved = Path(root).resolve()
     if is_inside_git_work_tree(resolved) or in_skill_path(resolved):
         return False
@@ -91,26 +91,26 @@ def is_scratch_root(root: Path) -> bool:
 
 
 def scratch_key(root: Path) -> str:
-    """임시 폴더 버킷 이름: <폴더명>-<절대경로 sha1 8자> — 같은 이름의 다른 폴더와 갈린다."""
+    """Temp folder bucket name: <folder name>-<8-char sha1 of the absolute path>, distinct from other folders with the same name."""
     resolved = Path(root).resolve()
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", resolved.name).strip("-") or "local"
     return f"{slug}-{hashlib.sha1(str(resolved).encode('utf-8')).hexdigest()[:8]}"
 
 
 def repo_key(root: Path) -> str:
-    """프로젝트를 가리키는 키. git remote의 owner/repo를 쓴다.
+    """Key that identifies the project. Uses owner/repo from the git remote.
 
-    **경로를 키로 쓰면 안 된다.** 워크트리마다 경로가 달라 같은 프로젝트가 여러 개로
-    갈라지고, 그러면 쌓은 지식이 워크트리 수만큼 쪼개진다.
-    remote가 없는(로컬 전용) 저장소는 폴더명으로 떨어지고, 비ASCII 이름은 경로 해시가 붙는다.
+    **Never key by path.** Each worktree has a different path, so one project would split
+    into many, and accumulated knowledge would be divided by the number of worktrees.
+    Repositories without a remote (local only) fall back to the folder name; non-ASCII names get a path hash.
     """
     url = _origin_url(root)
     m = re.search(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?$", url) if url else None
     if m:
         return f"{m.group(1)}__{m.group(2)}"
-    # 원격이 없는 저장소: 폴더명이 이미 안전한 문자뿐이면 옛 키를 그대로 쓴다 (기존 상태 보존).
-    # 한글 등 비ASCII 이름은 치환하면 글자가 사라져 `unknown`/`repo` 로 뭉개져 서로 다른
-    # 저장소가 상태를 공유한다 — 이때만 절대경로 해시를 덧붙여 구분한다 (#702).
+    # Repository without a remote: if the folder name already uses only safe characters, keep the old key (preserve existing state).
+    # Non-ASCII names like Hangul lose their characters when replaced and collapse to `unknown`/`repo`, so different
+    # repositories would share state; only then append the absolute path hash to tell them apart (#702).
     name = Path(root).name
     slug = re.sub(r"[^A-Za-z0-9._-]+", "-", name).strip("-")
     if slug and slug == name:
@@ -120,10 +120,10 @@ def repo_key(root: Path) -> str:
 
 
 def state_dir(kind: str, root: Path) -> Path:
-    """kind 별 상태 폴더. 만들지는 않는다 — 쓰는 쪽이 필요할 때 만든다.
+    """State folder per kind. Not created here; callers create it when needed.
 
-    레포를 알 수 없으면 가짜 버킷 대신 이 컴퓨터 공용 자리(`_machine`)를 쓴다 (#836).
-    git·마커 없는 임시 폴더는 경로 해시 버킷(`_scratch/<이름>-<해시>`)을 쓴다 (#932).
+    If the repo is unknown, use the machine-wide slot (`_machine`) instead of a fake bucket (#836).
+    Temp folders without git or markers use a path-hash bucket (`_scratch/<name>-<hash>`) (#932).
     """
     if kind not in KINDS:
         raise ValueError(f"unknown kind: {kind}")
@@ -135,11 +135,11 @@ def state_dir(kind: str, root: Path) -> Path:
 
 
 def migrate_launch(root: Path) -> dict:
-    """옛 agent-test 폴더에 있는 launch 몫을 launch 폴더로 옮긴다.
+    """Move launch's share from the old agent-test folder to the launch folder.
 
-    - 새 폴더에 이미 있으면 건드리지 않는다 (멱등 — 두 번째 실행부터는 아무 일도 없다)
-    - 브라우저가 떠 있으면 브라우저 관련은 다음으로 미룬다 (쓰는 중인 프로필을 옮기면 깨진다)
-    - 옮기다 실패하면 옛 경로를 계속 읽도록 경고만 낸다 — 기능이 멈추면 안 된다
+    - Leave it alone if already in the new folder (idempotent: nothing happens from the second run on)
+    - If the browser is up, defer browser-related items (moving an in-use profile breaks it)
+    - If a move fails, only warn so the old path keeps being read; the feature must not stop
     """
     old = state_dir("agent-test", root)
     new = state_dir("launch", root)
@@ -170,7 +170,7 @@ def migrate_launch(root: Path) -> dict:
         except OSError as e:
             warnings.append(f"{name}: could not move ({e}); still using the old location")
 
-    # 상태 파일이 옛 프로필 경로를 들고 있으면 새 자리로 고친다
+    # If the state file still holds the old profile path, point it to the new location
     nbj = new / "browser.json"
     if "browser.json" in moved and nbj.is_file():
         try:
@@ -184,9 +184,9 @@ def migrate_launch(root: Path) -> dict:
 
 
 def launch_file(root: Path, name: str) -> Path:
-    """launch 몫 파일의 실제 자리. 새 자리에 없고 옛 자리에만 있으면 옛 자리를 쓴다.
+    """Actual location of a launch-share file. If missing in the new location and present only in the old one, use the old one.
 
-    이전(migration)이 실패했을 때도 기능이 이어지게 하는 안전망이다.
+    A safety net so features keep working even when the migration failed.
     """
     new = state_dir("launch", root) / name
     if new.exists():
@@ -195,23 +195,23 @@ def launch_file(root: Path, name: str) -> Path:
     return old if old.exists() else new
 
 
-# ── 전용 가상환경 ────────────────────────────────────────────────────────
+# ── Dedicated virtual environment ───────────────────────────────────────
 #
-# 시스템 파이썬에 깔지 않는다 — macOS Homebrew 파이썬은 PEP 668로 pip를 막는다.
-# 옛 자리(agent-test/.venv)는 옮기지 않는다. 약 100MB 를 다시 받게 만들 이유가 없다.
+# Not installed into system Python: macOS Homebrew Python blocks pip via PEP 668.
+# The old location (agent-test/.venv) is not moved; no reason to re-download ~100MB.
 
 def venv_dir() -> Path:
     new = base_dir() / "launch" / ".venv"
     candidates = [new, base_dir() / "agent-test" / ".venv"]
-    # PROJECTOPS_HOME 으로 상태만 옮긴 경우에도 이미 깔린 venv(설치물이지 상태가 아니다)는 찾아 쓴다.
-    # 읽기만 한다 — 없으면 새로 만들 자리는 언제나 base_dir() 쪽이다.
+    # Even when only state was moved via PROJECTOPS_HOME, reuse an already installed venv (an install, not state).
+    # Read only: a new one is always created under base_dir().
     real = Path.home() / ".projectops"
     if real != base_dir():
         candidates += [real / "launch" / ".venv", real / "agent-test" / ".venv"]
     for d in candidates:
         if _venv_exe(d):
             return d
-    return new   # 아직 없으면 새로 만들 자리
+    return new   # where to create it if not there yet
 
 
 def _venv_exe(d: Path) -> Path | None:

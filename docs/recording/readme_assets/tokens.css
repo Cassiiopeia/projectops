@@ -1,16 +1,16 @@
-/* README 이미지 공통 디자인 토큰: 색·글꼴·반경·그림자 (라이트·다크 함께), 모든 소스 HTML 이 불러옴 */
+/* Shared design tokens for README images: colors, fonts, radii, shadows (light and dark together), loaded by every source HTML */
 :root {
   --font-sans: "Pretendard Variable", Pretendard, Inter, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "Apple SD Gothic Neo", "Noto Sans KR", "Hiragino Sans", "PingFang SC", sans-serif;
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
 
-  /* 브랜드: 남색 > 인디고 그라데이션, 청록 강조 */
+  /* Brand: navy > indigo gradient, teal accent */
   --brand-navy: #070b18;
   --brand-indigo: #4f46e5;
   --brand-violet: #7c3aed;
   --brand-teal: #14b8a6;
 
-  /* GitHub 상태색 (열림·병합·태그) */
+  /* GitHub state colors (open, merged, tag) */
   --state-open: #1f883d;
   --state-merged: #8250df;
   --state-tag: #0969da;
@@ -20,7 +20,7 @@
   --radius-chip: 999px;
 }
 
-/* 라이트 테마 (기본) */
+/* Light theme (default) */
 html[data-theme="light"] {
   --canvas-bg: #fbfbfe;
   --canvas-glow-1: rgba(99, 102, 241, 0.16);
@@ -45,7 +45,7 @@ html[data-theme="light"] {
   --terminal-line: rgba(255, 255, 255, 0.08);
 }
 
-/* 다크 테마 */
+/* Dark theme */
 html[data-theme="dark"] {
   --canvas-bg: #080c1a;
   --canvas-glow-1: rgba(99, 102, 241, 0.32);
@@ -83,7 +83,7 @@ body {
   letter-spacing: -0.01em;
 }
 
-/* 캔버스: 렌더 대상 요소 (투명 바깥 + 둥근 모서리) */
+/* Canvas: element to render (transparent outside + rounded corners) */
 .canvas {
   position: relative;
   overflow: hidden;
@@ -92,7 +92,7 @@ body {
   border: 1px solid var(--canvas-border);
   isolation: isolate;
 }
-/* 배경 빛 2개 + 점 격자 */
+/* 2 background glows + dot grid */
 .canvas::before {
   content: "";
   position: absolute; inset: 0; z-index: -2;

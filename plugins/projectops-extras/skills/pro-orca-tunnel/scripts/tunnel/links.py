@@ -1,5 +1,5 @@
-"""앱 접속 링크 보관과 터널 주소 바꾸기: 앱 형식을 모르고도 링크 안의 옛 터널 주소를 새 주소로 바꿈
-평문 주소와 base64(JSON) 로 감싼 값 안의 주소를 함께 바꿈. 형식이 바뀌어 못 찾으면 host_not_found (하네스로 대응)
+"""Store app access links and swap the tunnel host: replaces the old tunnel host inside a link without knowing the app's format
+Replaces plain URLs and URLs inside base64(JSON) values. If a format change hides it, host_not_found (handled via the harness)
 """
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ import urllib.parse
 
 from . import state
 
-# 빠른 터널 이름 (옛 주소 찾기)
+# Quick tunnel host name (to find the old address)
 TUNNEL_HOST_PATTERN = re.compile(r"[a-z0-9-]+\.trycloudflare\.com")
-# base64 로 보이는 덩어리 (길이 40 이상)
+# Chunks that look like base64 (length 40+)
 ENCODED_CHUNK_PATTERN = re.compile(r"[A-Za-z0-9+/_-]{40,}={0,2}")
 
 
@@ -22,7 +22,7 @@ def link_path(app: str):
 
 
 def save(app: str, link: str) -> None:
-    """본인만 읽는 파일로 저장 (링크에 기기 인증 값이 들 수 있음)"""
+    """Save as an owner-only file (links may carry device auth values)"""
     state.write_private(link_path(app), link.strip())
 
 
@@ -35,7 +35,7 @@ def load(app: str) -> str | None:
 
 
 def _decode_chunk(chunk: str) -> tuple[str, bool, bool] | None:
-    """(풀린 글, url-safe 였나, 패딩 있었나). JSON 이 아니면 None"""
+    """(decoded text, was url-safe, had padding). None if not JSON"""
     padded = chunk + "=" * (-len(chunk) % 4)
     is_url_safe = "-" in chunk or "_" in chunk
     decoder = base64.urlsafe_b64decode if is_url_safe else base64.b64decode
@@ -54,7 +54,7 @@ def _encode_chunk(text: str, is_url_safe: bool, is_padded: bool) -> str:
 
 
 def retarget(link: str, new_host: str) -> tuple[str, int]:
-    """링크 안의 모든 trycloudflare 주소 > new_host. (새 링크, 바꾼 개수)"""
+    """Every trycloudflare host in the link > new_host. (new link, replacement count)"""
     replaced = 0
 
     def replace_hosts(text: str) -> str:
@@ -63,7 +63,7 @@ def retarget(link: str, new_host: str) -> tuple[str, int]:
         replaced += count
         return updated
 
-    # 퍼센트 인코딩을 한 겹 풀어 안쪽까지 봄 (#pairing=orca%3A%2F%2F...)
+    # Undo one layer of percent-encoding to look inside (#pairing=orca%3A%2F%2F...)
     is_quoted = "%3A" in link or "%3D" in link
     working = urllib.parse.unquote(link) if is_quoted else link
 
@@ -79,7 +79,7 @@ def retarget(link: str, new_host: str) -> tuple[str, int]:
     working = replace_hosts(working)
     if not is_quoted:
         return working, replaced
-    # 다시 감쌈: 첫 # 뒤 값만 원래처럼 인코딩
+    # Re-wrap: encode only the value after the first # as before
     if "#" in working:
         head, fragment = working.split("#", 1)
         if "=" in fragment:

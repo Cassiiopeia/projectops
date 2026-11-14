@@ -5,14 +5,14 @@ import { fileURLToPath } from 'node:url'
 import { cpSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { toSitePath } from './locale-paths.mts'
 
-// srcDir 이 site/ 밖(../docs)이라 md 가 import 하는 vue 를 site/node_modules 에서 못 찾는다.
-// 해석 기준을 site/ 로 고정해 alias 로 알려 준다.
+// srcDir is outside site/ (../docs), so vue files imported by md can't be found in site/node_modules.
+// Pin resolution to site/ and expose it via an alias.
 const require = createRequire(import.meta.url)
 const vueDir = dirname(require.resolve('vue/package.json'))
 
-// 문서 원본은 저장소의 docs/ 하나뿐이다(내용 복제 금지). site/ 는 빌드 설정만 가진다.
-// 영어 = 루트(docs/en/*), 한국어 = /ko/(docs/*). URL 규칙은 locale-paths.mts (#976)
-// 로케일 추가(zh-CN, ja)는 locales 에 항목을 더하고 docs/<코드>/ 와 toSitePath 규칙을 만들면 된다.
+// The only docs source is the repo's docs/ (no copied content). site/ holds build config only.
+// English = root (docs/en/*), Korean = /ko/ (docs/*). URL rules live in locale-paths.mts (#976)
+// To add a locale (zh-CN, ja), add an entry to locales and create docs/<code>/ plus a toSitePath rule.
 
 const GITHUB = 'https://github.com/Cassiiopeia/projectops'
 const SITE_URL = 'https://cassiiopeia.github.io/projectops'
@@ -23,34 +23,34 @@ const SITE_DESCRIPTION: Record<'en' | 'ko', string> = {
   ko: '오픈소스 GitHub 자동화. npx 한 번으로 시맨틱 버전, 체인지로그, 릴리스 PR, CI/CD, AI 에이전트 스킬을 Spring, Flutter, React, Python 프로젝트에 설치합니다.',
 }
 
-// 문서 원본 폴더 (srcDir 과 같은 곳)
+// Docs source folder (same as srcDir)
 const DOCS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'docs')
 
 /**
- * 문서 사이 상대 .md 링크(원본 파일 기준) > 사이트 절대 경로 (rewrites 반영), 해당 없으면 null
- * 예: docs/CLI.md 의 ./NPX-WIZARD.md > /ko/npx-wizard.md (그대로 두면 /ko/NPX-WIZARD 로 깨짐)
+ * Relative .md link between docs (relative to the source file) > absolute site path (rewrites applied), else null
+ * e.g. ./NPX-WIZARD.md in docs/CLI.md > /ko/npx-wizard.md (left as is it breaks as /ko/NPX-WIZARD)
  */
 function toSiteLinkHref(sourceRelativePath: string, href: string): string | null {
-  // 외부 주소·스킴·앵커·절대 경로는 그대로
+  // External URLs, schemes, anchors and absolute paths stay as is
   if (/^[a-z][a-z0-9+.-]*:/i.test(href) || href.startsWith('#') || href.startsWith('/')) return null
   const hashIndex = href.indexOf('#')
   const linkPath = hashIndex < 0 ? href : href.slice(0, hashIndex)
   const hash = hashIndex < 0 ? '' : href.slice(hashIndex)
   if (!linkPath.endsWith('.md')) return null
   const resolvedPath = posix.normalize(posix.join(posix.dirname(sourceRelativePath), linkPath))
-  // docs/ 밖을 가리키는 링크는 손대지 않음 (dead link 검사가 잡도록)
+  // Links pointing outside docs/ are left alone (so the dead link check catches them)
   if (resolvedPath.startsWith('../')) return null
   return `/${toSitePath(resolvedPath)}${hash}`
 }
 
-// 문서 첫 문단 > 검색 결과 설명문 (frontmatter description 이 없을 때)
-// 제목 id 문자 규칙: VitePress 기본에서 두 가지만 GitHub 방식으로 (밑줄 유지 · 숫자로 시작해도 _ 안 붙임)
-// 문서 링크가 GitHub 앵커로 적혀 있어 GitHub 화면과 사이트가 같은 id 를 써야 함
+// First paragraph of a doc > search result description (when frontmatter has no description)
+// Heading id characters: VitePress default, with two GitHub-style changes (keep underscores · no _ prefix for leading digits)
+// Doc links are written as GitHub anchors, so GitHub and the site must use the same ids
 const HEADING_CONTROL_CHARACTERS = /[\u0000-\u001f]/g
 const HEADING_SPECIAL_CHARACTERS = /[\s~`!@#$%^&*()\-+=[\]{}|\\;:"'“”‘’<>,.?/]+/g
 const HEADING_COMBINING_MARKS = /[\u0300-\u036F]/g
 
-/** 제목 > id: 악센트 제거 후 NFC 재결합 (한글 음절 유지), 밑줄 유지, 숫자 시작 그대로 */
+/** Heading > id: strip accents then recompose NFC (keeps Hangul syllables), keep underscores, leading digits as is */
 function toHeadingSlug(title: string): string {
   return title.normalize('NFKD').replace(HEADING_COMBINING_MARKS, '').replace(HEADING_CONTROL_CHARACTERS, '')
     .replace(HEADING_SPECIAL_CHARACTERS, '-').replace(/-{2,}/g, '-').replace(/^-+|-+$/g, '')
@@ -73,7 +73,7 @@ function toPageUrl(slug: string): string {
   return `${SITE_URL}/${slug}`.replace(/\/$/, '/')
 }
 
-// 사이트 경로(ko/cli.md) > 언어와 언어 공통 slug
+// Site path (ko/cli.md) > language and the slug shared by both languages
 function parsePagePath(relativePath: string): { lang: 'en' | 'ko'; slug: string } {
   const path = relativePath.replace(/(^|\/)index\.md$/, '$1').replace(/\.md$/, '')
   return path === 'ko' || path.startsWith('ko/')
@@ -81,7 +81,7 @@ function parsePagePath(relativePath: string): { lang: 'en' | 'ko'; slug: string 
     : { lang: 'en', slug: path }
 }
 
-// 사이드바·상단 메뉴 단일 목록: slug 는 두 언어 공통 (en > /slug, ko > /ko/slug)
+// Single list for sidebar and top nav: slug shared by both languages (en > /slug, ko > /ko/slug)
 const SECTIONS = [
   {
     en: 'Guide',
@@ -137,7 +137,7 @@ const SECTIONS = [
       { slug: 'contributing-guide', en: 'Contributing', ko: '기여하기' },
       { slug: 'branch-convention', en: 'Branch naming', ko: '브랜치 네이밍 규칙' },
       { slug: 'workflow-comment-guidelines', en: 'Workflow comment style', ko: '워크플로우 주석 표준' },
-      // 영어 원문만 있는 문서 (locale-paths.mts ENGLISH_TOP_LEVEL_FILES) > 두 언어 모두 영어 경로로 연결
+      // Docs that exist only in English (locale-paths.mts ENGLISH_TOP_LEVEL_FILES) > both languages link to the English path
       { slug: 'translating', en: 'Translating', ko: 'Translating (영문)', isEnglishOnly: true },
     ],
   },
@@ -145,14 +145,14 @@ const SECTIONS = [
 
 type Lang = 'en' | 'ko'
 
-// 언어별 링크 접두사 (en 루트, ko /ko)
+// Link prefix per language (en root, ko /ko)
 const LINK_PREFIX: Record<Lang, string> = { en: '', ko: '/ko' }
 
 function toPageLink(lang: Lang, slug: string): string {
   return `${LINK_PREFIX[lang]}/${slug}`
 }
 
-// 사이드바·메뉴 항목 > 링크 (영어 전용 문서는 언어와 상관없이 영어 경로)
+// Sidebar/nav item > link (English-only docs use the English path regardless of language)
 function toSectionPageLink(lang: Lang, page: (typeof SECTIONS)[number]['pages'][number]): string {
   return toPageLink('isEnglishOnly' in page && page.isEnglishOnly ? 'en' : lang, page.slug)
 }
@@ -164,7 +164,7 @@ function buildSidebar(lang: Lang) {
   }))
 }
 
-// 상단 메뉴: 시작하기 · CLI · Skills · 워크플로우(inNav) · 문제 해결 · 기여자용
+// Top nav: Getting started · CLI · Skills · Workflows (inNav) · Troubleshooting · Contributors
 function buildNav(lang: Lang) {
   const sectionOf = (english: string) => SECTIONS.find((section) => section.en === english)!
   const toItems = (pages: (typeof SECTIONS)[number]['pages']) =>
@@ -182,12 +182,12 @@ function buildNav(lang: Lang) {
 }
 
 export default defineConfig({
-  // hero 이미지처럼 frontmatter 에서 절대경로(/images/...)로 부르는 파일은 public 만 배포된다.
-  // 원본을 docs/images 하나로 유지하려고 빌드 끝에 결과물로 복사한다. (본문 이미지는 상대경로로 쓴다)
+  // Files referenced by absolute path in frontmatter (/images/..., like the hero image) are deployed only from public.
+  // To keep docs/images as the single source, copy them into the output at build end. (Body images use relative paths)
   buildEnd(siteConfig) {
     const from = join(siteConfig.srcDir, 'images')
     if (existsSync(from)) cpSync(from, join(siteConfig.outDir, 'images'), { recursive: true })
-    // AI 검색용 안내 파일. 크롤러는 도메인 루트의 robots.txt 만 읽어 하위 경로에 두어도 소용없다
+    // Guidance file for AI search. Crawlers read robots.txt only at the domain root, so a subpath is useless
     cpSync(join(siteConfig.root, '..', 'llms.txt'), join(siteConfig.outDir, 'llms.txt'))
   },
   sitemap: { hostname: `${SITE_URL}/` },
@@ -244,7 +244,7 @@ export default defineConfig({
   base: '/projectops/',
   srcDir: '../docs',
   rewrites: toSitePath,
-  // 내부 작업 산출물·번역 README·내부 설계 문서는 사이트에 싣지 않는다.
+  // Internal work output, translated READMEs and internal design docs are not published on the site.
   srcExclude: [
     'projectops/**',
     'superpowers/**',
@@ -265,13 +265,13 @@ export default defineConfig({
     },
   },
   lastUpdated: false,
-  // 저장소 파일 링크는 문서에서 GitHub 절대 주소로 쓴다 > 상대 링크가 깨지면 빌드 실패
+  // Repo file links are written as absolute GitHub URLs in docs > a broken relative link fails the build
   ignoreDeadLinks: false,
   markdown: {
-    // 제목 id: VitePress 기본 규칙 + 마지막에 NFC 재결합 — 기본은 한글을 자모(NFKD)로 남겨 문서의 한글 앵커 링크가 안 맞음
+    // Heading id: VitePress default rule + NFC recompose at the end — the default leaves Hangul as jamo (NFKD), breaking Korean anchor links in docs
     anchor: { slugify: toHeadingSlug },
     config(md) {
-      // 링크 렌더 전에 상대 .md 링크를 사이트 경로로 바꿈 (VitePress 가 base·cleanUrls·dead link 검사를 이어서 처리)
+      // Rewrite relative .md links to site paths before link render (VitePress then handles base, cleanUrls and the dead link check)
       md.core.ruler.push('projectops-site-links', (state) => {
         const realPath: string | undefined = state.env?.realPath ?? state.env?.path
         if (!realPath) return

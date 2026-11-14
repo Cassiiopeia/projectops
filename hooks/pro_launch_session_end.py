@@ -1,7 +1,7 @@
-"""Claude Code SessionEnd 훅: 끝난 세션이 빌린 기기를 반납하고(#953) 띄운 브라우저를 닫고(#956) 데스크톱 입력 세션을 놓는다(#985).
+"""Claude Code SessionEnd hook: returns devices leased by the ended session (#953), closes browsers it opened (#956) and releases its desktop input session (#985).
 
-입력: stdin JSON 의 session_id. 그 세션 lease · 브라우저 · 입력 세션이 있을 때만 `device release --all` · `web close --session-end` · `desktop session stop` 을 띄운다
-(없으면 바로 끝 — 세션 종료를 늦추지 않게). 어떤 경우에도 종료 코드 0.
+Input: session_id from stdin JSON. Runs `device release --all` · `web close --session-end` · `desktop session stop` only when that session has a lease, browser or input session
+(otherwise exits at once — so session end is not delayed). Always exit code 0.
 """
 from __future__ import annotations
 
@@ -18,14 +18,14 @@ RELEASE_TIMEOUT_SECONDS = 25
 
 
 def _use_launch_modules() -> None:
-    """pro-launch 원본 모듈을 불러올 수 있게 경로를 잇는다."""
+    """Add the path so pro-launch source modules can be imported."""
     for path in (str(PLUGIN_ROOT / "scripts"), str(LAUNCH_SCRIPTS)):
         if path not in sys.path:
             sys.path.insert(0, path)
 
 
 def session_has_leases(session_id: str) -> bool:
-    """원장에 그 세션 lease 가 하나라도 있나 (원장 읽기는 pro-launch 원본을 쓴다). 못 읽으면 False."""
+    """Does the ledger hold any lease for that session (ledger reads use the pro-launch source). False if unreadable."""
     _use_launch_modules()
     try:
         from pro_launch.runtime.device_ledger import read_ledger
@@ -36,7 +36,7 @@ def session_has_leases(session_id: str) -> bool:
 
 
 def session_has_browsers(session_id: str) -> bool:
-    """이 세션이 띄운 브라우저 상태 파일이 있나 (#956)."""
+    """Is there a browser state file opened by this session (#956)."""
     _use_launch_modules()
     try:
         from pro_launch.runtime.browser import read_state
@@ -47,7 +47,7 @@ def session_has_browsers(session_id: str) -> bool:
 
 
 def session_holds_desktop(session_id: str) -> bool:
-    """이 세션이 데스크톱 입력 세션(키보드·마우스)을 쥐고 있나 (#985)."""
+    """Does this session hold the desktop input session (keyboard, mouse) (#985)."""
     _use_launch_modules()
     try:
         from pro_launch.runtime.desktop_state import current_holder
@@ -77,7 +77,7 @@ def main(stdin_text: str, environ: dict) -> int:
                            env={**environ, "LAUNCH_SESSION": session_id, "PYTHONIOENCODING": "utf-8"},
                            capture_output=True, timeout=RELEASE_TIMEOUT_SECONDS)
         except (OSError, subprocess.SubprocessError):
-            pass   # 실패가 세션 종료를 막지 않는다 — 기기는 호스트 종료로 풀리고, 브라우저는 web close --stale 이 줍는다
+            pass   # Failure must not block session end — devices free up when the host exits, and web close --stale collects browsers
     return 0
 
 

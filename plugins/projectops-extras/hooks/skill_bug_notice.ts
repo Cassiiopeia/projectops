@@ -1,11 +1,11 @@
-// pro-skill-bug 보고 알림 (#997): 보고 호출 결과의 이슈 URL > 토스트 + 상태줄
-// 판정 규칙은 갖지 않음 (정본은 skill_bug_rules.py). 결과 글자만 본다.
+// pro-skill-bug report notice (#997): issue URL from the report call result > toast + status line
+// Holds no detection rules (source of truth is skill_bug_rules.py). Looks only at the result text.
 import type { Register } from 'claude-code'
 
-// 보고 호출: pro-skill-bug 초안 폴더를 본문으로 넘긴 create-issue / add-comment
+// Report call: create-issue / add-comment with a pro-skill-bug draft folder as the body
 const REPORT_COMMAND_PATTERN = /(create-issue|add-comment)[\s\S]*cache\/pro-skill-bug\//
 const REPORTED_ISSUE_URL_PATTERN = /https:\/\/github\.com\/Cassiiopeia\/projectops\/issues\/(\d+)/
-// 토스트 유지 시간 (8초)
+// Toast display time (8 seconds)
 const TOAST_TIMEOUT_MILLISECONDS = 8000
 
 export const register: Register = on => {
@@ -21,5 +21,5 @@ export const register: Register = on => {
       $.ui.status(`projectops bug #${issueMatch[1]} ${action}`)
     }
     return ran
-  }).catch(($, e, next) => next(e))   // 알림 실패가 명령 결과를 바꾸면 안 됨 (호출됐으면 결과 재생)
+  }).catch(($, e, next) => next(e))   // A notice failure must not change the command result (replay the result if it was called)
 }

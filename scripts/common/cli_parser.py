@@ -1,13 +1,13 @@
 # scripts/common/cli_parser.py
 """JSON-friendly argparse wrapper.
 
-argparse 기본 동작은 인자 오류 시 stderr text + SystemExit(2)를 던진다.
-agent는 stdout JSON만 파싱하므로, 이 출력을 self-correct에 활용할 수 없다.
+By default argparse writes stderr text and raises SystemExit(2) on bad arguments.
+The agent parses only stdout JSON, so it cannot use that output to self-correct.
 
-`JSONArgumentParser`는 `error()`/`exit()`를 override하여 실패도
-`emit({"ok": False, "code": "bad_args", ...})`로 stdout JSON에 출력한다.
+`JSONArgumentParser` overrides `error()`/`exit()` so failures are also
+printed to stdout as JSON via `emit({"ok": False, "code": "bad_args", ...})`.
 
-`--help`는 그대로 SystemExit(0)으로 둬서 사람이 직접 실행할 때 도움말이 보인다.
+`--help` still raises SystemExit(0), so a human running it directly sees the help.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ from common.emit import configure_output, emit
 
 
 class _BadArgsExit(SystemExit):
-    """run_cli가 잡아서 JSON으로 변환하는 sentinel."""
+    """Sentinel that run_cli catches and turns into JSON."""
     def __init__(self, message: str, parser: "JSONArgumentParser"):
         super().__init__(2)
         self.message = message
@@ -30,7 +30,7 @@ class _BadArgsExit(SystemExit):
 
 
 class JSONArgumentParser(argparse.ArgumentParser):
-    """argparse 실패를 JSON으로 변환하기 위한 sentinel 예외만 던진다."""
+    """Only raises the sentinel exception so argparse failures can become JSON."""
 
     def error(self, message: str) -> None:
         raise _BadArgsExit(message, self)
@@ -43,7 +43,7 @@ class JSONArgumentParser(argparse.ArgumentParser):
 
 
 def positive_int(value: str) -> int:
-    """1 이상의 정수만 받는 argparse type. `--limit -1`·`0` 이 조용히 빈 결과를 내지 않게 한다 (#713)."""
+    """argparse type accepting integers >= 1. Keeps `--limit -1`/`0` from silently returning nothing (#713)."""
     try:
         n = int(value)
     except (TypeError, ValueError):
@@ -68,13 +68,13 @@ def _make_hint(parser: argparse.ArgumentParser) -> str:
     return f"{parser.prog} --help"
 
 
-# 값 하나를 받는 전역 출력 옵션: --field a.b / --fields a,b (CLI 마다 표기가 달라 둘 다 받는다)
+# Global output options taking one value: --field a.b / --fields a,b (CLIs spell it differently, so accept both)
 _FIELD_OPTIONS = ("--field", "--fields")
 
 
 def _extract_output_options(argv: list) -> tuple:
-    """argv 에서 전역 출력 옵션(--brief, --field(s) X)을 꺼낸다. (남은 argv, brief, field, should_return_object)
-    should_return_object: --fields 로 받았으면 경로 하나여도 {경로: 값} JSON (#1187)"""
+    """Pull global output options (--brief, --field(s) X) from argv. (remaining argv, brief, field, should_return_object)
+    should_return_object: given via --fields, return {path: value} JSON even for one path (#1187)"""
     rest, brief, field, should_return_object, skip_next = [], False, None, False, False
     for position, token in enumerate(argv):
         option_name = token.split("=", 1)[0]
@@ -94,17 +94,17 @@ def _extract_output_options(argv: list) -> tuple:
 
 
 def _did_you_mean(message: str, parser: argparse.ArgumentParser) -> list:
-    """invalid choice 오류면 가장 비슷한 서브커맨드 후보"""
+    """For an invalid choice error, the closest subcommand candidates"""
     found = re.search(r"invalid choice: '([^']*)'", message)
     return difflib.get_close_matches(found.group(1), _list_subcommands(parser), n=3, cutoff=0.5) if found else []
 
 
 def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) -> int:
-    """argparse 실행 + JSON 변환 래퍼.
+    """Run argparse and convert to JSON.
 
-    성공: parsed.func(args) 반환값 (보통 0/1)
-    실패: stdout에 JSON emit 후 1 반환.
-    --help: argparse 기본 동작 그대로 (SystemExit 0).
+    Success: return value of parsed.func(args) (usually 0/1)
+    Failure: emit JSON to stdout and return 1.
+    --help: default argparse behaviour (SystemExit 0).
     """
     argv, brief, field, should_return_object = _extract_output_options(list(sys.argv[1:] if argv is None else argv))
     from common.stable_entry import refresh_and_check
@@ -112,7 +112,7 @@ def run_cli(parser: JSONArgumentParser, argv: Optional[Sequence[str]] = None) ->
     try:
         args = parser.parse_args(argv)
     except _BadArgsExit as e:
-        # 사용법을 응답 안에 넣는다: 에이전트는 stdout JSON 만 읽어서 --help 를 따로 불러야 했다
+        # Put usage inside the response: the agent reads only stdout JSON and had to call --help separately
         return emit({
             "ok": False,
             "code": "bad_args",

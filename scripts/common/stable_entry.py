@@ -1,6 +1,6 @@
-"""고정 진입점 설치와 옛 버전 경고 (#942).
+"""Install the stable entry point and warn about old versions (#942).
 
-run_cli 가 매 실행 부른다. 깔린 번호만 읽고 비교하므로 가볍고, 실패해도 명령을 막지 않는다.
+run_cli calls this on every run. It only reads and compares installed versions, so it is light, and failures never block the command.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 _SCRIPTS_ROOT = Path(__file__).resolve().parents[1]
-# 한 프로세스에서 경고를 한 번만 싣는다
+# Add the warning only once per process
 _warned = False
 
 
@@ -26,9 +26,9 @@ def _load_resolver():
 
 
 def refresh_and_check(running_cli_path: str) -> Optional[dict]:
-    """고정 진입점을 최신으로 맞추고, 캐시의 옛 버전에서 돌고 있으면 {running, installed, use}. 아니면 None"""
+    """Bring the stable entry point up to date; if running from an old cached version, return {running, installed, use}. Otherwise None"""
     global _warned
-    # 테스트가 실제 홈의 ~/.projectops/bin 을 건드리지 않게 한다
+    # Keep tests from touching the real ~/.projectops/bin
     if "PYTEST_CURRENT_TEST" in os.environ:
         return None
     try:
@@ -42,5 +42,5 @@ def refresh_and_check(running_cli_path: str) -> Optional[dict]:
         info = resolver.newer_installed_info(running_dir, skill)
         _warned = info is not None
         return info
-    except Exception:  # 진입점 갱신 실패가 명령을 막으면 안 된다
+    except Exception:  # A failed entry-point update must not block the command
         return None

@@ -1,16 +1,16 @@
-"""sys.path 부트스트랩 헬퍼.
+"""sys.path bootstrap helper.
 
-각 _cli.py 첫 줄에서 직접 sys.path 조작 패턴을 사용하므로
-이 모듈은 테스트·디버깅 보조 용도다.
+Each _cli.py adjusts sys.path itself on its first line, so
+this module is only an aid for tests and debugging.
 """
 from pathlib import Path
 from typing import Optional
 
 
 def find_scripts_root(start: Path) -> Optional[Path]:
-    """start에서 위로 올라가며 'scripts/common/__init__.py'를 찾는다.
+    """Walk up from start looking for 'scripts/common/__init__.py'.
 
-    찾으면 'scripts/' 경로 반환. 없으면 None.
+    Returns the 'scripts/' path if found, else None.
     """
     cur = start.resolve()
     for _ in range(10):

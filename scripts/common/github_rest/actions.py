@@ -1,4 +1,4 @@
-"""GitHub Actions: run 상세·job 로그·실패 run·PR/브랜치별 run."""
+"""GitHub Actions: run details, job logs, failed runs, runs per PR/branch."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from common.github_rest.transport import _API_BASE
 
 
 def _run_summary(run: dict) -> dict:
-    """workflow run 객체에서 요약 필드만 추출한다."""
+    """Extract only the summary fields from a workflow run object."""
     head_repository = (run.get("head_repository") or {}).get("full_name")
     base_repository = (run.get("repository") or {}).get("full_name")
     return {
@@ -33,7 +33,7 @@ def _run_summary(run: dict) -> dict:
 
 
 def get_run(owner: str, repo: str, run_id: int, pat: str) -> dict:
-    """단일 run 메타 + job 목록(실패 step 포함)을 반환한다."""
+    """Return a single run's metadata + job list (including failed steps)."""
     run = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}", None, pat)
     result = client._run_summary(run)
     jobs_data = client._request(
@@ -58,11 +58,11 @@ def get_run(owner: str, repo: str, run_id: int, pat: str) -> dict:
     return result
 
 
-# 기본 로그 검색: 실패 표시 줄 (GitHub 이 실패 step 에 남기는 표식)
+# Default log search: failure lines (the marker GitHub leaves on failed steps)
 ERROR_MARKER = "##[error]"
-# ##[error] 줄 앞에 함께 보여 줄 출력 줄 수 (실패 step 주변)
+# Number of output lines to show before a ##[error] line (around the failed step)
 _ERROR_CONTEXT_LINES = 8
-# ##[error] 가 없을 때 기본 검색
+# Default search when there is no ##[error]
 _FALLBACK_PATTERN = "error|failed"
 
 
@@ -70,11 +70,11 @@ def get_job_log(
     owner: str, repo: str, job_id: int, pat: str,
     grep: str | None = None, tail: int = 30, save_to: str | None = None,
 ) -> dict:
-    """job 로그를 받아 grep 매칭 라인의 끝 tail개를 반환한다.
+    """Fetch a job log and return the last tail lines matching grep.
 
-    grep 없음(기본): ##[error] 줄과 그 앞 출력 줄. `##[group]Run` 스크립트 원문 구간은 빼고 본다
-    (원문의 `error` 글자·브랜치명이 걸리지 않게). grep 지정: 정규식으로 전체 줄 검색.
-    job logs 엔드포인트는 Azure로 redirect되므로 _request의 strip 핸들러가 필수.
+    No grep (default): ##[error] lines and the output lines before them. `##[group]Run` script source sections are skipped
+    (so `error` text or branch names in the source do not match). With grep: regex search over all lines.
+    The job logs endpoint redirects to Azure, so _request's strip handler is required.
     """
     text = client._request(
         "GET", f"{_API_BASE}/repos/{owner}/{repo}/actions/jobs/{job_id}/logs", None, pat, raw=True
@@ -95,7 +95,7 @@ def get_job_log(
         "lines": [l[:300] for l in matched[-tail:]],
     }
     if save_to:
-        # 전체 로그는 파일로: 응답에 다 싣지 않아도 나중에 직접 grep 할 수 있다 (#939)
+        # Full log goes to a file: not all of it fits in the response, but it can be grepped later (#939)
         from pathlib import Path
         Path(save_to).write_text(text, encoding="utf-8")
         result["saved_to"] = save_to
@@ -103,7 +103,7 @@ def get_job_log(
 
 
 def _output_line_indexes(lines: list[str]) -> list[int]:
-    """`##[group]Run …` ~ `##[endgroup]` (실행 스크립트 원문) 밖의 줄 번호"""
+    """Line numbers outside `##[group]Run …` ~ `##[endgroup]` (executed script source)"""
     indexes, is_inside_run_source = [], False
     for index, line in enumerate(lines):
         if "##[group]Run " in line:
@@ -118,7 +118,7 @@ def _output_line_indexes(lines: list[str]) -> list[int]:
 
 
 def _error_marker_lines(lines: list[str]) -> list[str]:
-    """##[error] 줄 + 그 앞 출력 줄 (스크립트 원문 제외). ##[error] 가 없으면 error|failed 로 대신 찾는다"""
+    """##[error] lines + the output lines before them (script source excluded). Without ##[error], search error|failed instead"""
     output_indexes = _output_line_indexes(lines)
     marker_positions = [position for position, index in enumerate(output_indexes) if ERROR_MARKER in lines[index]]
     if not marker_positions:
@@ -133,7 +133,7 @@ def _error_marker_lines(lines: list[str]) -> list[str]:
 
 
 def _line_matcher(grep: str):
-    """(줄 판정 함수, 정규식으로 해석했는지). 대소문자 무시, `a|b` 같은 정규식을 받고 틀린 정규식은 글자 그대로 찾는다 (#939)"""
+    """(line predicate, whether parsed as regex). Case-insensitive, accepts regexes like `a|b`, an invalid regex is matched literally (#939)"""
     try:
         pattern = re.compile(grep, re.IGNORECASE)
         return (lambda line: pattern.search(line) is not None), True
@@ -143,7 +143,7 @@ def _line_matcher(grep: str):
 
 
 def list_failed_runs(owner: str, repo: str, pat: str, limit: int = 10) -> list[dict]:
-    """최근 실패(conclusion=failure) run 목록을 반환한다."""
+    """Return the list of recently failed (conclusion=failure) runs."""
     data = client._request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/actions/runs?status=failure&per_page={limit}",
@@ -152,14 +152,14 @@ def list_failed_runs(owner: str, repo: str, pat: str, limit: int = 10) -> list[d
     return [client._run_summary(r) for r in data.get("workflow_runs", [])]
 
 
-# head SHA 가 바뀐 뒤에도 PR 의 run 을 찾는 이벤트 (옛 SHA 에서 돈 RELEASE run, #970)
+# Events that still find a PR's runs after its head SHA changed (RELEASE runs on an old SHA, #970)
 _PR_RUN_EVENTS = ("pull_request", "pull_request_target")
 
 
 def resolve_pr_runs(owner: str, repo: str, pr_number: int, pat: str) -> dict:
-    """PR 번호 > run 목록: 현재 head SHA run + head 브랜치의 PR 이벤트 run (최신순, 중복 제거)
+    """PR number > run list: runs on the current head SHA + PR-event runs on the head branch (newest first, deduplicated)
 
-    run 마다 head_sha·is_current_head 를 붙인다. 브랜치 보강 조회 실패는 무시 (SHA run 만 반환)
+    Each run gets head_sha · is_current_head. Branch lookup failures are ignored (returns SHA runs only)
     """
     pr = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}", None, pat)
     head_sha = pr["head"]["sha"]
@@ -171,7 +171,7 @@ def resolve_pr_runs(owner: str, repo: str, pr_number: int, pat: str) -> dict:
         None, pat,
     )
     raw_runs = list(by_sha.get("workflow_runs", []))
-    # 같은 head 브랜치의 PR 이벤트 run (옛 SHA 포함)
+    # PR-event runs on the same head branch (old SHAs included)
     encoded_ref = urllib.parse.quote(head_ref, safe="")
     for event in _PR_RUN_EVENTS:
         try:
@@ -184,7 +184,7 @@ def resolve_pr_runs(owner: str, repo: str, pr_number: int, pat: str) -> dict:
             continue
         for run in by_branch.get("workflow_runs", []):
             linked_numbers = [linked.get("number") for linked in run.get("pull_requests") or []]
-            # 다른 PR 의 run 제외 (연결 정보 없으면 이 PR 생성 이후 run 만)
+            # Exclude other PRs' runs (without link info, only runs after this PR was created)
             is_this_pr = (pr_number in linked_numbers if linked_numbers
                           else (run.get("created_at") or "") >= pr_created_at)
             if is_this_pr:
@@ -206,7 +206,7 @@ def resolve_pr_runs(owner: str, repo: str, pr_number: int, pat: str) -> dict:
 
 
 def resolve_branch_runs(owner: str, repo: str, branch: str, pat: str, limit: int = 10) -> list[dict]:
-    """브랜치명 → 해당 브랜치의 최근 run 목록을 반환한다."""
+    """Branch name → return that branch's recent runs."""
     enc = urllib.parse.quote(branch, safe="")
     data = client._request(
         "GET",
@@ -216,16 +216,16 @@ def resolve_branch_runs(owner: str, repo: str, branch: str, pat: str, limit: int
     return [client._run_summary(r) for r in data.get("workflow_runs", [])]
 
 
-# ── 워크플로우 실행·재실행·대기 (#939) ──
+# ── Run, rerun and wait for workflows (#939) ──
 
-# wait 폴링 간격(초)
+# wait polling interval (seconds)
 _RUN_POLL_SECONDS = 10
 
 
 def list_runs(owner: str, repo: str, pat: str, workflow: str | None = None, branch: str | None = None,
               status: str | None = None, limit: int = 10, event: str | None = None,
               created: str | None = None) -> list[dict]:
-    """최근 run 목록. workflow 는 파일명(예: build.yaml) 또는 id, status 는 queued·in_progress·completed·failure 등"""
+    """Recent runs. workflow is a file name (e.g. build.yaml) or id; status is queued · in_progress · completed · failure, etc."""
     base = (f"{_API_BASE}/repos/{owner}/{repo}/actions/workflows/{urllib.parse.quote(workflow, safe='')}/runs"
             if workflow else f"{_API_BASE}/repos/{owner}/{repo}/actions/runs")
     query = [f"per_page={limit}"]
@@ -242,7 +242,7 @@ def list_runs(owner: str, repo: str, pat: str, workflow: str | None = None, bran
 
 
 def dispatch_workflow(owner: str, repo: str, workflow: str, ref: str, inputs: dict | None, pat: str) -> dict:
-    """workflow_dispatch 로 워크플로우를 실행한다 (204 응답, run id 는 돌려주지 않는다)"""
+    """Run a workflow via workflow_dispatch (204 response; no run id is returned)"""
     payload: dict = {"ref": ref}
     if inputs:
         payload["inputs"] = inputs
@@ -253,21 +253,21 @@ def dispatch_workflow(owner: str, repo: str, workflow: str, ref: str, inputs: di
 
 
 def rerun_run(owner: str, repo: str, run_id: int, pat: str, failed_only: bool = False) -> dict:
-    """run 을 다시 돌린다. failed_only 면 실패한 job 만"""
+    """Rerun a run. With failed_only, only the failed jobs"""
     suffix = "rerun-failed-jobs" if failed_only else "rerun"
     client._request("POST", f"{_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/{suffix}", {}, pat)
     return {"run_id": run_id, "failed_only": failed_only}
 
 
 def cancel_run(owner: str, repo: str, run_id: int, pat: str, is_force_cancel: bool = False) -> dict:
-    """run 을 취소한다. is_force_cancel 이면 always() step 까지 멈추는 강제 취소"""
+    """Cancel a run. With is_force_cancel, a force cancel that also stops always() steps"""
     suffix = "force-cancel" if is_force_cancel else "cancel"
     client._request("POST", f"{_API_BASE}/repos/{owner}/{repo}/actions/runs/{run_id}/{suffix}", {}, pat)
     return {"run_id": run_id, "force": is_force_cancel}
 
 
 def wait_for_runs(owner: str, repo: str, run_ids: list[int], pat: str, timeout_seconds: int) -> dict:
-    """여러 run 이 모두 끝날 때까지(최대 timeout_seconds) 폴링 > {runs, finished, pending_run_ids, waited_seconds}"""
+    """Poll until all runs finish (at most timeout_seconds) > {runs, finished, pending_run_ids, waited_seconds}"""
     started = time.monotonic()
     while True:
         results = [client.get_run(owner, repo, run_id, pat) for run_id in run_ids]
@@ -279,6 +279,6 @@ def wait_for_runs(owner: str, repo: str, run_ids: list[int], pat: str, timeout_s
 
 
 def wait_for_run(owner: str, repo: str, run_id: int, pat: str, timeout_seconds: int) -> dict:
-    """run 이 끝날 때까지(최대 timeout_seconds) 도구 안에서 폴링한다. 끝났으면 get_run 결과 + finished"""
+    """Poll inside the tool until the run finishes (at most timeout_seconds). If finished, get_run result + finished"""
     waited = wait_for_runs(owner, repo, [run_id], pat, timeout_seconds)
     return {**waited["runs"][0], "finished": waited["finished"], "waited_seconds": waited["waited_seconds"]}

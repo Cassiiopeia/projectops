@@ -1,5 +1,5 @@
-"""고정 목록 밖 큰 폴더 찾기: 홈 아래 1~2단계 크기순 > 알려진 위치와 대조 > 나머지는 미분류(decide)
-이름 목록이 아니라 실제 크기로 찾음 (어느 컴퓨터·도구든 같은 방식)
+"""Find large folders outside the fixed list: home 1-2 levels deep by size > match against known locations > the rest is unclassified (decide)
+Finds by actual size, not by a name list (same approach on any computer or tool)
 """
 from __future__ import annotations
 
@@ -9,11 +9,11 @@ from pathlib import Path
 
 from . import catalog, generated, sizes
 
-# 이 크기 이상인 1단계 폴더는 한 단계 더 들어가 나눠 봄 (5GB)
+# Level-1 folders at or above this size are split one level deeper (5GB)
 DESCEND_THRESHOLD_BYTES = 5 * 1024 ** 3
-# 보고 최소 크기 (500MB)
+# Minimum size to report (500MB)
 REPORT_MINIMUM_BYTES = 500 * 1024 ** 2
-# 클라우드 동기화 폴더: 내려받지 않은 파일이 섞여 크기가 실제와 다르고, 지우면 다른 기기에서도 사라짐
+# Cloud sync folders: not-downloaded files skew the size, and deleting removes them on other devices too
 CLOUD_SYNC_NAMES = frozenset({"CloudStorage", "Mobile Documents", "OneDrive", "Dropbox", "Google Drive", "iCloud Drive"})
 
 
@@ -37,7 +37,7 @@ def _measure(folders: list[Path], max_seconds: int) -> list[tuple[Path, int, boo
 
 
 def _known_key(path: Path, known: list[tuple[Path, str]]) -> tuple[str | None, str]:
-    """알려진 위치와의 관계 > (키, 관계). 관계 3개: same, inside (알려진 위치 안), contains (알려진 위치를 품음)"""
+    """Relation to known locations > (key, relation). 3 relations: same, inside (within a known location), contains (holds a known location)"""
     resolved = path.resolve()
     for location_path, key in known:
         if resolved == location_path:

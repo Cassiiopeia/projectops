@@ -1,4 +1,4 @@
-"""worktree 폴더명에서 제목을 추출하고 파일명 안전 형식으로 정규화한다."""
+"""Extract the title from a worktree folder name and normalize it into a file-name-safe form."""
 
 import re
 from pathlib import Path
@@ -12,7 +12,7 @@ MAX_LENGTH = 50
 
 
 def extract_from_path(cwd: str) -> Optional[str]:
-    """경로에서 worktree 패턴의 제목 부분을 추출한다."""
+    """Extract the title part of a worktree pattern from a path."""
     for part in reversed(Path(cwd).parts):
         m = _WORKTREE_PATTERN.search(part)
         if m:
@@ -22,20 +22,20 @@ def extract_from_path(cwd: str) -> Optional[str]:
 
 def normalize(text: str) -> str:
     """
-    제목 문자열을 파일명 안전 형식으로 정규화한다.
+    Normalize a title string into a file-name-safe form.
 
-    - 공백·하이픈 → _ (pro-launch > pro_launch, 단어가 붙어 prolaunch 가 되지 않게)
-    - 허용되지 않는 문자 제거 (한글/영문/숫자/_ 외 문자는 삭제)
-    - 연속 언더스코어 → 단일 언더스코어
-    - 최대 50자
+    - Spaces and hyphens → _ (pro-launch > pro_launch, so words do not merge into prolaunch)
+    - Remove disallowed characters (anything other than Hangul/Latin/digits/_ is deleted)
+    - Collapse consecutive underscores into one
+    - At most 50 characters
     """
-    # 공백·하이픈을 언더스코어로 변환
+    # Convert spaces and hyphens to underscores
     text = text.replace(" ", "_").replace("-", "_")
-    # 허용되지 않는 문자를 제거 (한글/영문/숫자/_ 만 허용)
+    # Remove disallowed characters (only Hangul/Latin/digits/_ allowed)
     text = _ALLOWED.sub("", text)
-    # 연속 언더스코어를 단일 언더스코어로 변환
+    # Collapse consecutive underscores into one
     text = _MULTI_UNDERSCORE.sub("_", text)
-    # 양쪽 언더스코어 제거
+    # Strip underscores at both ends
     text = text.strip("_")
-    # 최대 길이로 자른 후 trailing 언더스코어 제거
+    # Cut to max length, then strip trailing underscores
     return text[:MAX_LENGTH].strip("_")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""tunnel_cli: pro-orca-tunnel 빠른 터널(cloudflared) 열기·재사용·정리, 앱 링크의 터널 주소 바꾸기 — 출력은 항상 JSON (ok·code·summary·next)
-앱마다 바뀌는 사실(포트, 확인할 화면, 링크 모양)은 하네스 문서가 맡고 이 CLI 는 앱을 모름. 표준 라이브러리 전용
+"""tunnel_cli: pro-orca-tunnel quick tunnel (cloudflared) open, reuse and cleanup, swap the tunnel host in app links — output is always JSON (ok·code·summary·next)
+Per-app facts (port, screen to check, link shape) live in the harness doc; this CLI knows no app. Standard library only
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from tunnel import links, probe, processes, state  # noqa: E402
 
-# 새 터널 주소가 응답할 때까지 기다리는 시간 (초)
+# Time to wait for the new tunnel address to respond (seconds)
 ANSWER_WAIT_SECONDS = 40
 
 
@@ -30,7 +30,7 @@ class _BadArgumentsExit(Exception):
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
-    """인자 오류를 stderr 대신 JSON 으로 돌려주기 위한 파서"""
+    """Parser that returns argument errors as JSON instead of stderr"""
 
     def error(self, message):
         raise _BadArgumentsExit(message)
@@ -47,7 +47,7 @@ def emit(payload: dict) -> int:
 
 
 def _local_page(port: int, path: str) -> dict:
-    """이 컴퓨터의 포트에 직접 물어본 결과: 응답 코드와 <title>"""
+    """Result of asking this computer's port directly: response code and <title>"""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=3) as response:
             body = response.read(16384).decode("utf-8", errors="replace")
@@ -82,7 +82,7 @@ def _wait_answer(url: str, path: str) -> dict:
     return result
 
 
-# 서브커맨드: 입력 해석 > 모듈 호출 > 결과 + next
+# Subcommands: parse input > call module > result + next
 
 def cmd_status(_args) -> dict:
     saved = state.load()["tunnels"]
@@ -106,14 +106,14 @@ def cmd_open(args) -> dict:
         return {"ok": False, "code": "local_not_listening",
                 "summary": f"nothing answers on http://127.0.0.1:{args.port}{args.path}",
                 "next": "start the app first, or find its port with the harness"}
-    # 살아 있고 응답하면 그대로 씀
+    # Alive and responding > reuse as is
     saved = _saved_tunnel(args.port)
     if saved and not args.fresh:
         result = probe.check(saved["url"], args.path)
         if result["answers"]:
             return {"url": saved["url"], "port": args.port, "pid": saved["pid"], "is_reused": True, **result,
                     "summary": f"reused live tunnel {saved['url']}"}
-    # 같은 포트의 죽은·옛 터널 정리 > 새로 띄움
+    # Clean up dead or old tunnels on the same port > start a new one
     stopped = [tunnel["pid"] for tunnel in processes.quick_tunnels()
                if tunnel["port"] == args.port and processes.stop(tunnel["pid"])]
     log_path = state.log_path_for(args.port)
@@ -154,7 +154,7 @@ def cmd_stop(args) -> dict:
 
 
 def cmd_link_save(args) -> dict:
-    # 링크는 명령줄 인자로 받지 않음 (프로세스 목록에 남지 않게)
+    # The link is not taken as a command-line argument (so it doesn't show in the process list)
     link = os.environ.get("TUNNEL_LINK", "").strip()
     if not link:
         return {"ok": False, "code": "no_link", "summary": "TUNNEL_LINK is empty",
@@ -219,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
                      "next": "commands: status, ports --process NAME, local --port N, open --port N, stop --port N|--all, link save|get --app NAME"})
     try:
         return emit(args.handler(args))
-    except Exception as error:  # noqa: BLE001 — 예상 못 한 예외도 JSON 으로
+    except Exception as error:  # noqa: BLE001 — unexpected exceptions also go out as JSON
         return emit({"ok": False, "code": "internal_error", "summary": f"{type(error).__name__}: {error}"})
 
 

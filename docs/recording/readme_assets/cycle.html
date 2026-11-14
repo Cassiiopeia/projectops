@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- README 사이클: 이슈 > 브랜치 댓글 > 커밋 > 릴리스 PR > 태그·배포 (실제 기록: 이슈 #1155, PR #1156, v4.102.0, 시각 UTC) -->
+<!-- README cycle: issue > branch comment > commit > release PR > tag and deploy (real record: issue #1155, PR #1156, v4.102.0, times in UTC) -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -16,7 +16,7 @@
   .legend .agent i { background: var(--accent); }
   .legend .actions i { background: var(--teal); }
 
-  /* 시간 줄: 점 5개 + 이어지는 선 */
+  /* Timeline: 5 dots + connecting line */
   .rail { position: relative; display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin: 34px 0 14px; }
   .rail::before {
     content: ""; position: absolute; left: 10%; right: 10%; top: 9px; height: 2px; border-radius: 2px;
@@ -111,7 +111,7 @@
   </div>
 
   <div class="cards">
-    <!-- 1 이슈 -->
+    <!-- 1 Issue -->
     <div class="card step">
       <div class="step-kind"><span class="icon" style="background:rgba(31,136,61,.12);color:var(--state-open)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z"/></svg></span><span data-text="kindIssue"></span></div>
       <div class="step-body">
@@ -122,7 +122,7 @@
       <div class="step-foot"><span class="chip by-agent">/pro-github</span></div>
     </div>
 
-    <!-- 2 봇 댓글: 브랜치·커밋 템플릿 -->
+    <!-- 2 Bot comment: branch and commit template -->
     <div class="card step">
       <div class="step-kind"><span class="icon" style="background:var(--teal-soft);color:var(--teal)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.5 2.5 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Z"/></svg></span><span data-text="kindBranch"></span></div>
       <div class="step-body">
@@ -135,7 +135,7 @@
       <div class="step-foot"><span class="chip by-actions">GitHub Actions</span></div>
     </div>
 
-    <!-- 3 커밋 -->
+    <!-- 3 Commit -->
     <div class="card step">
       <div class="step-kind"><span class="icon" style="background:var(--accent-soft);color:var(--accent)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"/></svg></span><span data-text="kindCommit"></span></div>
       <div class="step-body">
@@ -146,7 +146,7 @@
       <div class="step-foot"><span class="chip by-agent">/pro-commit</span></div>
     </div>
 
-    <!-- 4 릴리스 PR -->
+    <!-- 4 Release PR -->
     <div class="card step">
       <div class="step-kind"><span class="icon" style="background:rgba(130,80,223,.12);color:var(--state-merged)"><svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor"><path d="M5.45 5.154A4.25 4.25 0 0 0 9.25 7.5h1.378a2.251 2.251 0 1 1 0 1.5H9.25A5.734 5.734 0 0 1 5 7.123v3.505a2.25 2.25 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.95-.218ZM4.25 13.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Zm8.5-4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5ZM5 3.25a.75.75 0 1 0 0 .005V3.25Z"/></svg></span><span data-text="kindRelease"></span></div>
       <div class="step-body">
@@ -160,7 +160,7 @@
       <div class="step-foot"><span class="chip by-agent">/pro-changelog-deploy</span></div>
     </div>
 
-    <!-- 5 태그·배포 -->
+    <!-- 5 Tag and deploy -->
     <div class="card step">
       <div class="step-kind"><span class="icon" style="background:rgba(9,105,218,.12);color:var(--state-tag)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></svg></span><span data-text="kindShip"></span></div>
       <div class="step-body">

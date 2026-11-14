@@ -1,6 +1,6 @@
-"""단건 HTTP 요청 (pro-launch `http` · pro-agent-test `api` 공용, #631).
+"""Single HTTP request (shared by pro-launch `http` and pro-agent-test `api`, #631).
 
-표준 라이브러리만 쓴다 — 폐쇄망에서도 pip 없이 돌아야 한다.
+Standard library only — must run on closed networks without pip.
 """
 from __future__ import annotations
 
@@ -10,20 +10,20 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-# 이미 인코딩된 %XX 는 건드리지 않도록 '%' 를 안전 문자에 넣는다
+# Put '%' in the safe set so already-encoded %XX stays untouched
 _PATH_SAFE = "/%:@!$&'()*+,;=~"
 _QUERY_SAFE = "=&%+,;:@/?!$'()*~"
 
 
 def encode_url(url: str) -> str:
-    """경로·쿼리의 한글·공백을 퍼센트 인코딩한다 (#703).
+    """Percent-encode non-ASCII text (e.g. Hangul) and spaces in path and query (#703).
 
-    urllib 은 ascii 가 아닌 문자·공백이 든 URL 을 거부한다. 이미 인코딩된 %XX 는 유지한다.
+    urllib rejects URLs with non-ASCII characters or spaces. Already-encoded %XX is kept.
     """
     parts = urllib.parse.urlsplit(url)
     netloc = parts.netloc
     if not netloc.isascii():
-        # 한글 도메인은 퍼센트가 아니라 punycode 로 보낸다
+        # Non-ASCII domains go out as punycode, not percent-encoding
         host, sep, port = netloc.rpartition(":")
         if not sep or not port.isdigit():
             host, port = netloc, ""
@@ -41,14 +41,14 @@ def encode_url(url: str) -> str:
 
 def request(method: str, url: str, headers: dict | None = None,
             data: bytes | None = None, timeout: int = 30) -> dict:
-    """한 요청을 보낸다. 실패 응답(4xx·5xx)도 결과다 — 예외로 끝내지 않는다.
+    """Send one request. Failure responses (4xx/5xx) are results too — not exceptions.
 
-    권한 없음·토큰 만료 같은 실패 응답 자체가 검증 대상인 경우가 많다.
-    반환: ok(응답을 받았나) · status · headers · json · text · raw · elapsed_ms
+    Failure responses such as no permission or expired token are often what is being checked.
+    Returns: ok (got a response) · status · headers · json · text · raw · elapsed_ms
     """
     started = time.time()
     try:
-        # 잘못된 주소(스킴 없음 등)는 여기서 ValueError 가 난다 — 결과 dict 로 돌려준다
+        # A bad address (no scheme etc.) raises ValueError here — return it as a result dict
         req = urllib.request.Request(encode_url(url), data=data, method=method,
                                      headers=headers or {})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -57,7 +57,7 @@ def request(method: str, url: str, headers: dict | None = None,
     except urllib.error.HTTPError as e:
         raw = e.fp.read() if e.fp else b""
         status, rh = e.code, dict(e.headers.items()) if e.headers else {}
-    except Exception as e:  # 네트워크 자체가 안 될 때
+    except Exception as e:  # when the network itself fails
         return {"ok": False, "code": "request_failed", "url": url, "error": str(e),
                 "elapsed_ms": int((time.time() - started) * 1000)}
     text = raw.decode("utf-8", "replace")

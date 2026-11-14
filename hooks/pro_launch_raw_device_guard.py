@@ -1,8 +1,8 @@
-"""Claude Code PreToolUse(Bash) 훅: 가상 기기를 만들고·지우고·초기화하는 raw 명령을 막고 launch_cli 명령으로 돌린다 (#954).
+"""Claude Code PreToolUse(Bash) hook: blocks raw commands that create, delete or wipe virtual devices and redirects to launch_cli commands (#954).
 
-막는 패턴은 pro-launch 기기 백엔드 선언 한 곳(raw_command_patterns)에서 읽는다.
-관련 단어가 없는 명령은 아무것도 불러오지 않고 통과 (모든 Bash 호출에 끼므로 빨라야 한다).
-우회: 명령에 PRO_LAUNCH_ALLOW_RAW=1 이 있으면 통과 (사용자가 직접 원할 때). 오류가 나면 언제나 통과.
+Blocked patterns are read from one place, the pro-launch device backend declarations (raw_command_patterns).
+Commands without any related word pass without loading anything (runs on every Bash call, so it must be fast).
+Bypass: commands containing PRO_LAUNCH_ALLOW_RAW=1 pass (when the user really wants it). Any error always passes.
 """
 from __future__ import annotations
 
@@ -14,17 +14,17 @@ from pathlib import Path
 
 PLUGIN_ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT") or Path(__file__).resolve().parents[1])
 LAUNCH_SCRIPTS = PLUGIN_ROOT / "skills" / "pro-launch" / "scripts"
-# 이 단어가 하나도 없으면 패턴을 읽지 않는다
+# If none of these words appear, the patterns are not loaded
 TRIGGER_WORDS = ("simctl", "avdmanager", "wipe-data", "emu kill", "emu  kill")
 BYPASS_MARKER = "PRO_LAUNCH_ALLOW_RAW=1"
-# 실제로 실행되는 명령의 첫 단어가 이 도구일 때만 본다 (grep "simctl create" 같은 글자 검색은 막지 않는다)
+# Only inspect when the first word of an actually executed command is one of these tools (text searches like grep "simctl create" are not blocked)
 DEVICE_TOOL_NAMES = ("xcrun", "simctl", "avdmanager", "emulator", "adb")
 _SEGMENT_SEPARATOR_PATTERN = re.compile(r"&&|\|\||[;|\n()]")
 _ENV_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=\S*$")
 
 
 def device_tool_segments(command: str) -> list[str]:
-    """명령을 ; && || | 줄바꿈으로 나눠, 첫 단어(환경변수 대입·sudo 제외)가 기기 도구인 조각만."""
+    """Split the command on ; && || | and newlines, keeping only pieces whose first word (after env assignments and sudo) is a device tool."""
     segments = []
     for segment in _SEGMENT_SEPARATOR_PATTERN.split(command):
         words = segment.split()
@@ -36,7 +36,7 @@ def device_tool_segments(command: str) -> list[str]:
 
 
 def blocked_pattern(command: str):
-    """막을 패턴 하나 > RawCommandPattern 또는 None."""
+    """One pattern to block > RawCommandPattern or None."""
     if BYPASS_MARKER in command or not any(word in command for word in TRIGGER_WORDS):
         return None
     for path in (str(PLUGIN_ROOT / "scripts"), str(LAUNCH_SCRIPTS)):
@@ -65,7 +65,7 @@ def main(stdin_text: str) -> int:
             return 0
         command = str((payload.get("tool_input") or {}).get("command") or "")
         pattern = blocked_pattern(command)
-    except Exception:   # noqa: BLE001 — 훅 오류가 사용자 명령을 막으면 안 된다
+    except Exception:   # noqa: BLE001 — a hook error must not block the user's command
         return 0
     if pattern is not None:
         print(json.dumps(deny_response(command, pattern), ensure_ascii=False))

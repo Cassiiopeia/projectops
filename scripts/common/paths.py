@@ -1,4 +1,4 @@
-"""산출물 md 파일 경로를 계산한다."""
+"""Compute output md file paths."""
 
 import os
 import re
@@ -9,11 +9,11 @@ from typing import Optional, Union
 def get_next_seq(skill_dir: Path, today: str, strict: bool = False,
                  title: Optional[str] = None) -> str:
     """
-    skill_dir 내에서 오늘 날짜(today)로 시작하는 파일 개수 + 1을 3자리로 반환한다.
-    title을 주면 오늘 같은 제목 산출물(파일·폴더)의 번호를 재사용한다 (재호출마다 새 폴더가 생기지 않게, #971).
+    Return the count of files in skill_dir starting with today's date (today) + 1, as 3 digits.
+    With title, reuse today's number for an output (file or folder) with the same title (no new folder on every call, #971).
 
-    strict=True이면 skill_dir이 존재하지 않을 때 FileNotFoundError를 던진다.
-    CLI 레이어가 잘못된 skill_id를 명시적으로 거부할 때 사용한다.
+    With strict=True, raise FileNotFoundError when skill_dir does not exist.
+    Used when the CLI layer explicitly rejects an invalid skill_id.
     """
     if not skill_dir.exists():
         if strict:
@@ -25,9 +25,9 @@ def get_next_seq(skill_dir: Path, today: str, strict: bool = False,
 
 
 def _find_same_title_seq(today_names: list, today: str, title: str) -> Optional[str]:
-    """오늘 같은 제목 산출물 > 그 일련번호 (`{날짜}_{NNN}_{제목}` 폴더 또는 `.md`)
+    """Today's output with the same title > its serial number (`{date}_{NNN}_{title}` folder or `.md`)
 
-    일련번호 범위(오늘 항목 수 이하)만 재사용 — 등록 후 실제 이슈 번호로 바꾼 문서(`_245_`)는 덮지 않는다.
+    Only reuse within the serial range (up to today's entry count); docs renamed to a real issue number after filing (`_245_`) are not overwritten.
     """
     pattern = re.compile(rf"^{today}_(\d{{3}})_{re.escape(title)}(?:\.md)?$")
     for name in sorted(today_names):
@@ -38,7 +38,7 @@ def _find_same_title_seq(today_names: list, today: str, title: str) -> Optional[
 
 
 def _drop_repeated_issue_number(title: str, issue_number: Optional[str]) -> str:
-    """제목 앞의 같은 이슈 번호 제거: `574_제목`·`20261021_574_제목` + 574 > `제목` (경로 `574_574_` 방지)"""
+    """Strip a leading duplicate issue number from the title: `574_title`·`20261021_574_title` + 574 > `title` (prevents path `574_574_`)"""
     if not issue_number:
         return title
     stripped = re.sub(rf"^(?:\d{{8}}_)?{re.escape(issue_number)}_", "", title)
@@ -52,39 +52,39 @@ def build_output_path(
     number: str,
     title: str,
 ) -> Path:
-    """최종 산출물 경로를 반환한다."""
+    """Return the final output path."""
     return Path(base_dir) / skill_id / f"{today}_{number}_{title}.md"
 
 
 # ===================================================================
-# 산출물 경로 해석 (#525) — Layer 1 단일 구현
+# Output path resolution (#525): single Layer 1 implementation
 # ===================================================================
-# 과거에는 report/review 등 여러 CLI가 같은 로직을 각자 복사해 갖고 있었고,
-# 나머지 산출물 스킬은 계산 수단조차 없어 "agent가 직접 계산"하는 상태였다. 규칙이 코드로
-# 강제되지 않으니 스킬마다 파일명이 갈라져도 알아챌 방법이 없었다.
-# 이 함수가 유일한 구현이며, 모든 스킬 CLI는 이것을 호출한다.
+# Several CLIs (report, review, etc.) used to each carry a copy of this logic,
+# and the other output skills had no way to compute it at all ("the agent computes it"). With the rule not
+# enforced in code, nobody could notice when file names diverged between skills.
+# This function is the only implementation; every skill CLI calls it.
 
 DEFAULT_OUTPUT_ROOT = "docs/projectops"
 
 
 def resolve_output_root(project_root: Union[str, Path]) -> Path:
-    """산출물 루트를 결정한다. 설정이 없으면 기존 위치를 그대로 쓴다.
+    """Decide the output root. Without a setting, keep the existing location.
 
-    설정(config.json)의 `output.root` 로 팀마다 다른 위치를 쓸 수 있다.
-    - 상대경로면 저장소 루트 기준 (예: "docs/dev" → <repo>/docs/dev)
-    - 절대경로면 그대로 (저장소 밖에 모으고 싶을 때)
-    - 미설정이면 docs/projectops — 즉 설정을 건드리지 않으면 동작이 바뀌지 않는다
+    `output.root` in the settings (config.json) lets each team use a different location.
+    - Relative path: from the repository root (e.g. "docs/dev" → <repo>/docs/dev)
+    - Absolute path: used as is (to collect outside the repository)
+    - Unset: docs/projectops, i.e. behavior does not change unless the setting is touched
     """
     return _join_output_root(project_root, read_configured_output_root()[0])
 
 
 def read_configured_output_root() -> tuple[str, Optional[str]]:
-    """config.json 의 output.root > (값, 경고). 못 쓰는 설정이면 빈 값(기본 위치) + 무엇이 문제인지"""
+    """config.json output.root > (value, warning). For an unusable setting, an empty value (default location) + what is wrong"""
     from common.config import config_path, load_with_status
     try:
         data, status = load_with_status()
         location = config_path()
-    except OSError as error:   # 옛 경로 이주 복사 실패 등
+    except OSError as error:   # e.g. failed copy while migrating from the old path
         return "", f"could not open config.json; ignoring output.root and using the default location ({DEFAULT_OUTPUT_ROOT}): {error}"
     if status == "unreadable":
         return "", (f"config.json is broken (JSON syntax or encoding); ignoring output.root and "
@@ -101,7 +101,7 @@ def read_configured_output_root() -> tuple[str, Optional[str]]:
 
 
 def _join_output_root(project_root: Union[str, Path], configured: str) -> Path:
-    """설정값 > 산출물 루트 (빈 값이면 기본, 상대경로면 저장소 기준)"""
+    """Setting value > output root (empty means default, relative means from the repository)"""
     root = Path(project_root)
     if not configured:
         return root / DEFAULT_OUTPUT_ROOT
@@ -110,32 +110,32 @@ def _join_output_root(project_root: Union[str, Path], configured: str) -> Path:
 
 
 # ===================================================================
-# 추적 제외 (#621) — 증거물은 저장소에 쌓이면 안 된다
+# Untracked outputs (#621): evidence must not pile up in the repository
 # ===================================================================
-# 스킬 산출물은 두 종류다. 섞으면 한쪽이 반드시 틀린다.
+# Skill outputs come in two kinds. Mixing them makes one side wrong.
 #
-#   문서  — 사람이 읽고 이슈에서 참조한다. **추적해야 한다.**
-#           보고서·계획·분석·리뷰·이슈·테스트케이스 …
-#   증거  — 스크린샷·화면 덤프·렌더·차이 그림. 재생성되고 무겁다.
-#           **추적하면 안 된다.** 실측으로 한 레포의 agent-test 가 9.3MB였다.
+#   Docs     — read by people and referenced from issues. **Must be tracked.**
+#           Reports, plans, analyses, reviews, issues, test cases …
+#   Evidence — screenshots, screen dumps, renders, diff images. Regenerated and heavy.
+#           **Must not be tracked.** Measured: one repo's agent-test was 9.3MB.
 #
-# 폴더가 스스로 제외 규칙을 들고 다니게 한다 (#561 과 같은 방식) — 레포 루트
-# .gitignore 를 건드리면 다른 세션·다른 도구의 규칙과 충돌한다.
+# Each folder carries its own ignore rule (same approach as #561); touching the repo root
+# .gitignore conflicts with rules from other sessions and tools.
 #
-# **새 산출물 스킬을 만들면 아래 집합에 반드시 넣는다.** 빠뜨리면 증거물이
-# 조용히 커밋되기 시작하고, 알아챌 때쯤엔 이미 이력에 박혀 있다.
+# **When you add a new output skill, put it in the set below.** If missed, evidence
+# starts getting committed silently, and by the time anyone notices it is already in history.
 EVIDENCE_SKILLS = frozenset({
-    "agent-test",     # 스크린샷·기기 로그
-    # 덤프·시안 export·앱 렌더·차이 그림. #854 에서 figma-verify → figma 로 이름을 바꿨다.
-    # 옛 figma-verify/ 폴더는 그대로 둔다 — 회차마다 새로 만드는 증거물이라 다시 읽는 곳이 없고,
-    # 스스로 .gitignore 를 들고 있어 커밋되지도 않는다. 그래서 읽기 폴백을 두지 않는다.
+    "agent-test",     # screenshots · device logs
+    # Dumps, mockup exports, app renders, diff images. Renamed figma-verify → figma in #854.
+    # Old figma-verify/ folders are left alone: evidence is rebuilt every round so nothing re-reads it,
+    # and it carries its own .gitignore so it is never committed. Hence no read fallback.
     "figma",
-    "launch",         # 앱·웹 캡처 · http 응답 (#629)
-    "ui-design",   # 요청서 보드 · 상태별 캡처 (#634)
+    "launch",         # app·web captures · http responses (#629)
+    "ui-design",   # request boards · per-state captures (#634)
 })
 
-# 사라진 스킬(note·analyze·plan·implement·design-analyze·refactor-analyze·ppt·troubleshoot·pr)은 뺐다 (#822).
-# 남겨 두면 없는 스킬 이름으로도 산출물 폴더가 만들어진다.
+# Removed skills (note·analyze·plan·implement·design-analyze·refactor-analyze·ppt·troubleshoot·pr) were dropped (#822).
+# If kept, output folders would still be created under nonexistent skill names.
 DOCUMENT_SKILLS = frozenset({
     "issue", "oss-consult", "presentation", "report", "review", "testcase",
 })
@@ -148,10 +148,10 @@ def gitignore_body(skill_id: str) -> str:
 
 
 def ensure_untracked(dir_path: Union[str, Path], skill_id: str) -> str:
-    """폴더가 스스로 추적 제외를 들고 다니게 한다.
+    """Make the folder carry its own untracked rule.
 
-    반환: created(새로 씀) / already(우리 것이 이미 있음) / kept(남의 것 보존)
-    **남이 쓴 .gitignore 는 절대 덮지 않는다.**
+    Returns: created (newly written) / already (ours already there) / kept (someone else's preserved)
+    **Never overwrite a .gitignore written by someone else.**
     """
     d = Path(dir_path)
     d.mkdir(parents=True, exist_ok=True)
@@ -166,7 +166,7 @@ def ensure_untracked(dir_path: Union[str, Path], skill_id: str) -> str:
 
 
 def add_root_and_issue_args(parser, with_issue: bool = True) -> None:
-    """get-output-path 공통 인자: --root(프로젝트), --issue(이슈 번호 직접 지정) (#943)"""
+    """Shared get-output-path args: --root (project), --issue (explicit issue number) (#943)"""
     parser.add_argument("--root", default=None,
                         help="project root (default: $PROJECT_ROOT, then the git root of the current folder)")
     if with_issue:
@@ -175,7 +175,7 @@ def add_root_and_issue_args(parser, with_issue: bool = True) -> None:
 
 
 def _project_dir(root: Optional[str]) -> Optional[str]:
-    """프로젝트 폴더: --root > $PROJECT_ROOT > None(=현재 폴더). 없는 폴더면 None 대신 ValueError"""
+    """Project folder: --root > $PROJECT_ROOT > None (= current folder). ValueError instead of None for a missing folder"""
     chosen = root or os.environ.get("PROJECT_ROOT") or None
     if chosen and not os.path.isdir(chosen):
         raise ValueError(chosen)
@@ -185,22 +185,22 @@ def _project_dir(root: Optional[str]) -> Optional[str]:
 def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
                         use_issue_number: bool = True,
                         root: Optional[str] = None, issue: Optional[int] = None) -> dict:
-    """산출물 md 경로를 계산해 dict로 반환한다 (CLI가 그대로 emit한다).
+    """Compute the output md path and return it as a dict (the CLI emits it as is).
 
-    이슈 번호는 worktree 경로 → 브랜치명 순으로 찾고, 둘 다 없으면
-    그날의 일련번호를 붙인다. 제목은 인자 우선, 없으면 경로에서 추출한다.
+    The issue number is looked up from the worktree path → branch name; if neither has one,
+    the day's serial number is used. The title comes from the argument first, else from the path.
 
-    root: 프로젝트 루트. 없으면 $PROJECT_ROOT, 그다음 현재 폴더 (셸 폴더가 바뀐 뒤에도 맞게, #943).
-    issue: 이슈 번호를 직접 지정 (worktree·브랜치에서 찾은 값보다 우선).
+    root: project root. Defaults to $PROJECT_ROOT, then the current folder (correct even after the shell folder changes, #943).
+    issue: explicit issue number (wins over values found from worktree or branch).
 
-    use_issue_number=False 면 브랜치·worktree 번호를 쓰지 않고 일련번호만 붙인다.
-    새 이슈 문서처럼 **아직 번호가 없는 산출물**이 지금 브랜치의 이슈 번호를
-    빌려 가면 다른 이슈 파일과 이름이 겹친다 (#822).
+    use_issue_number=False skips branch/worktree numbers and uses only the serial number.
+    If an output **that has no number yet**, like a new issue doc, borrowed the current branch's issue number,
+    its name would collide with another issue's file (#822).
     """
     import subprocess
     from datetime import date
 
-    # 등록된 스킬만 받는다. `../../escape` 같은 값이 산출물 루트 밖으로 나가는 것을 막는다 (#713)
+    # Only registered skills are accepted. Blocks values like `../../escape` from leaving the output root (#713)
     if skill_id not in EVIDENCE_SKILLS and skill_id not in DOCUMENT_SKILLS:
         return {
             "ok": False,
@@ -246,7 +246,7 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     configured_root, config_warning = read_configured_output_root()
     output_base = _join_output_root(root_str, configured_root)
     skill_dir = output_base / skill_id
-    # 제목 정리 (이모지·[태그] 제거 > 파일명 정규화 > 앞의 같은 이슈 번호 제거)
+    # Clean the title (strip emoji and [tags] > normalize file name > strip leading duplicate issue number)
     if forced_title:
         final_title = normalize(strip_issue_decorations(forced_title))
     else:
@@ -254,8 +254,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
         final_title = normalize(raw) if raw else "untitled"
     final_title = _drop_repeated_issue_number(final_title, issue_num)
 
-    # 번호: 이슈 번호 > 오늘 같은 제목의 일련번호 재사용(증거물만) > 새 일련번호
-    # 문서(issue·report 등)는 재사용하면 같은 제목의 앞 문서를 덮으므로 항상 새 번호
+    # Number: issue number > reuse today's serial for the same title (evidence only) > new serial
+    # Docs (issue, report, etc.) always get a new number; reuse would overwrite the earlier doc with the same title
     reuse_title = final_title if skill_id in EVIDENCE_SKILLS else None
     number = issue_num if issue_num else get_next_seq(skill_dir, today, title=reuse_title)
 
@@ -268,8 +268,8 @@ def resolve_output_path(skill_id: str, forced_title: Optional[str] = None,
     }
     if config_warning:
         out["config_warning"] = config_warning
-    # 증거를 내는 스킬이면 폴더를 만들면서 제외 규칙을 함께 심는다.
-    # 각 스킬이 알아서 하게 두면 빠뜨리는 스킬이 반드시 생긴다.
+    # For evidence-producing skills, plant the ignore rule while creating the folder.
+    # Left to each skill, some skill will always forget.
     if skill_id in EVIDENCE_SKILLS:
         out["gitignore"] = ensure_untracked(skill_dir, skill_id)
     return out

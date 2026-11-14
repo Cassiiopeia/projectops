@@ -1,4 +1,4 @@
-"""cloudflared 빠른 터널 프로세스: 찾기 > 띄우기(세션과 분리) > 끝내기, Orca Web 포트 찾기"""
+"""cloudflared quick tunnel processes: find > start (detached from the session) > stop, find the Orca Web port"""
 from __future__ import annotations
 
 import json
@@ -14,7 +14,7 @@ from pathlib import Path
 from . import proc
 
 IS_WINDOWS = sys.platform.startswith("win")
-# cloudflared 로그에 찍히는 빠른 터널 주소
+# Quick tunnel address printed in the cloudflared log
 TUNNEL_URL_PATTERN = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
 # --url http://127.0.0.1:6768 > 6768
 LOCAL_PORT_PATTERN = re.compile(r"--url[ =]+https?://[^\s:/]+:(\d+)")
@@ -34,7 +34,7 @@ def cloudflared_path() -> str | None:
 
 
 def _process_rows() -> list[tuple[int, str]]:
-    """(pid, 명령줄) 목록. 실패하면 빈 목록"""
+    """List of (pid, command line). Empty list on failure"""
     if IS_WINDOWS:
         script = ("Get-CimInstance Win32_Process -Filter \"Name='cloudflared.exe'\" | "
                   "Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress")
@@ -56,10 +56,10 @@ def _process_rows() -> list[tuple[int, str]]:
 
 
 def quick_tunnels() -> list[dict]:
-    """떠 있는 빠른 터널 (이름 있는 터널은 --url 이 없어 빠짐)"""
+    """Running quick tunnels (named tunnels have no --url, so they are left out)"""
     tunnels = []
     for pid, command in _process_rows():
-        # 실행 파일이 cloudflared 인 것만 (그 명령을 감싼 셸 줄은 뺌)
+        # Only processes whose executable is cloudflared (skip shell lines wrapping it)
         executable = Path(command.strip().strip('"').split()[0] if command.strip() else "").name.lower()
         if executable not in ("cloudflared", "cloudflared.exe") or " tunnel" not in command:
             continue
@@ -70,14 +70,14 @@ def quick_tunnels() -> list[dict]:
 
 
 def is_alive(pid: int) -> bool:
-    # pid 0 이하는 프로세스 그룹 신호라 생존 판정 대상 아님
+    # pid 0 or below signals a process group, so not a liveness target
     if pid <= 0:
         return False
     return proc.pid_alive(pid)
 
 
 def stop(pid: int) -> bool:
-    """끝내기: 정상 종료 요청 > 3초 안에 안 끝나면 강제"""
+    """Stop: ask to exit > force if not done within 3 seconds"""
     if IS_WINDOWS:
         _run(["taskkill", "/PID", str(pid), "/F"])
         return not is_alive(pid)
@@ -98,7 +98,7 @@ def stop(pid: int) -> bool:
 
 
 def start(binary: str, port: int, log_path: Path) -> int:
-    """세션과 분리해 띄움 (에이전트 세션이 끝나도 터널은 남음)"""
+    """Start detached from the session (the tunnel survives the agent session)"""
     log_handle = open(log_path, "w", encoding="utf-8")
     command = [binary, "tunnel", "--no-autoupdate", "--url", f"http://127.0.0.1:{port}"]
     options: dict = {"stdout": log_handle, "stderr": subprocess.STDOUT, "stdin": subprocess.DEVNULL}
@@ -142,7 +142,7 @@ def _windows_process_names() -> dict[int, str]:
 
 
 def listening_ports_of(process_word: str) -> list[int]:
-    """이름에 process_word 가 든 프로세스가 듣는 TCP 포트 (macOS lsof · Linux ss · Windows netstat+tasklist)"""
+    """TCP ports listened on by processes whose name contains process_word (macOS lsof · Linux ss · Windows netstat+tasklist)"""
     word = process_word.lower()
     ports: set[int] = set()
     if IS_WINDOWS:

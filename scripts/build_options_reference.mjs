@@ -1,22 +1,22 @@
 #!/usr/bin/env node
-// 옵션 레퍼런스 생성: src/core/options-schema.js > docs/en/cli.md · docs/CLI.md 의 생성 블록
+// Build the options reference: src/core/options-schema.js > generated blocks in docs/en/cli.md and docs/CLI.md
 //
-//   node scripts/build_options_reference.mjs          # 생성 블록 다시 쓰기
-//   node scripts/build_options_reference.mjs --check  # 쓰지 않고 최신인지만 (아니면 종료코드 1)
+//   node scripts/build_options_reference.mjs          # rewrite the generated blocks
+//   node scripts/build_options_reference.mjs --check  # check freshness only, no writes (exit 1 if stale)
 //
-// 원본은 options-schema.js 하나. 생성 블록은 손으로 고치지 않는다 (options-schema.js 수정 후 실행).
+// options-schema.js is the only source. Never hand-edit the generated blocks (edit options-schema.js, then run this).
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildSchema } from "../src/core/options-schema.js";
 
 const repositoryRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
-// 블록을 넣을 문서 (영어·한국어 짝)
+// Docs that receive the block (English/Korean pair)
 const targetDocPaths = ["docs/en/cli.md", "docs/CLI.md"];
 const blockStartMarker = "<!-- generated: options -->";
 const blockEndMarker = "<!-- /generated -->";
 
-// 표 칸 정리 (파이프 이스케이프, 줄바꿈 제거)
+// Clean a table cell (escape pipes, drop newlines)
 function toTableCell(text) {
   return String(text ?? "").replace(/\|/g, "\\|").replace(/\n/g, " ");
 }
@@ -31,7 +31,7 @@ function toDefaultText(defaultValue) {
   return typeof defaultValue === "string" ? defaultValue : `\`${JSON.stringify(defaultValue)}\``;
 }
 
-// 값·기본값 칸: "values: a b; default: x"
+// Values/default cell: "values: a b; default: x"
 function toValuesAndDefaultCell(entry) {
   const parts = [];
   if (entry.values?.length) parts.push(`values: ${toCodeList(entry.values)}`);
@@ -47,7 +47,7 @@ function toFlagNameCell(flagEntry) {
   return names.join(", ");
 }
 
-// 플래그 표 > version.yml 키 표
+// Flag table > version.yml key table
 function renderOptionsReference(schema) {
   const lines = [
     blockStartMarker,
@@ -77,7 +77,7 @@ function renderOptionsReference(schema) {
   return lines.join("\n");
 }
 
-// 문서 안 생성 블록 교체 (마커 없으면 오류)
+// Replace the generated block in a doc (error if markers are missing)
 function replaceGeneratedBlock(documentText, generatedBlock, documentPath) {
   const startIndex = documentText.indexOf(blockStartMarker);
   const endIndex = documentText.indexOf(blockEndMarker);

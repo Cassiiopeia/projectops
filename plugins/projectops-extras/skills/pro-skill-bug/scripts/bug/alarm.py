@@ -1,4 +1,4 @@
-"""훅 세션 상태 > 경보 근거 (#1000). 훅 규칙은 import 하지 않고 상태 파일만 읽는다"""
+"""Hook session state > alarm evidence (#1000). Reads only the state file, does not import hook rules"""
 from __future__ import annotations
 
 import json
@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bug.redact import redact_text
 
-# 훅 세션 상태: ~/.projectops/cache/pro-skill-bug/watch/{session_id}.json (hooks/skill_bug_watch.py 와 같은 위치)
+# Hook session state: ~/.projectops/cache/pro-skill-bug/watch/{session_id}.json (same location as hooks/skill_bug_watch.py)
 WATCH_FOLDER_PARTS = (".projectops", "cache", "pro-skill-bug", "watch")
 
 
@@ -15,7 +15,7 @@ def state_path(session_id: str) -> Path:
 
 
 def load_alarms(session_id: str) -> list[dict] | None:
-    """상태 파일 > 경보 목록 (파일 없거나 깨지면 None, 경보 없으면 빈 목록)"""
+    """State file > alarm list (None if missing or broken, empty list if no alarms)"""
     try:
         state = json.loads(state_path(session_id).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -24,7 +24,7 @@ def load_alarms(session_id: str) -> list[dict] | None:
 
 
 def redact_alarm(alarm: dict) -> tuple[dict, dict]:
-    """경보의 글 칸(결과 머리 · 우회 명령) 가리기 > (가린 경보, 종류별 개수)"""
+    """Redact alarm text fields (result head · workaround command) > (redacted alarms, count per kind)"""
     counts: dict = {}
     cleaned = dict(alarm)
     for field in ("excerpt", "workaround"):

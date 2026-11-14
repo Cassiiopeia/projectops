@@ -1,4 +1,4 @@
-"""설정: ~/.projectops/config/config.json 의 disk-cleanup 섹션 (없으면 기본값)"""
+"""Settings: disk-cleanup section of ~/.projectops/config/config.json (defaults if missing)"""
 from __future__ import annotations
 
 import json
@@ -8,9 +8,9 @@ from pathlib import Path
 from . import shell
 
 CONFIG_SECTION = "disk-cleanup"
-# 이 시간 안에 손댄 것은 지우지 않음 (시간)
+# Anything touched within this window is not deleted (hours)
 DEFAULT_IDLE_HOURS = 2
-# 백업: ~/.projectops/backups/disk-cleanup/{yyyyMMdd}/{레포}/{브랜치}
+# Backup: ~/.projectops/backups/disk-cleanup/{yyyyMMdd}/{repo}/{branch}
 DEFAULT_BACKUP_PARTS = (".projectops", "backups", "disk-cleanup")
 
 
@@ -25,7 +25,7 @@ def _section() -> dict:
 
 
 def worktree_roots(cli_roots: list[str] | None) -> tuple[list[Path], str]:
-    """작업 폴더 탐색 위치 > (경로들, 출처). 플래그 > 설정 > 현재 레포의 상위 폴더"""
+    """Work folder search roots > (paths, source). Flag > settings > parent folder of the current repo"""
     if cli_roots:
         return [Path(root).expanduser() for root in cli_roots], "flag"
     configured = _section().get("roots")

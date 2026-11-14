@@ -1,1 +1,1 @@
-"""pro-disk-cleanup 사실 수집·삭제 게이트 패키지 (표준 라이브러리 전용)"""
+"""pro-disk-cleanup fact-gathering and delete-gate package (standard library only)"""

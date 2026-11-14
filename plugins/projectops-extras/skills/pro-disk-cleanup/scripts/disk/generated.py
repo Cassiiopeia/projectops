@@ -1,4 +1,4 @@
-"""worktree 안 재생성 가능한 생성물 찾기: 이름 목록 > git 추적·최근 수정·사용 중 제외"""
+"""Find regenerable output inside a worktree: name list > exclude git-tracked, recently modified, in use"""
 from __future__ import annotations
 
 import os
@@ -7,18 +7,18 @@ from pathlib import Path
 
 from . import shell, sizes
 
-# 빌드·의존성 설치로 다시 만들어지는 폴더 이름
+# Folder names recreated by builds and dependency installs
 GENERATED_FOLDER_NAMES = frozenset({
     "build", "node_modules", ".dart_tool", "Pods", ".gradle", ".venv", "venv", "target",
     "dist", ".next", ".nuxt", ".turbo", ".build", "DerivedData", ".expo", ".parcel-cache",
 })
-# 생성물을 찾을 최대 깊이 (worktree 루트 기준)
+# Max depth to search for generated output (from the worktree root)
 SEARCH_DEPTH = 5
 SKIP_DESCEND = frozenset({".git", ".idea", ".vscode"})
 
 
 def is_generated_path(relative_path: str) -> bool:
-    """git status 경로가 생성물 폴더 안이거나 플러그인 자동 생성 파일인지"""
+    """Whether a git status path is inside a generated folder or is a plugin-generated file"""
     parts = Path(relative_path).parts
     if any(part in GENERATED_FOLDER_NAMES for part in parts):
         return True
@@ -46,7 +46,7 @@ def find_generated_folders(worktree: Path) -> list[Path]:
                     elif depth + 1 < SEARCH_DEPTH:
                         pending.append((Path(entry.path), depth + 1))
         except OSError:
-            continue  # 권한 없음·사라진 폴더
+            continue  # no permission or folder gone
     return found
 
 
@@ -57,8 +57,8 @@ def is_tracked_by_git(worktree: Path, folder: Path) -> bool:
 
 
 def describe_folder(worktree: Path, folder: Path, idle_hours: float, users: list[str] | None) -> dict:
-    """생성물 1개 > {path, size, skip_reason}. skip_reason 3개: tracked, recently_modified, in_use"""
-    # 크기 측정이 접근 시각을 바꾸므로 시각을 먼저, 수정 시각만 봄
+    """One generated item > {path, size, skip_reason}. 3 skip_reasons: tracked, recently_modified, in_use"""
+    # Sizing changes access times, so read times first, and only modification time
     touched = sizes.newest_touch_seconds(folder, should_include_access=False)
     byte_count, is_partial = sizes.folder_bytes(folder)
     skip_reason = None

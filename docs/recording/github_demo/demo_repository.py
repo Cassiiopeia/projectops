@@ -1,4 +1,4 @@
-"""데모 레포 준비·조작: 생성, projectops 설치, 이슈·PR·머지, 워크플로우 대기 (GitHub REST, 표준 라이브러리만)"""
+"""Demo repo setup and actions: create, install projectops, issues, PRs, merges, wait for workflows (GitHub REST, standard library only)"""
 import json
 import os
 import subprocess
@@ -8,13 +8,13 @@ import urllib.request
 from pathlib import Path
 
 API_ROOT = "https://api.github.com"
-# 워크플로우 대기 상한 (초)
+# Workflow wait limit (seconds)
 WORKFLOW_WAIT_TIMEOUT_SECONDS = 600
 POLL_INTERVAL_SECONDS = 3
 
 
 def load_github_pat() -> str:
-    """PAT: 환경변수 GITHUB_PAT > ~/.projectops/config/config.json github.global_pat"""
+    """PAT: env var GITHUB_PAT > ~/.projectops/config/config.json github.global_pat"""
     if os.environ.get("GITHUB_PAT"):
         return os.environ["GITHUB_PAT"]
     config_path = Path.home() / ".projectops" / "config" / "config.json"
@@ -26,7 +26,7 @@ def load_github_pat() -> str:
 
 
 class DemoRepository:
-    """git-sandboxes 조직의 임시 데모 레포 하나"""
+    """One temporary demo repo in the git-sandboxes org"""
 
     def __init__(self, owner: str, name: str, pat: str):
         self.owner = owner
@@ -56,14 +56,14 @@ class DemoRepository:
     def repo_path(self, suffix: str = "") -> str:
         return f"/repos/{self.full_name}{suffix}"
 
-    # ── 레포 수명 ──
+    # ── Repo lifecycle ──
     def recreate(self):
-        """기존 레포 삭제 > 공개 레포 생성 (로그아웃 화면 캡처용) > Actions 쓰기 권한"""
+        """Delete existing repo > create public repo (for logged-out screen captures) > Actions write permission"""
         if self.request("GET", self.repo_path(), is_missing_ok=True):
             self.request("DELETE", self.repo_path())
             time.sleep(3)
         self.request("POST", f"/orgs/{self.owner}/repos", {"name": self.name, "private": False, "auto_init": False})
-        # 릴리스 워크플로우가 커밋·PR 머지를 하도록 기본 토큰 쓰기 + PR 승인 허용 (조직 정책이 막으면 무시)
+        # Let release workflows commit and merge PRs: default token write + allow PR approval (ignored if org policy blocks it)
         try:
             self.request("PUT", self.repo_path("/actions/permissions/workflow"),
                          {"default_workflow_permissions": "write", "can_approve_pull_request_reviews": True})
@@ -83,7 +83,7 @@ class DemoRepository:
                         "-c", "user.email=demo@example.com", *args], check=True, capture_output=True)
 
     def install_projectops(self, project_dir: Path, runner: Path, template_dir: Path, language: str):
-        """샘플 Spring 프로젝트 > 작업 트리 CLI 로 비대화형 설치 > main·develop push"""
+        """Sample Spring project > non-interactive install with the working-tree CLI > push main and develop"""
         subprocess.run(["node", str(runner), str(template_dir), "--mode", "full", "--type", "spring",
                         "--deploy", "none", "--language", language, "--force"],
                        cwd=project_dir, check=True, capture_output=True,
@@ -93,15 +93,15 @@ class DemoRepository:
         self.run_git(project_dir, "remote", "add", "origin", self.push_url())
         self.run_git(project_dir, "push", "-q", "-u", "origin", "main")
         self.wait_for_idle_workflows()
-        # main 직접 push 의 버전 커밋까지 받은 뒤 develop 생성
+        # Create develop only after pulling the version commit from the direct main push
         self.run_git(project_dir, "pull", "-q", "--rebase", "origin", "main")
         self.run_git(project_dir, "checkout", "-q", "-b", "develop")
         self.run_git(project_dir, "push", "-q", "-u", "origin", "develop")
         self.wait_for_idle_workflows()
 
-    # ── 워크플로우 ──
+    # ── Workflows ──
     def wait_for_idle_workflows(self, timeout_seconds: int = WORKFLOW_WAIT_TIMEOUT_SECONDS):
-        """진행 중·대기 run 이 없을 때까지 대기 (push 직후 run 등록 지연 고려해 첫 확인 전 대기)"""
+        """Wait until no run is in progress or queued (waits before the first check, since runs register late after a push)"""
         time.sleep(8)
         deadline = time.time() + timeout_seconds
         while time.time() < deadline:
@@ -112,13 +112,13 @@ class DemoRepository:
         raise SystemExit("[record github] workflows did not finish in time")
 
     def is_run_active(self, run: dict) -> bool:
-        """run 진행 중 여부 (run 상태가 늦게 갱신되는 경우 job 이 전부 끝났으면 끝난 것으로 봄)"""
+        """Whether a run is in progress (if run status updates late, treat it as done once all jobs finished)"""
         if run["status"] not in ("queued", "in_progress", "waiting", "pending", "requested"):
             return False
         jobs = self.request("GET", run["jobs_url"])["jobs"]
         return not jobs or any(job["status"] != "completed" for job in jobs)
 
-    # ── 이슈·PR ──
+    # ── Issues and PRs ──
     def create_issue(self, title: str, body: str) -> dict:
         return self.request("POST", self.repo_path("/issues"), {"title": title, "body": body})
 

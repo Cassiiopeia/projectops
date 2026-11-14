@@ -1,4 +1,4 @@
-"""레포 탐색·생성: owner 타입, 레포 목록·상세, README, 언어, 커밋, 공개 여부, 새 레포."""
+"""Repo exploration and creation: owner type, repo list and details, README, languages, commits, visibility, new repo."""
 
 from __future__ import annotations
 
@@ -9,13 +9,13 @@ from common.github_rest.transport import _API_BASE, GitHubAPIError
 
 
 def get_user_type(owner: str, pat: str) -> str:
-    """GitHub owner 타입을 user/org 중 하나로 반환한다."""
+    """Return the GitHub owner type as either user or org."""
     data = client._request("GET", f"{_API_BASE}/users/{owner}", None, pat)
     return "org" if data.get("type") == "Organization" else "user"
 
 
 def list_repos(owner: str, repo_type: str, pat: str) -> list[dict]:
-    """사용자 또는 조직의 레포 목록을 반환한다."""
+    """Return the repo list of a user or organization."""
     endpoint = "orgs" if repo_type == "org" else "users"
     items = client._request("GET", f"{_API_BASE}/{endpoint}/{owner}/repos?per_page=100&sort=updated", None, pat)
     return [
@@ -35,7 +35,7 @@ def list_repos(owner: str, repo_type: str, pat: str) -> list[dict]:
 
 
 def get_repo_detail(owner: str, repo: str, pat: str) -> dict:
-    """레포 상세 정보를 반환한다."""
+    """Return repo details."""
     data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}", None, pat)
     return {
         "name": data["name"],
@@ -49,14 +49,14 @@ def get_repo_detail(owner: str, repo: str, pat: str) -> dict:
         "updated_at": data.get("updated_at"),
         "topics": data.get("topics", []),
         "url": data.get("html_url"),
-        # 공개 여부: 증적 이미지 렌더링·오픈소스 점검 판단에 쓴다
+        # Visibility: used for evidence image rendering and open-source audit decisions
         "private": data.get("private", False),
         "visibility": data.get("visibility"),
     }
 
 
 def get_readme(owner: str, repo: str, pat: str) -> dict:
-    """README 내용을 base64 디코딩해 반환한다. 없으면 content=None."""
+    """Return README content base64-decoded. content=None if missing."""
     try:
         data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/readme", None, pat)
     except GitHubAPIError as e:
@@ -73,7 +73,7 @@ def get_readme(owner: str, repo: str, pat: str) -> dict:
 
 
 def get_languages(owner: str, repo: str, pat: str) -> list[dict]:
-    """언어별 비율을 내림차순으로 반환한다."""
+    """Return per-language ratios in descending order."""
     data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/languages", None, pat)
     total = sum(data.values())
     if total <= 0:
@@ -85,7 +85,7 @@ def get_languages(owner: str, repo: str, pat: str) -> list[dict]:
 
 
 def list_commits(owner: str, repo: str, pat: str, limit: int = 10) -> list[dict]:
-    """최근 커밋 목록을 반환한다."""
+    """Return the recent commit list."""
     limit = max(1, min(limit, 100))
     items = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/commits?per_page={limit}", None, pat)
     commits = []
@@ -105,18 +105,18 @@ def list_commits(owner: str, repo: str, pat: str, limit: int = 10) -> list[dict]
 
 
 def is_repo_private(owner: str, repo: str, pat: str) -> bool:
-    """private 레포인지. private이면 익명 접근이 막혀 이미지가 렌더링되지 않는다."""
+    """Whether the repo is private. Private repos block anonymous access, so images do not render."""
     return bool(client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}", None, pat).get("private"))
 
 
 def get_authenticated_login(pat: str) -> str:
-    """PAT 주인 login"""
+    """Login of the PAT owner"""
     return client._request("GET", f"{_API_BASE}/user", None, pat).get("login", "")
 
 
 def create_repo(owner: str, name: str, pat: str, *, is_private: bool, description: str | None,
                 should_auto_init: bool) -> dict:
-    """새 레포 생성: PAT 주인이면 /user/repos, 조직이면 /orgs/{owner}/repos (#1007)"""
+    """Create a new repo: /user/repos if the PAT owner, /orgs/{owner}/repos if an organization (#1007)"""
     body = {"name": name, "private": is_private, "auto_init": should_auto_init}
     if description:
         body["description"] = description

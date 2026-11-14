@@ -1,12 +1,12 @@
-"""캡처 줄이기 — WebP 변환과 긴 변 축소 (pro-launch · pro-agent-test 공용, #629).
+"""Shrinking captures — WebP conversion and long-side downscale (shared by pro-launch and pro-agent-test, #629).
 
-화면 캡처는 쌓이면 무겁다. 줄여야 하는 것이 **둘**인데 방법이 서로 다르다(실측).
+Screen captures get heavy as they pile up. **Two** things need shrinking, and the methods differ (measured).
 
-  파일 크기  →  WebP 로 바꾼다.  495KB → 34KB (-93%)
-  세션 토큰  →  **해상도를 줄인다.** 포맷은 토큰에 아무 영향이 없다.
-                1080x2400 그대로면 1,473 토큰, 긴 변 1200 으로 줄이면 864 토큰.
+  file size      →  convert to WebP.  495KB → 34KB (-93%)
+  session tokens →  **reduce resolution.** Format has no effect on tokens.
+                1080x2400 as is costs 1,473 tokens; long side 1200 costs 864.
 
-그래서 **둘을 함께** 한다.
+So we do **both together**.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from common.proc import run
 from common.state import venv_python
 
 WEBP_QUALITY = 75
-SHOT_MAX_SIDE = 1200          # 작은 글자까지 읽히는 선. 토큰은 약 41% 줄어든다
+SHOT_MAX_SIDE = 1200          # small text still readable. Cuts tokens by about 41%
 
 
 def has_pillow() -> bool:
@@ -31,7 +31,7 @@ def has_pillow() -> bool:
         return False
 
 
-# venv 파이썬에게 시킬 변환. 인자: src dst quality max_side(0이면 축소 안 함)
+# Conversion run by the venv Python. Args: src dst quality max_side (0 = no downscale)
 PILLOW_SNIPPET = (
     "import sys\n"
     "from PIL import Image\n"
@@ -43,7 +43,7 @@ PILLOW_SNIPPET = (
 )
 
 
-# 인자: src dst rects_json. 결과 JSON 한 줄 출력 (쓰기 전에 검사, 실패면 파일 안 만듦)
+# Args: src dst rects_json. Prints one JSON line (checks before writing; no file on failure)
 PILLOW_MASK_SNIPPET = (
     "import json, sys\n"
     "from PIL import Image, ImageDraw\n"
@@ -70,7 +70,7 @@ class ImageMaskError(Exception):
 
 
 def mask_regions(src: Path, rects: list[list[int]], dst: Path) -> dict:
-    """이미지 영역을 검게 덮어 새 파일로 저장 > {width, height}. 흐림은 복원될 수 있어 쓰지 않음"""
+    """Black out image regions and save as a new file > {width, height}. No blur, since blur can be reversed"""
     interpreter = sys.executable if has_pillow() else None
     if interpreter is None and (vpy := venv_python()) and venv_has_pillow(vpy):
         interpreter = str(vpy)
@@ -106,7 +106,7 @@ def venv_has_pillow(vpy: Path) -> bool:
 
 
 def is_portrait(src: Path) -> bool:
-    """cwebp 는 비율 유지를 0 으로 표시하므로 어느 변이 긴지 알아야 한다."""
+    """cwebp marks keep-aspect as 0, so we need to know which side is longer."""
     if has_pillow():
         from PIL import Image
         with Image.open(src) as im:
@@ -123,11 +123,11 @@ def is_portrait(src: Path) -> bool:
 
 def to_webp(src: Path, quality: int = WEBP_QUALITY,
             max_side: int | None = None) -> Path | None:
-    """이미지를 WebP 로 바꾸고, max_side 가 있으면 긴 변을 거기에 맞춘다.
+    """Convert an image to WebP and, if max_side is set, fit the long side to it.
 
-    Pillow(시스템) → Pillow(전용 venv) → cwebp → ffmpeg 순으로 가진 것을 쓴다.
-    **하나도 없다고 해서 화면을 못 찍게 하지는 않는다** — 원본이 남고 조금 무거울 뿐이다.
-    macOS 의 sips 는 WebP 쓰기를 못 해 사다리에 넣지 않았다(실측).
+    Uses whatever is available in order: Pillow (system) → Pillow (dedicated venv) → cwebp → ffmpeg.
+    **Having none of them never blocks screenshots** — the original stays, just a bit heavier.
+    macOS sips cannot write WebP, so it is not in the ladder (measured).
     """
     if src.suffix.lower() == ".webp" and not max_side:
         return src
@@ -137,13 +137,13 @@ def to_webp(src: Path, quality: int = WEBP_QUALITY,
         if has_pillow():
             _pillow_webp(src, dst, quality, max_side)
         elif (vpy := venv_python()) and venv_has_pillow(vpy):
-            # 웹용 venv 에 Pillow 가 함께 깔린다 — 시스템 파이썬을 건드리지 않는다
+            # Pillow is installed with the web venv — the system Python is left alone
             run([str(vpy), "-c", PILLOW_SNIPPET, str(src), str(dst), str(quality), side],
                 timeout=60)
         elif shutil.which("cwebp"):
             cmd = ["cwebp", "-quiet", "-q", str(quality)]
             if max_side:
-                # 0 은 "비율 유지". 세로가 긴 화면이 많아 긴 변 기준으로 맞춘다
+                # 0 means "keep aspect". Many screens are tall, so fit by the long side
                 cmd += ["-resize", "0", side] if is_portrait(src) else ["-resize", side, "0"]
             run(cmd + [str(src), "-o", str(dst)], timeout=60)
         elif shutil.which("ffmpeg"):
@@ -165,7 +165,7 @@ def to_webp(src: Path, quality: int = WEBP_QUALITY,
 
 
 def resize_tool() -> str | None:
-    """지금 쓸 수 있는 축소 수단 이름. 없으면 None."""
+    """Name of the downscale tool available now. None if none."""
     vpy = venv_python()
     if has_pillow():
         return "pillow"
@@ -180,15 +180,15 @@ def resize_tool() -> str | None:
 
 def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
            quality: int = WEBP_QUALITY, keep_format: bool = False) -> dict:
-    """이슈 첨부용으로 이미지 긴 변을 줄이고 WebP 로 바꾼다.
+    """Shrink the long side of an image for issue attachments and convert to WebP.
 
-    Pillow → sips(macOS) → ffmpeg 순으로 쓸 수 있는 것을 고른다. 세 가지 중
-    하나만 있으면 되므로 특정 OS에 묶이지 않는다. 반환은 emit 에 그대로 넘길 dict.
+    Picks whatever is available: Pillow → sips (macOS) → ffmpeg. Any one of the three
+    is enough, so it is not tied to an OS. Returns a dict to pass straight to emit.
     """
     missing = [str(p) for p in paths if not p.exists()]
     if missing:
         return {"ok": False, "code": "file_not_found", "error": f"files not found: {missing}"}
-    # 디렉터리·음수 크기는 도구에 넘기기 전에 거절한다 — 트레이스백 대신 JSON 오류 (#705)
+    # Reject directories and negative sizes before reaching the tool — JSON error instead of a traceback (#705)
     not_files = [str(p) for p in paths if not p.is_file()]
     if not_files:
         return {"ok": False, "code": "not_a_file", "error": f"not a file: {not_files}",
@@ -208,7 +208,7 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
                     if max_side:
                         im.thumbnail((max_side, max_side), Image.LANCZOS)
                     im.save(f)
-            except Exception as e:   # 이미지가 아닌 파일 (UnidentifiedImageError 등)
+            except Exception as e:   # not an image file (UnidentifiedImageError etc.)
                 return {"ok": False, "code": "image_unreadable",
                         "error": f"cannot open the image: {f} ({type(e).__name__})",
                         "files": done, "next": "check that it is an image file (png, jpg, webp)"}
@@ -233,7 +233,7 @@ def shrink(paths: list[Path], max_side: int = SHOT_MAX_SIDE,
                 "error": "no tool available to shrink images",
                 "hint": "pip install pillow (recommended) or install ffmpeg"}
 
-    # 축소만으로는 PNG 가 여전히 무겁다. 첨부·전송이 목적이므로 WebP 로 내보낸다.
+    # Downscaling alone still leaves PNG heavy. The goal is attaching/sending, so export as WebP.
     converted, failed_convert = [], False
     if not keep_format:
         for f in [Path(x) for x in done]:

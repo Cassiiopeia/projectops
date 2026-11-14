@@ -1,4 +1,4 @@
-"""PR: 목록·수정·생성(head 반영 지연 재시도)·머지·상세, deploy PR 찾기, 브랜치 HEAD."""
+"""PRs: list, edit, create (retries while head propagates), merge, details, find deploy PR, branch HEAD."""
 
 from __future__ import annotations
 
@@ -12,14 +12,14 @@ from common.github_rest.transport import _API_BASE, GitHubAPIError
 def list_pulls(
     owner: str, repo: str, pat: str, state: str = "open",
 ) -> list[dict]:
-    """PR 목록을 조회한다."""
+    """List PRs."""
     items = client._request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/pulls?state={state}&per_page=50",
         None,
         pat,
     )
-    # head·base·merged_at: 어느 브랜치 사이 PR 인지, 닫힌 PR 이 머지됐는지 바로 판단
+    # head · base · merged_at: which branches the PR is between, and whether a closed PR was merged
     return [
         {"number": i["number"], "title": i["title"], "url": i["html_url"], "state": i["state"],
          "head": (i.get("head") or {}).get("ref"), "base": (i.get("base") or {}).get("ref"),
@@ -33,7 +33,7 @@ def update_pull_request(
     title: str | None = None, body: str | None = None,
     state: str | None = None, base: str | None = None,
 ) -> dict:
-    """PR을 수정하고 {number, url}을 반환한다. PR 본문(릴리스 노트) 업데이트 등에 사용."""
+    """Edit a PR and return {number, url}. Used for PR body (release notes) updates, etc."""
     payload: dict = {}
     if title is not None:
         payload["title"] = title
@@ -49,20 +49,20 @@ def update_pull_request(
     return {"number": data["number"], "url": data["html_url"]}
 
 
-# push 직후 head 가 GitHub 쪽에 아직 반영되지 않아 나는 일시 오류의 재시도 횟수·간격(초) (#724)
+# Retry count and interval (seconds) for the transient error when head is not yet on GitHub right after push (#724)
 _PR_HEAD_RETRIES = 3
 _PR_HEAD_WAIT = 3
-_sleep = time.sleep  # 테스트가 실제로 기다리지 않게 주입 가능하도록 분리
+_sleep = time.sleep  # split out so tests can inject it and not actually wait
 
 
 def create_pull_request(
     owner: str, repo: str, title: str, body: str,
     head: str, base: str, pat: str,
 ) -> dict:
-    """PR을 생성하고 {number, url}을 반환한다.
+    """Create a PR and return {number, url}.
 
-    브랜치를 push 한 직후에는 `422 PullRequest/head/invalid` 가 일시적으로 나는 경우가 있어
-    그 오류만 짧게 재시도한다. 이미 PR 이 있는 경우 등 다른 422 는 재시도하지 않는다.
+    Right after pushing a branch, `422 PullRequest/head/invalid` can appear temporarily,
+    so only that error is retried briefly. Other 422s, such as an existing PR, are not retried.
     """
     attempt = 0
     while True:
@@ -87,12 +87,12 @@ def merge_pull_request(
     merge_method: str = "merge", commit_title: str | None = None,
     commit_message: str | None = None, sha: str | None = None,
 ) -> dict:
-    """PR을 머지한다.
+    """Merge a PR.
 
-    merge_method: merge(기본) / squash / rebase.
-    머지 불가(405)·sha 불일치(409)·rebase 불허(422)는 GitHubAPIError로 올라오므로
-    호출자(CLI 레이어)가 status_code로 verdict를 판정한다.
-    반환: {sha, merged, message}.
+    merge_method: merge (default) / squash / rebase.
+    Not mergeable (405), sha mismatch (409) and rebase not allowed (422) surface as GitHubAPIError,
+    so the caller (CLI layer) decides the verdict from status_code.
+    Returns: {sha, merged, message}.
     """
     payload: dict = {"merge_method": merge_method}
     if commit_title is not None:
@@ -115,9 +115,9 @@ def merge_pull_request(
 
 
 def get_pull_detail(owner: str, repo: str, pr_number: int, pat: str) -> dict:
-    """단일 PR 상세에서 머지 판정에 필요한 필드를 추출한다.
+    """Extract the fields needed for the merge verdict from a single PR's details.
 
-    list_pulls에는 body·mergeable_state가 없어 deploy-status 검증용으로 별도 조회한다.
+    list_pulls lacks body and mergeable_state, so it is fetched separately for deploy-status checks.
     """
     pr = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/pulls/{pr_number}", None, pat)
     return {
@@ -125,7 +125,7 @@ def get_pull_detail(owner: str, repo: str, pr_number: int, pat: str) -> dict:
         "title": pr.get("title"),
         "state": pr["state"],
         "merged": pr.get("merged", False),
-        # 브랜치명 (list_pulls 와 같은 키 이름, #1180)
+        # Branch name (same key name as list_pulls, #1180)
         "base": (pr.get("base") or {}).get("ref"),
         "head": (pr.get("head") or {}).get("ref"),
         "mergeable_state": pr.get("mergeable_state"),
@@ -137,17 +137,17 @@ def get_pull_detail(owner: str, repo: str, pr_number: int, pat: str) -> dict:
     }
 
 
-# deploy PR 후보에서 제외할 봇 브랜치 접두사. 의존성 봇 PR도 기본 브랜치(main)로 들어오므로
-# base만 보면 deploy PR로 오인해 "기존 PR 재사용"이 그 PR 본문을 덮어쓴다.
+# Bot branch prefixes excluded from deploy PR candidates. Dependency bot PRs also target the default branch (main),
+# so looking at base alone mistakes them for the deploy PR and "reuse existing PR" overwrites that PR's body.
 _BOT_HEAD_PREFIXES = ("dependabot/", "renovate/")
 
 
 def find_open_pr_by_base(owner: str, repo: str, base: str, pat: str, head: str | None = None) -> dict | None:
-    """base 브랜치로 들어오는 open PR 중 deploy PR 하나의 상세를 반환한다. 없으면 None.
+    """Return the details of the one deploy PR among open PRs into base. None if none.
 
-    deploy-status를 --pr 없이 호출할 때 deploy PR을 자동으로 찾기 위함.
-    - head를 주면 그 브랜치에서 온 PR만 고른다 (가장 정확).
-    - head가 없으면 의존성 봇(dependabot/, renovate/) PR을 제외한 첫 번째를 고른다.
+    Used to find the deploy PR automatically when deploy-status is called without --pr.
+    - With head, only PRs from that branch are picked (most precise).
+    - Without head, pick the first PR excluding dependency bots (dependabot/, renovate/).
     """
     items = client._request(
         "GET",
@@ -166,7 +166,7 @@ def find_open_pr_by_base(owner: str, repo: str, base: str, pat: str, head: str |
 
 
 def get_ahead_by(owner: str, repo: str, base: str, head: str, pat: str) -> int | None:
-    """base 보다 head 가 앞선 커밋 수 (릴리스할 것이 있는지). 비교 못 하면 None (#945)"""
+    """Number of commits head is ahead of base (is there anything to release). None if it cannot compare (#945)"""
     pair = f"{urllib.parse.quote(base, safe='/')}...{urllib.parse.quote(head, safe='/')}"
     try:
         data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/compare/{pair}", None, pat)
@@ -177,7 +177,7 @@ def get_ahead_by(owner: str, repo: str, base: str, head: str, pat: str) -> int |
 
 
 def get_branch_head(owner: str, repo: str, branch: str, pat: str) -> str | None:
-    """브랜치 HEAD SHA를 반환한다. 브랜치가 없으면 None (404를 None으로 흡수)."""
+    """Return the branch HEAD SHA. None if the branch does not exist (404 absorbed as None)."""
     enc = urllib.parse.quote(branch, safe="/")
     try:
         ref = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/git/ref/heads/{enc}", None, pat)

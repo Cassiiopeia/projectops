@@ -1,4 +1,4 @@
-"""재현 환경 수집 (#1000): OS · Python · 작업 폴더 · git · 실행된 CLI 경로와 버전 · 설치 버전 · Claude Code 버전"""
+"""Repro environment (#1000): OS · Python · working folder · git · CLI path and version run · installed version · Claude Code version"""
 from __future__ import annotations
 
 import json
@@ -11,18 +11,18 @@ from pathlib import Path
 from bug import transcript
 from bug.redact import redact_text
 
-# 명령 속 CLI 경로 (~ 또는 / 로 시작, *_cli.py 로 끝남)
+# CLI path in a command (starts with ~ or /, ends with *_cli.py)
 CLI_PATH_PATTERN = re.compile(r"(~?/[^\s\"']*?_cli\.py)")
-# 설치 버전을 찾을 플러그인 이름 2개
+# 2 plugin names to look up installed versions
 PLUGIN_NAMES = ("projectops", "projectops-extras")
-# 고정 진입점: 실행할 때마다 최신 설치본 스크립트로 넘긴다 (#942)
+# Stable entry point: hands off to the newest installed script on every run (#942)
 ENTRY_POINT_FILE_NAME = "projectops_cli.py"
-# 외부 명령 대기 상한 (초)
+# Wait limit for external commands (seconds)
 COMMAND_TIMEOUT_SECONDS = 3
 
 
 def collect_context(command: str | None, cwd: Path | None = None) -> dict:
-    """환경 사실 모음 (홈 경로는 ~ 로 가림). cwd 는 실패 당시 작업 폴더 (지금 없으면 git 칸은 null)"""
+    """Environment facts (home path masked as ~). cwd is the working folder at failure time (git fields null if it no longer exists)"""
     cwd = cwd or Path.cwd()
     is_folder_present = cwd.is_dir()
     cli_path = find_cli_path(command or "")
@@ -44,7 +44,7 @@ def collect_context(command: str | None, cwd: Path | None = None) -> dict:
 
 
 def find_cli_path(command: str) -> Path | None:
-    """명령 > 실제 있는 CLI 파일 경로 (고정 진입점 projectops_cli.py 면 그 파일)"""
+    """Command > existing CLI file path (that file if it is the stable entry point projectops_cli.py)"""
     for raw in CLI_PATH_PATTERN.findall(command):
         path = Path(raw).expanduser()
         if path.is_file():
@@ -53,7 +53,7 @@ def find_cli_path(command: str) -> Path | None:
 
 
 def cli_version(cli_path: Path, installed_versions: dict) -> str | None:
-    """CLI 버전: 플러그인 안 파일이면 그 매니페스트, 고정 진입점이면 그것이 넘겨주는 최신 설치 버전"""
+    """CLI version: the manifest for files inside a plugin, the newest installed version it hands off to for the stable entry point"""
     version = plugin_version_near(cli_path)
     if version or cli_path.name != ENTRY_POINT_FILE_NAME:
         return version
@@ -62,7 +62,7 @@ def cli_version(cli_path: Path, installed_versions: dict) -> str | None:
 
 
 def plugin_version_near(path: Path) -> str | None:
-    """CLI 경로에서 위로 올라가며 처음 만나는 .claude-plugin/plugin.json 의 version"""
+    """version from the first .claude-plugin/plugin.json found walking up from the CLI path"""
     for folder in path.parents:
         manifest = folder / ".claude-plugin" / "plugin.json"
         if manifest.is_file():
@@ -74,7 +74,7 @@ def plugin_version_near(path: Path) -> str | None:
 
 
 def newest_installed_version(plugin_name: str) -> str | None:
-    """<설정 폴더>/plugins/cache/*/<이름>/<버전>/ 중 가장 높은 버전"""
+    """Highest version among <config dir>/plugins/cache/*/<name>/<version>/"""
     versions = []
     for base in transcript.config_dirs():
         for folder in (base / "plugins" / "cache").glob(f"*/{plugin_name}/*"):
@@ -88,7 +88,7 @@ def _git(cwd: Path, *args: str) -> str | None:
 
 
 def _run(arguments: list[str]) -> str | None:
-    """외부 명령 1줄 결과 (실패 · 시간 초과 · 미설치면 None)"""
+    """One-line output of an external command (None on failure, timeout or not installed)"""
     try:
         completed = subprocess.run(arguments, capture_output=True, text=True, errors="replace", timeout=COMMAND_TIMEOUT_SECONDS)
     except (OSError, subprocess.SubprocessError):

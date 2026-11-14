@@ -1,4 +1,4 @@
-"""위치별 정리: tool (도구 명령) · aged (N일 지난 하위 폴더) · browser (캐시 폴더만). --yes 없으면 계획만"""
+"""Per-location cleanup: tool (tool command) · aged (subfolders older than N days) · browser (cache folders only). Plan only without --yes"""
 from __future__ import annotations
 
 import os
@@ -10,7 +10,7 @@ from . import guard, shell, sizes
 from .catalog import Location
 from .processes import ProcessSnapshot
 
-# 브라우저 프로필 안에서 지워도 로그인이 남는 캐시 폴더 이름
+# Cache folder names inside a browser profile that can be deleted while keeping logins
 BROWSER_CACHE_NAMES = frozenset({
     "Cache", "Code Cache", "GPUCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache", "GrShaderCache",
     "GraphiteDawnCache", "ShaderCache", "component_crx_cache", "CacheStorage", "ScriptCache",
@@ -34,7 +34,7 @@ def run_tool(location: Location, is_confirmed: bool) -> dict:
 
 
 def aged_candidates(location: Location, older_than_days: float, snapshot: ProcessSnapshot) -> list[dict]:
-    """하위 폴더 > {path, age_days, size_gb, skip_reason}. 나이는 크기 재기 전에 (접근 시각 보존)"""
+    """Subfolders > {path, age_days, size_gb, skip_reason}. Age is read before sizing (keeps access times)"""
     if not location.path.is_dir():
         return []
     candidates = []
@@ -69,7 +69,7 @@ def browser_candidates(location: Location, snapshot: ProcessSnapshot) -> list[di
 
 
 def _profile_root(cache: Path) -> Path | None:
-    # browser-profiles/<프로필>/... 또는 .../.browser-profile/...
+    # browser-profiles/<profile>/... or .../.browser-profile/...
     for ancestor in cache.parents:
         if ancestor.name == ".browser-profile":
             return ancestor
@@ -79,7 +79,7 @@ def _profile_root(cache: Path) -> Path | None:
 
 
 def delete_candidates(candidates: list[dict], allowed_base: Path, is_confirmed: bool) -> dict:
-    """skip_reason 없는 후보만 게이트 거쳐 삭제 > 결과 요약"""
+    """Delete only candidates without skip_reason, through the gate > result summary"""
     chosen = [item for item in candidates if not item["skip_reason"]]
     skipped = [item for item in candidates if item["skip_reason"]]
     planned_gb = sizes.to_gigabytes(sum(item["size_bytes"] for item in chosen))

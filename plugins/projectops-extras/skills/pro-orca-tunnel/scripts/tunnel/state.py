@@ -1,4 +1,4 @@
-"""상태 폴더 ~/.projectops/tunnel: 포트별 터널 기록, 로그, Orca 짝 맞추기 원본 (계정·세션 공통)"""
+"""State folder ~/.projectops/tunnel: per-port tunnel records, logs, Orca pairing source (shared across accounts and sessions)"""
 from __future__ import annotations
 
 import json
@@ -6,7 +6,7 @@ import os
 import time
 from pathlib import Path
 
-# 계정·세션이 달라도 같은 기록을 보도록 사용자 홈 한 곳에 둠
+# One place under the user home so every account and session sees the same records
 STATE_DIR = Path(os.environ.get("PROJECTOPS_TUNNEL_DIR") or Path.home() / ".projectops" / "tunnel")
 STATE_FILE = STATE_DIR / "state.json"
 PAIRING_FILE = STATE_DIR / "orca-pairing.json"
@@ -57,7 +57,7 @@ def remember_value(key: str, value) -> None:
 
 
 def write_private(path: Path, text: str) -> None:
-    """본인만 읽는 파일로 저장 (짝 맞추기 코드는 접속 열쇠)"""
+    """Save as an owner-only file (the pairing code is an access key)"""
     ensure_dir()
     temporary = path.with_suffix(".tmp")
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)

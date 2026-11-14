@@ -1,4 +1,4 @@
-"""읽기 전용 전체 보고: 남은 공간 + 위치별 크기·단계 + worktree 요약 + Docker 요약 (큰 것부터)"""
+"""Read-only full report: free space + per-location size and tier + worktree summary + Docker summary (largest first)"""
 from __future__ import annotations
 
 import time
@@ -8,7 +8,7 @@ from pathlib import Path
 from . import catalog, docker_cleanup, generated, sizes, worktrees
 from .processes import ProcessSnapshot
 
-# 위치 종류 > 정리 명령 힌트
+# Location kind > cleanup command hint
 NEXT_BY_KIND = {
     "tool": "tool {key} --yes",
     "aged": "aged {key} --older-than-days N  # N from the user for decide-tier items",
@@ -55,7 +55,7 @@ def _worktree_summary(roots: list[Path], idle_hours: float, snapshot: ProcessSna
 def build(roots: list[Path], idle_hours: float, is_worktree_skipped: bool, max_seconds: int) -> dict:
     started = time.monotonic()
     snapshot = ProcessSnapshot()
-    # du 는 디스크 대기라 병렬로 (위치별 + worktree 요약 동시)
+    # du waits on disk, so run in parallel (per location + worktree summary at once)
     with ThreadPoolExecutor(max_workers=sizes.MEASURE_WORKERS) as pool:
         worktree_future = None if is_worktree_skipped else pool.submit(_worktree_summary, roots, idle_hours, snapshot)
         rows = list(pool.map(lambda location: _location_row(location, max_seconds), catalog.locations()))
@@ -65,7 +65,7 @@ def build(roots: list[Path], idle_hours: float, is_worktree_skipped: bool, max_s
               "docker": docker_cleanup.facts(),
               "running_builds": snapshot.is_running("xcodebuild", "XCBBuildService", "GradleDaemon", "flutter_tools"),
               "in_use_method": snapshot.method}
-    # 폴더 일부만 정리되는 위치는 합계에서 제외
+    # Locations only partly cleanable are excluded from totals
     countable = [row for row in rows if row["is_whole_folder_reclaimable"]]
     safe_gb = sum(row["size_gb"] or 0 for row in countable if row["tier"] == catalog.TIER_SAFE)
     decide_gb = sum(row["size_gb"] or 0 for row in countable if row["tier"] == catalog.TIER_DECIDE)

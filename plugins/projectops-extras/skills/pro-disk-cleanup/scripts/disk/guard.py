@@ -1,4 +1,4 @@
-"""삭제 게이트: 경로 검증 > 지우기. 모든 삭제가 여기를 거친다"""
+"""Delete gate: validate path > delete. Every deletion goes through here"""
 from __future__ import annotations
 
 import os
@@ -9,12 +9,12 @@ from pathlib import Path
 
 from . import shell
 
-# 지울 경로의 최소 깊이 (홈·드라이브 루트 바로 아래 폴더 차단)
+# Minimum depth of a deletable path (blocks folders right under home or a drive root)
 MINIMUM_PATH_DEPTH = 3
 
 
 def protected_paths() -> set[Path]:
-    """어떤 경우에도 지우지 않는 경로: 루트, 홈, 홈 바로 아래 주요 폴더"""
+    """Paths never deleted: root, home, main folders right under home"""
     home = Path.home().resolve()
     protected = {Path("/"), home, home.parent}
     for name in ("Desktop", "Documents", "Downloads", "Library", "AppData", "Pictures", "Movies", ".ssh", ".config"):
@@ -25,7 +25,7 @@ def protected_paths() -> set[Path]:
 
 
 def refusal_reason(target: str | None, allowed_base: Path) -> str | None:
-    """지우면 안 되는 이유 (없으면 None). 빈 경로·상대경로·보호 경로·허용 폴더 밖·링크 거절"""
+    """Reason not to delete (None if none). Rejects empty, relative, protected, outside allowed folders, links"""
     if not target or not str(target).strip():
         return "empty_path"
     raw = Path(target)
@@ -47,22 +47,22 @@ def refusal_reason(target: str | None, allowed_base: Path) -> str | None:
 
 
 def _clear_readonly_and_retry(function, path, _error_info):
-    # Windows 읽기 전용 파일(.git 객체 등) 대응
+    # Handle Windows read-only files (.git objects, etc.)
     try:
         os.chmod(path, stat.S_IWRITE)
         function(path)
     except OSError:
-        pass  # 남은 항목은 remove_tree 가 partially_removed 로 보고
+        pass  # remove_tree reports leftovers as partially_removed
 
 
 def remove_tree(target: str, allowed_base: Path) -> dict:
-    """게이트 통과 시 폴더 삭제 > {path, removed, reason}"""
+    """Delete the folder if it passes the gate > {path, removed, reason}"""
     reason = refusal_reason(target, allowed_base)
     if reason:
         return {"path": target, "removed": False, "reason": reason}
     resolved = Path(target).resolve()
     if resolved.is_dir():
-        # 3.12+ onexc, 그 전 onerror
+        # 3.12+ onexc, older onerror
         if sys.version_info >= (3, 12):
             shutil.rmtree(resolved, onexc=_clear_readonly_and_retry)
         else:

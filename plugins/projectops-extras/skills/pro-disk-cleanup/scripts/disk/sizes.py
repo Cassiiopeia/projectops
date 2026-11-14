@@ -1,4 +1,4 @@
-"""용량 측정: 남은 공간, 폴더 크기 (가상 마운트·다른 볼륨 제외)"""
+"""Size measurement: free space, folder size (virtual mounts and other volumes excluded)"""
 from __future__ import annotations
 
 import os
@@ -9,9 +9,9 @@ from pathlib import Path
 from . import shell
 
 BYTES_PER_GIGABYTE = 1024 ** 3
-# 동시 측정 개수 (du 는 디스크 대기라 병렬이 빠름)
+# Concurrent measurements (du waits on disk, so parallel is faster)
 MEASURE_WORKERS = 6
-# 폴더 1개 측정 시간 상한 (초) — 넘으면 그때까지 센 값 + is_partial
+# Time limit per folder (seconds) — past it, the count so far + is_partial
 FOLDER_MEASURE_SECONDS = 120
 
 
@@ -20,7 +20,7 @@ def to_gigabytes(byte_count: int | None) -> float | None:
 
 
 def free_space(path: str | None = None) -> dict:
-    """홈이 있는 볼륨의 전체·사용·남은 용량"""
+    """Total, used and free space of the volume holding home"""
     target = path or str(Path.home())
     usage = shutil.disk_usage(target)
     return {"volume_of": target, "total_gb": to_gigabytes(usage.total), "used_gb": to_gigabytes(usage.used),
@@ -32,7 +32,7 @@ def free_bytes(path: str | None = None) -> int:
 
 
 def is_other_volume(path: Path) -> bool:
-    """마운트 지점(기기 가상 파일시스템 등)이면 로컬 사용량에 넣지 않음"""
+    """Mount points (device virtual filesystems, etc.) are not counted as local usage"""
     try:
         return os.path.ismount(path) or path.stat().st_dev != path.parent.stat().st_dev
     except OSError:
@@ -40,7 +40,7 @@ def is_other_volume(path: Path) -> bool:
 
 
 def folder_bytes(path: Path, max_seconds: int = FOLDER_MEASURE_SECONDS) -> tuple[int | None, bool]:
-    """폴더 크기 > (바이트, 시간 상한으로 일부만 셌는지). POSIX 는 du -skx, Windows 는 직접 순회"""
+    """Folder size > (bytes, partially counted due to time limit). POSIX uses du -skx, Windows walks directly"""
     if not path.exists():
         return None, False
     if not shell.IS_WINDOWS and shell.has_command("du"):
@@ -49,12 +49,12 @@ def folder_bytes(path: Path, max_seconds: int = FOLDER_MEASURE_SECONDS) -> tuple
             try:
                 return int(out.split()[0]) * 1024, code == 124
             except ValueError:
-                pass  # du 출력 이상 > 직접 순회로
+                pass  # odd du output > fall back to walking
     return _walk_bytes(path, max_seconds)
 
 
 def _walk_bytes(path: Path, max_seconds: int) -> tuple[int, bool]:
-    # 같은 볼륨만, 링크는 따라가지 않음
+    # Same volume only, links not followed
     deadline = time.monotonic() + max_seconds
     root_device = path.stat().st_dev
     total = 0
@@ -76,14 +76,14 @@ def _walk_bytes(path: Path, max_seconds: int) -> tuple[int, bool]:
                         else:
                             total += info.st_size
                     except OSError:
-                        continue  # 권한 없음·사라진 파일
+                        continue  # no permission or file gone
         except OSError:
-            continue  # 읽을 수 없는 폴더는 세지 않음
+            continue  # unreadable folders are not counted
     return total, False
 
 
 def newest_touch_seconds(path: Path, should_include_access: bool = True) -> float | None:
-    """폴더와 바로 아래 항목의 마지막 수정(·접근) 시각 중 가장 최근 (epoch 초). 크기 측정 전에 부를 것"""
+    """Most recent modification (or access) time of the folder and its direct children (epoch seconds). Call before sizing"""
     def touch_of(info) -> float:
         return max(info.st_mtime, info.st_atime) if should_include_access else info.st_mtime
     try:
@@ -96,9 +96,9 @@ def newest_touch_seconds(path: Path, should_include_access: bool = True) -> floa
                 try:
                     newest = max(newest, touch_of(entry.stat(follow_symlinks=False)))
                 except OSError:
-                    continue  # 사라진 항목
+                    continue  # entry gone
     except OSError:
-        pass  # 목록을 못 읽으면 폴더 자체 시각만
+        pass  # list unreadable > folder's own time only
     return newest
 
 

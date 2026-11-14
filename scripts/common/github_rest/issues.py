@@ -1,4 +1,4 @@
-"""이슈: 생성·수정·조회·목록·검색, 담당자, 댓글."""
+"""Issues: create, edit, get, list, search, assignees, comments."""
 
 from __future__ import annotations
 
@@ -13,8 +13,8 @@ def create_issue(
     owner: str, repo: str, title: str, body: str,
     labels: list[str], pat: str, assignees: list[str] | None = None,
 ) -> dict:
-    """이슈를 생성하고 {number, url, title}을 반환한다."""
-    # 존재하지 않는 라벨은 422를 유발하므로 사전에 필터링하되, 버린 목록은 호출자가 알리도록 반환한다
+    """Create an issue and return {number, url, title}."""
+    # Nonexistent labels cause 422, so filter them first, but return the dropped list so the caller can report it
     skipped_labels: list[str] = []
     if labels:
         existing = client.list_labels(owner, repo, pat)
@@ -25,8 +25,8 @@ def create_issue(
     if assignees:
         payload["assignees"] = assignees
     data = client._request("POST", f"{_API_BASE}/repos/{owner}/{repo}/issues", payload, pat)
-    # 실제 반영된 담당자를 함께 반환한다. 유효하지 않은 담당자(레포 협업자 아님 등)는
-    # GitHub이 조용히 누락시키므로, 호출자가 요청 대비 반영 결과를 비교해 경고할 수 있게 한다.
+    # Also return the assignees actually applied. Invalid assignees (not repo collaborators, etc.)
+    # are silently dropped by GitHub, so the caller can compare request vs result and warn.
     return {
         "number": data["number"],
         "url": data["html_url"],
@@ -43,9 +43,9 @@ def update_issue(
     assignees: list[str] | None = None,
     state_reason: str | None = None,
 ) -> dict:
-    """이슈를 수정하고 {number, url, title}을 반환한다.
+    """Edit an issue and return {number, url, title}.
 
-    state_reason: completed | not_planned | reopened — 닫을 때 완료/취소를 구분한다 (#819).
+    state_reason: completed | not_planned | reopened; distinguishes done vs cancelled when closing (#819).
     """
     payload: dict = {}
     if title is not None:
@@ -57,7 +57,7 @@ def update_issue(
     if state_reason is not None:
         payload["state_reason"] = state_reason
     if labels is not None:
-        # 없는 라벨은 PATCH가 새로 만들어 버리므로, 별칭 중 레포에 있는 이름으로 먼저 치환한다 (#776)
+        # PATCH creates missing labels, so first replace them with an alias name that exists in the repo (#776)
         labels = client.resolve_label_aliases(labels, client.list_labels(owner, repo, pat))
         payload["labels"] = labels
     if assignees is not None:
@@ -69,10 +69,10 @@ def update_issue(
 def add_assignees(
     owner: str, repo: str, issue_number: int, assignees: list[str], pat: str,
 ) -> dict:
-    """이슈에 담당자를 추가한다 (기존 담당자 유지). 최대 10명.
+    """Add assignees to an issue (existing ones kept). Up to 10.
 
-    권한 없는/존재하지 않는 유저는 GitHub이 조용히 누락시키므로,
-    응답의 실제 담당자 목록을 반환해 호출자가 요청 대비 확인할 수 있게 한다.
+    GitHub silently drops users without permission or that do not exist,
+    so return the actual assignee list from the response for the caller to check against the request.
     """
     data = client._request(
         "POST",
@@ -90,9 +90,9 @@ def add_assignees(
 def remove_assignees(
     owner: str, repo: str, issue_number: int, assignees: list[str], pat: str,
 ) -> dict:
-    """이슈에서 지정한 담당자만 제거한다 (나머지 담당자 유지).
+    """Remove only the given assignees from an issue (others kept).
 
-    이 DELETE는 body가 필요하다. 지정 목록에 없는 담당자는 그대로 남는다.
+    This DELETE needs a body. Assignees not in the given list stay.
     """
     data = client._request(
         "DELETE",
@@ -110,9 +110,9 @@ def remove_assignees(
 def add_comment(
     owner: str, repo: str, issue_number: int, body: str, pat: str,
 ) -> dict:
-    """이슈/PR에 댓글을 추가하고 {id, url}을 반환한다.
+    """Add a comment to an issue/PR and return {id, url}.
 
-    PR도 GitHub API에서는 issue로 다뤄지므로 PR 번호로도 호출 가능하다.
+    The GitHub API treats PRs as issues, so a PR number works too.
     """
     try:
         data = client._request(
@@ -122,7 +122,7 @@ def add_comment(
             pat,
         )
     except (GitHubAPIError, urllib.error.URLError, TimeoutError, ConnectionError) as error:
-        # POST 는 다시 보내면 중복되므로 재시도 대신, 실패 응답을 받았어도 실제로는 올라갔는지 본다 (#941)
+        # Resending a POST would duplicate it, so instead of retrying, check whether it was posted despite the failure response (#941)
         posted = _find_just_posted_comment(owner, repo, issue_number, body, pat) \
             if is_transient_error(error) else None
         if posted is None:
@@ -131,12 +131,12 @@ def add_comment(
     return {"id": data["id"], "url": data["html_url"]}
 
 
-# 실패 응답 직전에 올라간 같은 본문 댓글로 인정하는 시간 (초)
+# Window for accepting a same-body comment posted just before a failure response (seconds)
 _JUST_POSTED_WINDOW_SECONDS = 180
 
 
 def _find_just_posted_comment(owner, repo, issue_number, body, pat) -> dict | None:
-    """같은 본문의 댓글이 방금(180초 안) 올라가 있으면 {id, url}. 조회 실패는 못 찾은 것으로 본다"""
+    """{id, url} if a comment with the same body was just posted (within 180 seconds). Lookup failures count as not found"""
     import datetime as dt
     try:
         items = client._request(
@@ -159,9 +159,9 @@ def _find_just_posted_comment(owner, repo, issue_number, body, pat) -> dict | No
 def update_comment(
     owner: str, repo: str, comment_id: int, body: str, pat: str,
 ) -> dict:
-    """이슈/PR 댓글 하나의 본문을 수정하고 {id, url}을 반환한다.
+    """Edit the body of one issue/PR comment and return {id, url}.
 
-    엔드포인트가 issue_number 없이 comment_id만 쓴다 (issue·PR 공용).
+    The endpoint uses only comment_id, without issue_number (shared by issues and PRs).
     """
     data = client._request(
         "PATCH",
@@ -175,7 +175,7 @@ def update_comment(
 def delete_comment(
     owner: str, repo: str, comment_id: int, pat: str,
 ) -> dict:
-    """이슈/PR 댓글 하나를 삭제한다. 204(빈 본문) 응답이므로 파싱하지 않는다."""
+    """Delete one issue/PR comment. The response is 204 (empty body), so it is not parsed."""
     client._request(
         "DELETE",
         f"{_API_BASE}/repos/{owner}/{repo}/issues/comments/{comment_id}",
@@ -186,7 +186,7 @@ def delete_comment(
 
 
 def get_issue(owner: str, repo: str, issue_number: int, pat: str) -> dict:
-    """이슈를 조회하고 agent 판단에 필요한 요약 필드를 반환한다."""
+    """Get an issue and return the summary fields the agent needs to decide."""
     data = client._request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}",
@@ -208,7 +208,7 @@ def get_issue(owner: str, repo: str, issue_number: int, pat: str) -> dict:
 
 
 def get_issue_comments(owner: str, repo: str, issue_number: int, pat: str) -> list[dict]:
-    """이슈 댓글 목록을 agent가 바로 읽기 쉬운 형태로 반환한다 (id·url: edit-comment·delete-comment 대상)."""
+    """Return issue comments in a form the agent can read directly (id · url: targets for edit-comment · delete-comment)."""
     items = client._request(
         "GET",
         f"{_API_BASE}/repos/{owner}/{repo}/issues/{issue_number}/comments?per_page=100",
@@ -262,7 +262,7 @@ def list_issues(
 def search_issues(
     owner: str, repo: str, keyword: str, pat: str, per_page: int = 5,
 ) -> list[dict]:
-    """레포 내 제목에 keyword가 포함된 이슈를 검색한다 (중복 이슈 판단용)."""
+    """Search issues in the repo whose title contains keyword (for duplicate-issue checks)."""
     q = urllib.parse.quote(f"is:issue repo:{owner}/{repo} in:title {keyword}", safe="")
     data = client._request(
         "GET", f"{_API_BASE}/search/issues?q={q}&per_page={per_page}", None, pat

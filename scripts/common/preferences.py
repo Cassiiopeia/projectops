@@ -1,8 +1,8 @@
-"""사람별 표현 설정(preferences) 병합.
+"""Merge per-person presentation settings (preferences).
 
-스킬마다 제각각 설정 키를 만들면 사용자가 배울 수 없고 문서가 낡는다. 그래서 모양을 하나로
-정하고 모든 스킬이 이 함수 하나로 읽는다. 표현(언어·말투·형식)만 다루며, 승인·dry-run 같은
-안전 규칙은 여기서 끌 수 없다 — 허용 목록 밖의 키는 values 에 넣지 않고 ignored 로 알린다.
+If each skill invented its own keys, users could not learn them and docs would go stale. So there is one shape
+and every skill reads it through this one function. It covers presentation only (language, tone, format); safety rules
+like approval or dry-run cannot be turned off here; keys outside the allow list go to ignored, not values.
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from common import config
 COMMON_KEYS = ("language", "tone", "rules")
 SKILL_KEYS = ("template", "preset", "examples", "sections")
 
-# 키별 허용 타입. 잘못된 타입을 조용히 쓰면 스킬마다 다르게 깨지므로 들어오는 곳에서 막는다.
+# Allowed type per key. Silently using a wrong type breaks each skill differently, so block it at the entry.
 _TYPES = {
     "language": str, "tone": str, "template": str, "preset": str,
     "rules": list, "examples": list, "sections": list,
@@ -23,16 +23,16 @@ _TYPES = {
 
 
 def _as_dict(x: object) -> dict:
-    """설정 값이 dict 가 아니면 빈 dict 로 본다. 손으로 고친 config 가 깨져도 기본값으로 떨어지게 한다."""
+    """Treat a non-dict setting as an empty dict, so a hand-broken config falls back to defaults."""
     return x if isinstance(x, dict) else {}
 
 
-# 스킬 이름 > 옛 이름 (설정 키 skills.<옛 이름> 폴백 — 새 이름 키가 있으면 그쪽 우선)
+# Skill name > old name (fallback to config key skills.<old name>; the new-name key wins if present)
 PREVIOUS_SKILL_IDS = {"pro-code-consult": ("pro-architecture-consult",), "pro-ui-design": ("pro-design-brief",)}
 
 
 def _skill_layer(skills: object, skill_id: str) -> tuple:
-    """skills 맵 > (설정 층, 실제 키): 새 이름 먼저, 없으면 옛 이름 (#912)"""
+    """skills map > (settings layer, actual key): new name first, else old name (#912)"""
     skills = _as_dict(skills)
     for key in (skill_id, *PREVIOUS_SKILL_IDS.get(skill_id, ())):
         if key in skills:
@@ -40,8 +40,8 @@ def _skill_layer(skills: object, skill_id: str) -> tuple:
     return None, skill_id
 
 
-# 형식을 정하는 키 쌍. 한 층이 둘 중 하나라도 정하면 앞 층의 쌍을 통째로 버린다 —
-# 그렇지 않으면 레포 층의 preset 이 전역 template 에 늘 져서 "레포마다 다른 형식"을 쓸 수 없다.
+# Key pairs that set the format. If a layer sets either one, the earlier layer's pair is dropped whole;
+# otherwise a repo-layer preset always loses to the global template and "per-repo formats" are impossible.
 FORMAT_KEYS = ("template", "preset")
 
 
@@ -76,7 +76,7 @@ def _find_repo(data: dict, owner: Optional[str], repo: Optional[str]) -> Optiona
     for r in repos:
         if not isinstance(r, dict):
             continue
-        # remote URL 과 config 의 대소문자가 다른 경우가 흔하다 (GitHub 은 대소문자를 구분하지 않는다)
+        # remote URL and config often differ in case (GitHub is case-insensitive)
         if str(r.get("owner", "")).lower() == owner.lower() and str(r.get("repo", "")).lower() == repo.lower():
             return r
     return None
@@ -84,10 +84,10 @@ def _find_repo(data: dict, owner: Optional[str], repo: Optional[str]) -> Optiona
 
 def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = None,
             data: Optional[dict] = None, *, load: bool = False) -> dict:
-    """층을 순서대로 덮어 최종 값과 출처를 돌려준다.
+    """Overlay the layers in order and return the final values and their sources.
 
-    data 를 안 넘기고 load=True 면 config 파일을 읽는다. 파일이 없거나 깨졌으면 빈 결과.
-    config_status 는 "ok" · "missing" · "unreadable" (data 를 직접 넘기면 "ok").
+    Without data and with load=True, read the config file. Missing or broken file gives an empty result.
+    config_status is "ok" · "missing" · "unreadable" ("ok" when data is passed directly).
     """
     status = "ok"
     if data is None and load:
@@ -99,7 +99,7 @@ def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = No
         if data is None:
             status = "missing" if status == "ok" else status
         else:
-            status = "unreadable"  # 최상위가 객체가 아닌 JSON 도 읽을 수 없는 설정이다
+            status = "unreadable"  # JSON whose top level is not an object is also an unreadable config
         return {"values": values, "sources": sources, "ignored": ignored, "config_status": status}
 
     skill_allowed = COMMON_KEYS + SKILL_KEYS
@@ -117,9 +117,9 @@ def resolve(skill_id: str, owner: Optional[str] = None, repo: Optional[str] = No
 
 
 def is_legacy_commit_user(data: Optional[dict]) -> bool:
-    """예전부터 pro-commit 을 써 온 사람인가 — 승인 설정(github.commit 또는 repos[].commit)이 남아 있다.
+    """Whether this person has used pro-commit before: an approval setting (github.commit or repos[].commit) remains.
 
-    이런 사람에게 새 기본값(conventional)을 조용히 적용하면 어느 날 커밋 형식이 바뀐다 (spec S1).
+    Silently applying the new default (conventional) to them would change their commit format one day (spec S1).
     """
     gh = _as_dict(_as_dict(data).get("github"))
     if isinstance(gh.get("commit"), dict):
@@ -129,13 +129,13 @@ def is_legacy_commit_user(data: Optional[dict]) -> bool:
                                            for r in repos)
 
 
-# ssh://git@github.com:22/o/r 처럼 포트가 붙는 형태가 있다. 포트는 owner 가 아니므로 건너뛴다
-# (scp 형식 git@github.com:1234/r 은 뒤에 두 마디가 없어 포트로 오인되지 않는다).
+# Some forms carry a port, like ssh://git@github.com:22/o/r. A port is not an owner, so skip it
+# (scp form git@github.com:1234/r has no two segments after it, so it is not mistaken for a port).
 _REMOTE = re.compile(r"github\.com(?::\d+(?=/))?[:/]+([^/]+)/([^/]+?)(?:\.git)?/?$")
 
 
 def detect_repo(cwd: Optional[str] = None) -> tuple:
-    """origin remote 에서 owner/repo 를 뽑는다. git 이 없거나 remote 가 없으면 (None, None)."""
+    """Extract owner/repo from the origin remote. (None, None) if git or the remote is missing."""
     try:
         url = subprocess.run(["git", "remote", "get-url", "origin"], cwd=cwd,
                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5).stdout.strip()

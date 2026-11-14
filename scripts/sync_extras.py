@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
-"""extras 플러그인용 공유 문서 사본을 정본에서 다시 만든다. 사본을 직접 고치지 말 것."""
+"""Regenerate the extras plugin's shared copies from their originals. Never edit the copies directly."""
 import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTRAS = ROOT / "plugins" / "projectops-extras"
-# (정본, extras 안의 경로) — extras 스킬이 ../references 로 가리키는 것 + 훅 실행기 (#987)
+# (original, path inside extras) — what extras skills point to via ../references + the hook runner (#987)
 COPIES = [
     ("skills/references/config-rules.md", "skills/references/config-rules.md"),
     ("skills/references/preferences.md", "skills/references/preferences.md"),
     ("hooks/run_python.sh", "hooks/run_python.sh"),
-    ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # 가리기 규칙 정본 (extras 는 common 을 못 씀)
-    ("scripts/common/proc.py", "skills/pro-orca-tunnel/scripts/tunnel/proc.py"),  # 프로세스 생존 확인 OS 분기 정본
+    ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # redaction rules original (extras cannot use common)
+    ("scripts/common/proc.py", "skills/pro-orca-tunnel/scripts/tunnel/proc.py"),  # original of the per-OS process liveness check
 ]
 
 if __name__ == "__main__":

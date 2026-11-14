@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""projectops 스킬 CLI 공통 고정 진입점: 설치된 가장 새 스크립트를 찾아 인자를 그대로 넘긴다 (#942).
+"""Shared stable entry point for projectops skill CLIs: finds the newest installed script and passes arguments through (#942).
 
-    python3 ~/.projectops/bin/projectops_cli.py <skill> <서브커맨드> [인자...]
-    예) projectops_cli.py github get-issue o r 12  /  commit commit --message-file m.txt
+    python3 ~/.projectops/bin/projectops_cli.py <skill> <subcommand> [args...]
+    e.g. projectops_cli.py github get-issue o r 12  /  commit commit --message-file m.txt
 
-이 파일 자체가 `~/.projectops/bin/projectops_cli.py` 로 복사된다 — 표준 라이브러리만 쓰고 다른 모듈을
-import 하지 않는다. 복사본은 원래 자리를 모르므로 스스로 찾는다. pro-launch 의 고정 진입점
-(`launch_cli.py`)과 같은 찾기 규칙을 모든 스킬에 쓴다.
+This file itself is copied to `~/.projectops/bin/projectops_cli.py` — it uses only the standard library and imports
+no other module. The copy does not know where it came from, so it searches. Every skill uses the same lookup
+rules as pro-launch's stable entry point (`launch_cli.py`).
 
-찾는 순서: PROJECTOPS_SKILLS_ROOT(직접 지정) > 현재 폴더가 체크아웃이면 그 체크아웃 > 플러그인 캐시 최고 버전
-> 버전 없는 설치본.
+Lookup order: PROJECTOPS_SKILLS_ROOT (explicit) > the current folder if it is a checkout > highest version in the plugin cache
+> unversioned install.
 """
 from __future__ import annotations
 
@@ -19,16 +19,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-# 고정 진입점 내용 번호: 깔린 번호보다 높을 때만 덮어씀 (이 파일이나 SKILL_CLIS 를 고치면 +1, 안 올리면 새 스킬이 bad_args)
-RESOLVER_REVISION = 7
+# Stable entry point content revision: overwrite only when higher than the installed one (+1 when this file or SKILL_CLIS changes, otherwise new skills get bad_args)
+RESOLVER_REVISION = 8
 STABLE_ENTRYPOINT_NAME = "projectops_cli.py"
 STABLE_ENTRYPOINT_MODE = 0o755
 SKILLS_ROOT_ENV = "PROJECTOPS_SKILLS_ROOT"
 CLAUDE_CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
-# Windows 의 python3 는 Microsoft Store 스텁일 수 있다
+# On Windows, python3 may be the Microsoft Store stub
 STABLE_ENTRYPOINT_COMMAND = f"{'python' if sys.platform == 'win32' else 'python3'} ~/.projectops/bin/projectops_cli.py <skill>"
 
-# 스킬 이름 > (스킬 폴더, CLI 파일)
+# Skill name > (skill folder, CLI file)
 SKILL_CLIS = {
     "github": ("pro-github", "github_cli.py"),
     "commit": ("pro-commit", "commit_cli.py"),
@@ -70,7 +70,7 @@ def parse_version(text: str):
 
 
 def versioned_cache_roots(home: Path, environment: dict) -> list:
-    """플러그인 캐시 폴더 후보 (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex), 같은 실제 경로는 한 번만"""
+    """Plugin cache folder candidates (CLAUDE_CONFIG_DIR > ~/.claude* > ~/.codex), each real path once"""
     candidates = []
     config_dir = environment.get(CLAUDE_CONFIG_DIR_ENV)
     if config_dir:
@@ -87,7 +87,7 @@ def versioned_cache_roots(home: Path, environment: dict) -> list:
 
 
 def find_versioned_scripts(skill: str, home: Path, environment: dict) -> list:
-    """플러그인 캐시의 (버전, 스크립트 폴더) 전부"""
+    """Every (version, script folder) in the plugin cache"""
     folder = SKILL_CLIS[skill][0]
     found = []
     for cache_root in versioned_cache_roots(home, environment):
@@ -121,7 +121,7 @@ def _walk_unversioned(base: Path, skill: str):
 
 
 def readable_cwd(environment=None):
-    """현재 폴더 경로. getcwd 실패(macOS 보호 폴더 EPERM·지워진 폴더) 시 $PWD 로 재진입 후 재시도, 그래도 실패면 None (#1131)"""
+    """Current folder path. If getcwd fails (macOS protected folder EPERM, deleted folder), re-enter $PWD and retry; None if it still fails (#1131)"""
     try:
         return Path.cwd()
     except OSError:
@@ -137,7 +137,7 @@ def readable_cwd(environment=None):
 
 
 def resolve_scripts_dir(skill: str, cwd=None, home=None, environment=None):
-    """찾는 순서(모듈 설명)의 처음 나온 스크립트 폴더. 못 찾으면 None"""
+    """First script folder in lookup order (see module docstring). None if not found"""
     environment = os.environ if environment is None else environment
     cwd = readable_cwd(environment) if cwd is None else cwd
     home = Path.home() if home is None else home
@@ -145,7 +145,7 @@ def resolve_scripts_dir(skill: str, cwd=None, home=None, environment=None):
     if override:
         candidate = Path(override).expanduser() / "skills" / SKILL_CLIS[skill][0] / "scripts"
         return candidate if is_scripts_dir(candidate, skill) else None
-    # 현재 폴더를 못 읽으면 체크아웃 찾기만 건너뜀
+    # If the current folder is unreadable, skip only the checkout lookup
     checkout = find_checkout_scripts(skill, cwd.resolve()) if cwd else None
     if checkout:
         return checkout
@@ -160,7 +160,7 @@ def resolve_scripts_dir(skill: str, cwd=None, home=None, environment=None):
 
 
 def newer_installed_info(running_scripts_dir: Path, skill: str, home=None, environment=None):
-    """캐시의 옛 버전에서 돌고 있으면 {running, installed, use}, 아니면 None (체크아웃은 비교하지 않음)"""
+    """{running, installed, use} when running from an old cached version, else None (checkouts are not compared)"""
     running_parts = running_scripts_dir.resolve().parts
     if len(running_parts) < 5 or running_parts[-5] != "projectops":
         return None
@@ -183,7 +183,7 @@ def _installed_revision(entrypoint: Path) -> int:
 
 
 def refresh_stable_entrypoint(projectops_home: Path) -> bool:
-    """{projectops_home}/bin/projectops_cli.py 를 이 파일 내용으로 맞춤. 바뀌었으면 True (같거나 높은 번호면 안 씀)"""
+    """Sync {projectops_home}/bin/projectops_cli.py to this file. True if changed (no write when installed revision is equal or higher)"""
     entrypoint = projectops_home / "bin" / STABLE_ENTRYPOINT_NAME
     if _installed_revision(entrypoint) >= RESOLVER_REVISION:
         return False
@@ -198,10 +198,10 @@ def refresh_stable_entrypoint(projectops_home: Path) -> bool:
 def main(arguments: list) -> int:
     if not arguments or normalize_skill_name(arguments[0]) not in SKILL_CLIS:
         print('{"ok": false, "code": "bad_args", "summary": "usage: projectops_cli.py <skill> <subcommand> ...", '
-              '"available_skills": %s, "next": "첫 인자에 스킬 이름을 준다"}' % str(sorted(SKILL_CLIS)).replace("'", '"'))
+              '"available_skills": %s, "next": "pass a skill name as the first argument"}' % str(sorted(SKILL_CLIS)).replace("'", '"'))
         return 1
     skill = normalize_skill_name(arguments[0])
-    # 하위 CLI 도 상대 경로를 현재 폴더 기준으로 풀므로 traceback 대신 JSON 으로 멈춤
+    # Child CLIs also resolve relative paths against the current folder, so stop with JSON instead of a traceback
     if readable_cwd() is None:
         print('{"ok": false, "code": "cwd_unreadable", "summary": "cannot read the current folder (macOS privacy '
               'protection or a deleted folder)", "next": "cd into the project folder again (or cd ~ and pass '

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""bug_cli: pro-skill-bug 사실 수집 CLI — 판정 없음, 출력은 항상 JSON (ok·code·summary·next)
+"""bug_cli: pro-skill-bug fact-gathering CLI — no judgement, output is always JSON (ok·code·summary·next)
 
-extras 플러그인은 자기 폴더만 설치되므로 scripts/common 을 쓰지 않는다 (표준 라이브러리 전용).
+The extras plugin installs only its own folder, so it does not use scripts/common (standard library only).
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from bug import alarm, context, excerpt, redact, transcript  # noqa: E402
 
-# 이슈 본문 초안 폴더: ~/.projectops/cache/pro-skill-bug/{세션 ID 앞 8자}_{yyyyMMdd-HHmmss}.md
+# Issue body draft folder: ~/.projectops/cache/pro-skill-bug/{first 8 chars of session ID}_{yyyyMMdd-HHmmss}.md
 DRAFT_FOLDER_PARTS = (".projectops", "cache", "pro-skill-bug")
 
 
@@ -27,7 +27,7 @@ class _BadArgumentsExit(Exception):
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
-    """인자 오류를 stderr 대신 JSON 으로 돌려주기 위한 파서"""
+    """Parser that returns argument errors as JSON instead of stderr"""
 
     def error(self, message):
         raise _BadArgumentsExit(message)
@@ -53,7 +53,7 @@ def _transcript_or_failure(session_id: str | None) -> tuple[Path | None, dict | 
                   "next": "locate --session-id <id>  # the id is the .jsonl file name under projects/"}
 
 
-# 서브커맨드: 기록 찾기 > 결과 + next
+# Subcommands: find transcript > result + next
 
 def cmd_locate(args) -> dict:
     path, failure = _transcript_or_failure(args.session_id)
@@ -108,7 +108,7 @@ def cmd_context(args) -> dict:
 
 
 def _anchor_command_and_cwd(session_id: str, tool_use_id: str | None) -> tuple[str | None, str | None]:
-    """기록에서 기준 호출의 (명령 글, 그때 작업 폴더). 기준이 없으면 마지막 줄의 작업 폴더"""
+    """(command text, working folder at the time) of the anchor call in the transcript. Without an anchor, the last line's working folder"""
     path = transcript.find_transcript(session_id)
     if not path:
         return None, None

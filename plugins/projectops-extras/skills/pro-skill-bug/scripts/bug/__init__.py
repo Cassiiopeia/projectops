@@ -1,1 +1,1 @@
-"""pro-skill-bug 사실 수집 모듈: 세션 기록 찾기 · 발췌 · 가리기"""
+"""pro-skill-bug fact-gathering modules: find session transcript · excerpt · redact"""

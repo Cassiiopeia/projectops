@@ -1,4 +1,4 @@
-"""언어별 데모 문구: 이슈·커밋·PR 내용과 GIF 단계 설명 (en 원문, ko 번역)"""
+"""Demo text per language: issue, commit and PR content plus GIF step captions (en original, ko translation)"""
 
 DEMO_TEXTS = {
     "en": {

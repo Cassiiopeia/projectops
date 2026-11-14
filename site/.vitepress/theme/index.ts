@@ -3,8 +3,8 @@ import type { Theme } from 'vitepress'
 import { toLegacyRedirectPath } from '../locale-paths.mts'
 import './custom.css'
 
-// 옛 URL(/en/*, /CLI 등) > 새 URL 이동 (#976)
-// GitHub Pages 는 서버 리다이렉트가 없어 없는 경로는 404.html 로 들어온다 > 여기서 바꿔 준다 (해시 유지)
+// Old URL (/en/*, /CLI, etc.) > new URL redirect (#976)
+// GitHub Pages has no server redirects, so missing paths land on 404.html > rewrite here (hash kept)
 function redirectLegacyUrl() {
   const base = import.meta.env.BASE_URL.replace(/\/$/, '')
   const { pathname, search, hash } = window.location

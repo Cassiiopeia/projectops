@@ -1,12 +1,12 @@
-"""스킬 공식 트러블슈팅 지식: 항목 스키마·검증, 색인 생성, 실패에 맞는 해결 찾기 (#889).
+"""Official skill troubleshooting knowledge: entry schema and validation, index build, finding fixes for a failure (#889).
 
-사용자 기억(knowledge.json, 이 컴퓨터만)과 층이 다르다 — 관리자가 PR 로 넣고 플러그인 업데이트로 모두에게 간다.
-  skills/<skill>/troubleshooting/<area>/<id>.json   한 항목 = 한 파일 (원본)
-  skills/<skill>/troubleshooting/index.json         색인 (생성물, scripts/build_troubleshooting.py)
-실행 중에는 색인만 읽는다. 색인이 없거나 깨져도 예외 없이 빈 결과 — 본 명령을 망치지 않는다.
-작성 규칙: skills/references/memory-principles.md §6
+A different layer from user memory (knowledge.json, this machine only): maintainers add entries via PR and plugin updates deliver them to everyone.
+  skills/<skill>/troubleshooting/<area>/<id>.json   one entry = one file (source)
+  skills/<skill>/troubleshooting/index.json         index (generated, scripts/build_troubleshooting.py)
+At runtime only the index is read. A missing or broken index gives an empty result without raising; the main command is never broken.
+Writing rules: skills/references/memory-principles.md §6
 
-표준 라이브러리만 쓴다 (mac·Windows·폐쇄망 공통).
+Standard library only (mac, Windows, air-gapped networks).
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ INDEX_FILE = "index.json"
 INDEX_SCHEMA = 1
 AREAS = ("web", "android", "ios", "server", "ssh", "general", "desktop")
 
-# 항목 필드: 이름 → 허용 타입
+# Entry fields: name → allowed type
 REQUIRED_FIELDS = {"id": str, "area": str, "title": str, "match": dict, "symptom": str,
                    "cause": str, "fix": list, "refs": list, "verified_at": str}
 OPTIONAL_FIELDS = {"applies_to": (str, list), "see_also": list}
@@ -34,12 +34,12 @@ MAX_TITLE_CHARS = 80
 MAX_FIX_ITEM_CHARS = 200
 MAX_FIX_ITEMS = 8
 
-# 응답에 싣는 요약 상한 — 지식이 늘어도 토큰은 늘지 않게
+# Cap on summaries added to a response, so tokens do not grow as knowledge grows
 DEFAULT_FIND_LIMIT = 2
 SHORT_FIX_ITEMS = 2
 SHORT_FIX_ITEM_CHARS = 160
 SHORT_TITLE_CHARS = 80
-# 핵심어만 겹친 항목이 실리려면 필요한 겹침 수 (항목 핵심어가 이보다 적으면 그 수)
+# Overlap count needed to include a keyword-only match (or the entry's keyword count if smaller)
 MIN_KEYWORD_HITS = 2
 
 
@@ -52,7 +52,7 @@ def index_path(skill_dir: Path) -> Path:
 
 
 def entry_files(skill_dir: Path) -> list[Path]:
-    """원본 항목 파일 (troubleshooting/<area>/*.json). 색인 파일은 영역 폴더 밖이라 빠진다."""
+    """Source entry files (troubleshooting/<area>/*.json). The index file is outside area folders, so it is excluded."""
     base = troubleshooting_dir(skill_dir)
     if not base.is_dir():
         return []
@@ -60,14 +60,14 @@ def entry_files(skill_dir: Path) -> list[Path]:
 
 
 def keyword_tokens(keywords: list) -> set[str]:
-    """핵심어 → 비교용 고유어 (common.memory 단어 규칙 재사용)."""
+    """Keywords → distinct words for comparison (reuses common.memory word rules)."""
     tokens: set[str] = set()
     for keyword in keywords or []:
         tokens |= memory.words(str(keyword))
     return tokens
 
 
-# ── 검증 ────────────────────────────────────────────────────────────────
+# ── Validation ──────────────────────────────────────────────────────────
 
 def _is_valid_date(value: str) -> bool:
     try:
@@ -94,11 +94,11 @@ def _validate_match(match: dict) -> list[str]:
 
 
 def validate_entry(entry: dict) -> list[str]:
-    """항목 하나의 스키마 문제 목록 (없으면 빈 목록). 파일 위치·중복은 validate_entries 가 본다."""
+    """Schema problems for one entry (empty list if none). File location and duplicates are checked by validate_entries."""
     if not isinstance(entry, dict):
         return ["an entry must be a JSON object"]
     problems = []
-    # 필드 존재·타입
+    # Field presence and type
     for field, kind in REQUIRED_FIELDS.items():
         if field not in entry:
             problems.append(f"missing required field: {field}")
@@ -112,7 +112,7 @@ def validate_entry(entry: dict) -> list[str]:
         problems.append(f"unknown fields: {sorted(unknown)}")
     if problems:
         return problems
-    # 값 규칙 (id·area·제목·날짜·해결·이슈 번호)
+    # Value rules (id, area, title, date, fix, issue number)
     if not ID_PATTERN.match(entry["id"]):
         problems.append("id must be kebab-case (lowercase letters, digits, hyphens)")
     if entry["area"] not in AREAS:
@@ -136,7 +136,7 @@ def validate_entry(entry: dict) -> list[str]:
 
 
 def read_entries(skill_dir: Path) -> tuple[list[tuple[Path, dict]], list[str]]:
-    """([(파일, 항목)], 읽기 문제). JSON 이 깨진 파일은 문제로만 남긴다."""
+    """([(file, entry)], read problems). Files with broken JSON are only recorded as problems."""
     rows, problems = [], []
     for path in entry_files(skill_dir):
         try:
@@ -147,7 +147,7 @@ def read_entries(skill_dir: Path) -> tuple[list[tuple[Path, dict]], list[str]]:
 
 
 def validate_entries(skill_dir: Path) -> list[str]:
-    """모든 항목 검사: 스키마 > 파일명·폴더 일치 > id 유일 > 비밀값. 문제 목록을 돌려준다."""
+    """Check all entries: schema > file name/folder match > unique id > secrets. Returns the list of problems."""
     from common.access import find_secrets
 
     rows, problems = read_entries(skill_dir)
@@ -171,16 +171,16 @@ def validate_entries(skill_dir: Path) -> list[str]:
     return problems
 
 
-# ── 색인 ────────────────────────────────────────────────────────────────
+# ── Index ───────────────────────────────────────────────────────────────
 
 def short_fix(fix: list) -> list[str]:
     return [memory.clip(f, SHORT_FIX_ITEM_CHARS) for f in (fix or [])[:SHORT_FIX_ITEMS]]
 
 
 def build_index(skill_dir: Path) -> dict:
-    """항목 파일 > 색인 {codes:{code:[id]}, keywords:{word:[id]}, entries:{id:{...}}}.
+    """Entry files > index {codes:{code:[id]}, keywords:{word:[id]}, entries:{id:{...}}}.
 
-    날짜 같은 실행마다 바뀌는 값은 넣지 않는다 — 같은 항목이면 같은 색인이어야 --check 가 선다.
+    Values that change per run, like dates, are left out; the same entries must give the same index for --check to hold.
     """
     rows, _ = read_entries(skill_dir)
     codes: dict[str, set] = {}
@@ -215,7 +215,7 @@ def _empty_index() -> dict:
 
 
 def load_index(skill_dir: Path) -> dict:
-    """생성된 색인. 없거나 모양이 틀리면 빈 색인 (예외 없음)."""
+    """The generated index. Empty index if missing or malformed (no exception)."""
     try:
         data = json.loads(index_path(skill_dir).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, TypeError):
@@ -226,7 +226,7 @@ def load_index(skill_dir: Path) -> dict:
     return data
 
 
-# ── 찾기 ────────────────────────────────────────────────────────────────
+# ── Find ────────────────────────────────────────────────────────────────
 
 def _summary(entry_id: str, info: dict) -> dict:
     return {"id": entry_id, "title": memory.clip(info.get("title", ""), SHORT_TITLE_CHARS),
@@ -236,10 +236,10 @@ def _summary(entry_id: str, info: dict) -> dict:
 
 def find_known_fixes(skill_dir: Path, code: str | None = None, text: str | None = None,
                      limit: int = DEFAULT_FIND_LIMIT, areas=None) -> list[dict]:
-    """실패 코드·문구에 맞는 항목 요약 (최대 limit 건). 코드 정확 일치 > 핵심어 겹침 순.
+    """Summaries of entries matching a failure code or message (at most limit). Exact code match > keyword overlap.
 
-    areas: 이 영역들 + general 만 (iOS 실패에 android 항목이 실리지 않게). None 이면 거르지 않는다.
-    어떤 오류도 밖으로 내지 않는다 — 공식 지식은 보조다.
+    areas: only these areas + general (so android entries do not show for iOS failures). None means no filtering.
+    Never lets any error escape; official knowledge is auxiliary.
     """
     try:
         index = load_index(skill_dir)
@@ -250,7 +250,7 @@ def find_known_fixes(skill_dir: Path, code: str | None = None, text: str | None 
             for entry_id in index["keywords"].get(token) or []:
                 keyword_hits[entry_id] = keyword_hits.get(entry_id, 0) + 1
 
-        # 핵심어만 맞은 항목은 충분히 겹칠 때만 (흔한 한 단어로 엉뚱한 항목이 실리지 않게)
+        # Keyword-only matches only when they overlap enough (so one common word does not pull in unrelated entries)
         def is_keyword_match(entry_id: str) -> bool:
             info = entries.get(entry_id) or {}
             need = min(MIN_KEYWORD_HITS, int(info.get("keyword_count") or MIN_KEYWORD_HITS))
@@ -263,12 +263,12 @@ def find_known_fixes(skill_dir: Path, code: str | None = None, text: str | None 
         ranked = sorted((i for i in candidates if i in entries),
                         key=lambda i: (i not in code_hits, -keyword_hits.get(i, 0), i))
         return [_summary(i, entries[i]) for i in ranked[:max(limit, 0)]]
-    except Exception:   # noqa: BLE001 — 색인이 손으로 망가져도 본 명령은 그대로
+    except Exception:   # noqa: BLE001 — the main command proceeds even if the index is hand-broken
         return []
 
 
 def load_entry(skill_dir: Path, entry_id: str) -> dict | None:
-    """항목 전체. 색인의 경로를 먼저 보고, 없으면 영역 폴더를 훑는다 (색인이 낡았어도 찾게)."""
+    """The full entry. Check the index path first, else scan area folders (finds it even if the index is stale)."""
     if not entry_id or not ID_PATTERN.match(entry_id):
         return None
     base = troubleshooting_dir(skill_dir)
@@ -286,7 +286,7 @@ def load_entry(skill_dir: Path, entry_id: str) -> dict | None:
 
 
 def list_entries(skill_dir: Path, area: str | None = None) -> list[dict]:
-    """색인의 항목 목록 [{id, area, title}] — area 로 거른다."""
+    """Index entry list [{id, area, title}], filtered by area."""
     entries = load_index(skill_dir)["entries"]
     return [{"id": i, "area": info.get("area"), "title": info.get("title")}
             for i, info in entries.items()

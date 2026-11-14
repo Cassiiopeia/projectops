@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""공식 트러블슈팅 생성물 만들기: 항목 검증 > troubleshooting/index.json + references/troubleshooting.md (#889).
+"""Build the official troubleshooting outputs: validate entries > troubleshooting/index.json + references/troubleshooting.md (#889).
 
-    python3 scripts/build_troubleshooting.py skills/pro-launch           # 생성
-    python3 scripts/build_troubleshooting.py skills/pro-launch --check   # 쓰지 않고 최신인지만 (아니면 종료코드 1)
+    python3 scripts/build_troubleshooting.py skills/pro-launch           # build
+    python3 scripts/build_troubleshooting.py skills/pro-launch --check   # check freshness only, no writes (exit 1 if stale)
 
-원본은 항목 파일(troubleshooting/<area>/<id>.json) 하나뿐이다. 두 생성물을 손으로 고치지 않는다.
-출력: JSON 한 줄 (ok/code/summary/next). 다른 스킬도 자기 폴더를 넘겨 같은 스크립트를 쓴다.
+The entry files (troubleshooting/<area>/<id>.json) are the only source. Never hand-edit the two outputs.
+Output: one JSON line (ok/code/summary/next). Other skills pass their own folder to the same script.
 """
 from __future__ import annotations
 
@@ -51,13 +51,13 @@ def _area_heading(area: str) -> str:
 
 
 def _heading_anchor(heading: str) -> str:
-    """제목 > GitHub 앵커 (소문자, 영숫자·공백·하이픈만, 공백 > 하이픈)"""
+    """Title > GitHub anchor (lowercase, alphanumerics/spaces/hyphens only, space > hyphen)"""
     kept = "".join(ch for ch in heading.lower() if ch.isalnum() or ch in " -")
     return kept.replace(" ", "-")
 
 
 def _render_contents(entries: list[dict]) -> list[str]:
-    """영역 목차: 영역별 링크 + 항목 수"""
+    """Area index: link per area + entry count"""
     lines = ["## Contents", ""]
     for area in troubleshoot.AREAS:
         count = sum(1 for e in entries if e["area"] == area)
@@ -68,7 +68,7 @@ def _render_contents(entries: list[dict]) -> list[str]:
 
 
 def render_markdown(skill_dir: Path) -> str:
-    """항목 > 사람용 문서 (영역별 표 + 항목 상세)."""
+    """Entries > human-readable doc (table per area + entry details)."""
     rows, _ = troubleshoot.read_entries(skill_dir)
     entries = sorted((e for _, e in rows if not troubleshoot.validate_entry(e)),
                      key=lambda e: (troubleshoot.AREAS.index(e["area"]), e["id"]))
@@ -94,7 +94,7 @@ def render_markdown(skill_dir: Path) -> str:
 
 
 def expected_outputs(skill_dir: Path) -> dict[Path, str]:
-    """생성물 경로 > 내용."""
+    """Output path > content."""
     return {troubleshoot.index_path(skill_dir): troubleshoot.render_index(troubleshoot.build_index(skill_dir)),
             skill_dir / DOC_PATH: render_markdown(skill_dir)}
 
@@ -107,7 +107,7 @@ def _read(path: Path) -> str | None:
 
 
 def run(skill_dir: Path, is_check_only: bool) -> int:
-    # 입력 검증 (폴더, 항목 스키마)
+    # Validate input (folder, entry schema)
     if not troubleshoot.troubleshooting_dir(skill_dir).is_dir():
         return emit({"ok": False, "code": "no_troubleshooting_dir",
                      "error": f"{troubleshoot.troubleshooting_dir(skill_dir)} does not exist",
@@ -116,7 +116,7 @@ def run(skill_dir: Path, is_check_only: bool) -> int:
     if problems:
         return emit({"ok": False, "code": "invalid_entries", "problems": problems,
                      "summary": f"{len(problems)} entry problems", "next": "Fix the entries and run again"})
-    # 생성물 비교 > 검사만 하거나 쓴다
+    # Compare outputs > check only or write
     outputs = expected_outputs(skill_dir)
     stale = [path for path, text in outputs.items() if _read(path) != text]
     relative = [path.relative_to(skill_dir).as_posix() for path in stale]

@@ -1,16 +1,16 @@
-"""MCP-style JSON 출력 헬퍼.
+"""MCP-style JSON output helper.
 
-모든 _cli.py 서브커맨드 출력은 이 emit() 통해 stdout으로 나간다.
-4필드(ok/code/summary/next) 기본값 자동 보장, 출력에서도 이 4개가 맨 앞에 온다. summary 는 언제나 문자열.
+Every _cli.py subcommand writes to stdout through this emit().
+The 4 fields (ok/code/summary/next) always get defaults and come first in the output. summary is always a string.
 
-성공: emit({"data": ...})                        → rc=0, ok=true, code="ok"
-에러: emit({"ok": False, "code": "...", ...})    → rc=1
+Success: emit({"data": ...})                        → rc=0, ok=true, code="ok"
+Error:   emit({"ok": False, "code": "...", ...})    → rc=1
 
-전역 출력 옵션 (run_cli 가 argv 에서 꺼낸다):
-  --brief        안내 필드(ok·code·summary·next·error·hint·usage·example) + 목록의 최소 행(번호·제목·상태)
-  --field a.b.0  성공 응답의 그 값만 (문자열이면 글자 그대로). 인라인 파이썬으로 키를 짐작해 파싱하지 않게 한다.
-                 오류 응답에는 적용하지 않는다 (원인을 가리지 않는다)
-  --fields a,b   {경로: 값} JSON — 경로가 하나여도 JSON (#1187)
+Global output options (run_cli pulls them from argv):
+  --brief        guidance fields (ok, code, summary, next, error, hint, usage, example) + minimal list rows (number, title, state)
+  --field a.b.0  only that value of a success response (strings printed raw). Avoids guessing keys with inline Python parsing.
+                 Not applied to error responses (does not hide the cause)
+  --fields a,b   {path: value} JSON — JSON even for one path (#1187)
 """
 import difflib
 import json
@@ -18,19 +18,19 @@ import os
 import sys
 from typing import Any, Optional
 
-# cp949 콘솔에서 인코딩 못 하는 글자(— 등) 하나로 CLI 가 죽지 않게 한다. 깨끗한 UTF-8 은 PYTHONIOENCODING 으로 받는다
+# Keep one unencodable char (— etc.) on a cp949 console from killing the CLI. Clean UTF-8 comes via PYTHONIOENCODING
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(errors="replace")
 
-# 응답 맨 앞에 두는 키 — 잘라 읽어도 판단에 필요한 것이 남는다
+# Keys placed first in the response — truncated reads still keep what is needed to decide
 _HEAD_KEYS = ("ok", "code", "summary", "next")
-# --brief 에서도 남기는 안내 키
+# Guidance keys kept under --brief too
 _GUIDE_KEYS = _HEAD_KEYS + ("error", "hint", "usage", "example", "did_you_mean", "available_subcommands",
                               "newer_installed", "count", "warning", "warnings")
-# --brief 에서 목록 행마다 남기는 식별 키 (번호·제목·상태) — 목록을 버리지 않아 재호출이 필요 없게
+# Identity keys kept per list row under --brief (number, title, state) — the list stays, so no re-call is needed
 _BRIEF_ROW_KEYS = ("number", "id", "run_id", "job_id", "title", "name", "state", "status", "conclusion")
-# field_not_found 후보로 펼칠 중첩 깊이
+# Nesting depth expanded for field_not_found candidates
 _CANDIDATE_PATH_DEPTH = 3
 
 _output_options: dict = {"brief": False, "field": None, "should_return_object": False, "extra": {}}
@@ -38,8 +38,8 @@ _output_options: dict = {"brief": False, "field": None, "should_return_object": 
 
 def configure_output(brief: bool = False, field: Optional[str] = None, extra: Optional[dict] = None,
                      should_return_object: bool = False) -> None:
-    """--brief / --field(s) 를 켠다 (run_cli 가 호출). field 에 쉼표가 있으면 여러 경로. extra: 첫 응답에 덧붙일 키
-    should_return_object: --fields 로 받음 > 경로 하나여도 {경로: 값}"""
+    """Turn on --brief / --field(s) (called by run_cli). A comma in field means several paths. extra: keys added to the first response
+    should_return_object: given via --fields > {path: value} even for one path"""
     _output_options["brief"] = brief
     _output_options["field"] = field
     _output_options["should_return_object"] = should_return_object
@@ -47,7 +47,7 @@ def configure_output(brief: bool = False, field: Optional[str] = None, extra: Op
 
 
 def _lookup(payload: Any, dotted_path: str) -> Any:
-    """a.b.0 경로로 값을 찾는다. 없으면 KeyError"""
+    """Find a value by an a.b.0 path. KeyError if missing"""
     current = payload
     for part in dotted_path.split("."):
         if isinstance(current, list):
@@ -60,7 +60,7 @@ def _lookup(payload: Any, dotted_path: str) -> Any:
 
 
 def _candidate_paths(value: Any, prefix: str = "", depth: int = _CANDIDATE_PATH_DEPTH) -> list:
-    """응답 안의 점 경로 후보 (issue.labels, runs.0.run_id …). 목록은 첫 항목만 펼친다"""
+    """Dot-path candidates inside the response (issue.labels, runs.0.run_id …). Lists expand only their first item"""
     if depth == 0:
         return []
     if isinstance(value, dict):
@@ -78,7 +78,7 @@ def _candidate_paths(value: Any, prefix: str = "", depth: int = _CANDIDATE_PATH_
 
 
 def _suggest_paths(payload: dict, wanted: str) -> list:
-    """없는 경로 > 끝 이름이 같은 중첩 경로 우선, 그다음 비슷한 경로"""
+    """Missing path > nested paths with the same last name first, then similar paths"""
     candidates = _candidate_paths(payload)
     last_name = wanted.split(".")[-1]
     same_last = [path for path in candidates if path.split(".")[-1] == last_name and path != wanted]
@@ -87,14 +87,14 @@ def _suggest_paths(payload: dict, wanted: str) -> list:
 
 
 def _default_summary(payload: dict) -> str:
-    """summary 가 비었을 때: 실패면 원인(error) 또는 code, 성공이면 '완료'"""
+    """When summary is empty: on failure the cause (error) or code, on success 'done'"""
     if payload["ok"]:
         return "done"
     return str(payload.get("error") or payload["code"])
 
 
 def _brief_rows(items: list) -> Optional[list]:
-    """dict 목록 > 행마다 식별 키만. 남길 키가 없으면 None"""
+    """dict list > identity keys per row only. None if there are no keys to keep"""
     if not items or not all(isinstance(item, dict) for item in items):
         return None
     rows = [{key: item[key] for key in _BRIEF_ROW_KEYS if key in item} for item in items]
@@ -102,7 +102,7 @@ def _brief_rows(items: list) -> Optional[list]:
 
 
 def _to_brief(payload: dict) -> dict:
-    """안내 키 + 목록(최소 행)만 남긴다"""
+    """Keep only guidance keys + lists (minimal rows)"""
     brief = {}
     for key, value in payload.items():
         if key in _GUIDE_KEYS:
@@ -117,12 +117,12 @@ def _write(payload: Any) -> None:
         sys.stdout.write((payload if isinstance(payload, str) else json.dumps(payload, ensure_ascii=False)) + "\n")
         sys.stdout.flush()
     except BrokenPipeError:
-        # 읽는 쪽(head 등)이 먼저 종료 > 이후 출력·종료 시 flush 를 devnull 로 (재emit·종료 경고 traceback 방지, #1010)
+        # Reader (head etc.) exited first > send later output and exit flush to devnull (prevents re-emit and exit-warning tracebacks, #1010)
         os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
 
 
 def _emit_fields(payload: dict, field: str) -> int:
-    """--field(s): 성공 응답에서 요청 경로 값만. 없는 경로면 field_not_found + 중첩 후보"""
+    """--field(s): only the requested path values from a success response. Missing path > field_not_found + nested candidates"""
     paths = [path.strip() for path in field.split(",") if path.strip()]
     values = {}
     for path in paths:
@@ -139,24 +139,24 @@ def _emit_fields(payload: dict, field: str) -> int:
 
 
 def emit(payload: dict) -> int:
-    """JSON을 stdout에 출력하고 ok 값에 따라 rc 반환.
+    """Print JSON to stdout and return rc based on ok.
 
-    payload에 ok/code/summary/next가 없으면 기본값을 채워 4필드를 강제한다.
-    한글은 ensure_ascii=False로 그대로 출력.
+    Fills defaults when ok/code/summary/next are missing, enforcing the 4 fields.
+    Non-ASCII text is printed as is with ensure_ascii=False.
     """
     payload.setdefault("ok", True)
     if payload["ok"] and "code" not in payload:
         payload["code"] = "ok"
     elif not payload["ok"] and "code" not in payload:
         payload["code"] = "error"
-    # summary 는 언제나 문자열 — None 이 섞이면 부르는 쪽 파싱이 깨진다
+    # summary is always a string — a None breaks the caller's parsing
     if payload.get("summary") in (None, ""):
         payload["summary"] = _default_summary(payload)
     elif not isinstance(payload["summary"], str):
         payload["summary"] = str(payload["summary"])
     payload.setdefault("next", None)
     payload = {**{key: payload[key] for key in _HEAD_KEYS}, **{k: v for k, v in payload.items() if k not in _HEAD_KEYS}}
-    # 한 번만 싣는 안내 (옛 버전에서 돌고 있다는 경고 등)
+    # One-time notice (e.g. warning that an old version is running)
     for key, value in _output_options["extra"].items():
         payload.setdefault(key, value)
     _output_options["extra"] = {}

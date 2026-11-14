@@ -1,4 +1,4 @@
-"""worktree 백업: 스테이징·미스테이징 패치 + 추적 안 되는 고유 파일 사본 > 검증"""
+"""worktree backup: staged and unstaged patches + copies of unique untracked files > verify"""
 from __future__ import annotations
 
 import json
@@ -11,9 +11,9 @@ from pathlib import Path
 
 from . import generated, shell
 
-# 사본으로 남기지 않는 큰 파일 기준 (50MB) — 앱 바이너리·압축 파일이 백업을 다시 키우지 않게
+# Large files are not copied (50MB) — keeps app binaries and archives from re-growing the backup
 MAX_COPY_BYTES = 50 * 1024 * 1024
-# 추적 밖 파일 사본 최대 개수 — 넘으면 백업 실패로 보고 제거하지 않음
+# Max number of untracked-file copies — above it, report backup failure and do not remove
 MAX_COPY_FILE_COUNT = 5000
 UNSAFE_NAME_PATTERN = re.compile(r"[^\w.#-]+")
 BACKUP_INFO_FILE = "backup.json"
@@ -24,7 +24,7 @@ def _safe_folder_name(text: str) -> str:
 
 
 def _write_patch(worktree: Path, destination: Path, *diff_arguments: str) -> int:
-    # 패치는 바이트 그대로 (UTF-8 아닌 파일 내용 보존)
+    # Patches stay as raw bytes (keeps non-UTF-8 file contents)
     try:
         completed = subprocess.run(["git", "-C", str(worktree), "diff", "--binary", *diff_arguments],
                                    capture_output=True, timeout=300)
@@ -37,7 +37,7 @@ def _write_patch(worktree: Path, destination: Path, *diff_arguments: str) -> int
 
 
 def _untracked_paths(worktree: Path) -> tuple[list[str], bool]:
-    """추적 밖 파일 상대경로 > (경로, 개수 상한 초과). 무시 안 된 것 + 무시된 것(.env·서명 키 등), 생성물 폴더 제외"""
+    """Untracked file relative paths > (paths, over the count limit). Non-ignored + ignored (.env, signing keys, etc.), generated folders excluded"""
     base = ["git", "-c", "core.quotepath=false", "-C", str(worktree), "ls-files", "--others", "--exclude-standard"]
     _, plain, _ = shell.run(base, timeout_seconds=300)
     _, ignored, _ = shell.run(base + ["--ignored", "--directory"], timeout_seconds=300)
@@ -57,7 +57,7 @@ def _untracked_paths(worktree: Path) -> tuple[list[str], bool]:
 
 
 def _copy_untracked(worktree: Path, destination: Path) -> tuple[list[str], list[str]]:
-    # 생성물·큰 파일 제외하고 복사
+    # Copy, skipping generated output and large files
     relatives, is_over_limit = _untracked_paths(worktree)
     if is_over_limit:
         raise RuntimeError(f"more than {MAX_COPY_FILE_COUNT} untracked files; review them by hand")
@@ -77,13 +77,13 @@ def _copy_untracked(worktree: Path, destination: Path) -> tuple[list[str], list[
 
 
 def backup_worktree(facts: dict, backup_base: Path) -> dict:
-    """백업 생성 > 검증 결과. 실패 시 예외 대신 {ok: False}"""
+    """Create backup > verification result. On failure returns {ok: False} instead of raising"""
     worktree = Path(facts["path"])
     repository = _safe_folder_name((facts.get("repository") or worktree.parent.name).replace("/", "__"))
     branch = _safe_folder_name(facts.get("branch") or f"detached_{worktree.name}")
     destination = backup_base / repository / f"{branch}_{time.strftime('%H%M%S')}"
     destination.mkdir(parents=True, exist_ok=True)
-    # 비밀 파일이 섞일 수 있어 본인만 접근 (POSIX). 실패하면 결과에 is_private False
+    # May contain secret files, so owner-only access (POSIX). On failure the result has is_private False
     is_private = True
     for folder in (backup_base, destination):
         try:

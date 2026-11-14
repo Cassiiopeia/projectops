@@ -1,8 +1,8 @@
-"""붙는 법 기록과 비밀값 검사 (pro-launch · pro-agent-test 공용, #629).
+"""Records of how to connect, plus secret checks (shared by pro-launch and pro-agent-test, #629).
 
-**어떻게 DB에 붙고 로그를 보는지는 agent가 코드를 읽고 판단한다.** 서버는 프레임워크도
-붙는 길도 제각각이라 정규식으로 맞힐 수 없다. 그래서 agent가 알아낸 것을 적어 두고
-다음 실행이 그것을 쓴다. 저장 자리는 state.py 가 정한다 (프로젝트 밖 — 워크트리를 오가도 남는다).
+**How to reach the DB and read logs is decided by the agent reading the code.** Servers differ in framework
+and access path, so a regex cannot guess it. The agent writes down what it learned and
+the next run uses it. state.py picks the storage spot (outside the project, so it survives across worktrees).
 """
 from __future__ import annotations
 
@@ -14,13 +14,13 @@ from common.state import launch_file
 
 ACCESS_FILE = "access.json"
 
-# 기록에 들어가면 안 되는 것들. 파일은 평문으로 남고 다음 실행마다 다시 읽히므로,
-# 한 번 들어가면 계속 노출된다 — 쓰기 전에 막는 편이 유일하게 확실하다.
-# 막는 것은 '값'이다. 낱말(password)만으로는 막지 않는다 — 셀렉터 `#password_text_field`·
-# "password 칸을 누른다" 같은 설명이 막혀 로그인 지식을 못 남겼다 (#882).
-# 값 그룹(value)이 있는 패턴은 보고할 때 값만 가린다: `password=***`.
+# What must never enter the record. The file stays plain text and is reread on every run,
+# so once in, it stays exposed — blocking before the write is the only sure way.
+# We block the 'value', not the word (password) alone — a selector `#password_text_field` or
+# a description like "tap the password field" got blocked and login knowledge was lost (#882).
+# Patterns with a value group mask only the value when reported: `password=***`.
 
-# 값이 셀렉터·환경변수 참조로 시작하면 비밀값이 아니다 (#id, .class, [attr], $VAR, <placeholder>, {템플릿})
+# A value starting with a selector or env-var reference is not a secret (#id, .class, [attr], $VAR, <placeholder>, {template})
 _NOT_VALUE_START = r"(?![#.\[$<{])"
 _PASSWORD_WORD = r"(?:password|passwd|pwd|비밀번호|비번)"
 _SECRET_WORD = (r"(?:secret|client[_-]?secret|api[_-]?key|private[_-]?key|token|"
@@ -33,12 +33,12 @@ SECRET_PATTERNS = [
     # key=value · key: value · JSON {"password": "x"} (#589)
     (r'(?i)["\']?\b' + _PASSWORD_WORD + r'\b["\']?\s*[:=]\s*["\']?(?P<value>' + _NOT_VALUE_START
      + r'[^\s"\',;]{4,})', "password"),
-    # 구분자 없이 바로 값이 붙은 경우(password hunter2) — 값은 글자와 숫자가 섞인 것만 (설명 문장은 통과)
+    # Value right after the word with no separator (password hunter2) — only values mixing letters and digits (prose passes)
     (r'(?i)\b' + _PASSWORD_WORD + r'\s+(?P<value>(?=\S*\d)(?=\S*[a-z])[a-z0-9!@$%^&*_+-]{6,})(?!\S)',
      "password"),
     (r'(?i)["\']?\b' + _SECRET_WORD + r'\b["\']?\s*[:=]\s*["\']?(?P<value>' + _NOT_VALUE_START
      + r'[^\s"\',;]{8,})', "secret value"),
-    # 서비스가 정한 모양의 키 (낱말 없이 값만 있어도 잡는다)
+    # Keys with a service-defined shape (caught even without a keyword)
     (r'\b(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,}|sk-[A-Za-z0-9_-]{20,}|'
      r'AKIA[0-9A-Z]{16}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35})', "API key"),
     (r'-----BEGIN (?:[A-Z]+ )*PRIVATE KEY-----', "private key"),
@@ -46,7 +46,7 @@ SECRET_PATTERNS = [
 
 
 def _mask(match: re.Match) -> str:
-    """값만 가린 일치 구간 > `password=***`. 값 그룹이 없으면 앞 3글자만 남긴다."""
+    """Matched span with only the value masked > `password=***`. Without a value group, keep the first 3 chars."""
     if "value" in match.re.groupindex and match.group("value"):
         return match.group(0)[:match.start("value") - match.start()] + "***"
     sample = match.group(0)
@@ -54,7 +54,7 @@ def _mask(match: re.Match) -> str:
 
 
 def find_secret_spans(text: str) -> list[dict]:
-    """비밀값으로 보이는 구간: [{label, matched_span(가린 것)}]. agent 가 어느 부분을 고칠지 알게 한다."""
+    """Spans that look like secrets: [{label, matched_span (masked)}]. Tells the agent which part to fix."""
     spans = []
     for pattern, label in SECRET_PATTERNS:
         match = re.search(pattern, text)
@@ -64,7 +64,7 @@ def find_secret_spans(text: str) -> list[dict]:
 
 
 def find_secrets(text: str) -> list[str]:
-    """비밀값으로 보이는 것. 보고할 때도 원문을 다 드러내지 않는다."""
+    """Anything that looks like a secret. Reports never reveal the full original either."""
     return [f"{span['label']}({span['matched_span']})" for span in find_secret_spans(text)]
 
 
@@ -90,12 +90,12 @@ def save_access(root: Path, data: dict) -> Path:
     return f
 
 
-# ── 붙는 법의 성적 (#836) ────────────────────────────────────────────────
+# ── Track record of connection methods (#836) ─────────────────────────────
 #
-# 적어 둔 접속 방법이 지금도 먹히는지 기록한다(기억 원칙 2·4). 도구가 직접 확인한 결과만 쓴다.
-# access.json 은 사람이 적은 값 그대로 두고 옆 파일에 쌓는다 — 값이 문자열인 키(logs 명령 등)도
-# 있어서 필드를 덧붙일 수 없고, access show·detect 가 키 목록을 그대로 보여 주기 때문이다.
-# 날짜·결과 코드만 남긴다. 오류 원문은 비밀이 섞일 수 있어 적지 않는다.
+# Records whether a saved connection method still works (memory principles 2 and 4). Only results the tool checked itself.
+# access.json keeps the human-written values as is; results pile up in a side file — some keys hold plain strings
+# (logs command etc.) so fields cannot be added, and access show/detect print the key list as is.
+# Keep only date and result code. Raw error text may contain secrets, so it is not stored.
 
 STATUS_FILE = "access_status.json"
 
@@ -120,15 +120,15 @@ def _save_status(root: Path, data: dict) -> None:
 
 
 def needs_verify(entry: dict | None) -> bool:
-    """마지막 결과가 실패인가 — 실패가 앞서면 다음 사용 때 확인하라고 알린다."""
+    """Was the last result a failure? If so, ask for a check on next use."""
     return bool(entry) and entry.get("last") == "fail"
 
 
 def record_result(root: Path, key: str, ok: bool, code: str | None = None,
                   today: str | None = None) -> dict:
-    """key 로 적힌 접속 방법의 결과를 남긴다. 기록 **전** 상태를 돌려준다(이번 호출이 의심스러운 기록을 썼는지).
+    """Record the result of the connection method stored under key. Returns the state **before** recording (whether this call used a suspect record).
 
-    성공 → verified(날짜), 실패 → last_fail{date, code}. 같은 날 같은 결과는 한 번만 센다(부풀리지 않는다).
+    Success > verified(date), failure > last_fail{date, code}. Same result on the same day counts once (no inflation).
     """
     import datetime as _dt
     day = today or _dt.date.today().isoformat()
@@ -150,12 +150,12 @@ def record_result(root: Path, key: str, ok: bool, code: str | None = None,
     try:
         _save_status(root, data)
     except OSError:
-        pass   # 성적은 보조다 — 쓰지 못해도 본 명령 결과는 그대로 낸다
+        pass   # the track record is secondary — the main command result goes out even if this write fails
     return prev
 
 
 def reset_status(root: Path, key: str) -> None:
-    """방법을 바꿨으면 옛 성적은 의미가 없다 (access set/unset 때)."""
+    """A changed method makes the old track record meaningless (on access set/unset)."""
     data = load_status(root)
     if key in data:
         del data[key]

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""disk_cli: pro-disk-cleanup 사실 수집·삭제 게이트 CLI — 판단은 에이전트, 출력은 항상 JSON (ok·code·summary·next)
-extras 는 자기 폴더만 설치되어 scripts/common 미사용 (표준 라이브러리 전용), 삭제 명령은 --yes 없으면 계획만
+"""disk_cli: pro-disk-cleanup fact-gathering and delete-gate CLI — the agent decides, output is always JSON (ok·code·summary·next)
+extras installs only its own folder, so no scripts/common (standard library only); delete commands only plan without --yes
 """
 from __future__ import annotations
 
@@ -23,7 +23,7 @@ class _BadArgumentsExit(Exception):
 
 
 class JsonArgumentParser(argparse.ArgumentParser):
-    """인자 오류를 stderr 대신 JSON 으로 돌려주기 위한 파서"""
+    """Parser that returns argument errors as JSON instead of stderr"""
 
     def error(self, message):
         raise _BadArgumentsExit(message)
@@ -39,7 +39,7 @@ def emit(payload: dict) -> int:
     return 0 if payload["ok"] else 1
 
 
-# 서브커맨드: 입력 해석 > 모듈 호출 > 결과 + next
+# Subcommands: parse input > call module > result + next
 
 def cmd_free(_args) -> dict:
     space = sizes.free_space()

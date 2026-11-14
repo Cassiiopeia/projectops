@@ -1,4 +1,4 @@
-"""worktree 사실 수집: 레포 찾기 > worktree 목록 > 브랜치·이슈 번호·변경·사용 중·최근 활동"""
+"""worktree facts: find repos > worktree list > branch, issue number, changes, in use, recent activity"""
 from __future__ import annotations
 
 import os
@@ -9,17 +9,17 @@ from pathlib import Path
 from . import generated, shell, sizes
 from .processes import ProcessSnapshot
 
-# 브랜치 규칙 YYYYMMDD_#번호_제목 (# 생략 허용)
+# Branch rule YYYYMMDD_#number_title (# optional)
 ISSUE_BRANCH_PATTERN = re.compile(r"^\d{8}_#?(\d+)_")
 REMOTE_SLUG_PATTERN = re.compile(r"[:/]([^/:]+)/([^/]+?)(?:\.git)?/?$")
-# 레포를 찾을 깊이 (탐색 위치 기준)
+# Depth to search for repos (from the search root)
 REPOSITORY_SEARCH_DEPTH = 2
-# 변경 파일 예시 개수
+# Number of changed-file examples
 CHANGE_SAMPLE_COUNT = 8
 
 
 def find_main_repositories(roots: list[Path]) -> list[Path]:
-    """탐색 위치 아래 .git 을 가진 폴더 > 공통 git 폴더로 본 레포 경로 (중복 제거)"""
+    """Folders with .git under the search root > main repo paths via the common git dir (deduplicated)"""
     repositories: dict[str, Path] = {}
     for root in roots:
         pending = [(root, 0)]
@@ -39,7 +39,7 @@ def find_main_repositories(roots: list[Path]) -> list[Path]:
                                 if entry.is_dir(follow_symlinks=False) and not entry.name.startswith(".")
                                 and entry.name not in generated.GENERATED_FOLDER_NAMES]
             except OSError:
-                continue  # 권한 없는 폴더
+                continue  # folder without permission
     return sorted(repositories.values())
 
 
@@ -79,8 +79,8 @@ def repository_slug(main_repository: Path) -> str | None:
 
 
 def _changes(worktree: Path) -> dict:
-    """git status > 실제 변경·생성물 변경 분리"""
-    # 첫 줄 앞 공백이 상태 칸이라 strip 하는 shell.git 대신 run
+    """git status > split real changes from generated-output changes"""
+    # Leading space on the first line is the status column, so use run instead of shell.git (which strips)
     code, out, _ = shell.run(["git", "-c", "core.quotepath=false", "-C", str(worktree),
                               "status", "--porcelain", "--untracked-files=all"])
     if code != 0:
@@ -96,19 +96,19 @@ def _changes(worktree: Path) -> dict:
 
 
 def _last_activity_seconds(worktree: Path, real_changes: list[str]) -> float | None:
-    # git 인덱스(체크아웃·스테이징) + 실제 변경 파일 수정 시각 중 최근
+    # Most recent of git index (checkout, staging) + modification times of changed files
     times = []
     _, git_dir = shell.git(str(worktree), "rev-parse", "--path-format=absolute", "--git-dir")
     for candidate in (Path(git_dir) / "index", Path(git_dir) / "HEAD") if git_dir else ():
         try:
             times.append(candidate.stat().st_mtime)
         except OSError:
-            pass  # 없는 파일은 시각 후보에서 제외
+            pass  # missing files are left out of the time candidates
     for line in real_changes:
         try:
             times.append((worktree / line[3:].split(" -> ")[-1].strip('"')).stat().st_mtime)
         except OSError:
-            continue  # 삭제된 변경 파일
+            continue  # deleted changed file
     return max(times) if times else None
 
 
@@ -154,7 +154,7 @@ def collect(roots: list[Path], idle_hours: float, should_measure_size: bool, sna
 
 
 def find_one(path: Path, idle_hours: float) -> dict | None:
-    """경로 1개가 등록된 worktree 면 그 사실, 아니면 None"""
+    """Facts for one path if it is a registered worktree, else None"""
     code, common = shell.git(str(path), "rev-parse", "--path-format=absolute", "--git-common-dir")
     if code != 0 or not common:
         return None

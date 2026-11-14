@@ -1,4 +1,4 @@
-""".cursor/skills/MANIFEST.json 을 읽고 쓴다."""
+"""Read and write .cursor/skills/MANIFEST.json."""
 
 import json
 from pathlib import Path
@@ -8,7 +8,7 @@ MANIFEST_PATH = Path(".cursor") / "skills" / "MANIFEST.json"
 
 
 def read(project_root: Any) -> Optional[dict]:
-    """MANIFEST.json을 읽어 dict로 반환한다. 없으면 None."""
+    """Read MANIFEST.json and return a dict. None if missing."""
     path = Path(project_root) / MANIFEST_PATH
     if not path.exists():
         return None
@@ -16,7 +16,7 @@ def read(project_root: Any) -> Optional[dict]:
 
 
 def write(project_root: Any, data: dict) -> None:
-    """MANIFEST.json에 data를 저장한다. 부모 디렉토리가 없으면 자동 생성한다."""
+    """Save data to MANIFEST.json. Creates the parent directory if missing."""
     path = Path(project_root) / MANIFEST_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")

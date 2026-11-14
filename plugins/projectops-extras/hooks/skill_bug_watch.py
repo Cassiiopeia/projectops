@@ -1,5 +1,5 @@
-"""Claude Code PostToolUse·PostToolUseFailure(Bash) 훅: projectops 도구 이상 감지 > 에이전트에게 자동 보고 지시 (#997·#1000)
-입력 해석 > 규칙 판정(skill_bug_rules) > 세션 상태 저장 > additionalContext. 오류가 나면 언제나 조용히 통과.
+"""Claude Code PostToolUse·PostToolUseFailure(Bash) hook: detect projectops tool anomalies > tell the agent to auto-report (#997·#1000)
+Parse input > apply rules (skill_bug_rules) > save session state > additionalContext. Any error always passes silently.
 """
 from __future__ import annotations
 
@@ -13,18 +13,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import skill_bug_rules  # noqa: E402
 
-# 세션 상태: ~/.projectops/cache/pro-skill-bug/watch/{session_id}.json
+# Session state: ~/.projectops/cache/pro-skill-bug/watch/{session_id}.json
 WATCH_FOLDER = Path.home() / ".projectops" / "cache" / "pro-skill-bug" / "watch"
 CONFIG_PATH = Path.home() / ".projectops" / "config" / "config.json"
-# config.json: "skill-bug": {"auto_report": false} 면 끔
+# config.json: "skill-bug": {"auto_report": false} turns it off
 CONFIG_SECTION = "skill-bug"
 CONFIG_KEY_AUTO_REPORT = "auto_report"
-# 이 글자가 없고 대기 중인 실패도 없으면 아무것도 읽지 않는다 (모든 Bash 호출에 끼므로 빨라야 한다)
+# Without this text and with no pending failure, nothing is read (runs on every Bash call, so it must be fast)
 QUICK_TRIGGER = "_cli.py"
 SESSION_ID_SAFE_PATTERN = re.compile(r"[^A-Za-z0-9_-]")
-# 세션 상태 파일 보관 기간 (7일)
+# Session state file retention (7 days)
 STATE_KEEP_SECONDS = 7 * 24 * 3600
-# 상태에 남기는 경보 근거 수 (bug_cli alarm 이 읽는다)
+# Number of alarm evidence entries kept in state (read by bug_cli alarm)
 STATE_ALARMS_KEPT = 10
 
 
@@ -32,7 +32,7 @@ def main(stdin_text: str) -> int:
     try:
         payload = json.loads(stdin_text or "{}")
         response = build_response(payload)
-    except Exception:   # noqa: BLE001 — 훅 오류가 사용자 작업을 막으면 안 된다
+    except Exception:   # noqa: BLE001 — a hook error must not block the user's work
         return 0
     if response:
         print(json.dumps(response, ensure_ascii=False))
@@ -40,7 +40,7 @@ def main(stdin_text: str) -> int:
 
 
 def build_response(payload: dict) -> dict | None:
-    """훅 입력 1건 > additionalContext 응답 또는 None"""
+    """One hook input > additionalContext response or None"""
     if payload.get("tool_name") != "Bash":
         return None
     command = str((payload.get("tool_input") or {}).get("command") or "")
@@ -69,7 +69,7 @@ def build_response(payload: dict) -> dict | None:
 
 
 def tool_output_text(payload: dict) -> str:
-    """Bash 결과 글자: 성공은 tool_response(stdout·stderr), 실패는 error"""
+    """Bash result text: tool_response (stdout, stderr) on success, error on failure"""
     if payload.get("error"):
         return str(payload["error"])
     response = payload.get("tool_response")
@@ -94,7 +94,7 @@ def load_state(path: Path) -> dict:
 
 
 def save_state(path: Path, state: dict) -> None:
-    """세션 상태 저장 (새 세션 첫 저장 때 오래된 상태 파일 정리)"""
+    """Save session state (prune old state files on a new session's first save)"""
     if not path.exists():
         prune_old_states(path.parent)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -109,7 +109,7 @@ def prune_old_states(folder: Path) -> None:
 
 
 def build_instruction(session_id: str, alarms: list[dict], first_alarm_number: int) -> str:
-    """울린 규칙 > 에이전트 지시문 (영어: 에이전트가 읽는 문구, 상세 근거는 bug_cli alarm 이 상태에서 읽음)"""
+    """Fired rules > agent instruction (English, read by the agent; bug_cli alarm reads detailed evidence from state)"""
     lines = ["projectops: a suspected projectops tool bug was detected automatically in this session."]
     for offset, alarm in enumerate(alarms):
         lines.append(f"- alarm {first_alarm_number + offset}: {alarm['rule']} | {alarm['skill']} {alarm['subcommand']}"

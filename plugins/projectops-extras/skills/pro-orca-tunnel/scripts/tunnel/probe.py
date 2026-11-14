@@ -1,4 +1,4 @@
-"""주소 확인: Cloudflare DNS(HTTPS)로 이름 풀기 > 그 IP 로 직접 접속해 상태 코드 확인 (로컬 DNS 지연과 무관)"""
+"""Address check: resolve via Cloudflare DNS (HTTPS) > connect to that IP directly for a status code (independent of local DNS lag)"""
 from __future__ import annotations
 
 import json
@@ -30,7 +30,7 @@ def resolves_locally(host: str) -> bool:
 
 
 def http_status(host: str, ip: str, path: str = "/") -> int | None:
-    """host 이름(SNI)으로 ip 에 직접 접속한 응답 코드. 실패하면 None"""
+    """Response code from connecting to ip directly with host as SNI. None on failure"""
     context = ssl.create_default_context()
     try:
         with socket.create_connection((ip, 443), timeout=10) as raw:
@@ -45,7 +45,7 @@ def http_status(host: str, ip: str, path: str = "/") -> int | None:
 
 
 def check(url: str, path: str = "/") -> dict:
-    """{answers, status, local_dns_ready}: answers 는 2xx·3xx 로 응답했는가"""
+    """{answers, status, local_dns_ready}: answers means it replied with 2xx or 3xx"""
     host = urllib.parse.urlparse(url).hostname or ""
     addresses = resolve_public(host)
     status = http_status(host, addresses[0], path) if addresses else None

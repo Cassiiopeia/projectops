@@ -1,5 +1,5 @@
-"""Docker 정리: 미사용 볼륨 목록 고정 > 그 목록만 삭제 > 이름 댄 정지 컨테이너 > 미사용 이미지·빌드 캐시
-컨테이너 삭제로 새로 미사용이 된 볼륨은 보고만 (그 컨테이너가 쓰던 데이터일 수 있음)
+"""Docker cleanup: freeze the unused-volume list > delete only that list > named stopped containers > unused images and build cache
+Volumes newly unused after container removal are only reported (may be that container's data)
 """
 from __future__ import annotations
 
@@ -20,12 +20,12 @@ def _json_lines(text: str) -> list[dict]:
         try:
             rows.append(json.loads(line))
         except ValueError:
-            continue  # JSON 아닌 경고 줄
+            continue  # non-JSON warning line
     return rows
 
 
 def availability() -> dict | None:
-    """docker 사용 불가 사유 (사용 가능하면 None)"""
+    """Reason docker is unavailable (None when available)"""
     if not shutil.which("docker"):
         return {"ok": True, "code": "docker_missing", "summary": "Docker is not installed"}
     code, _ = _docker("info", "--format", "{{.ServerVersion}}", timeout_seconds=20)
@@ -59,7 +59,7 @@ def clean(should_remove_volumes: bool, should_remove_images: bool, container_nam
     unavailable = availability()
     if unavailable:
         return unavailable
-    # 1) 지우기 전 미사용 볼륨 목록 고정
+    # 1) Freeze the unused-volume list before deleting
     volumes_before = dangling_volume_names() if should_remove_volumes else []
     plan = {"volumes": volumes_before, "containers": container_names, "images_and_build_cache": should_remove_images}
     if not is_confirmed:
@@ -68,15 +68,15 @@ def clean(should_remove_volumes: bool, should_remove_images: bool, container_nam
                            f"{', unused images and build cache' if should_remove_images else ''}. Re-run with --yes"}
     free_before = sizes.free_bytes()
     steps = []
-    # 2) 고정 목록의 볼륨만
+    # 2) Only volumes in the frozen list
     for name in volumes_before:
         code, out = _docker("volume", "rm", name)
         steps.append({"step": "volume", "target": name, "ok": code == 0, "detail": out.strip()[-200:]})
-    # 3) 이름 댄 정지 컨테이너만 (실행 중이면 docker 가 거절)
+    # 3) Only named stopped containers (docker refuses running ones)
     for name in container_names:
         code, out = _docker("rm", name)
         steps.append({"step": "container", "target": name, "ok": code == 0, "detail": out.strip()[-200:]})
-    # 4) 이미지·빌드 캐시 (남은 컨테이너가 쓰는 이미지는 docker 가 남김)
+    # 4) Images and build cache (docker keeps images used by remaining containers)
     if should_remove_images:
         for arguments in (("image", "prune", "-a", "-f"), ("builder", "prune", "-f")):
             code, out = _docker(*arguments, timeout_seconds=900)

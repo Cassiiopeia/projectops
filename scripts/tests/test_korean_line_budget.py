@@ -1,8 +1,8 @@
-"""영문 기본 표면의 한글 줄 감시 (#769·#777): 파일별 한글 줄 수 <-> 동결 장부 대조
-주석·docstring 은 한국어 규칙이라 세지 않음. 장부 숫자는 줄일 수만 있음 (늘리면 실패)
+"""Watch Korean lines on English-default surfaces (#769·#777): Korean line count per file <-> frozen ledger
+Comments and docstrings are not counted. Ledger numbers can only go down (growth fails)
 
-장부 갱신: python3 scripts/tests/test_korean_line_budget.py --update      (줄어든 숫자만 반영)
-처음 만들기: python3 scripts/tests/test_korean_line_budget.py --rebaseline  (전체 재생성 — 리뷰 필수)
+Update ledger: python3 scripts/tests/test_korean_line_budget.py --update      (applies only lowered counts)
+Create from scratch: python3 scripts/tests/test_korean_line_budget.py --rebaseline  (full regeneration — review required)
 """
 import ast
 import io
@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[2]
 LEDGER_PATH = Path(__file__).with_name("korean_line_budget.json")
 HANGUL_RE = re.compile(r"[가-힣ㄱ-ㆎ]")
 
-# 감시 대상: 사용자에게 나가는 영문 기본 표면 (git 추적 파일만)
+# Watched: user-facing English-default surfaces (git-tracked files only)
 SCOPE_PREFIXES = (
     "skills/", "plugins/", "scripts/", "src/", "bin/", "hooks/",
     ".github/workflows/", ".github/scripts/", ".github/util/", ".github/ISSUE_TEMPLATE/",
@@ -31,37 +31,37 @@ SCOPE_FILES = (
     "README.md", "CONTRIBUTING.md", "SECURITY.md", "package.json", ".github/PULL_REQUEST_TEMPLATE.md",
 )
 
-# 제외 (정규식, 사유) — 한글이 곧 목적이거나 내부 전용
+# Exclusions (regex, reason) — Korean is the purpose, or internal only
 EXCLUDED_PATTERNS = (
-    (r"(^|/)i18n/ko", "한국어 사전·템플릿 폴더"),
-    (r"(^|/)[^/]+\.ko\.[^/]+$", "한국어 사본 (*.ko.*)"),
-    (r"^src/i18n/[^/]*ko[^/]*$", "CLI 한국어 사전"),
-    (r"^\.github/scripts/i18n/ko\.json$", "워크플로 스크립트 한국어 사전"),
-    (r"^\.github/config/wizard-prompts\.yml$", "마법사 질문 2개 언어 사전 (*_ko 가 한국어, 영어 원문은 test/wizard-labels.test.js 가 검사)"),
-    (r"^\.github/util/.+/[^/]+-i18n\.js$(?<!/wizard-i18n\.js)", "마법사 ko 사전 (en 원문은 check_i18n.py 가 검사, 엔진 wizard-i18n.js 는 셈)"),
-    (r"^docs/", "문서 사이트 — /ko/ 를 따로 둠 (#976)"),
-    (r"(^|/)CHANGELOG\.[^/]+$", "릴리스 기록 원문"),
-    (r"(^|/)CLAUDE\.md$", "내부 에이전트 지침 (한국어)"),
-    (r"^skills/pro-launch/troubleshooting/", "검색 키워드가 의도적으로 2개 언어"),
-    (r"(^|/)(tests?|__tests__|fixtures|golden)/", "우리 테스트·픽스처·골든"),
-    (r"(^|/)conftest\.py$", "우리 pytest 설정"),
-    (r"^(?!.*/templates/)(.*/)?(test_[^/]+\.py|[^/]+\.test\.[cm]?js)$", "우리 테스트 (templates/ 안 사용자용 규칙 테스트는 셈)"),
+    (r"(^|/)i18n/ko", "Korean catalogs and template folders"),
+    (r"(^|/)[^/]+\.ko\.[^/]+$", "Korean copies (*.ko.*)"),
+    (r"^src/i18n/[^/]*ko[^/]*$", "CLI Korean catalog"),
+    (r"^\.github/scripts/i18n/ko\.json$", "Workflow script Korean catalog"),
+    (r"^\.github/config/wizard-prompts\.yml$", "Bilingual wizard prompt catalog (*_ko is Korean; English source checked by test/wizard-labels.test.js)"),
+    (r"^\.github/util/.+/[^/]+-i18n\.js$(?<!/wizard-i18n\.js)", "Wizard ko catalog (en source checked by check_i18n.py; the wizard-i18n.js engine is counted)"),
+    (r"^docs/", "Docs site — has a separate /ko/ (#976)"),
+    (r"(^|/)CHANGELOG\.[^/]+$", "Release history source"),
+    (r"(^|/)CLAUDE\.md$", "Internal agent instructions (Korean)"),
+    (r"^skills/pro-launch/troubleshooting/", "Search keywords are intentionally bilingual"),
+    (r"(^|/)(tests?|__tests__|fixtures|golden)/", "Our tests, fixtures and goldens"),
+    (r"(^|/)conftest\.py$", "Our pytest config"),
+    (r"^(?!.*/templates/)(.*/)?(test_[^/]+\.py|[^/]+\.test\.[cm]?js)$", "Our tests (user-facing rule tests under templates/ are counted)"),
 )
 EXCLUDED_REGEXES = tuple((re.compile(pattern), reason) for pattern, reason in EXCLUDED_PATTERNS)
 
-# 줄 단위 제외: 파일 안 "*_ko" JSON 키 줄만 안 셈 (같은 항목의 영어 원문 키는 계속 셈)
-# breaking-changes.json: title/message 영어 정본 + title_ko/message_ko 한국어 (#988, 영어 원문은 test/breaking.test.js 가 검사)
+# Line-level exclusion: only "*_ko" JSON key lines are skipped (the English key of the same entry still counts)
+# breaking-changes.json: title/message English source + title_ko/message_ko Korean (#988, English source checked by test/breaking.test.js)
 KOREAN_SIBLING_KEY_RE = re.compile(r'^\s*"[A-Za-z0-9_]+_ko"\s*:')
 KOREAN_SIBLING_KEY_FILES = {".github/config/breaking-changes.json"}
 
-# 파일 종류 판정 (.template·.tmpl·.example 는 벗기고 안쪽 확장자로, Fastfile.ios 처럼 이름 앞부분도 봄)
+# File kind detection (strip .template/.tmpl/.example and use the inner extension; also checks the name prefix, e.g. Fastfile.ios)
 WRAPPER_SUFFIXES = (".template", ".tmpl", ".example")
 HASH_COMMENT_SUFFIXES = {".sh", ".bash", ".yaml", ".yml", ".toml", ".ps1", ".rb"}
 HASH_COMMENT_NAMES = {"Fastfile", "Gemfile", "Podfile", "Appfile", "Dockerfile", ".gitignore"}
 C_LIKE_SUFFIXES = {".js", ".mjs", ".cjs", ".ts", ".mts", ".java", ".dart", ".kt", ".gradle", ".swift"}
 MARKUP_SUFFIXES = {".html", ".htm", ".xml", ".plist", ".svg", ".md"}
 HEREDOC_RE = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\1")
-# 줄 주석 표식 앞에 와도 되는 문자 (https:// 같은 URL·${#var} 배제)
+# Characters allowed before a line-comment marker (rules out URLs like https:// and ${#var})
 MARKER_PRECEDERS = set(" \t;,(){}")
 
 
@@ -77,7 +77,7 @@ def is_in_scope(relative: str) -> bool:
 
 
 def list_counted_files() -> List[str]:
-    """git 추적 파일 > 범위 안 > 제외 목록 밖"""
+    """git-tracked files > in scope > not excluded"""
     output = subprocess.run(
         ["git", "ls-files", "-z"], cwd=ROOT, capture_output=True, check=True,
     ).stdout.decode("utf-8")
@@ -106,15 +106,15 @@ def detect_file_kind(relative: str) -> str:
     return "raw"
 
 
-# ── 주석 제거: 종류별로 주석 자리를 비운 줄 목록을 돌려줌 (줄 번호 유지) ──
+# ── Comment stripping: returns lines with comment spans blanked per kind (line numbers kept) ──
 
 def blank_html_comments(text: str) -> str:
-    """<!-- --> 를 같은 줄 수의 빈 줄로"""
+    """<!-- --> to the same number of blank lines"""
     return re.sub(r"<!--.*?-->", lambda match: "\n" * match.group(0).count("\n"), text, flags=re.DOTALL)
 
 
 def strip_hash_comments(lines: List[str], also_double_slash: bool) -> List[str]:
-    """# 주석 제거 (따옴표 안·URL 조각 제외), heredoc 본문은 그대로 둠"""
+    """Strip # comments (except inside quotes and URL fragments); heredoc bodies stay as is"""
     code_lines = []
     heredoc_terminator = None
     for line in lines:
@@ -133,7 +133,7 @@ def strip_hash_comments(lines: List[str], also_double_slash: bool) -> List[str]:
 
 
 def cut_at_line_marker(line: str, markers: tuple) -> str:
-    """한 줄 안 따옴표 밖 첫 줄 주석 표식 앞까지"""
+    """Up to the first line-comment marker outside quotes on one line"""
     quote = None
     index = 0
     while index < len(line):
@@ -154,10 +154,10 @@ def cut_at_line_marker(line: str, markers: tuple) -> str:
 
 
 def strip_c_like_comments(text: str, has_line_comments: bool) -> List[str]:
-    """// · /* */ 제거, 문자열('" 한 줄 · ` 여러 줄 + ${} 중첩) 안은 유지"""
+    """Strip // and /* */, keeping string contents ('" single-line, ` multi-line with nested ${})"""
     output = []
     quote = None
-    # 템플릿 리터럴 스택: "template" = 본문, 정수 = ${} 식 안 중괄호 깊이
+    # Template literal stack: "template" = body, integer = brace depth inside a ${} expression
     template_stack: list = []
     in_block_comment = False
     index = 0
@@ -223,13 +223,13 @@ def strip_c_like_comments(text: str, has_line_comments: bool) -> List[str]:
 
 
 def is_regex_literal_start(output: List[str]) -> bool:
-    """/ 앞 마지막 코드 문자가 연산자·여는 괄호면 나눗셈이 아니라 정규식 (/'/g 의 따옴표 오판 방지)"""
+    """A / after an operator or opening bracket is a regex, not division (avoids misreading the quote in /'/g)"""
     preceding = "".join(output[-40:]).rstrip(" \t")
     return not preceding or preceding[-1] in "(,=:[!&|?{};\n" or preceding.endswith("return")
 
 
 def find_regex_literal_end(text: str, start: int) -> int:
-    """정규식 끝 / 다음 위치 (문자 클래스·이스케이프 고려, 줄 끝이면 거기서 멈춤)"""
+    """Position after the closing / of a regex (handles character classes and escapes; stops at end of line)"""
     index = start + 1
     in_class = False
     while index < len(text) and text[index] != "\n":
@@ -248,7 +248,7 @@ def find_regex_literal_end(text: str, start: int) -> int:
 
 
 def collect_python_docstring_starts(text: str) -> Set[tuple]:
-    """모듈·클래스·함수 첫 문자열 문 위치 (줄, 열)"""
+    """Positions (line, column) of the first string statement in modules, classes and functions"""
     try:
         module = ast.parse(text)
     except (SyntaxError, ValueError):
@@ -263,7 +263,7 @@ def collect_python_docstring_starts(text: str) -> Set[tuple]:
 
 
 def find_python_korean_lines(text: str) -> Optional[Set[int]]:
-    """tokenize: COMMENT·docstring 제외 토큰에서 한글이 든 물리 줄 (실패 시 None)"""
+    """tokenize: physical lines with Korean in tokens other than COMMENT and docstrings (None on failure)"""
     docstring_starts = collect_python_docstring_starts(text)
     korean_lines: Set[int] = set()
     try:
@@ -303,7 +303,7 @@ def count_korean_code_lines(relative: str, text: str) -> int:
 
 
 def measure_korean_line_counts() -> Dict[str, int]:
-    """대상 파일별 한글 줄 수 (0 인 파일·이진 파일 제외)"""
+    """Korean line count per target file (files with 0 and binary files omitted)"""
     counts = {}
     for relative in list_counted_files():
         try:
@@ -338,36 +338,36 @@ def is_git_available() -> bool:
         return False
 
 
-# ── 판정 ──
+# ── Verdict ──
 
-@pytest.mark.skipif(not is_git_available(), reason="git 작업 트리 아님 (추적 파일 목록 필요)")
+@pytest.mark.skipif(not is_git_available(), reason="not a git work tree (tracked file list required)")
 def test_korean_lines_never_grow_on_english_surfaces():
-    """새 파일 한글 0 · 기존 파일 장부 이하 · 줄었으면 장부도 낮추라고 실패"""
+    """New files have 0 Korean · existing files stay within the ledger · fail on a drop too so the ledger gets lowered"""
     ledger = read_ledger()
     measured = measure_korean_line_counts()
 
     grown = [
-        f"{relative}: {count}줄 (장부 {ledger.get(relative, 0)})"
+        f"{relative}: {count} lines (ledger {ledger.get(relative, 0)})"
         for relative, count in sorted(measured.items()) if count > ledger.get(relative, 0)
     ]
     assert not grown, (
-        "영문 기본 표면에 한글 줄이 늘었다 (주석·docstring 은 안 셈). 문구는 영어로 쓰고 "
-        "한국어는 i18n ko 사전에 넣는다. 코드가 대조하는 데이터라 꼭 한글이어야 하면 "
-        "리뷰에서 이유를 밝히고 장부 숫자를 직접 올린다:\n  " + "\n  ".join(grown)
+        "Korean lines grew on an English-default surface (comments and docstrings are not counted). Write text in English "
+        "and put Korean in the i18n ko catalog. If it must be Korean because code compares it, "
+        "explain why in review and raise the ledger number by hand:\n  " + "\n  ".join(grown)
     )
 
     lowered = [
-        f"{relative}: 장부 {budget} > 실제 {measured.get(relative, 0)}"
+        f"{relative}: ledger {budget} > actual {measured.get(relative, 0)}"
         for relative, budget in sorted(ledger.items()) if measured.get(relative, 0) < budget
     ]
     assert not lowered, (
-        "한글 줄이 줄었다 — 장부를 낮춘다: python3 scripts/tests/test_korean_line_budget.py --update\n  "
+        "Korean lines dropped — lower the ledger: python3 scripts/tests/test_korean_line_budget.py --update\n  "
         + "\n  ".join(lowered)
     )
 
 
 def test_comment_and_docstring_lines_are_not_counted():
-    """스캐너 계약: 주석·docstring 제외, 문자열·문서 본문은 셈"""
+    """Scanner contract: comments and docstrings skipped, strings and document bodies counted"""
     python_source = '"""모듈 설명"""\n# 주석\nlabel = "한글"  # 꼬리 주석\ndef run():\n    """함수 설명"""\n    return f"값 {label} 끝"\n'
     assert count_korean_code_lines("a.py", python_source) == 2
     shell_source = 'echo "한글 # 안 잘림"\n# 주석\nurl=https://x.y/#한글\ncat <<EOF\n# 본문 한글\nEOF\n'
@@ -395,14 +395,14 @@ def test_exclusions_keep_engine_but_drop_dictionaries():
 
 
 def test_korean_sibling_keys_skip_only_ko_lines():
-    """breaking-changes.json: *_ko 키 줄만 제외, 영어 키에 섞인 한글은 셈 (#988)"""
+    """breaking-changes.json: only *_ko key lines skipped, Korean inside English keys is counted (#988)"""
     registry_source = '{\n  "1.0.0": {\n    "title": "제목",\n    "title_ko": "제목",\n    "message_ko": "본문"\n  }\n}\n'
     assert count_korean_code_lines(".github/config/breaking-changes.json", registry_source) == 1
     assert count_korean_code_lines(".github/config/other.json", registry_source) == 3
 
 
 def update_ledger(allow_increase: bool) -> None:
-    """--update: 줄어든 숫자만 반영 / --rebaseline: 전체 재생성"""
+    """--update: apply only lowered counts / --rebaseline: full regeneration"""
     measured = measure_korean_line_counts()
     if allow_increase:
         write_ledger(measured)

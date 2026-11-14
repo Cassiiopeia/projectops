@@ -1,4 +1,4 @@
-"""worktree 제거: 게이트 검사 > 백업 > 참조 보존 > git worktree remove > 확인"""
+"""worktree removal: gate check > backup > keep refs > git worktree remove > confirm"""
 from __future__ import annotations
 
 import re
@@ -10,7 +10,7 @@ DETACHED_REFERENCE_PREFIX = "refs/disk-cleanup/"
 
 
 def refusal(facts: dict | None, closed_issue: int | None, is_stale_approved: bool) -> tuple[str, str] | None:
-    """제거 거절 사유 (code, 설명). 조건 6개: 등록 worktree, 본 레포 아님, 잠금 없음, 사용 중 아님, 최근 활동 없음, 근거 있음"""
+    """Reason to refuse removal (code, description). 6 conditions: registered worktree, not the main repo, not locked, not in use, no recent activity, has evidence"""
     if facts is None:
         return "not_a_worktree", "Path is not a registered git worktree"
     if facts.get("is_main"):
@@ -31,7 +31,7 @@ def refusal(facts: dict | None, closed_issue: int | None, is_stale_approved: boo
 
 
 def _keep_detached_head(facts: dict) -> str | None:
-    # 브랜치 없는 HEAD 는 지우면 커밋을 잃으므로 참조를 남김
+    # A branchless HEAD loses commits on removal, so leave a ref
     name = DETACHED_REFERENCE_PREFIX + re.sub(r"[^\w.-]+", "_", Path(facts["path"]).name)
     if not facts.get("head"):
         return None
@@ -46,7 +46,7 @@ def remove(path: str, closed_issue: int | None, is_stale_approved: bool, idle_ho
     if rejected:
         return {"ok": False, "code": rejected[0], "summary": rejected[1], "worktree": facts}
     has_changes = facts["real_change_count"] > 0 or facts["generated_change_count"] > 0
-    # 백업은 항상 (변경이 없어도 무시된 .env·키 파일이 있을 수 있음)
+    # Always back up (ignored .env or key files may exist even with no changes)
     plan = {"worktree": facts["path"], "branch_kept": facts.get("branch"), "will_back_up": True,
             "will_force": has_changes, "unpushed_commit_count": facts.get("unpushed_commit_count"),
             "real_change_count": facts["real_change_count"]}

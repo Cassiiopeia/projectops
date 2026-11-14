@@ -1,7 +1,7 @@
-"""README 이미지 렌더: 소스 HTML x 테마(light, dark) x 언어(en, ko) > docs/images/readme-*.webp (2배 해상도)
-실행: python3 docs/recording/readme_assets/render_readme_assets.py [--only hero,cycle] [--lang en]
-브라우저: pro-launch web setup 이 설치한 Playwright·Chromium (없으면 그 가상환경 파이썬으로 다시 실행)
-이름: readme-<자산>.webp (en 라이트), readme-<자산>-dark.webp, 한국어는 .ko.webp
+"""Render README images: source HTML x theme (light, dark) x language (en, ko) > docs/images/readme-*.webp (2x resolution)
+Run: python3 docs/recording/readme_assets/render_readme_assets.py [--only hero,cycle] [--lang en]
+Browser: Playwright and Chromium installed by pro-launch web setup (if missing, reruns with that venv's Python)
+Names: readme-<asset>.webp (en light), readme-<asset>-dark.webp, Korean is .ko.webp
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from pathlib import Path
 SOURCE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SOURCE_DIR.parents[2]
 OUTPUT_DIR = REPO_ROOT / "docs/images"
-# 브라우저 고르기 규칙은 pro-ui-design 캡처와 같은 것을 씀 (환경변수 > 번들 Chromium > 설치된 Chrome)
+# Browser selection follows the pro-ui-design capture rules (env var > bundled Chromium > installed Chrome)
 BROWSER_PATH_DIR = REPO_ROOT / "skills/pro-ui-design/scripts/pro_ui_design"
 COMMON_SCRIPTS_DIR = REPO_ROOT / "scripts"
 
@@ -23,16 +23,16 @@ ASSET_NAMES = ("hero", "cycle", "features", "skills")
 THEMES = ("light", "dark")
 LANGUAGES = ("en", "ko")
 DEVICE_SCALE = 2
-# 캔버스보다 넉넉한 창 (요소 스크린샷이라 실제 크기는 #canvas 가 정함)
+# Window larger than the canvas (element screenshot, so #canvas sets the real size)
 VIEWPORT_WIDTH_PIXELS = 1400
 VIEWPORT_HEIGHT_PIXELS = 1200
 WEBP_QUALITY = 90
-# 재실행 표식: 가상환경 파이썬으로 다시 띄운 뒤 또 다시 띄우지 않게
+# Re-exec marker: don't relaunch again after relaunching with the venv Python
 REEXEC_ENV_KEY = "README_ASSETS_REEXEC"
 
 
 def ensure_playwright() -> None:
-    """Playwright 없으면 pro-launch 가상환경 파이썬으로 같은 인자 재실행"""
+    """Without Playwright, rerun with the same args using the pro-launch venv Python"""
     try:
         import playwright  # noqa: F401
         import PIL  # noqa: F401
@@ -59,7 +59,7 @@ def output_name(asset: str, theme: str, language: str) -> str:
 
 
 def render_one(page, asset: str, theme: str, language: str) -> Path:
-    """소스 열기 > 글꼴 대기 > #canvas 투명 배경 스크린샷 > webp 저장"""
+    """Open source > wait for fonts > #canvas screenshot with transparent background > save webp"""
     from PIL import Image
 
     source_url = (SOURCE_DIR / f"{asset}.html").as_uri() + f"?theme={theme}&lang={language}"
@@ -93,7 +93,7 @@ def main() -> int:
         context = browser.new_context(viewport={"width": VIEWPORT_WIDTH_PIXELS, "height": VIEWPORT_HEIGHT_PIXELS},
                                       device_scale_factor=DEVICE_SCALE)
         page = context.new_page()
-        # 자산 x 언어 x 테마 전부 (성공·실패 공통으로 브라우저 닫음)
+        # Every asset x language x theme (browser closed on success and failure)
         try:
             for asset in assets:
                 for language in languages:

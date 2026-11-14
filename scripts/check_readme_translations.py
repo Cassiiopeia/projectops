@@ -14,25 +14,25 @@ from pathlib import Path
 
 SOURCE_README = "README.md"
 TRANSLATION_GLOB = "docs/i18n/README.*.md"
-# 번역본 표식: <!-- translated-from: README.md@<커밋> -->
+# Translation marker: <!-- translated-from: README.md@<commit> -->
 MARKER_PATTERN = re.compile(r"<!--\s*translated-from:\s*README\.md@([0-9a-f]{7,40})\s*-->")
-# 표식은 파일 앞부분에만 둔다 (본문 예시와 섞이지 않게)
+# The marker lives only near the top of the file (so it is not confused with examples in the body)
 MARKER_SEARCH_LINES = 10
-# 릴리스 봇의 README 버전 줄 갱신 — 번역할 내용이 아님
+# Release bot's README version-line update — nothing to translate
 IGNORED_SUBJECT_MARK = "[skip ci]"
-# 자동 버전 줄 (번역본에는 없는 줄 — 이 줄만 바꾼 커밋은 번역 대상 아님)
+# Automatic version line (absent from translations — a commit changing only this line needs no translation)
 VERSION_LINE_PATTERN = re.compile(r"^[+-]## Latest version :")
 
 
 def run_git(repo_root: Path, *arguments: str) -> tuple[int, str]:
-    """git 실행 > (종료 코드, 출력). 한글 출력에서도 깨지지 않게 utf-8 + replace"""
+    """Run git > (exit code, output). utf-8 + replace so Korean output does not break"""
     completed = subprocess.run(["git", *arguments], cwd=repo_root, capture_output=True,
                                encoding="utf-8", errors="replace")
     return completed.returncode, (completed.stdout or "").strip()
 
 
 def read_marker_commit(translation_file: Path) -> str | None:
-    """번역본 앞부분의 원본 커밋 표식. 없으면 None"""
+    """Source commit marker near the top of a translation. None if absent"""
     head_lines = translation_file.read_text(encoding="utf-8").splitlines()[:MARKER_SEARCH_LINES]
     for line in head_lines:
         match = MARKER_PATTERN.search(line)
@@ -42,7 +42,7 @@ def read_marker_commit(translation_file: Path) -> str | None:
 
 
 def list_untranslated_commits(repo_root: Path, marker_commit: str) -> tuple[list[str] | None, str | None]:
-    """표식 커밋 이후 README.md 를 바꾼 커밋 (봇 버전 갱신 제외) > (목록, 오류)"""
+    """Commits that changed README.md after the marker commit (excluding bot version updates) > (list, error)"""
     code, _ = run_git(repo_root, "cat-file", "-e", f"{marker_commit}^{{commit}}")
     if code != 0:
         return None, f"commit {marker_commit} not found (shallow clone or wrong hash)"
@@ -54,7 +54,7 @@ def list_untranslated_commits(repo_root: Path, marker_commit: str) -> tuple[list
 
 
 def is_version_line_only(repo_root: Path, commit: str) -> bool:
-    """이 커밋의 README.md 변경이 자동 버전 줄뿐인가 (예: main 기준 PR 을 develop 으로 squash 할 때 딸려 온 줄)"""
+    """Is this commit's README.md change only the automatic version line (e.g. pulled in when squashing a main-based PR into develop)"""
     code, output = run_git(repo_root, "show", "--format=", "-U0", commit, "--", SOURCE_README)
     if code != 0:
         return False
@@ -64,7 +64,7 @@ def is_version_line_only(repo_root: Path, commit: str) -> bool:
 
 
 def check_translation(repo_root: Path, translation_file: Path) -> dict:
-    """번역본 1개 판정: ok · behind · no_marker · unknown"""
+    """Judge one translation: ok · behind · no_marker · unknown"""
     relative_path = translation_file.relative_to(repo_root).as_posix()
     marker_commit = read_marker_commit(translation_file)
     if not marker_commit:
@@ -77,7 +77,7 @@ def check_translation(repo_root: Path, translation_file: Path) -> dict:
 
 
 def print_actions_warnings(results: list[dict]) -> None:
-    """GitHub Actions 경고 주석 (실패 아님)"""
+    """GitHub Actions warning annotation (not a failure)"""
     for result in results:
         if result["status"] == "ok":
             continue

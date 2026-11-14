@@ -1,8 +1,8 @@
-"""GitHub REST API 클라이언트 — urllib 표준 라이브러리만 사용.
+"""GitHub REST API client — urllib standard library only.
 
-구현은 common/github_rest/ 모듈 8개: transport(요청·오류), labels, issues, pulls, repository, actions, actions_secrets, evidence.
-호출부는 `from common.gh_client import X` / `gh_client.X` 그대로 쓴다 (이름 전부 여기서 재노출).
-모듈 사이 호출은 이 모듈 경유 — 테스트가 여기 속성을 바꿔 끼우면 내부 호출에도 반영.
+Implemented in 8 modules under common/github_rest/: transport (requests, errors), labels, issues, pulls, repository, actions, actions_secrets, evidence.
+Callers keep using `from common.gh_client import X` / `gh_client.X` (every name is re-exported here).
+Calls between modules go through this module — when a test swaps an attribute here, internal calls see it too.
 """
 
 from __future__ import annotations

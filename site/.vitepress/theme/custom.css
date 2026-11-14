@@ -1,4 +1,4 @@
-/* 브랜드 색 */
+/* Brand colors */
 :root {
   --vp-c-brand-1: #4f46e5;
   --vp-c-brand-2: #6366f1;
@@ -8,18 +8,18 @@
   --vp-home-hero-name-background: linear-gradient(120deg, #4f46e5 20%, #06b6d4);
 }
 
-/* 한국어는 단어 중간에서 줄바꿈하지 않는다 ("자동으/로" 방지) */
+/* Korean does not break lines mid-word (prevents "자동으/로") */
 html {
   word-break: keep-all;
   overflow-wrap: break-word;
 }
 
-/* 코드 블록 안은 글자 단위로 줄바꿈하지 않도록 되돌린다 */
+/* Inside code blocks, revert to no per-character line breaks */
 pre, code {
   word-break: normal;
 }
 
-/* 본문 GIF 가 카드처럼 보이게 */
+/* Make body GIFs look like cards */
 .vp-doc img {
   border-radius: 10px;
   border: 1px solid var(--vp-c-divider);

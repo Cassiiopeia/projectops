@@ -1,11 +1,11 @@
-"""GitHub 화면 데모 GIF 3종 녹화: 이슈 안내 댓글, PR 변경 요약, 릴리스 자동 머지·태그 (#976)
+"""Record 3 GitHub screen demo GIFs: issue guide comment, PR change summary, release automerge and tag (#976)
 
-임시 공개 레포(git-sandboxes/pops-qa-demo-gif-<언어>)에 작업 트리 projectops 설치 > 실제 실행 >
-로그아웃 브라우저로 화면 캡처 > 설명 바·경과 타이머 합성 > docs/images/feature-*.gif (ko 는 *.ko.gif)
+Install working-tree projectops into a temporary public repo (git-sandboxes/pops-qa-demo-gif-<lang>) > run for real >
+capture with a logged-out browser > compose caption bar and elapsed timer > docs/images/feature-*.gif (ko is *.ko.gif)
 
-사용 (레포 루트에서):
+Usage (from the repo root):
   uv run --with playwright --with pillow python docs/recording/github_demo/record_github.py --lang en
-필요: PAT(GITHUB_PAT 또는 ~/.projectops/config) 조직 레포 생성·삭제 권한, node 20.12+, ffmpeg, Chromium
+Needs: PAT (GITHUB_PAT or ~/.projectops/config) with org repo create/delete rights, node 20.12+, ffmpeg, Chromium
   (uv run --with playwright playwright install chromium)
 """
 import argparse
@@ -27,16 +27,16 @@ SANDBOX_OWNER = "git-sandboxes"
 RECORDING_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = RECORDING_DIR.parent.parent
 OUTPUT_DIR = REPO_ROOT / "docs" / "images"
-# 대기 중 화면 새로고침 간격 (초), 대기 프레임 재생 시간 (초, 빨리 감기)
+# Screen refresh interval while waiting (seconds), display time of waiting frames (seconds, fast-forward)
 RELOAD_INTERVAL_SECONDS = 2.5
 WAITING_FRAME_SECONDS = 0.45
 WAIT_TIMEOUT_SECONDS = 600
-# GitHub 은 상시 연결이 있어 networkidle 이 오지 않음 > load 후 렌더 안정 대기 (밀리초)
+# GitHub keeps connections open, so networkidle never comes > wait for render to settle after load (milliseconds)
 PAGE_SETTLE_MILLISECONDS = 1500
 
 
 class SceneRecorder:
-    """장면 하나: 시작 시각 기준 경과 타이머, 캡처 > 프레임 추가"""
+    """One scene: elapsed timer from its start, capture > add frame"""
 
     def __init__(self, page, composer: GifComposer, frame_dir: Path):
         self.page = page
@@ -56,7 +56,7 @@ class SceneRecorder:
                                         display_seconds, highlight_box, is_timer_visible))
 
     def wait_until(self, is_done, step_number: int):
-        """조건 충족까지 새로고침하며 대기 프레임 기록 (실제 경과는 타이머에 남음)"""
+        """Refresh until the condition holds, recording waiting frames (real elapsed time stays in the timer)"""
         deadline = time.time() + WAIT_TIMEOUT_SECONDS
         while not is_done():
             if time.time() > deadline:
@@ -66,19 +66,19 @@ class SceneRecorder:
             self.capture(step_number, WAITING_FRAME_SECONDS)
 
     def wait_for_element(self, locator, step_number: int):
-        """API 로 확인된 변화가 화면에도 그려질 때까지 새로고침 (로그아웃 페이지 캐시 지연)"""
+        """Refresh until a change confirmed by the API is drawn on screen too (logged-out page cache lag)"""
         self.wait_until(lambda: locator.count() > 0, step_number)
 
 
 def reload_fresh(page):
-    """캐시 우회 새로고침: 주소에 시각 값 > load > 렌더 안정 대기"""
+    """Cache-busting refresh: timestamp in the URL > load > wait for render to settle"""
     base_url = page.url.split("?")[0].split("#")[0]
     page.goto(f"{base_url}?refresh={int(time.time() * 1000)}", wait_until="load")
     page.wait_for_timeout(PAGE_SETTLE_MILLISECONDS)
 
 
 def snapshot_template(destination: Path):
-    """추적 + 미추적(무시 제외) 파일 > 템플릿 스냅샷 (커밋 전 변경 포함)"""
+    """Tracked + untracked (non-ignored) files > template snapshot (includes uncommitted changes)"""
     listed = subprocess.run(["git", "ls-files", "-z", "-co", "--exclude-standard"], cwd=REPO_ROOT,
                             check=True, capture_output=True).stdout.decode().split("\0")
     for relative_path in filter(None, listed):
@@ -90,7 +90,7 @@ def snapshot_template(destination: Path):
 
 
 def create_sample_project(project_dir: Path):
-    """샘플 Spring 프로젝트 (main, 커밋 1개)"""
+    """Sample Spring project (main, 1 commit)"""
     (project_dir / "src/main/java/com/example").mkdir(parents=True)
     (project_dir / "build.gradle").write_text(
         "plugins {\n    id 'java'\n    id 'org.springframework.boot' version '3.3.4'\n}\n\n"
@@ -103,12 +103,12 @@ def create_sample_project(project_dir: Path):
 
 
 def read_code_blocks(comment_body: str) -> list[str]:
-    """댓글 본문 코드 블록 목록 (브랜치명, 커밋 템플릿 순)"""
+    """Code blocks in the comment body (branch name, then commit template)"""
     return [block.strip() for block in re.findall(r"```[^\n]*\n(.*?)```", comment_body, re.S)]
 
 
 def record_issue_scene(page, repository, texts, composer, frame_dir) -> dict:
-    """이슈 등록 > 이슈 헬퍼 실행 대기 > 브랜치명·커밋 템플릿 댓글 강조"""
+    """Open issue > wait for the issue helper run > highlight the branch name and commit template comment"""
     scene = SceneRecorder(page, composer, frame_dir)
     issue = repository.create_issue(texts["issue_title"], texts["issue_body"])
     page.goto(issue["html_url"], wait_until="load")
@@ -130,13 +130,13 @@ def record_issue_scene(page, repository, texts, composer, frame_dir) -> dict:
 
 
 def record_pull_request_scene(page, repository, texts, composer, frame_dir, project_dir, issue) -> int:
-    """작업 브랜치 커밋 2개 push > PR > 변경 요약 댓글 대기 > 댓글 강조"""
+    """Push 2 commits on the work branch > PR > wait for the change summary comment > highlight it"""
     DemoRepository.run_git(project_dir, "checkout", "-q", "-b", issue["branch_name"], "develop")
     for index, description in enumerate(texts["commit_descriptions"]):
         source_path = project_dir / f"src/main/java/com/example/NotificationSetting{index + 1}.java"
         source_path.write_text(f"package com.example;\n\npublic class NotificationSetting{index + 1} {{}}\n", encoding="utf-8")
         DemoRepository.run_git(project_dir, "add", "-A")
-        # 커밋 템플릿의 자리표시자({...}, 언어마다 문구 다름) > 실제 설명
+        # Commit template placeholder ({...}, wording differs per language) > real description
         commit_message = re.sub(r"\{[^}]*\}", description, issue["commit_template"], count=1)
         DemoRepository.run_git(project_dir, "commit", "-qm", commit_message)
     DemoRepository.run_git(project_dir, "push", "-q", "-u", "origin", issue["branch_name"])
@@ -151,12 +151,12 @@ def record_pull_request_scene(page, repository, texts, composer, frame_dir, proj
     scene.wait_until(lambda: repository.has_bot_comment(pull_request["number"], "PROJECTOPS-AI-SUMMARY"), 2)
     scene.wait_for_element(page.get_by_text(texts["pull_request_summary_heading"]), 2)
     heading = page.get_by_text(texts["pull_request_summary_heading"]).last
-    # 댓글 상자: 구 화면(timeline-comment) · 새 화면(react-issue-comment) 공통, 없으면 본문 영역
+    # Comment box: shared by old (timeline-comment) and new (react-issue-comment) UI, else the body area
     summary_comment = heading.locator(
         "xpath=ancestor::*[contains(@class,'timeline-comment') or contains(@class,'react-issue-comment')"
         " or contains(@class,'markdown-body')][last()]")
     summary_comment.scroll_into_view_if_needed()
-    # 고정 머리글이 댓글 윗부분을 가리지 않게 위로 조금
+    # Nudge up a bit so the sticky header doesn't cover the top of the comment
     page.mouse.wheel(0, -110)
     page.wait_for_timeout(500)
     scene.capture(3, 4.0, summary_comment)
@@ -164,7 +164,7 @@ def record_pull_request_scene(page, repository, texts, composer, frame_dir, proj
 
 
 def record_release_scene(page, repository, composer, frame_dir):
-    """작업 PR 머지 > develop→main 릴리스 PR > 자동 머지 대기 > 태그 강조"""
+    """Merge the work PR > develop→main release PR > wait for automerge > highlight the tag"""
     scene = SceneRecorder(page, composer, frame_dir)
     today = datetime.now(timezone.utc).strftime("%Y%m%d")
     release_pull_request = repository.create_pull_request("develop", "main", f"🚀 Deploy {today}", "")
@@ -202,12 +202,12 @@ def main():
         print(f"[record github] preparing {repository.full_name}")
         repository.recreate()
         try:
-            # 라벨 동기화는 main push 때 라벨 파일 변경으로 함께 실행됨
+            # Label sync runs alongside on main push because the label file changed
             repository.install_projectops(project_dir, RECORDING_DIR / "run_local_projectops.mjs",
                                           work_dir / "template", args.lang)
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch()
-                # 로그아웃 상태, 좁은 화면 (기존 데모와 같은 구도), 2배 해상도로 찍어 축소 > 글자 선명
+                # Logged out, narrow screen (same framing as existing demos), shot at 2x then scaled down > sharp text
                 page = browser.new_page(viewport={"width": FRAME_WIDTH_PIXELS, "height": FRAME_HEIGHT_PIXELS},
                                         device_scale_factor=2, locale="en-US")
                 scenes = {name: GifComposer(args.lang, texts["captions"][name], work_dir / name)
@@ -232,7 +232,7 @@ def main():
                 composer.write_gif(output_path)
                 print(f"[record github] wrote {output_path}")
         finally:
-            # 임시 공개 레포 정리 (성공·실패 공통)
+            # Clean up the temporary public repo (on success and failure)
             if not args.keep_repo:
                 repository.delete()
 

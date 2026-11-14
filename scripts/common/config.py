@@ -1,10 +1,10 @@
 """
-사용자 config(`~/.projectops/config/config.json`)를 읽고 쓰는 모듈.
+Reads and writes the user config (`~/.projectops/config/config.json`).
 
-config는 글로벌 단일 파일 하나로만 관리하며, skill_id를 최상위 키로 네임스페이스를 나눈다.
-예) config["github"]["global_pat"], config["launch"]["credentials"]
+config is one global file, namespaced by skill_id as top-level keys.
+e.g. config["github"]["global_pat"], config["launch"]["credentials"]
 
-자세한 스키마는 skills/references/config-rules.md 와 skills/config.json.example 참조.
+See skills/references/config-rules.md and skills/config.json.example for the full schema.
 """
 
 import json
@@ -15,11 +15,11 @@ from typing import Any, Optional
 
 def config_path() -> Path:
     """
-    글로벌 단일 config 파일 경로(`~/.projectops/config/config.json`)를 반환한다.
+    Return the path of the single global config file (`~/.projectops/config/config.json`).
 
-    #459 네임스페이스 중립화로 config 홈이 `~/.suh-template` → `~/.projectops`로 이주됐다.
-    기존 사용자의 config가 구 경로에만 있으면 첫 접근 시 신 경로로 1회 복사한다
-    (구 파일은 롤백 대비 남겨둠 — 무손실 이주).
+    The #459 namespace neutralization moved the config home from `~/.suh-template` to `~/.projectops`.
+    If an existing user's config is only at the old path, copy it to the new path once on first access
+    (the old file is kept for rollback — lossless migration).
     """
     new = Path.home() / ".projectops" / "config" / "config.json"
     old = Path.home() / ".suh-template" / "config" / "config.json"
@@ -30,27 +30,27 @@ def config_path() -> Path:
 
 
 def load_with_status() -> tuple:
-    """(data, status). status 는 "ok" · "missing" · "unreadable".
+    """(data, status). status is "ok", "missing" or "unreadable".
 
-    없음과 깨짐을 구분해야 "설정이 무시되고 있다"를 사용자에게 알릴 수 있다.
+    Missing and broken must differ so the user can be told "your settings are being ignored".
     """
     path = config_path()
     if not path.exists():
         return None, "missing"
     try:
-        # Windows 메모장이 붙이는 BOM 이 있으면 json 이 깨진다 — utf-8-sig 는 BOM 이 없어도 그대로 읽는다
+        # A BOM added by Windows Notepad breaks json — utf-8-sig reads fine with or without a BOM
         return json.loads(path.read_text(encoding="utf-8-sig")), "ok"
     except (json.JSONDecodeError, OSError, UnicodeDecodeError):
         return None, "unreadable"
 
 
 def load() -> Optional[dict]:
-    """config.json 전체를 dict로 읽어 반환한다. 파일이 없거나 깨졌으면 None."""
+    """Read the whole config.json as a dict. None if the file is missing or broken."""
     return load_with_status()[0]
 
 
 def get_section(skill_id: str) -> Optional[dict]:
-    """특정 skill_id 섹션(예: config["github"])을 반환한다. 없으면 None."""
+    """Return one skill_id section (e.g. config["github"]). None if absent."""
     data = load()
     if not isinstance(data, dict):
         return None
@@ -60,33 +60,33 @@ def get_section(skill_id: str) -> Optional[dict]:
 
 def get_github_pat(owner: Optional[str] = None, repo: Optional[str] = None) -> Optional[str]:
     """
-    GitHub PAT를 config에서 결정해 반환한다.
+    Resolve the GitHub PAT from config.
 
-    우선순위(config-rules.md §3):
-      1. owner/repo가 주어지면 repos 배열에서 일치하는 항목의 pat(non-null)
-      2. 위가 없으면 global_pat
-    PAT를 찾을 수 없으면 None.
+    Priority (config-rules.md §3):
+      1. If owner/repo are given, the pat (non-null) of the matching entry in the repos array
+      2. Otherwise global_pat
+    None if no PAT is found.
     """
     section = get_section("github")
     if not section:
         return None
 
-    # 1. repo별 개별 PAT 우선
+    # 1. Per-repo PAT first
     if owner and repo:
         for r in section.get("repos", []) or []:
             if r.get("owner") == owner and r.get("repo") == repo and r.get("pat"):
                 return r["pat"]
 
-    # 2. 공용 global_pat 폴백
+    # 2. Fall back to the shared global_pat
     return section.get("global_pat") or None
 
 
 def save(data: dict) -> Path:
     """
-    config.json 전체를 저장하고 경로를 반환한다.
+    Save the whole config.json and return its path.
 
-    주의: 부분 수정 시 반드시 load()로 전체를 먼저 읽어 병합한 뒤 호출한다
-    (다른 섹션을 날리지 않도록).
+    Note: for partial edits, always load() the whole file and merge before calling
+    (so other sections are not wiped).
     """
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)

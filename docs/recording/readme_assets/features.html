@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- README 기능 카드 6장: 윗줄 GitHub Actions 3개, 아랫줄 에이전트 스킬 3개 (그림은 CSS·SVG 만) -->
+<!-- README feature cards x6: top row 3 GitHub Actions, bottom row 3 agent skills (art is CSS and SVG only) -->
 <html>
 <head>
 <meta charset="utf-8">
@@ -24,21 +24,21 @@
   .text p { margin: 7px 0 0; font-size: 14px; line-height: 1.5; color: var(--sub); }
   .text code { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 5px; letter-spacing: 0; }
 
-  /* 그림 공통 조각 */
+  /* Shared art pieces */
   .mini { position: absolute; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-card); }
   .bar { height: 7px; border-radius: 4px; background: var(--line); }
   .pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; letter-spacing: 0; }
   .pill.teal { background: var(--teal-soft); color: var(--teal); }
   .pill.indigo { background: var(--accent-soft); color: var(--accent); }
 
-  /* 1 이슈 + 봇 댓글 */
+  /* 1 Issue + bot comment */
   .issue-art .issue { left: 34px; top: 26px; width: 200px; padding: 12px; }
   .issue-art .issue .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--state-open); display: inline-block; vertical-align: middle; }
   .issue-art .comment { left: 120px; top: 74px; width: 210px; padding: 11px 12px; }
   .issue-art .comment .who { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--sub); margin-bottom: 8px; }
   .issue-art .comment .who i { width: 16px; height: 16px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--teal)); }
 
-  /* 2 커밋 > 버전 */
+  /* 2 Commit > version */
   .bump-art .commits { position: absolute; left: 26px; top: 24px; display: grid; gap: 8px; }
   .bump-art .line { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow-card); width: 150px; }
   .bump-art .line .bar { flex: 1; }
@@ -49,7 +49,7 @@
   .bump-art .version b { font-family: var(--font-mono); font-size: 19px; letter-spacing: 0; }
   .bump-art .version s { display: block; margin: 6px 0 2px; font-family: var(--font-mono); font-size: 11px; opacity: 0.65; }
 
-  /* 3 스택 타일 */
+  /* 3 Stack tiles */
   .stack-art .tiles { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
   .tile { width: 54px; height: 54px; border-radius: 15px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 13px;
     box-shadow: var(--shadow-card); position: relative; }
@@ -63,7 +63,7 @@
   html[data-theme="dark"] .tile.react { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.14), var(--shadow-card); }
   html[data-theme="dark"] .run-art .phone { background: #2b3352; }
 
-  /* 4 채팅 > 커밋 */
+  /* 4 Chat > commit */
   .chat-art .prompt { left: 26px; top: 24px; padding: 10px 12px; border-radius: 12px 12px 12px 4px; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); letter-spacing: 0; }
   .chat-art .prompt b { color: var(--accent); }
   .chat-art .result { right: 22px; top: 74px; width: 250px; padding: 10px 12px; }
@@ -71,7 +71,7 @@
   .chat-art .result code { display: block; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.45; color: var(--ink); letter-spacing: 0; }
   .chat-art .result code b { color: var(--teal); }
 
-  /* 5 기기 + 브라우저 실행 */
+  /* 5 Device + browser run */
   .run-art .browser { left: 30px; top: 22px; width: 196px; height: 118px; overflow: hidden; }
   .run-art .browser .top { height: 20px; display: flex; gap: 4px; align-items: center; padding: 0 8px; border-bottom: 1px solid var(--line); }
   .run-art .browser .top i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
@@ -82,7 +82,7 @@
     background: var(--teal); color: #fff; box-shadow: var(--shadow-float); }
   .run-art .shutter { position: absolute; left: 196px; top: 108px; }
 
-  /* 6 연결된 두 화면 */
+  /* 6 Two linked screens */
   .mock-art .screen-a, .mock-art .screen-b { top: 18px; width: 92px; height: 124px; border-radius: 16px; padding: 10px 8px; display: grid; gap: 6px; align-content: start; }
   .mock-art .screen-a { left: 66px; }
   .mock-art .screen-b { right: 66px; }

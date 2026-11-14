@@ -1,5 +1,5 @@
-"""OS별 정리 후보 위치표: 키 > 경로·단계(tier 3개: safe, decide, keep)·정리 방식(kind 4개: tool, aged, browser, info)
-목록 밖 큰 폴더는 discovery.py 가 크기로 찾음 (단계 뜻: references/categories.md)
+"""Per-OS cleanup candidate locations: key > path, tier (3: safe, decide, keep), cleanup kind (4: tool, aged, browser, info)
+Large folders outside this list are found by size in discovery.py (tier meanings: references/categories.md)
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ class Location:
     kind: str
     tool_command: tuple[str, ...] = field(default=())
     note: str = ""
-    # 폴더 전체가 정리 대상인지 (False: 일부만 정리 > 합계에서 제외, 실제 값은 해당 명령의 dry-run)
+    # Whether the whole folder is cleanable (False: only part > excluded from totals, real value from that command's dry-run)
     is_whole_folder_reclaimable: bool = True
 
 
@@ -35,13 +35,13 @@ def _env_path(variable: str, *parts: str) -> Path | None:
 
 
 def _first_existing(*candidates: Path | None) -> Path | None:
-    """사람마다 설치 위치가 다른 도구: 실제로 있는 첫 경로 (없으면 첫 후보)"""
+    """Tools installed in different places per person: first existing path (else the first candidate)"""
     present = [candidate for candidate in candidates if candidate is not None]
     return next((candidate for candidate in present if candidate.exists()), present[0] if present else None)
 
 
 def os_cache_base() -> Path:
-    """OS 사용자 캐시 폴더: macOS ~/Library/Caches, Windows %LOCALAPPDATA%, Linux $XDG_CACHE_HOME 또는 ~/.cache"""
+    """OS user cache folder: macOS ~/Library/Caches, Windows %LOCALAPPDATA%, Linux $XDG_CACHE_HOME or ~/.cache"""
     if shell.IS_WINDOWS:
         return _env_path("LOCALAPPDATA") or _home("AppData", "Local")
     if shell.IS_MAC:
@@ -50,7 +50,7 @@ def os_cache_base() -> Path:
 
 
 def os_settings_base() -> Path:
-    """앱 설정 폴더: macOS ~/Library/Application Support, Windows %APPDATA%, Linux ~/.config"""
+    """App settings folder: macOS ~/Library/Application Support, Windows %APPDATA%, Linux ~/.config"""
     if shell.IS_WINDOWS:
         return _env_path("APPDATA") or _home("AppData", "Roaming")
     if shell.IS_MAC:
@@ -69,7 +69,7 @@ def _android_sdk() -> Path:
 
 
 def _package_caches() -> list[Location]:
-    # 언어·패키지 도구 (세 OS 공통, 위치만 OS별)
+    # Language and package tools (all three OSes, location differs per OS)
     cache = os_cache_base()
     npm_cache = cache / "npm-cache" if shell.IS_WINDOWS else _home(".npm")
     pip_cache = cache / "pip" / "Cache" if shell.IS_WINDOWS else cache / "pip"
@@ -80,7 +80,7 @@ def _package_caches() -> list[Location]:
     python_command = ("python", "-m", "pip") if shell.IS_WINDOWS else ("pip3",)
     # yarn: macOS ~/Library/Caches/Yarn, Windows %LOCALAPPDATA%\Yarn\Cache, Linux ~/.cache/yarn
     yarn_cache = cache / "Yarn" / "Cache" if shell.IS_WINDOWS else cache / ("Yarn" if shell.IS_MAC else "yarn")
-    # uv: Windows %LOCALAPPDATA%\uv\cache, macOS·Linux ~/.cache/uv (macOS 도 XDG 위치)
+    # uv: Windows %LOCALAPPDATA%\uv\cache, macOS and Linux ~/.cache/uv (macOS also uses the XDG location)
     uv_cache = cache / "uv" / "cache" if shell.IS_WINDOWS else (_env_path("XDG_CACHE_HOME") or _home(".cache")) / "uv"
     return [
         Location("npm", "npm cache", npm_cache, TIER_SAFE, "tool", ("npm", "cache", "clean", "--force")),
@@ -111,7 +111,7 @@ def _package_caches() -> list[Location]:
 
 
 def _editor_and_device_caches() -> list[Location]:
-    # IDE·에뮬레이터·projectops 자체 (세 OS 공통)
+    # IDEs, emulators, projectops itself (all three OSes)
     cache, settings = os_cache_base(), os_settings_base()
     jetbrains = cache / "JetBrains"
     return [

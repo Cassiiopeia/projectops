@@ -1,12 +1,12 @@
-"""common — cassiiopeia skill 공용 인프라.
+"""common — shared infrastructure for cassiiopeia skills.
 
-3-layer 아키텍처의 Layer 1. 각 skill의 _cli.py가 이 패키지를 import한다.
-순수 함수 + 단일 책임 모듈만 둔다. skill 의존성 0.
+Layer 1 of the 3-layer architecture. Each skill's _cli.py imports this package.
+Pure functions and single-responsibility modules only. No skill dependencies.
 """
 
 __version__ = "1.0.0"
 
-# 산출물 경로 생성 대상 skill_id 목록 (paths.py·기타에서 사용)
+# skill_ids that get output paths (used by paths.py and others)
 SUPPORTED_SKILL_IDS = [
     "report",
     "review",

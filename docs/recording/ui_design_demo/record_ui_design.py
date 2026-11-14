@@ -1,6 +1,6 @@
-"""README 데모 GIF: pro-ui-design 연결 프로토타입을 작업 트리 CLI 로 녹화
-실행: python docs/recording/ui_design_demo/record_ui_design.py --lang en|ko
-결과: docs/images/feature-ui-design.gif (en), feature-ui-design.ko.gif (ko)
+"""README demo GIF: record the pro-ui-design linked prototype with the working-tree CLI
+Run: python docs/recording/ui_design_demo/record_ui_design.py --lang en|ko
+Output: docs/images/feature-ui-design.gif (en), feature-ui-design.ko.gif (ko)
 """
 from __future__ import annotations
 
@@ -17,10 +17,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CLI_PATH = REPO_ROOT / "skills/pro-ui-design/scripts/ui_design_cli.py"
 TEMPLATE_PATH = Path(__file__).with_name("linked.html")
 GIF_MAX_WIDTH = 900
-# 재인코딩: 프레임 공통 팔레트 1개 (프레임마다 팔레트가 달라 정지 영역까지 매 프레임 다시 쓰이는 것 방지)
+# Re-encode: one palette shared by all frames (per-frame palettes rewrite even static areas every frame)
 SHARED_PALETTE_COLORS = 255
 PALETTE_SAMPLE_FRAME_STEP = 3
-# 언어별 문구: 시안 내용과 녹화 단계에서 함께 씀
+# Text per language: used by both the mockup content and the recording steps
 TEXT_BY_LANGUAGE = {
     "en": {"title": "Order flow: customer and kitchen", "subtitle": "Press + and Send on the left. The kitchen screen updates.",
            "customer": "Customer app", "kitchen": "Kitchen display", "greeting": "Good morning, Mina",
@@ -45,7 +45,7 @@ TEXT_BY_LANGUAGE = {
            "start": "제조 시작", "empty": "아직 주문이 없어요", "emptyNote": "새 주문이 바로 여기에 떠요",
            "stepsTitle": "따라 해 보기", "steps": ["메뉴 담기", "주문 보내기"], "shared": "상태 공유"},
 }
-# 녹화 단계: 라떼 2잔 + 베이글 담기 > 주문 > 주방 티켓 도착 감상
+# Recording steps: add 2 lattes + a bagel > order > watch the kitchen ticket arrive
 RECORD_STEPS = [
     {"action": "wait", "ms": 900},
     {"action": "click", "selector": "[data-screen='customer'] .add[data-index='0']", "ms": 650},
@@ -65,13 +65,13 @@ def run_cli(root: Path, *args: str) -> dict:
 
 
 def reencode_with_shared_palette(gif_path: Path) -> None:
-    """프레임 표본 > 공통 팔레트 > 디더링 없이 전 프레임 재양자화 > 바뀐 영역만 저장 (용량 축소)"""
+    """Sample frames > shared palette > requantize all frames without dithering > store changed areas only (smaller file)"""
     from PIL import Image, ImageSequence
 
     with Image.open(gif_path) as source:
         frames = [frame.convert("RGB") for frame in ImageSequence.Iterator(source)]
         durations = [frame.info.get("duration", 100) for frame in ImageSequence.Iterator(source)]
-    # 팔레트 표본: 일정 간격 프레임 + 마지막 프레임을 세로로 이어 붙임
+    # Palette sample: frames at a fixed interval + the last frame stacked vertically
     samples = frames[::PALETTE_SAMPLE_FRAME_STEP] + [frames[-1]]
     sheet = Image.new("RGB", (frames[0].width, frames[0].height * len(samples)))
     for index, frame in enumerate(samples):
@@ -82,7 +82,7 @@ def reencode_with_shared_palette(gif_path: Path) -> None:
 
 
 def ensure_pillow() -> None:
-    """Pillow 없으면 pro-launch 가상환경 파이썬으로 같은 인자 재실행"""
+    """Without Pillow, rerun with the same args using the pro-launch venv Python"""
     try:
         import PIL  # noqa: F401
         return

@@ -1,6 +1,6 @@
-"""외부 명령 실행과 Android SDK 도구 찾기 (pro-launch · pro-agent-test 공용, #629).
+"""Run external commands and find Android SDK tools (shared by pro-launch · pro-agent-test, #629).
 
-두 CLI 가 같은 일을 각자 들고 있으면 한쪽만 고쳐져 어긋난다. 여기 한 곳에 둔다.
+If both CLIs kept their own copy, only one would get fixed and they would drift. It lives here in one place.
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ from pathlib import Path
 
 
 def run(cmd: list[str], timeout: int = 15) -> str:
-    """외부 명령 실행. 실패해도 예외를 올리지 않는다 —
-    기기가 없거나 도구가 미설치인 상황이 정상 경로이기 때문이다."""
+    """Run an external command. Never raises on failure;
+    a missing device or uninstalled tool is a normal path."""
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, errors="replace", timeout=timeout)
         return r.stdout
@@ -22,20 +22,20 @@ def run(cmd: list[str], timeout: int = 15) -> str:
 
 
 def sdk_tool(name: str) -> str | None:
-    """Android SDK 도구 경로. PATH에 없으면 표준 설치 위치를 본다.
+    """Path to an Android SDK tool. If not on PATH, check the standard install locations.
 
-    adb·emulator는 SDK를 설치해도 PATH에 자동 등록되지 않는 경우가 많다.
-    여기서 찾아주지 않으면 기기가 있는데도 "없음"으로 보고하게 된다.
+    adb and emulator are often not added to PATH even after installing the SDK.
+    Without finding them here, a present device would be reported as "missing".
     """
     found = shutil.which(name)
     if found:
         return found
 
-    # Windows 실행 파일은 확장자가 붙는다. Git Bash에서도 마찬가지다.
+    # Windows executables carry an extension. The same holds in Git Bash.
     exe = f"{name}.exe" if sys.platform == "win32" else name
 
-    roots = [Path.home() / "Library" / "Android" / "sdk",   # macOS 기본
-             Path.home() / "Android" / "Sdk"]               # Linux 기본
+    roots = [Path.home() / "Library" / "Android" / "sdk",   # macOS default
+             Path.home() / "Android" / "Sdk"]               # Linux default
     for env in ("ANDROID_HOME", "ANDROID_SDK_ROOT", "LOCALAPPDATA"):
         v = os.environ.get(env)
         if not v:
@@ -51,14 +51,14 @@ def sdk_tool(name: str) -> str | None:
     return None
 
 
-# Windows 의 PATH 에 있어도 쓰면 안 되는 bash — System32 는 WSL 실행기, WindowsApps 는 Store 안내 껍데기다
+# bash that must not be used on Windows even if on PATH: System32 is the WSL launcher, WindowsApps is a Store stub
 _WINDOWS_FAKE_BASH_FOLDERS = ("\\windows\\system32", "\\windowsapps")
-# PATH 에 Git 이 없을 때 볼 표준 설치 위치
+# Standard install locations to check when Git is not on PATH
 _WINDOWS_GIT_BASH_PATHS = (r"C:\Program Files\Git\bin\bash.exe", r"C:\Program Files (x86)\Git\bin\bash.exe")
 
 
 def bash_executable() -> str:
-    """셸 명령을 돌릴 bash. Windows 는 전체 경로를 준다 — CreateProcess 는 PATH 보다 System32(WSL 실행기)를 먼저 본다"""
+    """bash for running shell commands. On Windows, return the full path; CreateProcess checks System32 (WSL launcher) before PATH"""
     if sys.platform != "win32":
         return "bash"
     folders = [folder for folder in os.environ.get("PATH", "").split(os.pathsep)
@@ -71,19 +71,19 @@ def bash_executable() -> str:
 
 
 def pid_alive(pid) -> bool:
-    """프로세스 생존 확인 (OS 분기 단일 지점). 우리 자식 좀비는 거둬들이고 죽은 것으로 판정"""
+    """Check whether a process is alive (single OS-branch point). Reaps our own zombie children and reports them dead"""
     try:
         pid = int(pid)
     except (TypeError, ValueError):
         return False
-    # 윈도우의 os.kill(pid, 0) 은 확인이 아니라 종료
+    # On Windows, os.kill(pid, 0) terminates instead of checking
     if sys.platform == "win32":
         return _pid_alive_windows(pid)
     try:
         done, _ = os.waitpid(pid, os.WNOHANG)
         if done:
             return False
-    except OSError:  # 우리 자식이 아님 (ChildProcessError 포함) — 아래 신호 확인으로 판정
+    except OSError:  # Not our child (ChildProcessError included); decide by the signal check below
         pass
     try:
         os.kill(pid, 0)
@@ -97,7 +97,7 @@ def pid_alive(pid) -> bool:
 
 
 def _pid_alive_windows(pid: int) -> bool:
-    """핸들을 열어 종료 코드 확인 (STILL_ACTIVE 면 생존)"""
+    """Open a handle and check the exit code (alive if STILL_ACTIVE)"""
     import ctypes
     kernel32 = ctypes.windll.kernel32
     handle = kernel32.OpenProcess(0x1000, False, int(pid))   # PROCESS_QUERY_LIMITED_INFORMATION
