@@ -108,6 +108,20 @@ def _decide_with_wait(request: AcquireRequest, wait_seconds: float):
     return decision, candidates, waited_total
 
 
+def _android_storage_fields(platform: str, dev_id: str) -> dict:
+    """Android 면 /data 남은 공간, 적으면 경고 — 설치가 저장 공간 부족으로 실패하기 전에 알린다 (#1186)"""
+    if platform != "android":
+        return {}
+    storage = android_device.read_data_storage(dev_id)
+    if storage is None:
+        return {}
+    fields = {"data_storage": storage}
+    if storage["is_low"]:
+        fields["warning"] = (f"/data has only {storage['free_megabytes']} MB free ({storage['used_percent']}% used) — "
+                             f"app install may fail. {android_device.low_storage_next(dev_id)}")
+    return fields
+
+
 def identity_next(next_step: str) -> str:
     if device_claims.owner_identity_strength() == "weak":
         return f"Set a session name with the LAUNCH_SESSION environment variable (right now this session is indistinguishable from others) · {next_step}"
@@ -147,7 +161,8 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
             device_claims.clear_wait(wait_key(request))
             facts = taken["candidate"].facts
             dev_id = taken["instance"] or facts.key
-            return {**base, "action": "acquire", "platform": facts.platform, "device": dev_id, "key": facts.key,
+            storage_fields = _android_storage_fields(facts.platform, dev_id)
+            return {**base, **storage_fields, "action": "acquire", "platform": facts.platform, "device": dev_id, "key": facts.key,
                     "name": facts.name, "lease_id": taken["lease"]["lease_id"], "booted": taken["booted"],
                     "created": decision.verdict == "create", "unrestored_settings": taken["unrestored_settings"],
                     "summary": f"Borrowed {facts.name} ({dev_id})" + (" — newly created" if decision.verdict == "create"
