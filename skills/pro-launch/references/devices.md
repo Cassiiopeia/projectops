@@ -103,6 +103,7 @@ When a mismatch is reported, stop there and align both sides.
 | `device_busy` · `needs_user` · `no_matching_device` | `device acquire`'s `wait` · `ask` · `no_match` — see the per-verdict actions in the SKILL.md common rules |
 | `device_owned_by_other` | Another session borrowed this device. Mutating actions (tap · type · install, etc.) are refused; reads (shot · tree · wait) only get a warning field. Get another device with `device acquire`, or, if it must be that device, ask the user and pass `--yes` |
 | `device_unresponsive` | The device does not respond (`resources` includes host memory). Ask the user, then run `device reboot --cold` |
+| `insufficient_storage` (`app install`) | The Android device's `/data` is full (`data_storage`). Uninstall old builds (`adb -s <id> uninstall <package>`) or borrow another device (`device acquire --platform android --fresh`). Do not touch other apps' data without asking |
 | `device_budget_exceeded` · `host_memory_pressure` | Booting another device would exceed this computer's device memory budget / host memory is at a risky level (`reasons` · `non_device_consumers`). Return or shut down unused devices, or show this to the user and pass `--user-approved` after they answer. If the budget was never measured, run `device benchmark` |
 | `devices_in_use` · `benchmark_no_room` | Not started because measuring could stall other sessions / no room to boot even one test device (config unchanged) |
 | `ledger_busy` | Could not get the device ledger lock within 10 s. Call again shortly |

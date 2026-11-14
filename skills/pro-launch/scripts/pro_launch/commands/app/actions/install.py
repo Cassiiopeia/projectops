@@ -29,6 +29,15 @@ def _install_ios(udid: str, app_path: Path) -> dict:
     return {"is_ok": True, "code": "ok", "step": "install", "detail": "Success", "retried": False}
 
 
+def _failure_summary(build_name: str, result: dict) -> str:
+    """설치 실패 한 줄. 저장 공간 부족이면 원인과 남은 공간 (#1175)"""
+    if result["code"] != "insufficient_storage":
+        return f"{build_name} install failed ({result['step']})"
+    storage = result.get("data_storage")
+    free = f" ({storage['free_megabytes']} MB free, {storage['used_percent']}% used)" if storage else ""
+    return f"{build_name} install failed: the device's /data storage is full{free}"
+
+
 def _invalid_path(code: str, error: str, hint: str) -> int:
     return out({"ok": False, "code": code, "error": error, "next": hint})
 
@@ -59,8 +68,8 @@ def _app_install(args) -> int:
     return out({"ok": False, "code": result["code"], **common, "step": result["step"],
                 "error": f"{result['step']} step failed: {result['detail']}",
                 "retried": result.get("retried", False),
-                **{k: result[k] for k in ("resources", "host_advice") if k in result},
-                "summary": f"{build_path.name} install failed ({result['step']})",
+                **{k: result[k] for k in ("resources", "host_advice", "data_storage") if k in result},
+                "summary": _failure_summary(build_path.name, result),
                 "next": result.get("next") or "Check the device state with device list and try again"})
 
 

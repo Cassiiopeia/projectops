@@ -33,6 +33,16 @@ DEVICE_TEMPORARY_FOLDER = "/data/local/tmp"
 _PING_TOKEN = "pro-launch-ping"
 # 부팅 직후 패키지 서비스가 아직 없을 때 pm 이 내는 문구
 _SERVICE_NOT_READY_MARKERS = ("Broken pipe", "Can't find service", "Failure calling service package")
+# /data 가 차서 설치가 실패할 때의 문구 (#1175) — 끝 줄은 매번 다른 스택 프레임이라 전체에서 찾는다
+_INSUFFICIENT_STORAGE_MARKERS = ("INSUFFICIENT_STORAGE", "resolveInstallVolume", "not enough space",
+                                 "no room on allowed volumes", "No space left on device")
+# pm 출력에서 원인 한 줄 — 앞 패턴 우선: Failure [...] > 예외 메시지(Exception: ...) > 저장 공간 문구
+_FAILURE_LINE_PATTERNS = (re.compile(r"Failure \[|INSTALL_FAILED_"), re.compile(r"(Exception|Error): \S"),
+                          re.compile(r"No space left", re.IGNORECASE))
+# 실패 detail 최대 길이
+FAILURE_DETAIL_MAX_CHARS = 300
+# /data 남은 공간이 이보다 적으면 경고 (MB) — 디버그 APK 하나(~200MB) + 설치 중 사본
+LOW_DATA_FREE_MEGABYTES = 1024
 
 
 class AdbResult(NamedTuple):
@@ -119,6 +129,47 @@ def _unresponsive(serial: str, step: str, detail: str) -> dict:
             "next": f"device reboot --device {serial} --cold  # force-stops the emulator and starts it again (if another session uses this device, ask before --yes)"}
 
 
+def read_data_storage(serial: str) -> dict | None:
+    """기기 /data 공간 (df -k) > {free_megabytes, total_megabytes, used_percent, is_low}. 못 읽으면 None"""
+    result = adb(serial, "shell", "df", "-k", "/data", timeout=SERVICE_CHECK_TIMEOUT_SECONDS)
+    if not result.is_ok:
+        return None
+    # 마지막 줄: 장치 1K-blocks Used Available Use% 마운트
+    fields = result.text.splitlines()[-1].split() if result.text else []
+    if len(fields) < 5 or not (fields[1].isdigit() and fields[3].isdigit()):
+        return None
+    total_kilobytes, free_kilobytes = int(fields[1]), int(fields[3])
+    free_megabytes = free_kilobytes // 1024
+    return {"free_megabytes": free_megabytes, "total_megabytes": total_kilobytes // 1024,
+            "used_percent": round(100 - free_kilobytes * 100 / total_kilobytes) if total_kilobytes else None,
+            "is_low": free_megabytes < LOW_DATA_FREE_MEGABYTES}
+
+
+def low_storage_next(serial: str) -> str:
+    return (f"Free space on {serial}: uninstall old builds (adb -s {serial} uninstall <package>), "
+            "or borrow a fresh device: device acquire --platform android --fresh")
+
+
+def _failure_detail(text: str) -> str:
+    """pm 출력 > 원인 줄 (Failure [...] · 예외 문구) 우선, 없으면 끝부분"""
+    lines = text.splitlines()
+    for pattern in _FAILURE_LINE_PATTERNS:
+        found = next((line.strip() for line in lines if pattern.search(line)), None)
+        if found:
+            return found[:FAILURE_DETAIL_MAX_CHARS]
+    return text[-FAILURE_DETAIL_MAX_CHARS:]
+
+
+def _install_failure(serial: str, step: str, text: str, retried: bool) -> dict:
+    """push · install 실패 > 저장 공간 부족이면 insufficient_storage + /data 공간, 아니면 install_failed"""
+    failure = {"is_ok": False, "code": "install_failed", "step": step, "detail": _failure_detail(text),
+               "retried": retried}
+    if any(marker.lower() in text.lower() for marker in _INSUFFICIENT_STORAGE_MARKERS):
+        failure.update(code="insufficient_storage", data_storage=read_data_storage(serial),
+                       next=low_storage_next(serial))
+    return failure
+
+
 def _device_file_name(apk_path: Path) -> str:
     return "pro-launch-" + re.sub(r"[^A-Za-z0-9._-]", "_", apk_path.name)
 
@@ -126,7 +177,8 @@ def _device_file_name(apk_path: Path) -> str:
 def install_apk(serial: str, apk_path: Path) -> dict:
     """APK 설치: 준비 확인 > push > pm install (부팅 직후 Broken pipe 면 서비스 대기 후 1회 재시도) > 임시 파일 삭제.
 
-    > {is_ok, code, step, detail, retried, [resources, next]}. 실패 code: device_unresponsive · install_failed.
+    > {is_ok, code, step, detail, retried, [resources, data_storage, next]}.
+    실패 code: device_unresponsive · insufficient_storage · install_failed.
     """
     # 준비 확인 (셸 응답 · 패키지 서비스) — 답 없는 기기에 200MB 를 밀어 넣지 않는다
     if not is_shell_answering(serial):
@@ -139,8 +191,7 @@ def install_apk(serial: str, apk_path: Path) -> dict:
     if pushed.is_timeout:
         return _unresponsive(serial, "push", pushed.text)
     if not pushed.is_ok:
-        return {"is_ok": False, "code": "install_failed", "step": "push", "detail": pushed.text[-300:],
-                "retried": False}
+        return _install_failure(serial, "push", pushed.text, retried=False)
 
     retried = False
     installed = adb(serial, "shell", "pm", "install", "-r", "-t", remote, timeout=INSTALL_TIMEOUT_SECONDS)
@@ -155,6 +206,5 @@ def install_apk(serial: str, apk_path: Path) -> dict:
     if installed.is_timeout:
         return _unresponsive(serial, "install", installed.text)
     if "Success" not in installed.text:
-        return {"is_ok": False, "code": "install_failed", "step": "install", "detail": installed.text[-300:],
-                "retried": retried}
+        return _install_failure(serial, "install", installed.text, retried)
     return {"is_ok": True, "code": "ok", "step": "install", "detail": "Success", "retried": retried}

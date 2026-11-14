@@ -298,6 +298,8 @@ adb -s "$DEV" shell pm clear {package}        # reset data only (app stays insta
 
 When `app install` hits `Broken pipe` / `Can't find service: package` right after boot, it waits for the service to come back and retries **once**.
 If the device does not respond, it returns `device_unresponsive` + host memory figures (`resources`) and `next: device reboot --device <id> --cold`.
+If the device's `/data` is full, it returns `insufficient_storage` with `data_storage` (free MB · used %) instead of a stack trace (#1175).
+Free space (uninstall old builds) or borrow another device; `device acquire` already warns (`warning`) when `/data` has under 1 GB free (#1186).
 
 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` is a signature mismatch. CI builds and local builds use different keys.
 
