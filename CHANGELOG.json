@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T06:22:12Z",
-    "currentVersion": "4.104.1",
+    "lastUpdated": "2026-11-14T09:02:20Z",
+    "currentVersion": "4.104.2",
     "projectType": "basic",
-    "totalReleases": 411,
+    "totalReleases": 412,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.104.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1196,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Documentation**\n  * Contributor guide notes where the shared output options live so they stay consistent",
+      "parsed_changes": {
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Contributor guide notes where the shared output options live so they stay consistent"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.1",
       "project_type": "basic",

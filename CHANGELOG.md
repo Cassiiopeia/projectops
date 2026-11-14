@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.104.1  
-**Last updated:** 2026-11-14T06:22:12Z  
+**Current version:** 4.104.2  
+**Last updated:** 2026-11-14T09:02:20Z  
+
+---
+
+## [4.104.2] - 2026-11-14
+
+**PR:** #1196  
+
+**Documentation**
+- Contributor guide notes where the shared output options live so they stay consistent
 
 ---
 
