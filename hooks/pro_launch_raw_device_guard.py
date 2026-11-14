@@ -21,7 +21,7 @@ BYPASS_MARKER = "PRO_LAUNCH_ALLOW_RAW=1"
 DEVICE_TOOL_NAMES = ("xcrun", "simctl", "avdmanager", "emulator", "adb")
 _SEGMENT_SEPARATOR_PATTERN = re.compile(r"&&|\|\||[;|\n()]")
 _ENV_ASSIGNMENT_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=\S*$")
-_URL_PATTERN = re.compile(r"[\?&]until-url=([^&]+)")
+
 
 def device_tool_segments(command: str) -> list[str]:
     """명령을 ; && || | 줄바꿈으로 나눠, 첫 단어(환경변수 대입·sudo 제외)가 기기 도구인 조각만."""
@@ -34,12 +34,11 @@ def device_tool_segments(command: str) -> list[str]:
             segments.append(" ".join(words))
     return segments
 
+
 def blocked_pattern(command: str):
     """막을 패턴 하나 > RawCommandPattern 또는 None."""
     if BYPASS_MARKER in command or not any(word in command for word in TRIGGER_WORDS):
         return None
-    if _URL_PATTERN.search(command):
-        return None  # Allow commands with 'until-url' in the query string
     for path in (str(PLUGIN_ROOT / "scripts"), str(LAUNCH_SCRIPTS)):
         if path not in sys.path:
             sys.path.insert(0, path)
@@ -50,12 +49,14 @@ def blocked_pattern(command: str):
     return next((pattern for pattern in raw_command_patterns() for segment in segments
                  if re.search(pattern.pattern, segment)), None)
 
+
 def deny_response(command: str, pattern) -> dict:
     reason = (f"pro-launch: do not create or delete virtual devices with raw commands; several sessions share "
               f"the devices on this machine. Instead: {pattern.instead}  (to borrow one, use device acquire). "
               f"If the user explicitly wants the raw command, prefix it with {BYPASS_MARKER}.")
     return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                    "permissionDecisionReason": reason}}
+
 
 def main(stdin_text: str) -> int:
     try:
@@ -69,6 +70,7 @@ def main(stdin_text: str) -> int:
     if pattern is not None:
         print(json.dumps(deny_response(command, pattern), ensure_ascii=False))
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main(sys.stdin.read() if not sys.stdin.isatty() else ""))
