@@ -41,6 +41,10 @@ python3 .github/util/flutter/_shared/check-consistency.py   # Flutter 마법사�
 CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 macOS(bash 3.2, BSD 도구)와 Windows에서도 동작해야 하므로
 `.sh` 파일에 Linux 전용 문법을 쓰지 마세요.
 
+## 번역
+
+새 언어는 코드가 아니라 파일을 더해서 추가합니다. [docs/TRANSLATING.md](../TRANSLATING.md)를 보세요.
+
 ## 포크에서 기여한다면
 
 다음 절의 브랜치 이름과 커밋 형식은 지키지 않아도 됩니다. 이 규칙은 메인테이너의 자동화(이슈 헬퍼, 버전 승격)를 위한
@@ -76,10 +80,26 @@ CI는 Linux, macOS, Windows에서 같은 명령을 돌립니다. 설치기는 ma
 - [ ] 공통 워크플로우를 고쳤다면 `.github/workflows/`와 `.github/workflows/project-types/common/` 두 사본을 모두 고쳤다
 - [ ] 워크플로우에 `permissions:`가 있고, 새 워크플로우에는 `workflow_dispatch`와 `concurrency`가 있다
 
+## 코드 규칙
+
+- **설치기(`src/`)**: ES 모듈, 표준 라이브러리만 씁니다. 프롬프트는 `src/ui/`, 메시지는 `src/i18n/`을 거칩니다.
+  주석은 무엇을 하는지가 아니라 왜 그런지를 적습니다.
+- **스크립트와 스킬(Python)**: 표준 라이브러리를 먼저 씁니다. 스킬 CLI는 JSON을 출력하고, 입력은 인자나
+  환경 변수로 받습니다. heredoc이나 임시 파일로 받지 않습니다.
+- **워크플로우**: 이미 배포된 워크플로우의 이름을 바꾸거나 지울 때는 `src/core/migrations/registry.js`에 등록합니다.
+  등록하지 않으면 기존 설치본에 옛 파일이 계속 남습니다.
+- 이 저장소에서만 의미가 있는 파일은 `src/core/exclusions.js`와 `.github/scripts/template_initializer.py` 두 곳 모두에서
+  사용자 설치 대상에서 빼야 합니다.
+
 ## AI 도구를 쓴 기여
 
 AI 도구를 환영합니다. 제출하는 내용의 책임은 제출자에게 있습니다. 모든 줄을 읽고 이해한 뒤 직접 테스트를 돌려 주세요.
 에이전트가 변경의 상당 부분을 썼다면 PR 설명에 밝혀 주세요. 사전 이슈 없이 올라온 대규모 자동 생성 리팩터링은 닫힐 수 있습니다.
+
+## 설치기 문제 신고
+
+`full`과 `workflows` 실행은 매번 `.github/.projectops/logs/`에 로그를 남깁니다(git이 추적하지 않음).
+개인 정보를 지운 뒤 `.log` 파일을 이슈에 첨부해 주세요.
 
 ## 보안, 라이선스
 
