@@ -1,4 +1,4 @@
-"""`app wait` — 화면에 요소가 나타나거나(--gone 이면 사라질) 때까지, --settle 이면 화면이 멈출 때까지 기다린다 (#928)."""
+"""`app wait` — wait until an element appears (or disappears with --gone), or with --settle until the screen stops changing (#928)."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from pro_launch.commands.app.gestures import backend_for, device_failure_respons
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
-# 기본 대기 · 상한 (초) / 화면 다시 읽기 간격 기본 · 하한 (초)
+# Default and maximum wait (seconds) / default and minimum screen re-read interval (seconds)
 DEFAULT_WAIT_TIMEOUT_SECONDS = 30
 MAXIMUM_WAIT_TIMEOUT_SECONDS = 300
 DEFAULT_POLL_INTERVAL_SECONDS = 1.0
@@ -18,7 +18,7 @@ MINIMUM_POLL_INTERVAL_SECONDS = 0.2
 
 
 def _app_wait(args) -> int:
-    """대상 고르기 > 기기·백엔드 > 조건이 될 때까지 화면 구조를 다시 읽기 > 결과."""
+    """Pick the target > device and backend > re-read the screen tree until the condition holds > result."""
     selector = next(((f, getattr(args, f"sel_{f}")) for f in app_input.SELECTOR_FIELDS
                      if getattr(args, f"sel_{f}", None)), None)
     is_settle = bool(getattr(args, "settle", False))
@@ -50,7 +50,7 @@ def _app_wait(args) -> int:
         nodes = be.nodes(dev_id) or []
         polls += 1
         matches = app_input.match_nodes(nodes, field, value)
-        # 화면 구조를 못 읽은 것은 '사라졌다'가 아니다
+        # Failing to read the screen tree does not mean 'gone'
         if (matches and not should_be_gone) or (should_be_gone and nodes and not matches):
             return out({"ok": True, "code": "ok", "device": dev_id, "via": be.name, "condition": condition,
                         "polls": polls, "waited_seconds": round(time.monotonic() - started, 1),
@@ -70,12 +70,12 @@ def _app_wait(args) -> int:
 
 
 def _screen_signature(nodes: list[dict]) -> str:
-    """화면 구조 > 비교용 글 (요소 순서까지 같아야 같은 화면)."""
+    """Screen tree > comparison text (element order must match too for the same screen)."""
     return json.dumps(nodes, ensure_ascii=False, sort_keys=True)
 
 
 def _wait_until_settled(args, be, dev_id: str, timeout: float, interval: float) -> int:
-    """화면 구조를 연속 두 번 같게 읽으면 끝 — 고정 sleep · 아무 문구(--text '.') 대기 대신 (빈 화면은 멈춘 것으로 안 센다)."""
+    """Done when the screen tree reads the same twice in a row — instead of a fixed sleep or waiting on any text (--text '.') (an empty screen does not count as settled)."""
     started = time.monotonic()
     deadline = started + timeout
     polls, previous_signature, nodes = 0, None, []
@@ -103,7 +103,7 @@ def _wait_until_settled(args, be, dev_id: str, timeout: float, interval: float) 
 
 
 def configure(p) -> None:
-    # --text · --id · --desc 는 tap 이, --timeout 은 flow 가 이미 정의했다 (app 은 파서 하나를 같이 쓴다)
+    # --text, --id, --desc are already defined by tap and --timeout by flow (app shares one parser)
     p.add_argument("--gone", action="store_true", help="wait: until it disappears instead of appears")
     p.add_argument("--settle", action="store_true",
                    help="wait: instead of an element, until the screen structure is the same twice in a row (waits for transitions and loading)")

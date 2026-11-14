@@ -1,4 +1,4 @@
-"""`web assert` — 주소·글자·요소가 있는지 확인한다."""
+"""`web assert` — check that a URL, text or element is present."""
 from __future__ import annotations
 
 
@@ -8,12 +8,12 @@ from pro_launch.registry import Action
 
 
 def execute(page, args, state: dict) -> dict:
-    # 글자·요소는 --frame 이면 그 iframe 안에서 본다 (#877). 주소는 언제나 탭 주소
+    # With --frame, text and elements are checked inside that iframe (#877). The URL is always the tab URL
     scope, failure = frame_scope(page, args, "assert")
     if failure:
         return failure
     checks = []
-    # 주소는 ?검색어 · #조각을 빼고 비교 (wait --url-contains 와 같은 규칙, #1191)
+    # Compare the URL without ?query and #fragment (same rule as wait --url-contains, #1191)
     if args.url:
         checks.append({"expect_url": args.url, "got": page.url,
                        "ok": args.url in url_without_query(page.url, args.url)})

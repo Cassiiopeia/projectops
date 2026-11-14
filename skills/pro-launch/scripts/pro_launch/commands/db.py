@@ -1,4 +1,4 @@
-"""`db` — SQL 을 실행한다."""
+"""`db` — run SQL."""
 from __future__ import annotations
 
 import os
@@ -17,13 +17,13 @@ from pro_launch.runtime.output import out, set_area, use_access
 
 
 #
-# **접속 방법은 agent가 정한다.** 설정이 사는 곳도 붙는 길도 제각각이다.
-# 여기서는 적어 둔 것을 받은 대로 실행만 한다.
+# **The agent decides how to connect.** Where config lives and how to reach it varies.
+# This only runs what was recorded, as given.
 _DB_CLIENTS = {"postgres": "psql", "postgresql": "psql", "mysql": "mysql", "mariadb": "mysql"}
 
 
 def _db_argv(engine: str, db: dict, sql: str) -> tuple[list[str], dict]:
-    """엔진에 맞는 명령과 환경변수. 비밀번호는 argv가 아니라 env로 — argv는 다른 프로세스에서 보인다."""
+    """Command and env vars for the engine. Password goes in env, not argv — argv is visible to other processes."""
     exe = _DB_CLIENTS[engine]
     env = {}
     if exe == "psql":
@@ -48,12 +48,12 @@ def _db_argv(engine: str, db: dict, sql: str) -> tuple[list[str], dict]:
 
 
 def _shq(s: str) -> str:
-    """원격 셸에 넘길 값을 감싼다."""
+    """Quote a value for the remote shell."""
     return "'" + str(s).replace("'", """'"'"'""") + "'"
 
 
 def _db_rows(text: str) -> list[list[str]]:
-    """탭으로 나뉜 출력을 행 목록으로. 판정은 agent가 한다."""
+    """Tab-separated output > list of rows. The agent judges."""
     return [line.split("\t") for line in (text or "").splitlines() if line.strip()][:200]
 
 
@@ -70,11 +70,11 @@ def _proc_result(r, via: str, engine: str | None = None) -> int:
 
 
 def cmd_db(args) -> int:
-    """SQL 한 줄을 실행한다. **어떻게 붙을지는 호출하는 쪽이 정한다.**
+    """Run one SQL statement. **The caller decides how to connect.**
 
-      --command  임의 명령 (docker exec 등). 가장 자유롭다
-      --via ssh  원격에 들어가 그 안에서 클라이언트를 실행한다
-      (기본)     여기서 직접 붙는다
+      --command  any command (docker exec etc.). Most flexible
+      --via ssh  log in remotely and run the client there
+      (default)  connect directly from here
     """
     set_area("server", project_root(args))
     sql = args.sql
@@ -83,7 +83,7 @@ def cmd_db(args) -> int:
 
     cred_env: dict = {}
     cred_entry = None
-    # 적어 둔 접근 방법을 쓴다. 인자로 직접 준 값이 언제나 이긴다 — 기록이 낡았을 때의 탈출구.
+    # Use the recorded access method. Values passed as arguments always win — the escape hatch when the record is stale.
     if args.profile:
         root = project_root(args)
         state_home(root)
@@ -117,7 +117,7 @@ def cmd_db(args) -> int:
         cred_entry, err = load_cred(args.cred)
         if err:
             return out(err)
-        # 저장된 값은 비어 있는 인자만 채운다 — 직접 준 인자가 이긴다
+        # Saved values only fill empty arguments — arguments passed directly win
         for src, dst in (("host", "host"), ("port", "port"), ("db", "db"), ("user", "user"),
                          ("password", "password"), ("engine", "engine")):
             if getattr(args, dst, None) in (None, "") and cred_entry.get(src) not in (None, ""):

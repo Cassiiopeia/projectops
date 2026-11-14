@@ -1,4 +1,4 @@
-"""`desktop setup` — 공용 venv 에 OS 별 패키지를 깐다 (Windows: mss · comtypes, macOS: mss · pyobjc)."""
+"""`desktop setup` — install per-OS packages into the shared venv (Windows: mss, comtypes; macOS: mss, pyobjc)."""
 from __future__ import annotations
 
 import desktop_input
@@ -9,7 +9,7 @@ from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 from pro_launch.runtime.venv_install import ensure_venv, pip_install
 
-# OS 별 패키지 — 백엔드 모듈을 불러오지 않고도 알 수 있게 여기 둔다 (불러오면 그 패키지가 필요하다)
+# Per-OS packages — kept here so they are known without importing the backend module (importing needs those packages)
 PACKAGES = {"windows": ("mss", "comtypes"),
             "macos": ("mss", "pyobjc-framework-ApplicationServices", "pyobjc-framework-Quartz")}
 

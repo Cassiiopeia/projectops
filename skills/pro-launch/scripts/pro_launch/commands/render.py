@@ -1,4 +1,4 @@
-"""`render` — 코드로 상태를 그려 찍는다 (실행 · 수집 · 청소 · 흔적 검사)."""
+"""`render` — draw a state in code and capture it (run · collect · clean · residue check)."""
 from __future__ import annotations
 
 import json
@@ -17,15 +17,15 @@ from pro_launch.runtime.shots import shot_folder
 
 
 #
-# 렌더 코드는 agent 가 references/render.md 레시피를 보고 대상 레포에 **임시로** 짠다.
-# 상태 관리 방식(Riverpod · Bloc · Redux …)을 스크립트가 알아맞히지 않는다.
-# 여기서는 실행 · 수집 · 청소 · 흔적 검사만 한다. 한 Flutter 앱에서 사람이 챙긴
-# "파일을 치운 뒤 git status 로 확인"을 명령이 강제한다.
+# The agent writes render code **temporarily** in the target repo from the references/render.md recipe.
+# The script does not guess the state management approach (Riverpod · Bloc · Redux …).
+# Here it only runs, collects, cleans and checks residue. The command enforces what a person
+# did by hand in one Flutter app: "remove the files, then confirm with git status".
 _RENDER_EXT = {".png", ".jpg", ".jpeg", ".webp"}
 
 
 def _git_status(root: Path) -> list[str] | None:
-    """추적 여부와 상관없이 바뀐 경로. git 레포가 아니면 None — 흔적 검사를 못 한다."""
+    """Changed paths, tracked or not. None if not a git repo — no residue check possible."""
     try:
         r = subprocess.run(["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
@@ -45,7 +45,7 @@ def _inside(root: Path, target: Path) -> bool:
 
 
 def _unique(dst: Path) -> Path:
-    """같은 이름이 있으면 번호를 붙인다. 덮어쓰면 앞 상태의 캡처가 사라진다."""
+    """Add a number if the name exists. Overwriting would lose the previous state's capture."""
     if not dst.exists():
         return dst
     n = 2
@@ -57,22 +57,22 @@ def _unique(dst: Path) -> Path:
 
 
 def _split_cleanup_paths(values: list[str] | None) -> list[str]:
-    """--cleanup 값들 > 경로 목록 (반복 플래그 · 쉼표 목록 둘 다, #1178)"""
+    """--cleanup values > list of paths (repeated flags and comma lists both, #1178)"""
     return [part.strip() for value in values or [] for part in value.split(",") if part.strip()]
 
 
-# 렌더 명령이 도구 부산물로 만드는 파일 (--cwd 기준) — 명령 전에 없던 것만 지운다 (#1178)
-# flutter test 가 macOS 호스트에서 macos/Podfile 을 매번 새로 만든다
+# Files the render command creates as tool by-products (relative to --cwd) — only those absent before the command are removed (#1178)
+# flutter test recreates macos/Podfile every time on a macOS host
 _TOOL_GENERATED_FILES = ("macos/Podfile", "ios/Podfile")
 
 
 def _missing_tool_generated(cwd: Path) -> list[Path]:
-    """명령 실행 전 아직 없는 도구 부산물 경로"""
+    """Tool by-product paths that do not exist yet before the command runs"""
     return [cwd / rel for rel in _TOOL_GENERATED_FILES if not (cwd / rel).exists()]
 
 
 def _remove_tool_generated(root: Path, candidates: list[Path]) -> list[str]:
-    """명령 전에 없다가 생긴 도구 부산물만 지운다 > 지운 경로(레포 기준)"""
+    """Remove only tool by-products that appeared after the command > removed paths (relative to repo)"""
     removed = []
     for target in candidates:
         if target.is_file() and _inside(root, target):
@@ -82,7 +82,7 @@ def _remove_tool_generated(root: Path, candidates: list[Path]) -> list[str]:
 
 
 def _cleanup(root: Path, paths: list[str]) -> tuple[list[str], list[str]]:
-    """지정한 경로만 지운다. **레포 밖은 거절한다** — 오타 하나로 남의 폴더가 날아간다."""
+    """Remove only the given paths. **Paths outside the repo are refused** — one typo could wipe someone else's folder."""
     removed, refused = [], []
     for raw in _split_cleanup_paths(paths):
         t = (root / raw) if not Path(raw).is_absolute() else Path(raw)
@@ -98,26 +98,26 @@ def _cleanup(root: Path, paths: list[str]) -> tuple[list[str], list[str]]:
     return removed, refused
 
 
-# 첫 컴파일 오류 찾기 (#901): 오류는 출력 앞쪽에 나오고 output_tail(끝 40줄)에는 안 보이는 일이 잦다
-# Dart 컴파일러: test/_launch_render/states_test.dart:12:5: Error: Undefined name 'MethodChannel'.
+# Find the first compile error (#901): errors appear early in the output and often not in output_tail (last 40 lines)
+# Dart compiler: test/_launch_render/states_test.dart:12:5: Error: Undefined name 'MethodChannel'.
 _DART_COMPILE_ERROR = re.compile(r"^\S+\.dart:\d+:\d+: Error: ")
-# 그 밖의 도구 (gcc·javac·tsc 등): "x.java:3: error: ...", "error TS2304: ..." — 앞이 줄 처음·공백·콜론일 때만
+# Other tools (gcc·javac·tsc etc.): "x.java:3: error: ...", "error TS2304: ..." — only when preceded by line start, space or colon
 _GENERIC_ERROR = re.compile(r"(?i)(?:^|[\s:])error(?: TS\d+)?\s*:")
-# 오류 줄 뒤에 붙는 소스 줄·캐럿(^^^) 문맥 최대 줄 수
+# Max number of source/caret (^^^) context lines following an error line
 _FIRST_ERROR_CONTEXT_LINES = 2
-# summary 에 넣는 첫 오류 줄 최대 길이
+# Max length of the first error line put in summary
 _SUMMARY_ERROR_MAX_CHARS = 200
 
 
 def find_first_error(output: str) -> str | None:
-    """빌드 출력 > 첫 컴파일 오류 줄(+ 들여쓴 문맥 최대 2줄). Dart 형식 우선, 없으면 일반 error: 줄, 둘 다 없으면 None"""
+    """Build output > first compile error line (+ up to 2 indented context lines). Dart format first, then a generic error: line, else None"""
     lines = output.splitlines()
     for pattern in (_DART_COMPILE_ERROR, _GENERIC_ERROR):
         for index, line in enumerate(lines):
             if not pattern.search(line):
                 continue
             picked = [line.rstrip()]
-            # 바로 뒤 들여쓴 줄만 문맥으로 (빈 줄·다음 오류에서 멈춤)
+            # Only immediately following indented lines count as context (stop at a blank line or the next error)
             for following in lines[index + 1:index + 1 + _FIRST_ERROR_CONTEXT_LINES]:
                 if not following.strip() or not following[:1].isspace():
                     break
@@ -142,8 +142,8 @@ def cmd_render(args) -> int:
     if not args.cmd:
         return out({"ok": False, "code": "cmd_required", "error": "--cmd is required"})
 
-    # 기준은 **임시 파일을 만들기 전**의 상태여야 한다. run 직전에 뜨면 이미 만든 임시
-    # 파일이 기준에 들어가, --cleanup 에서 빠뜨린 것이 남아도 흔적으로 안 잡힌다 (실측으로 짜 보다 발견).
+    # The baseline must be the state **before temp files are created**. Taking it right before run puts already-created
+    # temp files into the baseline, so anything --cleanup misses is not caught as residue (found by trying it for real).
     base_f = _baseline_path(root)
     before, baseline_from = None, "run"
     if base_f.is_file():
@@ -181,10 +181,10 @@ def cmd_render(args) -> int:
                     dst = _unique(shot_dir / f.name)
                     shutil.move(str(f), str(dst))
                     collected.append(str(dst))
-                    if dst.name != f.name:   # 같은 이름이 있으면 새 이름: 옛 파일을 새 결과로 오인하지 않게 알림 (#1078)
+                    if dst.name != f.name:   # renamed because the name existed: report it so the old file is not mistaken for the new result (#1078)
                         renamed.append(dst.name)
 
-    # 실패해도 청소는 한다 — 임시 테스트 파일이 남으면 그것이 곧 흔적이다
+    # Clean up even on failure — a leftover temp test file is itself residue
     removed, refused = _cleanup(root, args.cleanup)
     removed_generated = _remove_tool_generated(root, tool_generated_candidates)
     after = _git_status(root)
@@ -192,8 +192,8 @@ def cmd_render(args) -> int:
     if before is not None and after is not None:
         residue = [line for line in after if line not in before]
     if baseline_from == "snapshot":
-        base_f.unlink(missing_ok=True)   # 한 번 쓰면 끝이다 — 낡은 기준으로 다음 렌더를 재지 않는다
-    # scaffold 폴더를 치웠으면 manifest 도 정리 (#948)
+        base_f.unlink(missing_ok=True)   # single use — the next render is not measured against a stale baseline
+    # If the scaffold folder was removed, clean up the manifest too (#948)
     scaffold_state = settle_scaffold_after_run(root)
 
     payload = {"exit_code": rc, "collected": collected, "saved_under_new_name": renamed or None, "removed": removed,
@@ -204,14 +204,14 @@ def cmd_render(args) -> int:
         summary = f"Render command failed (exit code {rc}) — cleaned up without collecting"
         if first_error:
             summary += f" · first error: {first_error.splitlines()[0][:_SUMMARY_ERROR_MAX_CHARS]}"
-        # first_error 를 앞쪽 키로 — 긴 output_tail 보다 먼저 읽히게
+        # first_error as an early key — read before the long output_tail
         payload = {"ok": False, "code": "render_failed", "summary": summary,
                    "first_error": first_error, **payload, "output_tail": tail,
                    "next": ("Fix first_error first (for a missing import, see the recipe's imports). "
                             if first_error else "Read output_tail and fix the render code. ")
                            + "Check the recipe's pitfalls table first"}
     elif residue:
-        # 지우지 않는다 — 다른 세션의 변경일 수 있다
+        # Do not delete — it may be another session's change
         payload.update({"ok": False, "code": "residue",
                         "summary": f"Render left {len(residue)} leftover path(s) in the repo: {_residue_preview(residue)}",
                         "next": "Check the leftover paths: if you created them, add them to --cleanup and run again, or delete them yourself. "
@@ -232,19 +232,19 @@ def cmd_render(args) -> int:
     return out(payload)
 
 
-# summary 에 보여 줄 흔적 경로 수 — 나머지는 residue 필드
+# Number of residue paths shown in summary — the rest go in the residue field
 _RESIDUE_PREVIEW_COUNT = 3
 
 
 def _residue_preview(residue: list[str]) -> str:
-    """git status 줄 > 경로 몇 개 ('?? a, ?? b (+2 more)') — --brief 로 residue 가 빠져도 보이게"""
+    """git status lines > a few paths ('?? a, ?? b (+2 more)') — visible even when --brief drops residue"""
     shown = ", ".join(residue[:_RESIDUE_PREVIEW_COUNT])
     rest = len(residue) - _RESIDUE_PREVIEW_COUNT
     return shown + (f" (+{rest} more)" if rest > 0 else "")
 
 
 def _take_baseline(root: Path) -> dict:
-    """흔적 검사 기준선 저장. scaffold 는 이미 뜬 기준선(snapshot)을 그대로 쓴다"""
+    """Save the residue-check baseline. scaffold reuses the baseline (snapshot) already taken"""
     f = _baseline_path(root)
     if f.is_file():
         try:

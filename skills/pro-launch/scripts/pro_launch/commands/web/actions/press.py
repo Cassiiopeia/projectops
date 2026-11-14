@@ -1,4 +1,4 @@
-"""`web press` — 키를 누른다. 대상을 주면 그 요소에서, 없으면 지금 초점에서 (#892)."""
+"""`web press` — press a key. On the target element if given, else on the current focus (#892)."""
 from __future__ import annotations
 
 
@@ -6,7 +6,7 @@ from pro_launch.commands.web.element import locate_target, outcome_wait_seconds,
 from pro_launch.commands.web.session import safe_title, settle
 from pro_launch.registry import Action
 
-# 대상이 바꾸는 버튼일 때 누르는 것과 같은 키 — 읽기 전용에서 막는다
+# Keys that act like pressing the target when it is a changing button — blocked in read-only
 ACTIVATING_KEYS = {"enter", "space", " "}
 
 
@@ -38,7 +38,7 @@ def execute(page, args, state: dict) -> dict:
     try:
         page.wait_for_load_state("domcontentloaded", timeout=3000)
     except Exception:
-        pass  # 로드 신호가 늦어도 아래 짧은 대기로 넘어간다
+        pass  # A late load signal is fine; fall through to the short wait below
     page.wait_for_timeout(300)
     settle(page, state, outcome_wait_seconds(args))
     after_url, after_title = page.url, safe_title(page)

@@ -1,4 +1,4 @@
-"""`app tap` — 화면 요소를 누른다."""
+"""`app tap` — tap a screen element."""
 from __future__ import annotations
 
 
@@ -12,7 +12,7 @@ from pro_launch.runtime.output import out
 
 
 def _app_tap(args) -> int:
-    """화면 요소를 누른다. --text / --id / --desc 로 찾고, 요소가 없는 화면(캔버스·지도)만 --at 비율."""
+    """Tap a screen element. Find it by --text / --id / --desc; use --at ratios only for screens without elements (canvas, map)."""
     sel = next(((f, getattr(args, f"sel_{f}")) for f in app_input.SELECTOR_FIELDS
                 if getattr(args, f"sel_{f}", None)), None)
     at = app_input.parse_ratio(getattr(args, "at", None))
@@ -36,14 +36,14 @@ def _app_tap(args) -> int:
     field, value = sel
     nodes = be.nodes(dev_id) or []
     if not nodes and be.selects_itself:
-        # iOS 트리를 못 읽음: 예전처럼 Maestro 선택자에 값을 그대로 (빠른 길)
+        # Could not read the iOS tree: pass the value straight to the Maestro selector as before (fast path)
         ok, detail = be.tap_selector(dev_id, field, value)
         if not ok and "not found" in (detail or "").lower():
             return not_found_response(be, dev_id, field, value, None, args)
         return gesture_result(args, be, dev_id, before, ok, detail, "tap_failed", f"Tap ({label})")
     if not nodes:
         return device_failure_response(be, dev_id, args)
-    # 플랫폼 공통 matcher: 정확 > 정규화(겹친 라벨·줄 단위) > 포함, text <-> desc 대체
+    # Cross-platform matcher: exact > normalized (overlapping labels, per line) > contains, text <-> desc fallback
     found, matched_by, match_kind = node_match.find_nodes(nodes, field, value)
     if not found:
         return not_found_response(be, dev_id, field, value, nodes, args)
@@ -54,7 +54,7 @@ def _app_tap(args) -> int:
                     "next": f"app tap --{field} {value!r} --index <0..{len(found) - 1}>"})
     target = found[idx]
     if be.selects_itself:
-        # iOS: 저장된 값 그대로 누르고, 선택자가 못 찾으면 중심 좌표
+        # iOS: tap the stored value as is; if the selector cannot find it, use the center coordinates
         ok, detail = be.tap_selector(dev_id, "id" if matched_by == "id" else "text", target[matched_by])
         if not ok and "not found" in (detail or "").lower():
             ok, detail = be.tap_xy(dev_id, *target["center"])

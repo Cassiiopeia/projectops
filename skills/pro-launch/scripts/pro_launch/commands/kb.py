@@ -1,7 +1,7 @@
-"""`kb` — 공식 트러블슈팅 지식 찾기·보기·목록, 내 기억에서 공식 항목 초안 뽑기 (#889).
+"""`kb` — search, show and list official troubleshooting knowledge; draft official entries from my memory (#889).
 
-공식 지식(skills/pro-launch/troubleshooting/)은 관리자가 PR 로 넣는다. 이 명령은 읽기만 한다 —
-`propose` 도 파일에 쓰지 않고 초안을 응답으로만 준다. 사람이 다듬어 이슈나 PR 로 올린다.
+Official knowledge (skills/pro-launch/troubleshooting/) is added by maintainers via PR. This command only reads —
+even `propose` writes no file and returns the draft in the response only. A person polishes it into an issue or PR.
 """
 from __future__ import annotations
 
@@ -19,10 +19,10 @@ from pro_launch.runtime.output import SKILL_DIR, out
 
 KB_ACTIONS = ("search", "show", "list", "propose")
 DEFAULT_SEARCH_LIMIT = 5
-# propose 대상: 여러 번 먹혔고 실패가 성공보다 적은 기억
+# propose targets: memories that worked several times and failed less than they succeeded
 PROPOSE_MIN_OK = 3
 PROPOSE_KEYWORD_COUNT = 5
-# 초안에서 사람이 채워야 하는 칸
+# Fields in the draft a person must fill in
 PROPOSE_TODO_FIELDS = ["title", "match.codes", "symptom", "cause", "refs"]
 
 
@@ -58,7 +58,7 @@ def _list(args) -> int:
 
 
 def _knowledge_paths(args) -> dict:
-    """사용자 기억 파일 — 이 컴퓨터 범위 + (레포를 알면) 이 레포 범위."""
+    """User memory files — this computer's scope + (if the repo is known) this repo's scope."""
     root = project_root(args)
     paths = {"machine": knowledge.store_path("machine", root)}
     if not repo_unknown(root):
@@ -67,8 +67,8 @@ def _knowledge_paths(args) -> dict:
 
 
 def _draft(entry: dict) -> dict:
-    """사용자 기억 하나 > 공식 항목 초안 (사람이 채울 칸은 비워 둔다)."""
-    # 기억 key(ios.tap) > 항목 id(ios-tap)
+    """One user memory > official entry draft (fields for a person are left empty)."""
+    # memory key (ios.tap) > entry id (ios-tap)
     entry_id = re.sub(r"[^a-z0-9]+", "-", entry["key"].lower()).strip("-")
     keywords = sorted(memory.words(entry["how"]))[:PROPOSE_KEYWORD_COUNT]
     return {"id": entry_id, "area": entry["area"], "title": "", "match": {"codes": [], "keywords": keywords},
@@ -81,14 +81,14 @@ def _propose(args) -> int:
     drafts, skipped = [], []
     for scope, path in _knowledge_paths(args).items():
         for entry in knowledge.load(path):
-            # 대상 고르기 (key·area 필터, 성적 기준)
+            # Pick targets (key·area filters, track record)
             if wanted_key and entry["key"] != wanted_key:
                 continue
             if args.area and entry["area"] != args.area:
                 continue
             if entry["ok"] < PROPOSE_MIN_OK or entry["fail"] >= entry["ok"]:
                 continue
-            # 비밀값 거름 — 초안은 이슈·PR 로 공개된다
+            # Filter out secrets — drafts are published as issues/PRs
             secrets = find_secrets(f"{entry['key']} {entry['how']}")
             if secrets:
                 skipped.append({"key": entry["key"], "scope": scope, "reason": "secret_detected"})
@@ -116,7 +116,7 @@ def cmd_kb(args) -> int:
 
 def configure_kb(p) -> None:
     p.add_argument("action", choices=list(KB_ACTIONS))
-    # 위치 인자는 하나 (#622): search 는 찾을 문구, show 는 항목 id
+    # One positional argument (#622): search phrase for search, entry id for show
     p.add_argument("query", nargs="?", default=None, help="search: error text · show: entry id")
     p.add_argument("--code", default=None, help="search: the code of the failed response")
     p.add_argument("--area", choices=list(troubleshoot.AREAS), default=None, help="list·propose: area")

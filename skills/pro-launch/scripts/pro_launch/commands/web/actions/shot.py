@@ -1,4 +1,4 @@
-"""`web shot` — 화면을 찍는다. `--container` 는 안쪽 스크롤 영역을 내려가며 조각으로 찍는다 (#930)."""
+"""`web shot` — take a screenshot. `--container` scrolls an inner scroll area and captures it in tiles (#930)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,13 +8,13 @@ from pro_launch.registry import Action
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.shots import finish_shot, shot_target
 
-# --tiles 를 안 줬을 때 조각 수 상한 · 한 번에 내리는 비율(겹치게 해서 잘린 줄을 잇는다)
+# Tile cap when --tiles is not given · fraction scrolled per step (overlapping, so cut lines join up)
 DEFAULT_MAXIMUM_TILES = 20
 SCROLL_STEP_RATIO = 0.85
-# 스크롤 뒤 가상화 목록이 그려지길 기다리는 시간(ms)
+# Time to wait after scrolling for a virtualized list to render (ms)
 TILE_SETTLE_MILLISECONDS = 200
 
-# 컨테이너를 한 칸 내리고 > 바닥인가 · 위치를 돌려준다
+# Scroll the container down one step > return whether it hit bottom · position
 SCROLL_CONTAINER_JS = """(e, step) => {
   const before = e.scrollTop;
   e.scrollTop = before + Math.floor(e.clientHeight * step);
@@ -25,7 +25,7 @@ SCROLL_CONTAINER_JS = """(e, step) => {
 
 
 def _tile_name(args, index: int) -> str:
-    """조각 이름: 이름만 주면 {이름}_{번호}, 경로를 주면 같은 폴더의 {파일}_{번호}"""
+    """Tile names: a bare name gives {name}_{n}, a path gives {file}_{n} in the same folder"""
     base = args.out or "container"
     if "/" in base or "\\" in base:
         path = Path(base)
@@ -34,7 +34,7 @@ def _tile_name(args, index: int) -> str:
 
 
 def _shoot_container(page, args, root) -> dict:
-    """컨테이너를 맨 위로 올리고 > 조각 찍기 > 한 칸 내리기를 바닥(또는 --tiles)까지"""
+    """Scroll the container to the top > capture a tile > scroll one step, until the bottom (or --tiles)"""
     container = page.locator(args.container).first
     if page.locator(args.container).count() == 0:
         return {"ok": False, "code": "selector_not_found", "action": "shot", "url": page.url,
@@ -48,7 +48,7 @@ def _shoot_container(page, args, root) -> dict:
         container.screenshot(path=str(raw))
         files.append(str(finish_shot(raw, explicit, args)))
         last_scroll = container.evaluate(SCROLL_CONTAINER_JS, SCROLL_STEP_RATIO)
-        # 더 안 내려가면 방금 찍은 것이 바닥 화면이다
+        # If it no longer scrolls, the tile just taken is the bottom screen
         if not last_scroll["moved"]:
             break
     is_complete = not last_scroll.get("moved")
@@ -68,13 +68,13 @@ def configure(p) -> None:
 
 
 def execute(page, args, state: dict) -> dict:
-    # Playwright 는 webp 로 못 찍는다(png·jpeg 만) — png 로 찍고 바꾼다.
+    # Playwright cannot capture webp (png and jpeg only) — capture png and convert.
     root = project_root(args)
     if args.container:
         return _shoot_container(page, args, root)
     raw, explicit = shot_target(root, args.out)
     if args.selector:
-        # 한 요소만 — 시안 대조·요청서에서 부분만 필요할 때
+        # One element only — when mockup comparisons or requests need just a part
         page.locator(args.selector).first.screenshot(path=str(raw))
     else:
         page.screenshot(path=str(raw), full_page=args.full)
@@ -82,7 +82,7 @@ def execute(page, args, state: dict) -> dict:
     return {"action": "shot", "file": str(final), "url": page.url,
             "title": safe_title(page), "viewport": state.get("viewport"),
             "routes": len(state.get("routes") or []),
-            # 찍은 주소를 요약에 — 앞 goto 가 실패해도 요약만 읽는 에이전트가 엉뚱한 탭인 걸 알게 (#1149)
+            # Put the captured URL in the summary — so an agent reading only the summary notices a wrong tab even if an earlier goto failed (#1149)
             "summary": f"Captured the screen: {final.name} ({page.url})",
             "next": "Read the image and decide the next action"}
 

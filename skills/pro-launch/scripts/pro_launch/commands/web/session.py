@@ -1,4 +1,4 @@
-"""열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정을 다시 건다 (CDP 재연결)."""
+"""Attach to the open browser and re-apply settings that only live while attached (CDP reconnect)."""
 from __future__ import annotations
 
 import time
@@ -11,11 +11,11 @@ from pro_launch.commands.web.watchdog import connect_phase
 from pro_launch.runtime.browser import idle_hours, require_playwright
 from pro_launch.runtime.procs import pid_alive
 
-# connect_over_cdp 자체의 시간 상한(초) — 감시의 붙기 상한(30초)보다 짧아 먼저 깔끔한 실패로 끝난다
+# Time limit (seconds) for connect_over_cdp itself — shorter than the watchdog's attach limit (30s) so it fails cleanly first
 CONNECT_TIMEOUT_SECONDS = 20
 
 
-# 콘솔 오류는 **페이지가 열리는 동안** 난다. 열린 뒤에 리스너를 달면 이미 늦다 (#625).
+# Console errors happen **while the page loads**. Adding the listener after load is too late (#625).
 _CONSOLE_HOOK = r"""
 (() => {
   if (window.__projectops_console) return;
@@ -23,7 +23,7 @@ _CONSOLE_HOOK = r"""
   window.__projectops_console = buf;
   const push = (type, text) => {
     try { buf.push({ type, text: String(text).slice(0, 2000), at: Date.now() }); } catch (e) {}
-    if (buf.length > 500) buf.splice(0, buf.length - 500);   // 무한히 쌓이지 않게
+    if (buf.length > 500) buf.splice(0, buf.length - 500);   // keep it from growing forever
   };
   for (const level of ["log", "info", "warn", "error"]) {
     const orig = console[level];
@@ -35,7 +35,7 @@ _CONSOLE_HOOK = r"""
       return orig.apply(console, args);
     };
   }
-  // console.error 를 거치지 않는 것들 — 이쪽이 진짜 사고인 경우가 많다
+  // Errors that bypass console.error — these are often the real incidents
   window.addEventListener("error", (e) => push("error", e.message || String(e.error || e)));
   window.addEventListener("unhandledrejection",
     (e) => push("error", "unhandled rejection: " + String(e.reason)));
@@ -52,11 +52,11 @@ def install_console_hook(page) -> bool:
 
 
 def apply_routes(page, rules: list[dict]) -> int:
-    """응답 바꿔치기 규칙을 건다. 이 연결이 붙어 있는 동안만 산다."""
+    """Install response-override rules. They live only while this connection is attached."""
     n = 0
     for rule in rules:
-        # Playwright 는 handler(route, request) 로 부른다. 기본 인자로 rule 을 묶으면
-        # 두 번째 인자(request)가 그 자리를 덮는다 — 실측으로 겪었다. 클로저로 묶는다.
+        # Playwright calls handler(route, request). Binding rule as a default argument lets
+        # the second argument (request) overwrite it — hit in practice. Bind with a closure.
         page_route = _route_handler(rule)
         try:
             page.route(rule["match"], page_route)
@@ -81,7 +81,7 @@ def _route_handler(rule: dict):
 
 
 def install_stealth(ctx, page) -> bool:
-    """자동화 표식 가리기 스크립트를 건다. 컨텍스트에 걸어야 붙어 있는 동안 뜨는 팝업(로그인 창)도 덮는다."""
+    """Install the automation-marker hiding script. Installed on the context so popups opened while attached (login windows) are covered too."""
     ok = True
     for script in stealth.init_scripts():
         try:
@@ -95,8 +95,8 @@ def install_stealth(ctx, page) -> bool:
 
 
 def close_blank_tabs(ctx, keep) -> int:
-    """작업 탭(keep) 외의 about:blank 탭을 닫는다.
-    web open 마다 about:blank 로 띄우고 영속 프로필이 옛 탭을 복원해서 빈 탭이 쌓인다."""
+    """Close about:blank tabs other than the working tab (keep).
+    Each web open starts on about:blank and the persistent profile restores old tabs, so blank tabs pile up."""
     closed = 0
     for pg in list(ctx.pages):
         try:
@@ -104,31 +104,31 @@ def close_blank_tabs(ctx, keep) -> int:
                 pg.close()
                 closed += 1
         except Exception:
-            pass  # 그새 닫힌 탭 — 건너뛴다
+            pass  # tab closed in the meantime — skip
     return closed
 
 
 def web_connect(state: dict, allow_missing_tab: bool = False):
-    """열려 있는 브라우저에 붙고, 붙어 있는 동안만 사는 설정(훅·stealth·뷰포트·규칙·대화상자)을 다시 건다.
+    """Attach to the open browser and re-apply settings that only live while attached (hooks, stealth, viewport, rules, dialogs).
 
-    탭: LAUNCH_TAB 이 있으면 그 이름의 탭, 없으면 다른 세션이 가져가지 않은 마지막 탭 (#878).
-    allow_missing_tab: 이름 붙은 탭이 사라졌어도 기본 탭으로 붙는다 (web tab 이 목록을 보여 줄 때).
+    Tab: the tab named by LAUNCH_TAB if set, otherwise the last tab not claimed by another session (#878).
+    allow_missing_tab: attach to the default tab even if the named tab is gone (when web tab shows the list).
     """
     sync_playwright, err = require_playwright()
     if err:
         return None, err
-    # 멈춘 브라우저 먼저 판정 — Playwright 연결은 응답 없는 CDP 앞에서 오래 기다린다 (#887)
+    # Detect a hung browser first — a Playwright connection waits a long time on an unresponsive CDP (#887)
     is_process_alive = bool(state.get("pid")) and pid_alive(int(state["pid"]))
     if is_process_alive and not cdp_responds(state["cdp"]):
         return None, _hung_failure(state, f"Browser did not respond within {HUNG_PROBE_SECONDS:g}s (the process exists but is hung)")
-    # 붙기 단계는 감시가 따로 상한을 본다 — CDP 가 답해도 연결 · 탭 목록에서 멈춘 일이 있다 (#921)
+    # The watchdog bounds the attach phase separately — even when CDP answers, connect or tab listing has hung (#921)
     with connect_phase():
         pw = sync_playwright().start()
         try:
             browser = pw.chromium.connect_over_cdp(state["cdp"], timeout=CONNECT_TIMEOUT_SECONDS * 1000)
         except Exception as e:
             pw.stop()
-            # 살아 있는데 시간 초과면 멈춤이다 — browser_gone 으로 내면 디스패처가 pid 를 지워 고아가 된다
+            # Alive but timed out means hung — reporting browser_gone would make the dispatcher drop the pid and orphan it
             if is_process_alive and "timeout" in str(e).lower():
                 return None, _hung_failure(state, f"Could not attach to the browser within {CONNECT_TIMEOUT_SECONDS}s (connection hung)")
             # Alive but attach failed: not gone. Reporting browser_gone made the caller drop a live pid (#1154)
@@ -137,7 +137,7 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
                               "error": f"The browser is running but attaching failed: {str(e)[:300]}",
                               "hint": "Often transient (the page was redirecting or closing tabs). The browser and its state are kept",
                               "next": "Retry the same command; if it keeps failing, web open"}
-            # 왜 끝났는지는 알 수 없다 — 프로필의 exit_type 은 창을 정상적으로 닫아도 Crashed 로 남는다 (#1094 실측)
+            # Why it ended is unknown — the profile's exit_type stays Crashed even after a normal window close (#1094, observed)
             return None, {"ok": False, "code": "browser_gone", "last_used": state.get("last_used"), "idle_hours": idle_hours(state),
                           "hint": "A closed window, a crash and another session's web close look the same from here",
                           "error": f"The browser is gone (last used {state.get('last_used')}). Attach error: {e}",
@@ -147,7 +147,7 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
     if tab_error:
         pw.stop()
         return None, tab_error
-    # 옛 상태 파일(키 없음)은 켠 것으로 본다 — 끄는 것은 --no-stealth 로 명시할 때뿐이다
+    # Old state files (no key) count as enabled — disabled only when --no-stealth is given explicitly
     if state.get("stealth", True):
         install_stealth(ctx, page)
     install_console_hook(page)
@@ -156,21 +156,21 @@ def web_connect(state: dict, allow_missing_tab: bool = False):
         try:
             page.set_viewport_size({"width": int(vp[0]), "height": int(vp[1])})
         except Exception:
-            pass  # 크기 적용 실패여도 세션은 기본 크기로 연다
+            pass  # even if sizing fails, open the session at the default size
     apply_routes(page, state.get("routes") or [])
     arm_dialog(page, state)
     return (pw, browser, page), None
 
 
 def _hung_failure(state: dict, error: str) -> dict:
-    """멈춘 브라우저 결과 — 어느 프로세스 · 프로필인지 싣는다 (직접 끌 때 필요)"""
+    """Hung-browser result — includes which process and profile (needed to kill it manually)"""
     return {"ok": False, "code": "browser_hung", "pid": state.get("pid"), "profile": state.get("profile"),
             "url": None, "error": error,
             "next": "web open  # kills the hung browser and starts it again (self-recovery)"}
 
 
 def _session_page(ctx, state: dict, allow_missing_tab: bool):
-    """이 세션이 몰 탭 > (page, 실패 결과)."""
+    """Tab this session drives > (page, failure result)."""
     name = tabs.session_tab_name()
     if name:
         page = tabs.named_tab_page(ctx, state, name)
@@ -185,20 +185,20 @@ def _session_page(ctx, state: dict, allow_missing_tab: bool):
         return last_used, None
     if state.get("tabs"):
         return tabs.default_tab_page(ctx, state), None
-    # 마지막 탭을 본다. 프로필이 영속이라 Chromium 이 옛 탭을 되살리는데,
-    # pages[0] 을 잡으면 방금 연 탭이 아니라 그 옛 탭을 몰게 된다(실측).
+    # Use the last tab. The profile is persistent so Chromium revives old tabs,
+    # and taking pages[0] would drive that old tab instead of the one just opened (observed).
     return work_page(ctx), None
 
 
-# 이번 호출 중에 뜬 대화상자 기록을 디스패처에 넘기는 상태 키 — 결과에 실린 뒤 지워진다
+# State key handing this call's dialog records to the dispatcher — cleared once included in the result
 DIALOG_EVENT_KEY = "_dialog_event"
 
 
 def arm_dialog(page, state: dict) -> bool:
-    """대화상자(alert·confirm·prompt) 처리를 건다. 붙을 때마다 다시 건다 — 연결이 끊기면 사라진다 (#625).
+    """Install dialog (alert, confirm, prompt) handling. Re-installed on every attach — it disappears when the connection drops (#625).
 
-    `web dialog` 로 걸어 둔 처리(state["dialog"])는 다음 한 번에만 쓰고 지운다.
-    걸어 둔 것이 없으면 닫는다(dismiss) — Playwright 기본 동작과 같고, 뜬 사실만 결과에 남긴다.
+    A handler set with `web dialog` (state["dialog"]) is used for the next dialog only, then cleared.
+    With no handler set, dismiss — same as Playwright's default — and only record that it appeared.
     """
     try:
         page.on("dialog", dialog_handler(state))
@@ -219,23 +219,23 @@ def dialog_handler(state: dict):
                 dialog.accept(prompt_text) if prompt_text is not None else dialog.accept()
             else:
                 dialog.dismiss()
-        except Exception as e:   # 이미 닫힌 대화상자 — 기록만 남긴다
+        except Exception as e:   # dialog already closed — just record it
             event["error"] = str(e)[:200]
         state[DIALOG_EVENT_KEY] = event
     return handler
 
 
-# Chrome 이 스스로 띄우는 안내 탭. 작업 탭이 아니다
+# Guide tabs Chrome opens on its own. Not working tabs
 _BROWSER_INTERNAL = ("chrome://", "chrome-untrusted://", "devtools://", "edge://")
 
 
 def work_page(ctx):
-    """작업에 쓸 탭을 고른다.
+    """Pick the tab to work in.
 
-    영속 프로필은 옛 탭을 되살리고, 설치된 Chrome 은 시작할 때 안내 탭(chrome://privacy-sandbox-dialog 등)을
-    함께 띄운다. 그냥 마지막 탭을 쓰면 그 안내 탭을 잡았다가, 이동하는 순간 Chrome 이 닫아 버려
-    'Target page, context or browser has been closed' 로 실패한다(#860 실측, 순서는 실행마다 달랐다).
-    chrome:// 가 아닌 탭 중 마지막 것을 쓰고, 없으면 새로 연다.
+    The persistent profile revives old tabs, and installed Chrome opens guide tabs (chrome://privacy-sandbox-dialog etc.)
+    on startup. Using the last tab blindly may grab that guide tab, which Chrome closes as soon as we navigate,
+    failing with 'Target page, context or browser has been closed' (#860, observed; order varied between runs).
+    Use the last non-chrome:// tab; open a new one if there is none.
     """
     live = [p for p in ctx.pages if not p.is_closed()]
     usable = [p for p in live if not p.url.startswith(_BROWSER_INTERNAL)]
@@ -243,19 +243,19 @@ def work_page(ctx):
 
 
 def safe_title(page) -> str:
-    """제목을 읽는다. 리다이렉트 도중에 읽으면 'Execution context was destroyed' 로 터지므로
-    로드가 끝나길 기다렸다 다시 읽는다 (#860)."""
+    """Read the title. Reading mid-redirect throws 'Execution context was destroyed',
+    so wait for the load to finish and read again (#860)."""
     return read_url_title(page)[1]
 
 
 def read_url_title(page, timeout: int = 10) -> tuple[str, str]:
-    """주소와 제목을 읽는다. 서버·스크립트 리다이렉트 도중에 title() 을 부르면
-    'Execution context was destroyed' 로 터진다 — 로드가 끝나길 기다렸다 다시 읽는다."""
+    """Read URL and title. Calling title() during a server or script redirect
+    throws 'Execution context was destroyed' — wait for the load to finish and read again."""
     for _ in range(3):
         try:
             page.wait_for_load_state("load", timeout=timeout * 1000)
         except Exception:
-            pass  # 로드가 늦어도 아래에서 읽기를 시도하고, 실패하면 다시 돈다
+            pass  # even if loading is slow, try reading below and loop again on failure
         try:
             return page.url, page.title()
         except Exception:
@@ -264,23 +264,23 @@ def read_url_title(page, timeout: int = 10) -> tuple[str, str]:
 
 
 def settle(page, state: dict, timeout: int) -> None:
-    """바꿔치기 규칙이 있으면 요청이 다 끝날 때까지 기다린다.
+    """If override rules exist, wait until all requests finish.
 
-    규칙은 이 연결이 끊기면 사라진다. 로드가 끝나기 전에 떨어지면 뒤늦은 API 요청은
-    진짜 응답을 받는다 — 빈 목록을 연출했는데 목록이 채워지는 이유가 이것이다.
+    Rules vanish when this connection drops. If we detach before loading finishes, late API requests
+    get real responses — that is why a staged empty list ends up filled.
     """
     if not state.get("routes"):
         return
     try:
         page.wait_for_load_state("networkidle", timeout=min(timeout, 15) * 1000)
     except Exception:
-        pass  # 롱폴링 등으로 networkidle 이 안 오는 페이지 — 상한까지 기다린 것으로 충분
+        pass  # pages where networkidle never comes (long polling etc.) — waiting up to the limit is enough
 
 
 def done_payload(action: str, page) -> dict:
-    """화면을 바꾸지 않은 동작(goto·type)의 공통 결과 — 지금 주소와 제목을 알려 준다.
+    """Common result for actions that did not change the screen (goto, type) — reports the current URL and title.
 
-    주소와 제목을 한 번에 읽는다. 따로 읽으면 리다이렉트 사이에 낀 서로 다른 시점의 값이 섞인다.
+    Read URL and title together. Reading separately can mix values from different moments across a redirect.
     """
     url, title = read_url_title(page)
     return {"action": action, "url": url, "title": title,

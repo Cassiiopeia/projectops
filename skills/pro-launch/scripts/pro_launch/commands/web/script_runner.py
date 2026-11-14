@@ -1,8 +1,8 @@
-"""`web script` 의 자식 프로세스 — 붙어서 조각을 돌리고 JSON 한 줄을 낸다 (#904).
+"""Child process of `web script` — attaches, runs the snippet and prints one JSON line (#904).
 
-부모(actions/script.py)가 시간 상한을 넘기면 이 프로세스를 통째로 죽인다.
-Playwright 동기 API 는 신호로 끊으면 이벤트 루프가 헛돈다(실측: CPU 60% 로 멈춤) — 그래서 프로세스를 나눴다.
-입력(stdin JSON): state · code · timeout_seconds. 출력(stdout 마지막 줄): ok · result_text | error · stdout · url · title
+If the parent (actions/script.py) passes the time limit, it kills this whole process.
+Interrupting the Playwright sync API with a signal leaves the event loop spinning (observed: stuck at 60% CPU) — hence a separate process.
+Input (stdin JSON): state, code, timeout_seconds. Output (last stdout line): ok, result_text | error, stdout, url, title
 """
 from __future__ import annotations
 
@@ -13,12 +13,12 @@ import json
 import sys
 from pathlib import Path
 
-# 조각이 결과를 담는 변수 이름
+# Variable name the snippet stores its result in
 RESULT_VARIABLE = "result"
 
 
 def compile_snippet(code: str):
-    """(본문 코드, 마지막 식 코드 또는 None). 마지막 줄이 식이면 그 값이 결과다"""
+    """(body code, last-expression code or None). If the last line is an expression, its value is the result"""
     tree = ast.parse(code, filename="<web script>", mode="exec")
     last_expression = None
     if tree.body and isinstance(tree.body[-1], ast.Expr):
@@ -29,27 +29,27 @@ def compile_snippet(code: str):
 
 
 def run_snippet(code: str, namespace: dict):
-    """조각을 실행하고 결과 값을 돌려준다"""
+    """Run the snippet and return the result value"""
     body, tail = compile_snippet(code)
     exec(body, namespace)
     return eval(tail, namespace) if tail else namespace.get(RESULT_VARIABLE)
 
 
 def first_error_line(error: BaseException) -> str:
-    """예외 > 'Type: 첫 줄' (호출 기록 뒤쪽에 입력값이 섞일 수 있어 첫 줄만)"""
+    """Exception > 'Type: first line' (first line only, since the call log after it may contain input values)"""
     lines = str(error).strip().splitlines()
     return f"{type(error).__name__}: {lines[0][:300]}" if lines else type(error).__name__
 
 
 def to_json_text(value) -> str:
-    """결과 값 > JSON 글. JSON 으로 못 바꾸는 것은 str"""
+    """Result value > JSON text. str for anything not JSON-serializable"""
     return json.dumps(value, ensure_ascii=False, default=str)
 
 
 def main() -> int:
     request = json.loads(sys.stdin.read())
     from pro_launch.commands.web.session import read_url_title, web_connect
-    # 붙기 · 재설치(훅·stealth·뷰포트·규칙·대화상자)는 다른 동작과 같다
+    # Attaching and reinstalling (hooks, stealth, viewport, rules, dialogs) is the same as other actions
     connection, failure = web_connect(request["state"])
     if failure:
         print(json.dumps(failure, ensure_ascii=False))
@@ -58,11 +58,11 @@ def main() -> int:
     from pro_launch.commands.web.tabs import read_time_origin, reload_notice
     reloaded = reload_notice(page, request["state"])
     captured = io.StringIO()
-    # 조각이 일으킨 GET 이 아닌 요청 (--capture-requests, #930)
+    # Non-GET requests the snippet caused (--capture-requests, #930)
     from pro_launch.commands.web.request_capture import RequestCapture
     capture = RequestCapture().attach(page) if request.get("capture_requests") else None
     try:
-        # 조각 안의 Playwright 대기도 상한을 넘지 않게
+        # Keep Playwright waits inside the snippet under the limit too
         page.set_default_timeout(request["timeout_seconds"] * 1000)
         namespace = {"page": page, "context": page.context, "__name__": "__web_script__"}
         with contextlib.redirect_stdout(captured):
@@ -74,7 +74,7 @@ def main() -> int:
     finally:
         if capture is not None:
             reply_requests = capture.finish()
-        # 조각이 스스로 이동·새로고침했을 수 있다 — 다음 명령이 그것을 "저절로" 로 알리지 않게 지금 문서를 돌려준다
+        # The snippet may have navigated or reloaded itself — return the current document so the next command doesn't report it as "spontaneous"
         time_origin = read_time_origin(page)
         playwright.stop()
     if capture is not None:
@@ -88,6 +88,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    # scripts/ 를 경로에 넣는다 — 이 파일은 scripts/pro_launch/commands/web/ 에 있다
+    # Put scripts/ on the path — this file lives in scripts/pro_launch/commands/web/
     sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
     sys.exit(main())

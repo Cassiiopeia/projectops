@@ -1,4 +1,4 @@
-"""`app tree` — 누를 수 있는 요소와 화면 언어를 본다."""
+"""`app tree` — show tappable elements and the screen language."""
 from __future__ import annotations
 
 
@@ -12,7 +12,7 @@ from pro_launch.runtime.output import out
 
 
 def _app_tree(args) -> int:
-    """누를 수 있는 요소와 화면 언어 — tap 의 --text/--id/--desc 를 고르는 용도."""
+    """Tappable elements and the screen language — for choosing tap's --text/--id/--desc."""
     be, dev_id, err = backend_for(args)
     if err is not None:
         return err
@@ -22,7 +22,7 @@ def _app_tree(args) -> int:
     if not nodes and be.device_failure:
         return device_failure_response(be, dev_id, args)
     diagnostics = ios_failure_fields(be, dev_id) if not nodes else {}
-    # 읽은 요소가 없으면 다른 앱이 앞을 덮었는지 본다 (Android, 실패 때만 — 매 호출 dumpsys 는 압박한 기기에서 느리다)
+    # If no elements were read, check whether another app covers the screen (Android, on failure only — dumpsys on every call is slow on a stressed device)
     if not nodes and be.name == "android":
         foreground = read_android_foreground(dev_id)
         if foreground["is_readable"]:

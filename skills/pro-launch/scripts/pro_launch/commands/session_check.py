@@ -1,5 +1,5 @@
-"""`session-check` — 긴 작업을 마칠 때 한 번: 아직 실패 중인 영역 · 막혔다 풀렸는데 learn 하지 않은 영역 ·
-pro-launch 밖에서 돈 Maestro 실행 (#863)."""
+"""`session-check` — run once when finishing long work: areas still failing · areas unblocked but not learned ·
+Maestro runs outside pro-launch (#863)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -17,9 +17,9 @@ from pro_launch.runtime.context import project_root
 from pro_launch.runtime.output import RESOLVED_FILE, out
 
 ATTEMPTS_FILE = "attempts.json"
-# 이 시간 안의 기록만 '이번 세션'으로 본다
+# Only records within this window count as 'this session'
 SESSION_WINDOW_HOURS = 12
-# 이 시간 안의 ~/.maestro/tests 폴더만 센다
+# Only ~/.maestro/tests folders within this window are counted
 OUTSIDE_LAUNCH_WINDOW_HOURS = 24
 
 
@@ -31,7 +31,7 @@ def _read_json(path: Path, default):
 
 
 def _learned_dates(root: Path, is_unknown: bool) -> dict[str, str]:
-    """영역 > 그 영역 기억의 마지막 사용일 (repo·machine 범위 중 최신)."""
+    """Area > last-used date of that area's memory (latest of repo and machine scopes)."""
     scopes = ("machine",) if is_unknown else ("repo", "machine")
     summary = knowledge.area_summary({scope: knowledge.store_path(scope, root) for scope in scopes})
     return {area: row["last_seen"] for area, row in summary.items() if row["last_seen"]}
@@ -42,12 +42,12 @@ def cmd_session_check(args) -> int:
     is_unknown = repo_unknown(root)
     state_folder = knowledge.store_path("machine" if is_unknown else "repo", root).parent
     since = time.time() - SESSION_WINDOW_HOURS * 3600
-    # 아직 실패 중: 실패 뒤 같은 영역 성공이 없었다
+    # Still failing: no success in the same area after the failure
     attempts = _read_json(state_folder / ATTEMPTS_FILE, {})
     still_failing = [{"area": area, "last_code": row.get("code"), "fails": row.get("fails", 1)}
                      for area, row in (attempts.items() if isinstance(attempts, dict) else [])
                      if isinstance(row, dict) and float(row.get("at") or 0) >= since]
-    # 풀렸는데 그 뒤로 그 영역 learn 이 없다
+    # Unblocked, but no learn for that area since
     learned = _learned_dates(root, is_unknown)
     resolved = _read_json(state_folder / RESOLVED_FILE, [])
     unlearned = []
@@ -56,7 +56,7 @@ def cmd_session_check(args) -> int:
         resolved_day = dt.date.fromtimestamp(at).isoformat()
         if at >= since and (learned.get(row.get("area")) or "") < resolved_day:
             unlearned.append({"area": row.get("area"), "fails": row.get("fails"), "last_code": row.get("last_code")})
-    # launch_cli 를 안 거친 Maestro 직접 실행 — 그 사이 알게 된 방식은 기억에 안 남는다 (adb 는 흔적이 없어 못 센다)
+    # Maestro run directly, not via launch_cli — methods learned meanwhile are not remembered (adb leaves no trace, so it cannot be counted)
     outside_launch = {"maestro_runs": maestro_runs.count_outside_runs(OUTSIDE_LAUNCH_WINDOW_HOURS * 3600)}
     outside_count = outside_launch["maestro_runs"]
     if not still_failing and not unlearned and not outside_count:
@@ -75,7 +75,7 @@ def cmd_session_check(args) -> int:
 
 
 def _next_step(areas: list[str], outside_count: int) -> str:
-    """learn 할 영역 > 직접 실행한 Maestro > 실패 중만 남음 순."""
+    """Order: areas to learn > Maestro run directly > only still-failing left."""
     if areas:
         return (f"Record what worked with learn --area {areas[0]} --key <short-key> --how '<one-line conclusion>' --result ok "
                 "--detail '<why it was blocked and how it was solved>'")

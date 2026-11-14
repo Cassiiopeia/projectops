@@ -1,4 +1,4 @@
-"""`desktop` 동작이 함께 쓰는 준비 · 창 고르기 · 화면 비교 · 캡처 저장 (#985)."""
+"""Shared helpers for `desktop` actions: setup, window picking, screen comparison, capture saving (#985)."""
 from __future__ import annotations
 
 import hashlib
@@ -17,18 +17,18 @@ from pro_launch.runtime.mutating import is_mutating_label
 from pro_launch.runtime.output import set_target
 from pro_launch.runtime.shots import finish_shot, shot_target
 
-# --window 예약어: 앞 창이 아닌 시스템 대화상자·알림 배너 (macOS)
+# --window reserved word: system dialogs and notification banners rather than the front window (macOS)
 OVERLAY_QUERY = "overlay"
 OVERLAY_ORDER = ("dialog", "notification")
-# 위험 판정에서 빼는 종류 — 알림 배너는 열기만 한다
+# Kinds excluded from the danger check — notification banners only open
 DESKTOP_NAV_ROLES = {"notification"}
-# 화면이 멈췄다고 보는 간격 (초) · 최대 대기 (초)
+# Interval (s) after which the screen counts as settled, and max wait (s)
 SETTLE_INTERVAL_SECONDS = 0.25
 SETTLE_MAX_SECONDS = 3.0
 
 
 def load_backend() -> tuple[desktop_input.DesktopBackend | None, dict | None]:
-    """(백엔드, 실패 결과). 공용 venv 의 site-packages 를 붙인 뒤 의존성을 본다."""
+    """(backend, failure result). Adds the shared venv site-packages, then checks dependencies."""
     site = venv_site_packages()
     if site and str(site) not in sys.path:
         sys.path.insert(0, str(site))
@@ -38,7 +38,7 @@ def load_backend() -> tuple[desktop_input.DesktopBackend | None, dict | None]:
                       "error": f"desktop control supports {', '.join(desktop_input.BACKENDS)} for now, not {sys.platform}"}
     try:
         be = desktop_input.get_backend(key)
-    except Exception as e:   # noqa: BLE001 — 백엔드 모듈이 OS 라이브러리를 못 가져왔다
+    except Exception as e:   # noqa: BLE001 — the backend module failed to import an OS library
         return None, deps_missing(key, [type(e).__name__ + ": " + str(e)[:200]])
     missing = be.missing_modules()
     if missing:
@@ -55,14 +55,14 @@ def deps_missing(key: str, missing: list[str], be=None) -> dict:
 
 
 def target_window(window: dict | None) -> dict | None:
-    """이번 명령이 다루는 창 — 제목·프로그램 이름에 맞는 하네스(안내서)를 응답에 싣는다 (projectops#1024)."""
+    """Window this command handles — attaches the harness (guide) matching its title / program name to the response (projectops#1024)."""
     if window:
         set_target(window=[window.get("title"), window.get("app")], area="desktop")
     return window
 
 
 def pick_window(be, query: str | None) -> tuple[dict | None, dict | None]:
-    """--window(제목 일부 · pid · 핸들 · overlay) 또는 앞에 있는 창. (창, 실패 결과)"""
+    """--window (part of title, pid, handle, overlay) or the front window. (window, failure result)"""
     window, failure = _pick_window(be, query)
     return target_window(window), failure
 
@@ -95,7 +95,7 @@ def _pick_window(be, query: str | None) -> tuple[dict | None, dict | None]:
 
 
 def ordered_overlays(wins: list[dict]) -> list[dict]:
-    """시스템 대화상자(2FA·권한 팝업) > 알림 배너 순. 소유 프로세스를 몰라도 고를 수 있게 한다."""
+    """System dialogs (2FA, permission popups) > notification banners. Selectable without knowing the owning process."""
     return [w for kind in OVERLAY_ORDER for w in wins if w.get("overlay") and w.get("overlay_kind") == kind]
 
 
@@ -108,7 +108,7 @@ def _pick_overlay(wins: list[dict]) -> tuple[dict | None, dict | None]:
 
 
 def windows_to_search(be, query: str | None) -> tuple[list[dict], dict | None]:
-    """글자로 찾는 동작(find · wait)이 훑을 창. overlay 는 전부 — 대화상자가 떠 있어도 배너를 찾게."""
+    """Windows that text-based actions (find, wait) scan. overlay means all — so banners are found even with a dialog open."""
     if query == OVERLAY_QUERY:
         found = ordered_overlays(be.windows())
         if found:
@@ -124,8 +124,8 @@ def public_window(w: dict) -> dict:
 
 
 def listed_nodes(nodes: list[dict]) -> list[dict]:
-    """보여 줄 노드만 골라 위험 버튼 표시 (desktop 은 설치·동의·허용 계열도 막음)
-    알림 배너는 제외 — text 가 본문이고 누르면 열 뿐. 숨은 버튼은 `click --action` 이 이름으로 판정"""
+    """Pick only nodes to show and flag dangerous buttons (desktop also blocks install/consent/allow kinds)
+    Notification banners are excluded — their text is the body and pressing only opens. Hidden buttons are judged by name via `click --action`"""
     shown = [n for n in nodes if desktop_input.is_worth_listing(n)]
     for n in shown:
         n["mutating"] = (n["clickable"] and n["role"] not in DESKTOP_NAV_ROLES
@@ -134,7 +134,7 @@ def listed_nodes(nodes: list[dict]) -> list[dict]:
 
 
 def compare_region(window: dict, node: dict) -> list[int]:
-    """누른 뒤 화면 변화를 볼 영역. 알림 센터 창은 화면 전체라 배너 자리만 본다 (다른 앱 변화를 섞지 않게)."""
+    """Area to watch for changes after a press. Notification Center spans the whole screen, so only the banner area (keeps other apps' changes out)."""
     if window.get("overlay_kind") == "notification" and node.get("bounds"):
         return node["bounds"]
     return window["bounds"]
@@ -146,7 +146,7 @@ def screen_digest(be, region: list[int] | None) -> str | None:
 
 
 def settle(be, region: list[int] | None, before: str | None) -> tuple[bool | None, float]:
-    """화면이 바뀌고 멈출 때까지 기다린다. (바뀌었나, 기다린 초). 캡처를 못 하면 (None, 0)."""
+    """Wait until the screen changes and settles. (changed, seconds waited). (None, 0) if capture fails."""
     if before is None:
         return None, 0.0
     started = time.monotonic()
@@ -166,7 +166,7 @@ def settle(be, region: list[int] | None, before: str | None) -> tuple[bool | Non
 
 
 def save_shot(be, args, region: list[int] | None, name: str | None) -> str | None:
-    """캡처를 저장하고 경로를 돌려준다 (WebP, 긴 변 1200px — app·web 과 같다)."""
+    """Save the capture and return its path (WebP, long side 1200px — same as app and web)."""
     png = be.grab(region)
     if not png:
         return None
@@ -176,7 +176,7 @@ def save_shot(be, args, region: list[int] | None, name: str | None) -> str | Non
 
 
 def secret_text(args) -> tuple[str | None, bool, dict | None]:
-    """(입력값, 비밀인가, 실패 결과). --text-env · --cred 는 비밀, --text 는 평문."""
+    """(input value, is secret, failure result). --text-env and --cred are secret, --text is plain."""
     if getattr(args, "text_env", None):
         value = os.environ.get(args.text_env)
         if value is None:

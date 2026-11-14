@@ -1,8 +1,8 @@
-"""대상을 못 찾았거나 기다리다 시간이 다 됐을 때 돌려줄 후보 — 화면에 실제로 있는 입력창·버튼·링크 (#888).
+"""Candidates returned when the target isn't found or waiting times out — inputs, buttons and links actually on screen (#888).
 
-추측한 선택자가 빗나가면 agent 는 다른 추측으로 같은 대기를 되풀이했다(세션 기록 80건).
-실패 결과에 후보와 ref 를 실어 다음 호출이 `--ref` 로 바로 가게 한다.
-흐름: inspect 와 같은 스캔(ref 달기) > 추측한 선택자 낱말·동작 종류로 순위 > 상위 몇 개만
+When a guessed selector missed, the agent repeated the same wait with another guess (80 cases in session logs).
+Failure results carry candidates and refs so the next call can go straight to `--ref`.
+Flow: same scan as inspect (attach refs) > rank by guessed selector words and action kind > keep the top few
 """
 from __future__ import annotations
 
@@ -10,20 +10,20 @@ import re
 
 from pro_launch.commands.web.targets import INSPECT_JS, REF_ATTR, ROLE_SELECTORS
 
-# 실패 결과에 싣는 후보 수
+# Number of candidates included in a failure result
 MAXIMUM_CANDIDATES = 10
-# 순위를 매기려고 훑는 요소 수 (ref 는 이만큼 달린다)
+# Number of elements scanned for ranking (this many get refs)
 CANDIDATE_SCAN_LIMIT = 60
-# 후보에 싣는 필드 — 값(value)은 싣지 않는다 (입력된 개인정보가 결과에 남지 않게)
+# Fields included per candidate — no value (so typed personal data doesn't end up in results)
 CANDIDATE_FIELDS = ("ref", "role", "tag", "label", "type", "name", "id", "href")
 
-# 선택자 문법에서 나온 낱말 — 화면 글자와 견주지 않는다
+# Words that come from selector syntax — not compared with on-screen text
 SELECTOR_SYNTAX_WORDS = frozenset({
     "has", "text", "type", "nth", "child", "of", "first", "last", "not", "is", "visible", "class", "id",
     "name", "aria", "label", "role", "placeholder", "data", "testid", "test", "value", "contains", "css",
     "xpath", "internal", "control", "enter", "frame",
 })
-# 선택자 낱말 → 그 낱말이 가리키는 요소 종류 (inspect 의 role 이름)
+# Selector word → element kind it points to (inspect role name)
 ROLE_HINT_BY_WORD = {
     "input": "input", "textarea": "input", "textbox": "input", "searchbox": "input", "email": "input",
     "password": "input", "search": "input", "tel": "input", "number": "input",
@@ -32,37 +32,37 @@ ROLE_HINT_BY_WORD = {
     "select": "select", "combobox": "select", "listbox": "select", "option": "select",
     "checkbox": "checkbox", "radio": "checkbox", "switch": "checkbox",
 }
-# 종류만 가리키는 낱말 — 글자로는 견주지 않는다 (button 이 type="button" 과 겹쳐 두 번 세지 않게)
+# Words that only name a kind — not compared as text (so button doesn't count twice with type="button")
 KIND_ONLY_WORDS = frozenset({"input", "textarea", "textbox", "searchbox", "button", "btn", "a", "link", "href",
                              "select", "combobox", "listbox", "option", "checkbox", "radio", "switch"})
-# 동작마다 먼저 보여 줄 요소 종류
+# Element kinds shown first for each action
 PREFERRED_ROLES_BY_ACTION = {
     "type": ("input",), "select": ("select",), "check": ("checkbox",),
     "click": ("button", "link", "checkbox"), "download": ("link", "button"),
     "hover": ("link", "button"), "press": ("input", "button", "link"),
 }
-# next 에 붙일 그 동작의 필수 인자
+# Required argument of that action appended to next
 REQUIRED_ARGUMENT_BY_ACTION = {"type": " --text <value>", "select": " --value <value>", "press": " --key <key>"}
 
-# 점수: 선택자 낱말이 이름·속성에 있음 3 · 선택자가 가리킨 종류 2 · 동작이 다루는 종류 1 · 비활성 -1
+# Score: selector word in name/attributes 3, kind the selector pointed to 2, kind the action handles 1, disabled -1
 WORD_MATCH_SCORE, SELECTOR_ROLE_SCORE, ACTION_ROLE_SCORE, DISABLED_PENALTY = 3, 2, 1, 1
 
 
 def selector_words(selector: str | None) -> list[str]:
-    """선택자에서 화면 글자와 견줄 낱말 (소문자, 문법 낱말 제외). `button:has-text('Next')` > ['button', 'next']"""
+    """Words from the selector to compare with on-screen text (lowercase, syntax words removed). `button:has-text('Next')` > ['button', 'next']"""
     words = []
     for word in re.findall(r"[^\W_]+", (selector or "").lower()):
         is_meaningful = (len(word) >= 2 or not word.isascii()) and word not in SELECTOR_SYNTAX_WORDS
         if is_meaningful and word not in words:
             words.append(word)
-    # 'a' 는 한 글자지만 링크 태그를 가리킨다 — 종류 힌트로만 쓴다
+    # 'a' is one letter but means the link tag — use only as a kind hint
     if re.match(r"\s*a(\[|$|\s|:)", (selector or "").lower()):
         words.append("a")
     return words
 
 
 def candidate_score(item: dict, words: list[str], action: str) -> int:
-    """후보 하나가 추측한 선택자·동작에 얼마나 가까운가."""
+    """How close one candidate is to the guessed selector and action."""
     haystack = " ".join(str(item.get(field) or "") for field in ("label", "name", "id", "type", "href")).lower()
     hinted_roles = {ROLE_HINT_BY_WORD[word] for word in words if word in ROLE_HINT_BY_WORD}
     score = sum(WORD_MATCH_SCORE for word in words if word not in KIND_ONLY_WORDS and word in haystack)
@@ -76,7 +76,7 @@ def candidate_score(item: dict, words: list[str], action: str) -> int:
 
 
 def rank_candidates(items: list[dict], selector: str | None, action: str) -> list[dict]:
-    """가까운 순(같으면 화면 순서)으로 상위 MAXIMUM_CANDIDATES 개. 필드는 CANDIDATE_FIELDS + disabled 만 남긴다."""
+    """Top MAXIMUM_CANDIDATES by closeness (ties by screen order). Keeps only CANDIDATE_FIELDS + disabled."""
     words = selector_words(selector)
     ordered = sorted(items, key=lambda item: -candidate_score(item, words, action))
     return [{field: item[field] for field in CANDIDATE_FIELDS if item.get(field) not in (None, "")}
@@ -85,17 +85,17 @@ def rank_candidates(items: list[dict], selector: str | None, action: str) -> lis
 
 
 def scan_candidates(page, selector: str | None, action: str) -> list[dict]:
-    """지금 화면의 보이는 입력창·버튼·체크·선택·링크에 ref 를 달고 순위를 매긴다. 못 읽으면 빈 목록."""
+    """Attach refs to visible inputs, buttons, checks, selects and links on the current screen and rank them. Empty list if unreadable."""
     try:
         scanned = page.evaluate(INSPECT_JS, {"attr": REF_ATTR, "roles": ROLE_SELECTORS, "role": "all",
                                              "near": None, "limit": CANDIDATE_SCAN_LIMIT, "maxOptions": 0})
-    except Exception:   # 이동 중이라 문서가 사라졌다 — 후보 없이 원래 실패만 낸다
+    except Exception:   # document gone mid-navigation — return just the original failure without candidates
         return []
     return rank_candidates((scanned or {}).get("items") or [], selector, action)
 
 
 def child_frame_count(page) -> int:
-    """iframe 수. 후보는 최상위 문서만 훑으므로 대상이 iframe 안일 수 있음을 알리는 데 쓴다."""
+    """Number of iframes. Candidates scan only the top document, so this signals the target may be inside an iframe."""
     try:
         return max(0, len(page.frames) - 1)
     except Exception:
@@ -103,11 +103,11 @@ def child_frame_count(page) -> int:
 
 
 def attach_candidates(failure: dict, page, selector: str | None, action: str) -> dict:
-    """실패 결과에 candidates · next(맨 앞 후보의 --ref) · iframe 수를 싣는다. code 는 그대로 둔다."""
+    """Add candidates, next (--ref of the top candidate) and iframe count to the failure result. Leaves code unchanged."""
     candidates = scan_candidates(page, selector, action)
     if candidates:
         failure["candidates"] = candidates
-        # 비활성 후보를 안내하면 element_disabled 로 한 번 더 돈다 — 쓸 수 있는 것 중 맨 앞
+        # Suggesting a disabled candidate loops once more into element_disabled — use the first usable one
         suggested = next((c for c in candidates if not c["disabled"]), candidates[0])
         failure["next"] = (f"web {action} --ref {suggested['ref']}"
                            f"{REQUIRED_ARGUMENT_BY_ACTION.get(action, '')}"

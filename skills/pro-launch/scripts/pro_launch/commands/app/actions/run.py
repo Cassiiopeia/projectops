@@ -1,7 +1,7 @@
-"""`app run` — 단계 여러 개를 한 번에 돌린다 (#894).
+"""`app run` — run several steps at once (#894).
 
-iOS 는 호출마다 Maestro(JVM)가 새로 떠서 tap 하나에 수십 초다. 단계를 한 flow 로 묶어 Maestro 를 한 번만 띄운다.
-Android 는 같은 단계 파일을 기존 백엔드 메서드로 차례로 실행한다 (플랫폼이 달라도 단계 파일은 하나).
+On iOS each call starts a new Maestro (JVM), so one tap takes tens of seconds. Bundling steps into one flow starts Maestro once.
+On Android the same step file runs in order through the existing backend methods (one step file across platforms).
 """
 from __future__ import annotations
 
@@ -21,17 +21,17 @@ from pro_launch.registry import Action
 from pro_launch.runtime.creds import cred_field
 from pro_launch.runtime.output import out
 
-# Maestro 한 번의 대기: 기동 여유 + 단계당 여유 + wait 단계 시간 합 (초)
+# One Maestro run's wait: startup margin + per-step margin + sum of wait-step times (seconds)
 MAESTRO_STARTUP_SECONDS = 60
 MAESTRO_SECONDS_PER_STEP = 15
-# Android wait 의 화면 다시 읽기 간격 (초)
+# Screen re-read interval for Android wait (seconds)
 ANDROID_WAIT_POLL_SECONDS = 0.5
-# 실패 원인으로 남길 Maestro 출력 줄 수
+# Number of Maestro output lines kept as the failure cause
 FAILURE_DETAIL_LINE_COUNT = 6
 
 
 def _app_run(args) -> int:
-    """단계 파일 실행: 검증 > 기기·백엔드 > 입력값 꺼내기 > 실행(iOS 한 flow · Android 차례로) > 결과."""
+    """Run a step file: validate > device and backend > extract input values > run (iOS one flow, Android in order) > result."""
     try:
         steps = steps_module.load_steps(getattr(args, "steps", None))
     except steps_module.StepsError as e:
@@ -59,7 +59,7 @@ def _app_run(args) -> int:
 
 
 def _platform_rejection(be, steps: list[dict]) -> dict | None:
-    """이 플랫폼에서 못 하는 단계 > 실행 전에 거절 (중간까지 돌다 멈추지 않게)."""
+    """Steps this platform cannot do > reject before running (so it does not stop halfway)."""
     for index, step in enumerate(steps):
         if step["kind"] == "back" and not be.has_back_button:
             return {"ok": False, "code": "step_unsupported_on_platform", "step_index": index,
@@ -70,7 +70,7 @@ def _platform_rejection(be, steps: list[dict]) -> dict | None:
 
 
 def _resolve_secrets(steps: list[dict], be) -> tuple[dict[int, str], dict | None]:
-    """type 단계의 값 꺼내기 (환경변수 · 저장된 자격증명) > {단계 번호: 값}. 값은 이 dict 밖으로 나가지 않는다."""
+    """Extract values for type steps (environment variables, stored credentials) > {step number: value}. Values never leave this dict."""
     secrets: dict[int, str] = {}
     for index, step in enumerate(steps):
         if step["kind"] != "type":
@@ -93,17 +93,17 @@ def _resolve_secrets(steps: list[dict], be) -> tuple[dict[int, str], dict | None
 
 
 def _mask(text: str, secrets: dict[int, str]) -> str:
-    # Maestro 는 inputText 설명에 넣은 값을 그대로 찍는다 — 출력·오류로 나가기 전에 가린다
+    # Maestro prints values placed in inputText descriptions verbatim — mask them before they reach output or errors
     for value in secrets.values():
         text = credentials.mask(text, {"password": value})
     return text
 
 
-# ── iOS: Maestro 한 번 ───────────────────────────────────────────────────
+# ── iOS: one Maestro run ─────────────────────────────────────────────────
 
 def _run_in_one_flow(be, dev_id: str, steps: list[dict],
                      secrets: dict[int, str]) -> tuple[bool, list[dict], str]:
-    """단계 전부 > flow 하나 > Maestro 한 번. 단계별 결과는 Maestro 출력의 '... COMPLETED|FAILED' 줄로 나눈다."""
+    """All steps > one flow > one Maestro run. Per-step results are split by the '... COMPLETED|FAILED' lines of Maestro output."""
     commands_per_step = [steps_module.to_maestro_commands(step, index) for index, step in enumerate(steps)]
     flow_commands = [command for commands in commands_per_step for command in commands]
     environment = {steps_module.STEP_TEXT_ENV_FORMAT.format(index=index): value
@@ -116,7 +116,7 @@ def _run_in_one_flow(be, dev_id: str, steps: list[dict],
     if is_success:
         per_step = ["completed"] * len(steps)
     elif "failed" not in per_step:
-        # 어느 단계에서 멈췄는지 출력에 없다 (기동 실패·시간 초과) — 끝난 단계만 남기고 나머지는 모름
+        # Output does not say where it stopped (start failure, timeout) — keep only finished steps, the rest are unknown
         per_step = [s if s == "completed" else "unknown" for s in per_step]
     results = [{"status": status} for status in per_step]
     if is_success:
@@ -126,12 +126,12 @@ def _run_in_one_flow(be, dev_id: str, steps: list[dict],
     return False, results, "\n".join((reason or lines)[-FAILURE_DETAIL_LINE_COUNT:])
 
 
-# ── iOS 상주 세션: 단계마다 run 한 번 (#894 2단계) ─────────────────────────
+# ── iOS persistent session: one run per step (#894 phase 2) ──────────────
 
 def _run_each_step_in_session(be, dev_id: str, steps: list[dict]) -> tuple[bool, list[dict], str]:
-    """세션의 run 은 단계별 상태를 주지 않는다 — 단계마다 따로 불러(호출당 1초 안팎) 어느 단계가 실패했는지 정확히 안다.
+    """A session run gives no per-step status — calling once per step (about 1s each) shows exactly which step failed.
 
-    세션이 중간에 끊기면(그 단계는 이미 호출마다 띄우는 길로 돌았다) 나머지는 flow 하나로 몰아 돌린다.
+    If the session drops midway (that step already ran via the per-call path), the remaining steps run together as one flow.
     """
     results: list[dict] = []
     for index, step in enumerate(steps):
@@ -150,11 +150,11 @@ def _run_each_step_in_session(be, dev_id: str, steps: list[dict]) -> tuple[bool,
     return True, results, ""
 
 
-# ── Android: 차례로 ──────────────────────────────────────────────────────
+# ── Android: in order ────────────────────────────────────────────────────
 
 def _run_step_by_step(be, dev_id: str, steps: list[dict], secrets: dict[int, str],
                       ime_mode: str = "auto") -> tuple[bool, list[dict], str]:
-    """단계를 하나씩 실행. 첫 실패에서 멈추고 나머지는 not_run. 입력기 전환은 첫 type 단계에서 한 번, 끝나면 원복."""
+    """Run steps one by one. Stop at the first failure; the rest are not_run. IME switch happens once at the first type step and is restored at the end."""
     with ExitStack() as input_method_stack:
         return _run_steps_in_order(be, dev_id, steps, secrets, ime_mode, input_method_stack)
 
@@ -175,7 +175,7 @@ def _run_steps_in_order(be, dev_id: str, steps: list[dict], secrets: dict[int, s
                         **({"verification": verification["verification"]} if verification else {})})
         if not is_success:
             results += [{"status": "not_run"} for _ in steps[index + 1:]]
-            # 단계 자체가 아니라 기기가 원인일 수 있다 (시스템 재시작 중이면 wm size·input 도 실패한다)
+            # The device may be the cause, not the step (during a system restart, wm size and input also fail)
             if not be.device_failure:
                 be.device_failure = be.system_readiness_failure(dev_id)
             return False, results, detail
@@ -183,9 +183,9 @@ def _run_steps_in_order(be, dev_id: str, steps: list[dict], secrets: dict[int, s
 
 
 def _android_step(be, dev_id: str, step: dict, value: str | None) -> tuple[bool, str, dict]:
-    """단계 하나 > (성공 여부, 사유, type 단계의 필드 대조 결과)."""
+    """One step > (success, reason, field check result for type steps)."""
     if step["kind"] == "type":
-        # 단계 파일의 값은 전부 비밀로 다룬다 — 대조 결과에 보이는 글자를 싣지 않는다
+        # Treat every step file value as secret — put no visible characters in the check result
         is_success, detail, verification = android_ime.type_and_verify(be, dev_id, value, True, step["submit"])
         if detail == "typed_text_mismatch":
             detail = (f"typed_text_mismatch: the field text differs from the typed value (expected {verification['expected_length']} chars, "
@@ -214,17 +214,17 @@ def _android_non_type_step(be, dev_id: str, step: dict) -> tuple[bool, str]:
 
 
 def _android_wait(be, dev_id: str, step: dict) -> tuple[bool, str]:
-    """요소가 보일 때까지(gone 이면 사라질 때까지) 화면 구조를 다시 읽는다 (최대 timeout 초)."""
+    """Re-read the screen tree until the element is visible (or gone with gone) (up to timeout seconds)."""
     deadline = time.monotonic() + step["timeout"]
     should_be_gone = step.get("gone", False)
     while True:
         nodes = be.nodes(dev_id) or []
         is_visible = bool(app_input.match_nodes(nodes, step["field"], step["value"]))
-        # 화면 구조를 못 읽은 것은 '사라졌다'가 아니다
+        # Failing to read the screen tree does not mean 'gone'
         if (is_visible and not should_be_gone) or (should_be_gone and nodes and not is_visible):
             return True, ""
         if time.monotonic() >= deadline:
-            # 화면 구조를 아예 못 읽은 것이면 '안 보였다'가 아니라 그 원인을 알린다
+            # If the screen tree could not be read at all, report that cause rather than 'not visible'
             if be.device_failure:
                 return False, f"{be.device_failure['code']}: {be.device_failure['reason']}"
             if should_be_gone:
@@ -233,11 +233,11 @@ def _android_wait(be, dev_id: str, step: dict) -> tuple[bool, str]:
         time.sleep(ANDROID_WAIT_POLL_SECONDS)
 
 
-# ── 결과 ─────────────────────────────────────────────────────────────────
+# ── Result ───────────────────────────────────────────────────────────────
 
 def _run_result(args, be, dev_id: str, before, steps: list[dict], is_success: bool,
                 results: list[dict], detail: str) -> int:
-    """단계별 결과 + 전체 결과 > JSON 하나. --shot 은 전부 성공했을 때만 찍는다."""
+    """Per-step results + overall result > one JSON. --shot captures only when everything succeeded."""
     for index, (step, result) in enumerate(zip(steps, results)):
         result.update(index=index, step=steps_module.step_label(step))
     completed_count = sum(1 for r in results if r["status"] == "completed")
@@ -261,7 +261,7 @@ def _run_result(args, be, dev_id: str, before, steps: list[dict], is_success: bo
 
 
 def _cause_of(be, is_success: bool) -> dict:
-    """Android 단계가 화면 구조를 못 읽어 실패했으면 그 code (android_system_not_ready 등)."""
+    """If an Android step failed because the screen tree could not be read, that code (android_system_not_ready etc.)."""
     failure = getattr(be, "device_failure", None)
     return {"cause": failure["code"]} if failure and not is_success else {}
 

@@ -1,4 +1,4 @@
-"""`web console` — 페이지가 로드되는 동안 쌓인 콘솔 기록을 읽는다."""
+"""`web console` — read the console log collected while the page loaded."""
 from __future__ import annotations
 
 
@@ -6,7 +6,7 @@ from pro_launch.registry import Action
 
 
 def execute(page, args, state: dict) -> dict:
-    # 듣는 게 아니라 **쌓인 것을 읽는다** (#625)
+    # **Read what was collected**, not listen (#625)
     try:
         logs = page.evaluate("window.__projectops_console || null")
     except Exception:

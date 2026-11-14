@@ -1,4 +1,4 @@
-"""`app swipe` — 화면을 민다."""
+"""`app swipe` — swipe the screen."""
 from __future__ import annotations
 
 
@@ -10,7 +10,7 @@ from pro_launch.runtime.output import out
 
 
 def _app_swipe(args) -> int:
-    """스와이프. --dir up|down|left|right 또는 --from/--to 비율 좌표."""
+    """Swipe. --dir up|down|left|right or --from/--to ratio coordinates."""
     if getattr(args, "dir", None):
         start, end = app_input.SWIPE_DIRS[args.dir]
     else:

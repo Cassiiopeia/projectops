@@ -1,8 +1,8 @@
-"""`web login` — 저장된 자격증명을 지정한 입력칸에 넣고, 2단계 인증 등은 사용자에게 넘긴 뒤 조건이 맞으면 이어간다 (#881).
+"""`web login` — fill saved credentials into the given inputs, hand 2FA and the like to the user, and continue once the condition holds (#881).
 
-제공자별(Google·Apple …) 화면 자동화는 두지 않는다 — 화면이 제공자마다 달라 계속 깨진다.
-틀만 일반적으로: 입력(선택자) > 제출 > 완료 조건(URL·문구) 대기 > 안 되면 사용자 인계(needs_user) > `--resume` 으로 재개.
-값은 결과·오류·로그에 남기지 않는다 (명령줄에도 이름만 적는다).
+No per-provider (Google, Apple …) screen automation — screens differ per provider and keep breaking.
+Only a generic frame: fill (selectors) > submit > wait for done condition (URL, text) > else hand off to user (needs_user) > resume with `--resume`.
+Values never appear in results, errors or logs (the command line carries names only).
 """
 from __future__ import annotations
 
@@ -11,14 +11,14 @@ import time
 
 from pro_launch.commands.web.session import read_url_title
 from pro_launch.commands.web.url_match import url_without_query
-# 사용자 인계 대기 상한 — 명령 전체 시간 상한도 이 값을 더하므로 한 곳에 둔다
+# Max wait for user handoff — the overall command time cap adds this value too, so keep it in one place
 from pro_launch.commands.web.watchdog import MAXIMUM_HANDOFF_SECONDS
 from pro_launch.registry import Action
 from pro_launch.runtime.creds import load_cred, with_login_policy
 
-# 아이디로 쓸 필드를 자동으로 고를 때 보는 순서
+# Order of fields checked when auto-picking the username field
 IDENTIFIER_FIELD_CANDIDATES = ("username", "account", "email", "user", "login", "id")
-# 완료 조건을 다시 보는 간격 (초)
+# Interval for rechecking the done condition (seconds)
 CONDITION_POLL_SECONDS = 1.0
 
 
@@ -36,7 +36,7 @@ def _mask(text: str, secret_values: list[str]) -> str:
 
 
 def _fill_otp(page, selector: str, code: str, timeout_ms: int) -> int:
-    """일회용 코드를 넣는다. 선택자가 한 칸이면 통째로, 여러 칸(한 글자씩)이면 글자마다 나눠 넣는다. 넣은 칸 수."""
+    """Fill a one-time code. One field gets it whole; several (one char each) get it split per char. Returns the number of fields filled."""
     boxes = page.locator(selector)
     boxes.first.wait_for(state="visible", timeout=timeout_ms)
     count = boxes.count()
@@ -60,7 +60,7 @@ def _is_condition_met(page, until_url: str | None, until_text: str | None) -> bo
 
 
 def _wait_for_condition(page, args) -> bool:
-    """완료 조건(URL 일부·보이는 문구)을 --handoff-seconds 동안 기다린다. 조건이 없으면 True."""
+    """Wait --handoff-seconds for the done condition (URL part, visible text). True if there is no condition."""
     if not (args.until_url or args.until_text):
         return True
     deadline = time.time() + min(max(args.handoff_seconds, 0), MAXIMUM_HANDOFF_SECONDS)
@@ -69,14 +69,14 @@ def _wait_for_condition(page, args) -> bool:
             return True
         if time.time() >= deadline:
             return False
-        # time.sleep 이면 Playwright 가 이벤트를 못 받아 page.url 이 옛 값에 멈춘다 (실측)
+        # With time.sleep, Playwright gets no events and page.url stays stale (observed)
         page.wait_for_timeout(CONDITION_POLL_SECONDS * 1000)
 
 
 def _fill_credentials(page, args, timeout_ms: int, filled: list[str], secret_values: list[str]) -> dict | None:
-    """아이디·비밀번호·일회용 코드를 넣고 제출한다 > 실패 결과.
+    """Fill username, password and one-time code, then submit > failure result.
 
-    넣은 칸 이름·가릴 값은 받은 목록에 바로 쌓는다 — 넣다가 예외가 나도 호출부가 그 값을 가린다.
+    Filled field names and values to mask go straight into the given lists — even on an exception, the caller masks them.
     """
     cred: dict = {}
     if args.login_cred:
@@ -121,7 +121,7 @@ def _fill_credentials(page, args, timeout_ms: int, filled: list[str], secret_val
 
 
 def _handoff_payload(page, args, state: dict, filled: list[str]) -> dict:
-    """조건이 안 맞음 > 사용자에게 넘긴다. 다시 부를 명령(--resume)을 그대로 준다."""
+    """Condition not met > hand off to the user, including the command (--resume) to call again."""
     url, title = read_url_title(page, timeout=2)
     is_headed = bool(state.get("headed"))
     condition = " ".join(f"--{flag} '{value}'" for flag, value in
@@ -153,7 +153,7 @@ def execute(page, args, state: dict) -> dict:
             if failure:
                 return failure
         if not _wait_for_condition(page, args):
-            # 사용자 인계에도 중간 화면 정책을 싣는다 (#905)
+            # Include the interstitial screen policy in the user handoff too (#905)
             return with_login_policy(_handoff_payload(page, args, state, filled), args.login_cred)
     except Exception as e:
         return {"ok": False, "code": "web_action_failed", "action": "login", "filled": filled,
@@ -163,12 +163,12 @@ def execute(page, args, state: dict) -> dict:
     result = {"action": "login", "url": url, "title": title, "filled": filled, "resumed": bool(args.resume),
               "summary": "Login steps done" + (" (condition confirmed)" if (args.until_url or args.until_text) else ""),
               "next": "web text  # read the screen after login"}
-    # 로그인 결과에 중간 화면 정책을 싣는다 (#905)
+    # Include the interstitial screen policy in the login result (#905)
     return with_login_policy(result, args.login_cred)
 
 
 def configure(p) -> None:
-    # dest 를 따로 둔다 — web 디스패처가 args.cred 를 보면 password 필드를 미리 꺼내려 한다
+    # Separate dest — the web dispatcher tries to pull the password field early if it sees args.cred
     p.add_argument("--cred", dest="login_cred", metavar="NAME", default=None, help="Saved credential name (cred list). Values never appear in output")
     p.add_argument("--user-selector", dest="user_selector", default=None, help="Selector of the user id input")
     p.add_argument("--user-field", dest="user_field", default=None,

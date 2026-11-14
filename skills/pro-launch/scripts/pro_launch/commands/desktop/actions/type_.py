@@ -1,4 +1,4 @@
-"""`desktop type` — 입력칸(ref)에 값을 넣는다. 비밀 칸은 --cred · --text-env 로만 받는다."""
+"""`desktop type` — enter a value into an input (ref). Secret fields take only --cred or --text-env."""
 from __future__ import annotations
 
 import desktop_input
@@ -36,8 +36,8 @@ def execute(args) -> int:
     else:
         ok = False
     if not ok:
-        # 값 패턴이 없거나 거부됐다 — 초점을 주고 글자를 보낸다. 마우스 없이 초점을 줄 수 있으면 그쪽이 먼저다
-        # (다른 창이 칸을 덮고 있으면 클릭이 덮은 창에 떨어지고 키가 엉뚱한 칸으로 간다 — 실측)
+        # No value pattern or it was rejected — focus and send keys. Focusing without the mouse comes first when possible
+        # (if another window covers the field, a click lands on it and keys go to the wrong field — observed)
         ok, detail = be.perform(window, node, "focus")
         transport, failure = "invoke", None
         if detail in STALE_REASONS:
@@ -57,7 +57,7 @@ def execute(args) -> int:
     if ok and args.submit:
         ok, detail = be.press("enter", [])
     if transport == "keys" or args.submit:
-        # 보낸 키 뒤로 기준 시각을 옮긴다 — 안 하면 다음 동작이 우리 키를 사용자 입력으로 본다 (#985)
+        # Move the baseline past the keys we sent — otherwise the next action sees our keys as user input (#985)
         desktop_state.touch_session()
     payload = {"ok": ok, "code": "ok" if ok else "type_failed", "transport": transport,
                "detail": masked(detail, value if is_secret else None), "secret": is_secret,

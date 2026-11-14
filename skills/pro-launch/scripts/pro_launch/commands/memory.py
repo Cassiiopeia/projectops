@@ -1,4 +1,4 @@
-"""`recall` · `learn` · `forget` — 이 컴퓨터에서 먹힌 조작 방식을 기억한다 (tidy 는 commands/tidy.py)."""
+"""`recall` · `learn` · `forget` — remember interaction methods that worked on this computer (tidy is commands/tidy.py)."""
 from __future__ import annotations
 
 
@@ -19,7 +19,7 @@ def _knowledge_paths(args) -> dict:
     root = project_root(args)
     want = ("repo", "machine") if scope == "both" else (scope,)
     if repo_unknown(root):
-        # 어느 레포인지 모르면 레포 범위를 만들지 않는다 — 'scripts' 같은 가짜 레포가 생긴다
+        # If the repo is unknown, do not create a repo scope — it would create fake repos like 'scripts'
         want = ("machine",)
     return {sc: knowledge.store_path(sc, root) for sc in want}
 
@@ -43,7 +43,7 @@ def cmd_recall(args) -> int:
 
 
 def _supersede(args) -> int:
-    """learn --supersede KEY --by X: 항목을 지우지 않고 X(kb:<id> · feature:<명령>)로 대체됐다고 표시."""
+    """learn --supersede KEY --by X: mark the entry as superseded by X (kb:<id> · feature:<command>) without deleting it."""
     if not args.by:
         return out({"ok": False, "code": "by_required", "error": "--supersede requires --by",
                     "next": "learn --supersede <key> --by kb:<id>  # or feature:<command>"})
@@ -72,7 +72,7 @@ def cmd_learn(args) -> int:
     if "error" in r:
         failure = {"ok": False, "code": r["error"], "error": r["message"],
                    "next": _learn_retry_hint(r)}
-        # 무엇이 걸렸는지 그대로 싣는다 — too_long 은 길이·상한, secret_detected 는 가린 구간
+        # Include exactly what was caught — too_long gives length and cap, secret_detected gives the masked span
         failure.update({k: r[k] for k in ("length", "limit", "matched_span") if k in r})
         return out(failure)
     e = r["entry"]
@@ -82,13 +82,13 @@ def cmd_learn(args) -> int:
     return out({"ok": True, "code": "ok", "entry": e, "scope": r["scope"],
                 "promoted_from": r.get("promoted_from", 0), "related": rel or None,
                 "summary": f"{e['key']} ok={e['ok']} fail={e['fail']} ({r['scope']}){note}",
-                # 비슷한 기억이 있으면 같은 지식인지 agent 가 판단한다 — 도구가 애매한 것을 멋대로 합치지 않는다
+                # If a similar memory exists, the agent decides whether it is the same knowledge — the tool does not merge ambiguous ones on its own
                 "next": (f"If a related entry is the same knowledge, run forget --key <the key just saved>, then "
                          f"learn --scope machine --key <that key> to merge" if rel else None)})
 
 
 def _read_detail(args) -> tuple[str | None, dict | None]:
-    """--detail 글 또는 --detail-file 파일 내용 > (본문, 실패 결과)."""
+    """--detail text or --detail-file contents > (body, failure result)."""
     if not getattr(args, "detail_file", None):
         return args.detail, None
     try:
@@ -99,7 +99,7 @@ def _read_detail(args) -> tuple[str | None, dict | None]:
 
 
 def _learn_retry_hint(result: dict) -> str:
-    """거절 사유별 다음 행동."""
+    """Next action per rejection reason."""
     if result["error"] == "too_long":
         return ("Keep how to a one-line conclusion; pass why it was blocked and how it was solved "
                 "with --detail \"<long text>\" (or --detail-file <file>)")
@@ -112,7 +112,7 @@ def cmd_forget(args) -> int:
     args.scope = _learn_scope(args)
     path = knowledge.store_path(args.scope, project_root(args))
     if args.by:
-        # 지우지 않고 대체 표시만 (--by kb:<id> · feature:<명령>)
+        # Mark as superseded only, no deletion (--by kb:<id> · feature:<command>)
         n = knowledge_stale.mark_superseded(path, args.key, args.by, area=args.area)
         return out({"ok": True, "code": "ok" if n else "not_found", "marked": n,
                     "summary": f"Marked {n} as superseded" if n else "No such entry", "next": None})
@@ -122,7 +122,7 @@ def cmd_forget(args) -> int:
 
 
 def configure_recall(p) -> None:
-    # --platform 은 --area 의 별칭 (추측으로 많이 쓰는 이름, #931)
+    # --platform is an alias of --area (a name often guessed, #931)
     p.add_argument("--area", "--platform", dest="area", choices=list(knowledge.AREAS), default=None)
     p.add_argument("--limit", type=int, default=knowledge.DEFAULT_LIMIT)
     p.add_argument("--match", default=None, help="only entries whose key·method·note contain this word (e.g. swipe)")
@@ -131,7 +131,7 @@ def configure_recall(p) -> None:
 
 
 def configure_learn(p) -> None:
-    # area·key·how·result 는 --supersede 일 때만 생략한다 — cmd_learn 이 확인
+    # area·key·how·result may be omitted only with --supersede — cmd_learn checks
     p.add_argument("--area", choices=list(knowledge.AREAS), default=None)
     p.add_argument("--key", default=None, help="one-line name (e.g. ios.tap)")
     p.add_argument("--how", default=None, help=f"method (up to {knowledge.MAX_HOW} chars, no secrets)")

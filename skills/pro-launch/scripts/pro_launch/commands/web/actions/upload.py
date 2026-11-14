@@ -1,7 +1,7 @@
-"""`web upload` — 파일 입력(숨은 것 포함)에 파일을 넣거나, 눌러서 뜬 파일 선택 창에 답한다 (#876).
+"""`web upload` — put files into a file input (hidden ones too), or answer the file chooser opened by a press (#876).
 
-드롭존 뒤에 숨은 <input type=file> 은 find·click 으로 못 채운다. 바꾸는 조작이라 읽기 전용 세션에서는 막는다.
-순서: 파일 검사(있나 · 허용 폴더 안인가) > 읽기 전용 막기 > 대상 고르기 > accept · multiple 검사 > 넣기 > 들어간 것 읽기
+An <input type=file> hidden behind a dropzone cannot be filled via find or click. It is a changing action, so read-only sessions block it.
+Order: check files (exist · inside allowed folders) > block in read-only > pick target > check accept · multiple > set > read what went in
 """
 from __future__ import annotations
 
@@ -15,29 +15,29 @@ from pro_launch.registry import Action
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.shots import shot_folder
 
-# --selector · --ref 가 없을 때 고르는 파일 입력
+# File input picked when there is no --selector · --ref
 DEFAULT_FILE_INPUT_SELECTOR = "input[type=file]"
 FILE_LIST_DELIMITER = ","
-# Playwright 가 CDP 로 붙은 브라우저에 넘길 수 있는 합계 크기 (50MB, 넘으면 CDP 경로)
+# Total size Playwright can pass to a CDP-attached browser (50MB; beyond that, the CDP path)
 PLAYWRIGHT_REMOTE_TRANSFER_LIMIT_BYTES = 50 * 1024 * 1024
 PLAYWRIGHT_TRANSFER_LIMIT_ERROR = "Cannot transfer files larger than"
-# CDP 로 대상 노드를 찾을 때 잠깐 붙이는 표시 속성
+# Marker attribute briefly added to find the target node over CDP
 CDP_UPLOAD_MARK_ATTRIBUTE = "data-pro-launch-upload"
 
-# 파일 입력의 accept · multiple · 지금 들어간 파일 이름
+# A file input's accept · multiple · names of files currently set
 FILE_INPUT_JS = """(e) => ({ is_file_input: e.tagName === 'INPUT' && (e.type || '').toLowerCase() === 'file',
   accept: e.getAttribute('accept'), multiple: !!e.multiple,
   files: e.files ? [...e.files].map(f => f.name) : [] })"""
 
 
 def allowed_folders(root: Path) -> list[Path]:
-    """올릴 파일을 둘 수 있는 곳: 작업 폴더 · 프로젝트 루트 · 이번 실행 폴더($SHOT_DIR)"""
+    """Where files to upload may live: working folder · project root · this run's folder ($SHOT_DIR)"""
     folders = [Path.cwd().resolve(), root.resolve(), shot_folder(root).resolve()]
     return list(dict.fromkeys(folders))
 
 
 def resolve_upload_files(raw: str, root: Path) -> tuple[list[Path], dict | None]:
-    """--files 쉼표 목록 > 실제 경로. 없거나 허용 폴더 밖이면 (빈 목록, 실패 결과)"""
+    """--files comma list > real paths. If missing or outside allowed folders, (empty list, failure result)"""
     names = [name.strip() for name in (raw or "").split(FILE_LIST_DELIMITER) if name.strip()]
     if not names:
         return [], {"ok": False, "code": "files_required", "error": "Give the files to upload in --files"}
@@ -57,7 +57,7 @@ def resolve_upload_files(raw: str, root: Path) -> tuple[list[Path], dict | None]
 
 
 def is_type_accepted(path: Path, accept: str | None) -> bool:
-    """accept 속성(.png · image/* · image/png 쉼표 목록)이 이 파일을 받나. accept 가 없으면 전부 받는다"""
+    """Does the accept attribute (comma list of .png · image/* · image/png) take this file? No accept takes everything"""
     tokens = [token.strip().lower() for token in (accept or "").split(",") if token.strip()]
     if not tokens:
         return True
@@ -74,7 +74,7 @@ def is_type_accepted(path: Path, accept: str | None) -> bool:
 
 
 def check_files_fit(paths: list[Path], accept: str | None, is_multiple: bool) -> dict | None:
-    """입력이 받을 수 있는 파일인가 (개수 · 종류). 맞으면 None"""
+    """Can the input take these files (count · type)? None if they fit"""
     if len(paths) > 1 and not is_multiple:
         return {"ok": False, "code": "multiple_not_allowed", "files": [p.name for p in paths],
                 "error": "This input takes only one file (not multiple)", "next": "Upload the files one at a time"}
@@ -86,7 +86,7 @@ def check_files_fit(paths: list[Path], accept: str | None, is_multiple: bool) ->
 
 
 def _upload_via_chooser(page, args, state: dict, paths: list[Path]) -> dict:
-    """--click-ref 를 눌러 뜬 파일 선택 창에 답한다"""
+    """Press --click-ref and answer the file chooser that opens"""
     click_args = argparse.Namespace(**{**vars(args), "ref": args.click_ref, "selector": None})
     element, info, failure = locate_target(page, click_args, state, "upload", should_guard_mutating=False)
     if failure:
@@ -113,7 +113,7 @@ def _upload_via_chooser(page, args, state: dict, paths: list[Path]) -> dict:
 
 
 def _upload_into_input(page, args, state: dict, paths: list[Path]) -> dict:
-    """파일 입력에 바로 넣는다. 숨은 입력도 된다"""
+    """Set files directly on the file input. Works on hidden inputs too"""
     if args.selector is None and args.ref is None:
         args.selector = DEFAULT_FILE_INPUT_SELECTOR
     element, info, failure = locate_target(page, args, state, "upload", should_guard_mutating=False)
@@ -137,7 +137,7 @@ def _upload_into_input(page, args, state: dict, paths: list[Path]) -> dict:
 
 
 def _set_files(page, element, paths: list[Path], playwright_set_files, via: str) -> str | dict:
-    """파일 넣기: 50MB 이하 Playwright > 넘거나 전송 한도 오류면 CDP 직접 (#1008). 성공 시 경로 이름, 실패 시 결과"""
+    """Set files: Playwright up to 50MB > CDP directly when larger or on a transfer limit error (#1008). Path names on success, result on failure"""
     files = [str(p) for p in paths]
     if sum(p.stat().st_size for p in paths) <= PLAYWRIGHT_REMOTE_TRANSFER_LIMIT_BYTES:
         try:
@@ -149,7 +149,7 @@ def _set_files(page, element, paths: list[Path], playwright_set_files, via: str)
     try:
         _set_files_over_cdp(page, element, files)
         return "cdp"
-    except Exception as error:  # noqa: BLE001 — 대체 경로 실패는 결과로 알린다
+    except Exception as error:  # noqa: BLE001 — failure of the fallback path is reported as a result
         return {"ok": False, "code": "file_too_large_for_transfer", "action": "upload",
                 "bytes": sum(p.stat().st_size for p in paths),
                 "error": f"Files over 50MB could not be set over CDP: {str(error)[:200]}",
@@ -157,8 +157,8 @@ def _set_files(page, element, paths: list[Path], playwright_set_files, via: str)
 
 
 def _set_files_over_cdp(page, element, files: list[str]) -> None:
-    """CDP DOM.setFileInputFiles 로 로컬 경로를 그대로 넣는다 (Playwright 50MB 전송 한도 우회, #1008)
-    대상 노드: 임시 표시 속성 > DOM.performSearch > nodeId (같은 프로세스 프레임까지)"""
+    """Set local paths as is via CDP DOM.setFileInputFiles (bypasses Playwright's 50MB transfer limit, #1008)
+    Target node: temporary marker attribute > DOM.performSearch > nodeId (up to same-process frames)"""
     mark = uuid.uuid4().hex
     element.evaluate(f"(e, mark) => e.setAttribute('{CDP_UPLOAD_MARK_ATTRIBUTE}', mark)", mark)
     session = page.context.new_cdp_session(page)
@@ -174,7 +174,7 @@ def _set_files_over_cdp(page, element, files: list[str]) -> None:
             session.send("DOM.discardSearchResults", {"searchId": search["searchId"]})
         session.send("DOM.setFileInputFiles", {"files": files, "nodeId": node_ids[0]})
     finally:
-        # 표시 속성 정리 (성공·실패 공통)
+        # Remove the marker attribute (success or failure)
         try:
             element.evaluate(f"(e) => e.removeAttribute('{CDP_UPLOAD_MARK_ATTRIBUTE}')")
         except Exception:  # noqa: BLE001
@@ -194,7 +194,7 @@ def execute(page, args, state: dict) -> dict:
     paths, failure = resolve_upload_files(args.files, project_root(args))
     if failure:
         return failure | {"action": "upload"}
-    # 파일을 올리는 것 자체가 바꾸는 조작이다 — 버튼 문구와 상관없이 막는다
+    # Uploading a file is itself a changing action — block it regardless of button text
     if state.get("readonly") and not args.confirm_mutating:
         return {"ok": False, "code": "mutating_blocked", "action": "upload", "url": page.url,
                 "error": "Read-only session, so the files were not uploaded",

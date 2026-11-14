@@ -1,6 +1,6 @@
-"""app 의 앱 제어 동작(launch · terminate · relaunch · permission · push · location · openurl)이 함께 쓰는 것.
+"""Shared code for app control actions (launch, terminate, relaunch, permission, push, location, openurl).
 
-기기 고르기 · 패키지(번들 ID) 해석 · 외부 도구 실행 · 앱 띄우기/끄기 — 동작마다 복사하지 않고 여기 하나에 둔다.
+Device pick, package (bundle ID) resolution, external tool runs, app launch/stop — kept here once instead of copied per action.
 """
 from __future__ import annotations
 
@@ -13,12 +13,12 @@ from pro_launch.runtime.context import project_root
 from pro_launch.runtime.devices import load_devices, no_device_response, pick_device
 from pro_launch.runtime.output import out, set_target
 
-# 외부 도구 한 번의 최대 대기 (초)
+# Maximum wait for one external tool run (seconds)
 TOOL_TIMEOUT_SECONDS = 30
 
 
 def resolve_target(args, is_package_required: bool = True):
-    """(플랫폼, 기기 id, 패키지, 오류 응답). 패키지: --pkg > $PKG > device bind 의 package."""
+    """(platform, device id, package, error response). Package: --pkg > $PKG > device bind package."""
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return None, None, None, no_device_response(dev, args.device)
@@ -29,19 +29,19 @@ def resolve_target(args, is_package_required: bool = True):
             "ok": False, "code": "package_required", "error": "No target app",
             "next": "--pkg <package name / bundle ID>  (use the value detect found)"})
     if is_package_required:
-        # 이 동작은 그 패키지를 실제로 다룬다 — device bind 에서 온 값도 하네스 맞추기에 쓴다 (projectops#1024)
+        # This action actually handles the package — values from device bind are also used to match the harness (projectops#1024)
         set_target(app=package)
     return platform, dev_id, package, None
 
 
 def adb_command(dev_id: str, *args: str) -> list[str] | None:
-    """adb 명령 (항상 -s 로 기기 고정). adb 가 없으면 None."""
+    """adb command (always pinned with -s). None if adb is missing."""
     adb = sdk_tool("adb")
     return [adb, "-s", dev_id, *args] if adb else None
 
 
 def run_tool(command: list[str] | None) -> tuple[bool, str]:
-    """(성공 여부, stdout+stderr 요약). 도구 없음·시간 초과도 실패로 돌려준다 — 예외를 올리지 않는다."""
+    """(success, stdout+stderr summary). Missing tool and timeout are returned as failures — no exceptions raised."""
     if not command:
         return False, "adb not found (check adb_path in doctor)"
     try:
@@ -51,13 +51,13 @@ def run_tool(command: list[str] | None) -> tuple[bool, str]:
     except OSError as e:
         return False, str(e)
     text = ((r.stdout or "") + (r.stderr or "")).replace("\r", "").strip()
-    # adb shell 은 기기 쪽 오류를 종료코드 0 으로 돌려주는 일이 있다 (am start · pm grant)
+    # adb shell sometimes returns device-side errors with exit code 0 (am start, pm grant)
     has_error_text = any(m in text for m in ("Error:", "Exception occurred", "Security exception"))
     return r.returncode == 0 and not has_error_text, text[-400:]
 
 
 def launch_package(platform: str, dev_id: str, package: str) -> tuple[bool, str]:
-    """앱 띄우기. Android 는 monkey — 런처 액티비티 이름을 몰라도 된다 (am start 는 알아야 한다)."""
+    """Launch the app. Android uses monkey — no need to know the launcher activity name (am start needs it)."""
     if platform == "android":
         ok, detail = run_tool(adb_command(dev_id, "shell", "monkey", "-p", package, "-c",
                                           "android.intent.category.LAUNCHER", "1"))
@@ -66,9 +66,9 @@ def launch_package(platform: str, dev_id: str, package: str) -> tuple[bool, str]
 
 
 def terminate_package(platform: str, dev_id: str, package: str) -> tuple[bool, bool | None, str]:
-    """(성공 여부, 떠 있었나, 사유). 이미 꺼져 있던 것은 실패가 아니다."""
+    """(success, was running, reason). An app that was already stopped is not a failure."""
     if platform == "android":
-        # force-stop 은 떠 있었는지 알려 주지 않는다 (None = 모름)
+        # force-stop does not say whether it was running (None = unknown)
         ok, detail = run_tool(adb_command(dev_id, "shell", "am", "force-stop", package))
         return ok, None, detail
     ok, detail = run_tool(["xcrun", "simctl", "terminate", dev_id, package])
@@ -78,7 +78,7 @@ def terminate_package(platform: str, dev_id: str, package: str) -> tuple[bool, b
 
 
 def unsupported_response(platform: str, dev_id: str, action: str, reason: str, next_hint: str) -> int:
-    """이 플랫폼·기기에서는 할 수 없는 동작 — 새 code 하나로 알린다."""
+    """An action this platform or device cannot do — reported with one new code."""
     return out({"ok": False, "code": "unsupported_on_platform", "action": action,
                 "platform": platform, "device": dev_id, "error": reason, "next": next_hint})
 

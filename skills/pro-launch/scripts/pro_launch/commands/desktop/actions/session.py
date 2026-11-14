@@ -1,6 +1,6 @@
-"""`desktop session start|stop|status|resume` — 이 컴퓨터의 키보드·마우스를 쓸 차례를 잡고 놓는다.
+"""`desktop session start|stop|status|resume` — take and release this computer's keyboard/mouse turn.
 
-컴퓨터 전체에 하나뿐이다. 입력하지 않은 채 10분이 지나면 풀린다. 세션이 끝나면 훅이 놓는다.
+Only one per computer. Released after 10 minutes without input. A hook releases it when the session ends.
 """
 from __future__ import annotations
 
@@ -12,13 +12,13 @@ from pro_launch.runtime.output import out
 
 START_WARNING = ("This session will now use this computer's keyboard and mouse. "
                  "Moving the mouse or typing pauses it.")
-# 키 입력 감지를 못 쓰는 환경 — 마우스만 본다고 알린다 (#985)
+# Environments without key-input detection — announce that only the mouse is watched (#985)
 START_WARNING_MOUSE_ONLY = ("This session will now use this computer's keyboard and mouse. "
                             "Moving the mouse pauses it (typing is not detected here).")
 
 
 def keyboard_check() -> dict:
-    """세션 시작 결과에 싣는 감지 범위 — 못 읽으면 is_available False 로 알리고 막지는 않는다."""
+    """Detection scope included in the session start result — if unreadable, report is_available False without blocking."""
     be, failure = load_backend()
     if failure:
         return {"is_available": False, "kind": None}

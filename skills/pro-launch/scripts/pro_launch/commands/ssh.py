@@ -1,4 +1,4 @@
-"""`ssh` — 원격 명령을 실행한다."""
+"""`ssh` — run a remote command."""
 from __future__ import annotations
 
 import contextlib
@@ -21,7 +21,7 @@ def _server_prefix(name: str) -> str:
     return f"server.{knowledge.norm_key(name)}."
 
 
-# 서버 사실 탐침: 셸이 POSIX 이고 uname 이 있을 때만 의미가 있다 (Windows 는 조용히 건너뛴다).
+# Server fact probe: meaningful only when the shell is POSIX and uname exists (Windows is silently skipped).
 _PROBE = ("uname -s 2>/dev/null; "
           "[ -x /var/packages/ContainerManager/target/usr/bin/docker ] && echo SYNO_DOCKER; true")
 
@@ -31,13 +31,13 @@ _SYNO_DOCKER = "/var/packages/ContainerManager/target/usr/bin/docker"
 
 _KNOWN_OS = ("Linux", "Darwin", "FreeBSD")
 
-# 원격 출력 디코드 순서: UTF-8 > CP949(한국어 Windows cmd) > UTF-8 대체문자 (#933)
+# Remote output decode order: UTF-8 > CP949 (Korean Windows cmd) > UTF-8 with replacement (#933)
 _STRICT_ENCODINGS = ("utf-8", "cp949")
 _FALLBACK_ENCODING = "utf-8-replace"
 
 
 def decode_remote_output(raw: bytes | None) -> tuple[str, str]:
-    """원격 출력 바이트 > (문자열, 쓴 인코딩). 디코드 실패로 명령 결과를 잃지 않게"""
+    """Remote output bytes > (text, encoding used). So a decode failure never loses the command result"""
     raw = raw or b""
     for encoding in _STRICT_ENCODINGS:
         try:
@@ -48,10 +48,10 @@ def decode_remote_output(raw: bytes | None) -> tuple[str, str]:
 
 
 def _record_server_facts(name: str, base_cmd: list[str], env: dict, popen_options: dict) -> None:
-    """처음 접속 성공 때 확인된 사실(OS · 시놀로지 docker 절대경로)만 이 컴퓨터 범위에 남긴다.
+    """Keep only facts confirmed on the first successful connection (OS · Synology docker absolute path) in this computer's scope.
 
-    이미 OS 를 알고 있으면 추가 접속을 하지 않는다. 호스트·계정·비밀은 how 에 쓰지 않는다.
-    어떤 실패도 본 명령 결과를 망치지 않는다.
+    If the OS is already known, no extra connection is made. Host, account and secrets are never written to how.
+    No failure here may spoil the main command result.
     """
     try:
         if not knowledge.base_dir().is_absolute():
@@ -70,18 +70,18 @@ def _record_server_facts(name: str, base_cmd: list[str], env: dict, popen_option
             knowledge.auto_record("server", prefix + "docker",
                                   f"docker is not on PATH — call it by absolute path {_SYNO_DOCKER} "
                                   "(use wget if the container has no curl)")
-    except Exception:   # noqa: BLE001 — 기억은 보조다
+    except Exception:   # noqa: BLE001 — memory is auxiliary
         pass
 
 
 def cmd_ssh(args) -> int:
-    """원격 명령을 실행한다 — 저장된 서버(--cred)나, 저장 없이 직접 넘긴 접속 정보(--host …)로.
+    """Run a remote command — on a saved server (--cred) or with connection info passed directly without saving (--host …).
 
-    --sudo 면 원격에서 `SUDO <명령>` 을 쓸 수 있다 (비밀번호가 필요한 sudo, PATH 에 /usr/local/bin 포함).
-    직접 넘긴 값(--host · --port · --user · --password · --password-env · --key-path)은 저장하지 않고,
-    --cred 와 함께 주면 그 값이 저장된 값보다 우선한다. 출력의 비밀번호는 가린다.
+    With --sudo, `SUDO <command>` can be used remotely (sudo needing a password, /usr/local/bin in PATH).
+    Directly passed values (--host · --port · --user · --password · --password-env · --key-path) are not saved;
+    given together with --cred they take precedence over saved values. Passwords in the output are masked.
     """
-    # 서버 기억은 이 서버 것만 싣는다 — key 는 server.<자격증명 이름>.* (기억 원칙 1). 저장 없는 접속은 기억하지 않는다
+    # Include only this server's memories — key is server.<credential name>.* (memory principle 1). Unsaved connections are not remembered
     if args.cred:
         set_area("server", project_root(args), key_prefix=_server_prefix(args.cred))
     cred, err = load_cred(args.cred)
@@ -97,7 +97,7 @@ def cmd_ssh(args) -> int:
     elif args.password:
         adhoc["password"] = args.password
     if adhoc:
-        # 직접 넘긴 비밀번호면 저장된 key_path 가, 직접 넘긴 key 면 저장된 password 가 끼어들지 않게 한다
+        # A directly passed password keeps the saved key_path out; a directly passed key keeps the saved password out
         base = dict(cred or {})
         if "password" in adhoc:
             base.pop("key_path", None)
@@ -105,7 +105,7 @@ def cmd_ssh(args) -> int:
             base.pop("password", None)
         cred = {**base, **adhoc, "name": (cred or {}).get("name") or "(not saved)"}
     if cred and cred.get("host"):
-        # 이 서버에 맞는 하네스(안내서)를 응답에 싣는다 — 저장 없이 넘긴 --host 도 (projectops#1023)
+        # Put the harness (guide) matching this server in the response — also for an unsaved --host (projectops#1023)
         set_target(host=str(cred["host"]), root=project_root(args), area="server")
     if not cred:
         return out({"ok": False, "code": "cred_required",
@@ -130,7 +130,7 @@ def cmd_ssh(args) -> int:
         ssh += ["-i", os.path.expanduser(str(key_path)), "-o", "BatchMode=yes"]
     elif password:
         ssh += SINGLE_PASSWORD_PROMPT_OPTIONS
-    # 그 외: 에이전트 키·기본 키에 맡김
+    # Otherwise: leave it to the agent key / default key
 
     remote = args.command
     stdin = None
@@ -138,15 +138,15 @@ def cmd_ssh(args) -> int:
         if not password:
             return out({"ok": False, "code": "sudo_password_missing",
                         "error": "--sudo needs a saved password"})
-        # 비밀번호는 표준입력으로만 넘긴다 — 원격 명령줄(ps)에 남지 않는다
+        # The password goes only via stdin — never on the remote command line (ps)
         remote = ('export PATH=$PATH:/usr/local/bin; IFS= read -r PW; '
                   'SUDO() { echo "$PW" | sudo -S -p "" "$@"; }; ' + args.command)
         stdin = str(password) + "\n"
-    # 비밀번호 전달 (sshpass > SSH_ASKPASS) — 키·기본 키 접속이면 아무것도 붙이지 않음 (#987)
+    # Password delivery (sshpass > SSH_ASKPASS) — nothing attached for key / default-key logins (#987)
     with (password_transport(password, env) if password and not key_path
           else contextlib.nullcontext(([], {}))) as (argv_prefix, popen_options):
         try:
-            # 바이트로 받음 — 원격이 UTF-8 이 아닐 수 있음 (CP949 Windows cmd)
+            # Taken as bytes — the remote may not be UTF-8 (CP949 Windows cmd)
             r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin.encode("utf-8") if stdin else None,
                                env=env, capture_output=True, timeout=args.timeout, **popen_options)
         except subprocess.TimeoutExpired:
@@ -164,7 +164,7 @@ def cmd_ssh(args) -> int:
                 "'{\"kind\":\"ssh\",\"host\":…,\"port\":…,\"user\":…,\"use_when\":…}' and use just the name next time")
     return out({"ok": ok, "code": code, "exit_code": r.returncode,
                 "stdout": stdout[:args.max_output], "stdout_encoding": stdout_encoding,
-                # stderr 는 언제나 문자열 — None 이면 부르는 쪽 슬라이싱이 깨짐 (#933)
+                # stderr is always a string — None would break the caller's slicing (#933)
                 "stderr": stderr.strip()[:1000],
                 "truncated": len(stdout) > args.max_output,
                 "summary": f"{label}: " + ("succeeded" if ok else f"{code} (exit code {r.returncode})"),

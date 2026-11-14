@@ -1,4 +1,4 @@
-"""`desktop press` — 앞에 있는 창에 키를 보낸다 (Enter · Tab · Esc · 방향키 · ctrl+a …)."""
+"""`desktop press` — send keys to the front window (Enter, Tab, Esc, arrows, ctrl+a …)."""
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import pick_window
@@ -7,7 +7,7 @@ from pro_launch.registry import Action
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
 
-# 되돌리기 어려운 결과가 바로 나는 키 — 확인 없이 보내지 않는다
+# Keys with immediate, hard-to-undo effects — never sent without confirmation
 RISKY_COMBOS = {("alt", "f4"), ("ctrl", "w"), ("cmd", "q"), ("cmd", "w"), ("ctrl", "s"), ("cmd", "s"),
                 ("shift", "delete")}
 

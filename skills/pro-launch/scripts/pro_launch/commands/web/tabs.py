@@ -1,14 +1,14 @@
-"""세션별 탭 소유권: 이름 붙은 탭 기록 · 고르기 · 다른 세션이 바꾼 화면 감지 (#878).
+"""Per-session tab ownership: named tab records, selection, detecting screens changed by other sessions (#878).
 
-같은 레포의 영속 브라우저를 여러 agent 세션이 함께 쓴다. 모두 "지금 페이지" 를 몰면 서로 덮어쓴다
-(저장 안 한 긴 입력이 날아간 실사고). 세션마다 `LAUNCH_TAB=<이름>` 으로 자기 탭을 몰게 한다.
+Several agent sessions share one repo's persistent browser. If all drive "the current page" they overwrite each other
+(a real incident lost a long unsaved input). Each session drives its own tab via `LAUNCH_TAB=<name>`.
 
-탭은 CDP targetId 로 알아본다 — 매 호출 새로 붙어 Playwright Page 객체가 바뀌어도 탭이 살아 있는 동안 같다.
-상태 파일(browser.json):
-    tabs:      {이름: {"target_id": ..., "created_at": ...}}
-    tab_marks: {"<탭>@<세션>": {"target_id": ..., "url": ...}}   # 그 세션의 마지막 명령이 끝난 모습
+Tabs are identified by CDP targetId — it stays the same while the tab lives, even though each call reattaches and gets a new Playwright Page.
+State file (browser.json):
+    tabs:      {name: {"target_id": ..., "created_at": ...}}
+    tab_marks: {"<tab>@<session>": {"target_id": ..., "url": ...}}   # state when that session's last command finished
 
-세션은 LAUNCH_SESSION > CLAUDE_CODE_SESSION_ID 로 가른다. 둘 다 없으면 같은 탭의 모든 세션이 기록 하나를 함께 쓴다.
+Sessions are told apart by LAUNCH_SESSION > CLAUDE_CODE_SESSION_ID. With neither, all sessions on the same tab share one record.
 """
 from __future__ import annotations
 
@@ -16,13 +16,13 @@ import os
 import time
 from urllib.parse import urlsplit
 
-# 세션 가르기 원본은 runtime (기기 소유와 공용) — 여기서는 재노출
+# Session-splitting source of truth is runtime (shared with device ownership) — re-exported here
 from pro_launch.runtime.session_identity import ANONYMOUS_SESSION, SESSION_ENV_VARS, session_identity  # noqa: F401
 
-# 세션이 몰 탭 이름을 담는 환경변수
+# Environment variable holding the tab name a session drives
 TAB_ENV_VAR = "LAUNCH_TAB"
 DEFAULT_TAB_KEY = "default"
-# Chrome 이 스스로 띄우는 안내 탭. 작업 탭이 아니다
+# Guide tabs Chrome opens on its own. Not working tabs
 BROWSER_INTERNAL_PREFIXES = ("chrome://", "chrome-untrusted://", "devtools://", "edge://")
 
 
@@ -32,7 +32,7 @@ def session_tab_name() -> str | None:
 
 
 def mark_key(tab_name: str | None = None) -> str:
-    """이 세션 · 이 탭의 기록 키 — 다른 세션이 같은 탭을 움직이면 내 기록과 어긋나 드러난다."""
+    """Record key for this session and tab — if another session moves the same tab, it diverges from my record and shows up."""
     return f"{tab_name or session_tab_name() or DEFAULT_TAB_KEY}@{session_identity()}"
 
 
@@ -40,18 +40,18 @@ def tab_of_mark_key(key: str) -> str:
     return key.rsplit("@", 1)[0]
 
 
-# 이 시간 안에 움직인 다른 세션은 아직 쓰는 중으로 본다 (브라우저 방치 판정과 같은 6시간, #1094)
+# Other sessions that moved within this window count as still in use (6 hours, same as the browser-abandon check, #1094)
 OTHER_SESSION_ACTIVE_SECONDS = 6 * 3600
-# 새 탭이 Playwright 에 보일 때까지 기다리는 횟수 · 간격 (약 3초)
+# Retry count and interval while waiting for a new tab to appear in Playwright (about 3 seconds)
 BACKGROUND_TAB_WAIT_TRIES = 30
 BACKGROUND_TAB_WAIT_MILLISECONDS = 100
 
-# 이 세션이 이미 알린 새 탭: {"<탭>@<세션>": [targetId, ...]}
+# New tabs this session already reported: {"<tab>@<session>": [targetId, ...]}
 REPORTED_POPUPS_KEY = "reported_popups"
 
 
 def target_info(page) -> dict | None:
-    """탭의 CDP targetInfo (targetId · openerId · url). 못 읽으면 None (가짜 페이지 · CDP 아닌 연결)."""
+    """CDP targetInfo of a tab (targetId, openerId, url). None if unreadable (fake page, non-CDP connection)."""
     try:
         cdp = page.context.new_cdp_session(page)
         try:
@@ -87,8 +87,8 @@ def named_tab_page(ctx, state: dict, name: str):
 
 
 def last_used_tab_page(ctx, state: dict):
-    """이 세션이 마지막으로 몬 탭 (다른 세션이 이름 붙여 가져갔으면 None)
-    탭 순서는 붙을 때마다 바뀜 > "마지막 탭" 으로 고르면 팝업과 원래 탭을 오감 (#987)"""
+    """Tab this session drove last (None if another session took it by name)
+    Tab order changes on every attach > picking "the last tab" flips between popup and original tab (#987)"""
     mark = (state.get("tab_marks") or {}).get(mark_key()) or {}
     owned_target_ids = {entry.get("target_id") for entry in (state.get("tabs") or {}).values()}
     if not mark.get("target_id") or mark["target_id"] in owned_target_ids:
@@ -97,8 +97,8 @@ def last_used_tab_page(ctx, state: dict):
 
 
 def opened_tabs(page, state: dict) -> list[dict]:
-    """이 탭이 연 새 탭(openerId) 중 이 세션이 안 알린 것 > [{target_id, url, title}] (#987)
-    매 명령 끝에 봄 > 몇 초 늦게 뜬 창은 다음 명령에서 잡힘"""
+    """New tabs (openerId) this tab opened that this session has not reported > [{target_id, url, title}] (#987)
+    Checked at the end of every command > windows that open a few seconds late are caught by the next command"""
     opener_target_id = target_id(page)
     if not opener_target_id:
         return []
@@ -117,7 +117,7 @@ def opened_tabs(page, state: dict) -> list[dict]:
 
 
 def default_tab_page(ctx, state: dict):
-    """이름 없는 세션의 탭: 다른 세션이 이름 붙여 가져간 탭은 건너뛴 마지막 탭. 없으면 새로 연다."""
+    """Tab for an unnamed session: the last tab, skipping tabs other sessions took by name. Opens a new one if none."""
     owned_target_ids = {entry.get("target_id") for entry in (state.get("tabs") or {}).values()}
     candidates = usable_pages(ctx)
     if owned_target_ids:
@@ -126,8 +126,8 @@ def default_tab_page(ctx, state: dict):
 
 
 def new_tab_page(ctx, is_front: bool = False):
-    """새 탭을 연다. 기본은 뒤에서 — new_page 는 탭을 맨 앞으로 가져와 사람이 보던 탭이 바뀐다 (#1094).
-    뒤에서 못 여는 연결이면 new_page 로 대신한다."""
+    """Open a new tab. Background by default — new_page brings the tab to the front and changes the tab a person was viewing (#1094).
+    If the connection can't open in the background, fall back to new_page."""
     if is_front:
         page = ctx.new_page()
         page.bring_to_front()
@@ -163,13 +163,13 @@ def forget_tab(state: dict, name: str) -> None:
 
 
 def _page_identity(url: str | None) -> tuple[str, str, str]:
-    """같은 화면인지 볼 부분 (scheme·host·path). 쿼리·해시는 같은 화면 안에서도 바뀐다."""
+    """Part that identifies the same screen (scheme, host, path). Query and hash change within the same screen."""
     parts = urlsplit(url or "")
     return parts.scheme, parts.netloc, parts.path.rstrip("/")
 
 
 def read_time_origin(page) -> float | None:
-    """문서가 만들어진 시각 — 다시 로드되면 바뀐다. 못 읽으면 None (이동 중)"""
+    """When the document was created — changes on reload. None if unreadable (navigating)"""
     try:
         return page.evaluate("performance.timeOrigin")
     except Exception:
@@ -177,13 +177,13 @@ def read_time_origin(page) -> float | None:
 
 
 def tab_mark(page) -> dict:
-    """이 탭의 지금 모습: 어느 탭 · 어느 화면 · 어느 문서 · 언제"""
+    """Current state of this tab: which tab, which screen, which document, when"""
     return {"target_id": target_id(page), "url": page.url, "time_origin": read_time_origin(page), "at": int(time.time())}
 
 
 def active_other_sessions(state: dict) -> list[dict]:
-    """최근에 이 브라우저를 쓴 다른 세션의 탭 > [{tab, url, target_id, idle_minutes}]. 세션을 못 가르면 빈 목록.
-    옛 기록(at 없음)은 쓰는 중으로 본다 — 남의 탭을 덮는 쪽이 더 나쁘다."""
+    """Tabs of other sessions that used this browser recently > [{tab, url, target_id, idle_minutes}]. Empty if sessions can't be told apart.
+    Old records (no at) count as in use — overwriting someone else's tab is worse."""
     me = session_identity()
     if me == ANONYMOUS_SESSION:
         return []
@@ -198,7 +198,7 @@ def active_other_sessions(state: dict) -> list[dict]:
 
 
 def is_other_session_tab(page, state: dict) -> bool:
-    """이 세션이 몬 적 없는데 다른 세션이 쓰는 탭인가"""
+    """Is this a tab another session uses that this session never drove"""
     if (state.get("tab_marks") or {}).get(mark_key()):
         return False
     current_target_id = target_id(page)
@@ -206,22 +206,22 @@ def is_other_session_tab(page, state: dict) -> bool:
 
 
 def reload_notice(page, state: dict) -> dict | None:
-    """이 세션의 지난 명령 뒤에 같은 화면이 다시 로드됐나 (#1094).
-    다시 로드되면 ref · 입력 중이던 글자 · 펼친 메뉴가 사라진다 — ref_stale 만 보면 원인을 알 수 없다."""
+    """Was the same screen reloaded after this session's last command (#1094).
+    A reload clears refs, half-typed text and open menus — ref_stale alone doesn't reveal the cause."""
     mark = (state.get("tab_marks") or {}).get(mark_key()) or {}
     previous_origin = mark.get("time_origin")
     current_origin = read_time_origin(page)
     if previous_origin is None or current_origin is None or current_origin == previous_origin:
         return None
     if _page_identity(mark.get("url")) != _page_identity(page.url):
-        return None  # 다른 화면이면 drift_warning 이 알린다
+        return None  # a different screen is reported by drift_warning
     return {"code": "page_reloaded", "seconds_ago": round(time.time() - current_origin / 1000, 1),
             "hint": "The page reloaded between commands, and this session did not ask for it. Refs, typed text and open menus "
                     "are gone. Pick again with web find, and do steps that depend on each other in one web script"}
 
 
 def attach_reload_notice(payload: dict, notice: dict) -> None:
-    """명령 사이에 페이지가 다시 로드됐음을 결과에 싣는다. --brief 에도 남게 summary · error 문장에 붙인다"""
+    """Report in the result that the page reloaded between commands. Appended to the summary/error text so it survives --brief"""
     payload["page_reloaded"] = notice
     sentence = f"The page reloaded by itself {notice['seconds_ago']:g}s ago, so earlier refs and typed text are gone"
     key = "error" if payload.get("ok") is False and payload.get("error") else "summary"
@@ -229,7 +229,7 @@ def attach_reload_notice(payload: dict, notice: dict) -> None:
 
 
 def drift_warning(page, state: dict) -> dict | None:
-    """이 세션의 마지막 명령 뒤에 탭이 바뀌었나 (다른 탭으로 바뀜 · 다른 화면으로 이동). 바뀌었으면 경고 dict."""
+    """Did the tab change after this session's last command (switched to another tab, navigated to another screen). Warning dict if so."""
     key = mark_key()
     mark = (state.get("tab_marks") or {}).get(key)
     if not mark:
@@ -254,7 +254,7 @@ def drift_warning(page, state: dict) -> dict | None:
 
 
 def mark_tab(page, state: dict) -> None:
-    """명령이 끝난 뒤 이 세션 탭의 모습을 적는다 — 다음 명령에서 다른 세션의 이동 · 페이지 재로드를 가른다."""
+    """Record this session's tab state after the command — so the next command can tell another session's navigation or a reload."""
     try:
         mark = tab_mark(page)
     except Exception:
@@ -263,7 +263,7 @@ def mark_tab(page, state: dict) -> None:
 
 
 def tabs_summary(ctx, page, state: dict, acting_name: str | None = None) -> dict:
-    """탭이 몇 개고 이번 명령이 어느 탭에서 돌았나."""
+    """How many tabs there are and which tab this command ran in."""
     pages = usable_pages(ctx)
     name_by_target_id = {entry.get("target_id"): name for name, entry in (state.get("tabs") or {}).items()}
     acting_index = next((i for i, p in enumerate(pages) if p is page), None)

@@ -1,6 +1,6 @@
-"""`devices` · `device` — 붙은 기기를 보고, 역할을 묶고, 소유를 알리고, 띄우고 다시 띄우고, 언어·외관을 바꾼다.
+"""`devices` / `device` — see attached devices, bind roles, announce ownership, boot and reboot, change language and appearance.
 
-동작마다 모듈 하나: bindings(list·bind·unbind·show) · claims(claim) · acquire(acquire) · pool(release·shutdown) ·
+One module per action: bindings(list, bind, unbind, show), claims(claim), acquire(acquire), pool(release, shutdown),
 lifecycle(create·clone·erase·delete·mark·unmark·adopt·records) · gc(gc) · benchmark(benchmark) · boot(boot·reboot) · settings(locale·appearance).
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pro_launch.runtime.device_boot import WINDOW_MODES
 from pro_launch.runtime.device_gate import gate_device_use
 from pro_launch.runtime.output import out
 
-# device <동작> → 실행 함수
+# device <action> → handler
 _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_action,
             "unbind": bindings.run_binding_action, "show": bindings.run_binding_action,
             "claim": claims.run_claim, "acquire": acquire.run_acquire, "release": pool.run_release,
@@ -26,7 +26,7 @@ _RUNNERS = {"list": bindings.run_binding_action, "bind": bindings.run_binding_ac
             "text-size": text_size.run_text_size}
 
 
-# device <동작> → 기기 사용 선언 (registry.DEVICE_USES). none 은 동작이 직접 소유를 판정한다
+# device <action> → device use declaration (registry.DEVICE_USES). none means the action decides ownership itself
 DEVICE_USE_BY_ACTION = {"list": "none", "bind": "none", "unbind": "none", "show": "none",
                         "claim": "none", "acquire": "none", "release": "none", "shutdown": "none",
                         "create": "none", "clone": "none", "erase": "none", "delete": "none", "mark": "none", "unmark": "none",
@@ -35,7 +35,7 @@ DEVICE_USE_BY_ACTION = {"list": "none", "bind": "none", "unbind": "none", "show"
                         "locale": "mutate", "appearance": "mutate", "text-size": "mutate"}
 
 
-# device 옵션 dest > 기본값 (configure_device 가 채운다) — 동작이 안 읽는 옵션을 가려낸다
+# device option dest > default (filled by configure_device) — finds options an action does not read
 DEVICE_OPTION_DEFAULTS: dict = {}
 
 
@@ -50,7 +50,7 @@ def cmd_device(args) -> int:
 
 
 def configure_devices(p) -> None:
-    # 다른 명령처럼 --root 를 받는다 — 거부하면 usage 가 stderr 로 섞인다 (#972)
+    # Accept --root like other commands — rejecting it mixes usage into stderr (#972)
     p.add_argument("--root", default=".")
 
 

@@ -1,4 +1,4 @@
-"""`devices` · `device list|bind|unbind|show` — 붙은 기기를 보고 역할을 기기에 묶는다."""
+"""`devices` / `device list|bind|unbind|show` — see attached devices and bind roles to them."""
 from __future__ import annotations
 
 
@@ -13,7 +13,7 @@ from pro_launch.runtime.output import out
 def run_devices(args) -> int:
     dev = list_devices()
     n = len(dev["android"]) + len(dev["ios_booted"])
-    # 호스트 메모리 압박 요약 — 기기를 더 띄우기 전에 보게 한다 (#883). 자세히는 doctor --resources
+    # Host memory pressure summary — shown before booting more devices (#883). Details via doctor --resources
     resources = host_resources.memory_summary()
     advice = host_resources.pressure_advice(resources["pressure"])
     return out({**dev, "resources": resources, "owners": owners_by_device(),
@@ -22,7 +22,7 @@ def run_devices(args) -> int:
 
 
 def _describe_one_device(device_id: str, bindings: list[dict]) -> dict:
-    """기기 1대: 연결 여부, 플랫폼, 역할, 소유자 (#1073)"""
+    """One device: connected, platform, role, owner (#1073)"""
     connected = list_devices()
     is_android = device_id in connected["android"]
     is_ios = device_id in ios_udids(connected)
@@ -35,7 +35,7 @@ def _describe_one_device(device_id: str, bindings: list[dict]) -> dict:
 
 
 def run_binding_action(args) -> int:
-    """역할을 기기에 묶고, 무엇이 깔려 있는지 대조한다 (list · bind · unbind · show)."""
+    """Bind roles to devices and check what is installed (list, bind, unbind, show)."""
     root = project_root(args)
     known = load_devices(root)
     bindings = known["bindings"]
@@ -73,10 +73,10 @@ def run_binding_action(args) -> int:
         return out({"bindings": bindings, "package": package,
                     "file": str(devices_path(root)), "summary": f"{len(bindings)} roles"})
 
-    # list — 붙어 있는 기기 + 역할 + 설치된 빌드
+    # list — attached devices + roles + installed builds
     dev = list_devices()
     by_role = {b["serial"]: b for b in bindings}
-    # 기기 소유(device claim) — 다른 세션이 쥔 기기를 목록에서 바로 본다 (#925)
+    # Device ownership (device claim) — shows devices held by other sessions directly in the list (#925)
     owners = owners_by_device()
     rows = []
     for serial in dev["android"]:
@@ -96,7 +96,7 @@ def run_binding_action(args) -> int:
     elif len(rows) > 1 and unbound:
         nxt = ("Bind roles with device bind --role {KEY} --serial {SERIAL} — "
                "otherwise adb cannot tell which device to target")
-    # 기기는 get-output-path 뒤에 부팅되기도 한다. 환경을 새로 고쳐 두지 않으면 DEV 가 빈다.
+    # Devices may boot after get-output-path. Without refreshing the environment, DEV is empty.
     run_dir = resolve_run_dir(args)
     env = write_env_sh(run_dir, package, bindings) if (run_dir and run_dir.is_dir()) else None
     return out({

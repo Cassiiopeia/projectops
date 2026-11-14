@@ -1,4 +1,4 @@
-"""`desktop tree` · `desktop find` — 창의 요소를 번호(ref)와 함께 읽는다. 누를 때는 그 번호를 쓴다."""
+"""`desktop tree` / `desktop find` — read a window's elements with numbers (ref). Use those numbers to press."""
 from __future__ import annotations
 
 import time
@@ -12,12 +12,12 @@ from pro_launch.registry import Action
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.output import out
 
-# 결과에 싣는 요소 수 상한 — 넘으면 find 로 좁히라고 안내한다
+# Cap on elements in the result — beyond it, suggest narrowing with find
 MAX_LISTED = 150
 
 
 def read_nodes(args, window: dict | None = None) -> tuple[dict | None, list[dict] | None, dict | None, float]:
-    """(창, 보여 줄 노드, 실패 결과, 읽은 초). window 를 주면 그 창을 읽는다."""
+    """(window, nodes to show, failure result, seconds read). Reads the given window if window is set."""
     be = args.backend
     if window is None:
         window, failure = pick_window(be, args.window)
@@ -36,7 +36,7 @@ def read_nodes(args, window: dict | None = None) -> tuple[dict | None, list[dict
 
 
 def remember(window: dict, nodes: list[dict]) -> list[dict]:
-    """번호를 붙여 상태 파일에 적고, 결과용 모양을 돌려준다."""
+    """Number the nodes, write them to the state file, and return the result shape."""
     numbered = desktop_input.assign_refs(nodes)
     desktop_state.save_snapshot(public_window(window), numbered)
     return [desktop_input.public_node(n) for n in numbered]
@@ -62,7 +62,7 @@ def _filter(nodes: list[dict], args, field: str | None, value: str | None) -> li
 
 
 def _search(args, field, value):
-    """(창, 노드, 일치, 실패, 초). overlay 는 일치가 있는 첫 창 — 대화상자가 떠 있어도 배너를 찾게."""
+    """(window, nodes, matches, failure, seconds). overlay means the first window with a match — so banners are found even with a dialog open."""
     if args.window != OVERLAY_QUERY:
         window, nodes, failure, elapsed = read_nodes(args)
         return window, nodes, (_filter(nodes, args, field, value) if nodes is not None else []), failure, elapsed

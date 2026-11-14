@@ -1,4 +1,4 @@
-"""`detect` — 무엇을 띄울 수 있는지. 마커 파일만 보고 구조를 알아맞히지 않는다."""
+"""`detect` — what can be launched. Looks only at marker files; does not guess the structure."""
 from __future__ import annotations
 
 import re
@@ -20,7 +20,7 @@ from pro_launch.runtime.output import out
 KINDS = ("app", "web", "server")
 
 
-# projectops 프로젝트 타입 → 띄울 수 있는 것. 한 타입이 여럿을 줄 수 있다.
+# projectops project type → what can be launched. One type can yield several.
 _TYPE_TO_KIND = {
     "flutter": ["app"],
     "react-native": ["app"],
@@ -35,7 +35,7 @@ _TYPE_TO_KIND = {
 
 
 def _version_yml_types(root: Path) -> list[str]:
-    """version.yml의 project_types. yaml 파서를 쓰지 않는다 — 표준 라이브러리만으로 돈다."""
+    """project_types from version.yml. No yaml parser — runs on the standard library only."""
     f = root / "version.yml"
     if not f.is_file():
         return []
@@ -53,7 +53,7 @@ def _version_yml_types(root: Path) -> list[str]:
 
 
 def _marker_kinds(root: Path) -> dict:
-    """파일로 추론한다. version.yml이 없는 레포(대부분의 남의 프로젝트)를 위한 길이다."""
+    """Infer from files. The path for repos without version.yml (most other people's projects)."""
     found: dict[str, list[str]] = {}
 
     def add(kind: str, why: str):
@@ -86,7 +86,7 @@ def _marker_kinds(root: Path) -> dict:
         for f in list(root.rglob(marker))[:10]:
             if "build" in f.parts or "node_modules" in f.parts or ".venv" in f.parts:
                 continue
-            # Flutter 앱의 android/build.gradle을 서버로 오해하면 안 된다
+            # A Flutter app's android/build.gradle must not be mistaken for a server
             if marker.startswith("build.gradle") and "android" in f.parts:
                 continue
             add("server", f"{f.relative_to(root)} ({why})")
@@ -95,7 +95,7 @@ def _marker_kinds(root: Path) -> dict:
 
 
 def detect_kinds(root: Path) -> dict:
-    """version.yml 선언 → 마커 파일 순. 선언은 '무엇인가'일 뿐이라 agent 가 확인한다."""
+    """version.yml declaration → marker files. A declaration only says 'what it is', so the agent confirms."""
     types = _version_yml_types(root)
     if types:
         kinds: list[str] = []
@@ -111,7 +111,7 @@ def detect_kinds(root: Path) -> dict:
 
 
 def _app_base_urls(root: Path) -> list[str]:
-    """**Flutter 앱 전용.** .env와 dart 설정에서 앱이 바라보는 주소를 모은다."""
+    """**Flutter apps only.** Collect the addresses the app points at from .env and dart config."""
     found: list[str] = []
     candidates = [root / ".env"]
     candidates += list((root / "lib" / "core").rglob("*config*.dart"))
@@ -127,7 +127,7 @@ def _app_base_urls(root: Path) -> list[str]:
 
 
 def _web_base_urls(root: Path) -> list[str]:
-    """웹이 뜨는 주소 후보. 없으면 사용자에게 묻는 수밖에 없다."""
+    """Candidate addresses where the web app runs. If none, the only option is to ask the user."""
     urls: list[str] = []
     for f in list(root.rglob("package.json"))[:20]:
         if "node_modules" in f.parts:
@@ -150,7 +150,7 @@ def _web_base_urls(root: Path) -> list[str]:
                         urls.append(m.group(1))
             except OSError:
                 pass
-    # 흔한 기본값을 마지막에 둔다 — 못 찾았을 때의 출발점
+    # Common defaults go last — a starting point when nothing was found
     for u in ("http://localhost:3000", "http://localhost:5173"):
         if u not in urls:
             urls.append(u)
@@ -158,13 +158,13 @@ def _web_base_urls(root: Path) -> list[str]:
 
 
 def cmd_detect(args) -> int:
-    """무엇을 띄울 수 있는지. 마커 파일·기기·브라우저 준비 상태만 본다."""
+    """What can be launched. Looks only at marker files and device/browser readiness."""
     start = Path(args.path).resolve()
     git_root = run(["git", "-C", str(start), "rev-parse", "--show-toplevel"]).strip()
     root = Path(git_root) if git_root else start
 
     det = detect_kinds(root)
-    # 부르는 쪽이 이미 안다면(확인해 적어 둔 타겟 등) 그 종류의 정보를 모은다 — 감지를 덮는다
+    # If the caller already knows (a confirmed, recorded target etc.), collect info for that kind — overrides detection
     if getattr(args, "kinds", None):
         want = [k.strip() for k in args.kinds.split(",") if k.strip()]
         bad = [k for k in want if k not in KINDS]
@@ -191,7 +191,7 @@ def cmd_detect(args) -> int:
     if "web" in kinds:
         payload["web"] = {"base_urls": _web_base_urls(root), "playwright": playwright_state()}
     if "server" in kinds:
-        # 설정이 어디 있고 어떻게 붙는지는 **여기서 맞히지 않는다** (#589).
+        # Where config lives and how to connect is **not guessed here** (#589).
         saved = load_access(root)
         bu = saved.get("base_url")
         payload["server"] = {

@@ -1,4 +1,4 @@
-"""`app openurl` — 딥링크·URL 을 기기에서 연다 (iOS simctl openurl · Android VIEW 인텐트)."""
+"""`app openurl` — open a deep link or URL on the device (iOS simctl openurl, Android VIEW intent)."""
 from __future__ import annotations
 
 import shlex
@@ -23,7 +23,7 @@ def _app_openurl(args) -> int:
     if err is not None:
         return err
     if platform == "android":
-        # adb shell 은 인자를 기기 셸에서 다시 해석한다 — & ? 가 든 URL 이 잘리지 않게 따옴표로 감싼다
+        # adb shell re-parses arguments in the device shell — quote the URL so & and ? do not cut it off
         command = ["shell", "am", "start", "-W", "-a", "android.intent.action.VIEW", "-d", shlex.quote(url)]
         if getattr(args, "pkg", None):
             command += ["-p", args.pkg]

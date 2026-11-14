@@ -1,10 +1,10 @@
-"""`desktop` 입력 동작이 함께 쓰는 순서 — ref 다시 찾기 · 위험 버튼 · 마우스 없이 · 사용자 개입 · 결과 확인 (#985).
+"""Shared sequence for `desktop` input actions — re-find ref, dangerous buttons, no mouse, user intervention, result check (#985).
 
-누르는 순서
-    1) 창이 앞에 없으면 앞으로
-    2) 요소가 패턴을 지원하면 마우스 없이 실행     transport: invoke
-    3) 아니면 사용자 개입을 확인한 뒤 마우스로     transport: mouse
-    4) 화면 비교 → screen_changed, 멈출 때까지 기다린 뒤 --shot
+Press order
+    1) Bring the window to front if it is not
+    2) If the element supports a pattern, run it without the mouse     transport: invoke
+    3) Otherwise check for user intervention, then use the mouse     transport: mouse
+    4) Compare screens → screen_changed, wait until settled, then --shot
 """
 from __future__ import annotations
 
@@ -17,9 +17,9 @@ from pro_launch.commands.desktop.common import save_shot, screen_digest, settle,
 from pro_launch.runtime import desktop_state
 from pro_launch.runtime.mutating import is_mutating_label
 
-# 누르기에 쓰는 패턴 우선순위 (입력값을 넣는 set_value 는 type 이 쓴다)
+# Pattern priority for pressing (set_value, which enters values, is used by type)
 PRESS_ACTIONS = ("invoke", "toggle", "select", "expand")
-# 백엔드 perform 이 "찾은 요소가 그 요소가 아니다"를 알리는 이유 문구
+# Reason text the backend perform uses to say "the found element is not that element"
 STALE_REASONS = ("element is gone", "element changed")
 
 
@@ -29,7 +29,7 @@ def stale_failure(detail: str) -> dict:
 
 
 def resolve_ref(be, ref: int) -> tuple[dict | None, dict | None, dict | None]:
-    """(창, 노드, 실패 결과). 마지막 tree·find 의 ref 를 지금 창 목록과 맞춘다."""
+    """(window, node, failure result). Matches the last tree/find ref against the current window list."""
     snap = desktop_state.load_snapshot()
     nodes = snap.get("nodes") or []
     node = next((n for n in nodes if n.get("ref") == ref), None)
@@ -58,7 +58,7 @@ def mutating_refusal(node: dict, is_confirmed: bool) -> dict | None:
 
 
 def named_action_refusal(node: dict, name: str, is_confirmed: bool) -> dict | None:
-    """`click --action` — 노드 문구가 아니라 동작 이름으로 판정한다 (배너 본문은 버튼이 아니다)."""
+    """`click --action` — judged by action name, not node text (a banner body is not a button)."""
     names = node.get("named_actions") or []
     if name not in names:
         return {"ok": False, "code": "action_not_found", "candidates": names, "element": desktop_input.public_node(node),
@@ -72,13 +72,13 @@ def named_action_refusal(node: dict, name: str, is_confirmed: bool) -> dict | No
     return None
 
 
-# 사용자 개입 감지 결과 input_detected 값 → 사람에게 하는 말
+# input_detected value from user-intervention detection → message to the person
 TAKEOVER_WORDS = {"mouse": "moved the mouse", "keyboard": "typed on the keyboard",
                   "keyboard_or_mouse": "used the keyboard or mouse"}
 
 
 def interrupted(input_detected: str, did_not: str, **extra) -> dict:
-    """세션을 멈추고 user_interrupted 결과를 만든다 (마우스·키보드 공통)."""
+    """Pause the session and build a user_interrupted result (mouse and keyboard alike)."""
     words = TAKEOVER_WORDS.get(input_detected, TAKEOVER_WORDS["keyboard_or_mouse"])
     desktop_state.touch_session(paused=True, paused_by=input_detected)
     return {"ok": False, "code": "user_interrupted", "input_detected": input_detected, **extra,
@@ -88,16 +88,16 @@ def interrupted(input_detected: str, did_not: str, **extra) -> dict:
 
 
 def user_input_check(be) -> tuple[float | None, bool]:
-    """(마지막 사용자 입력 뒤 지난 초, 감지 가능한가). OS 가 못 읽으면 (None, False) — 막지 않는다."""
+    """(seconds since last user input, is detectable). (None, False) if the OS cannot tell — does not block."""
     try:
         idle = be.seconds_since_user_input()
-    except Exception:   # noqa: BLE001 — 감지는 보조 안전장치라 실패해도 입력을 막지 않는다 (#985)
+    except Exception:   # noqa: BLE001 — detection is a secondary safeguard, so failure never blocks input (#985)
         idle = None
     return idle, idle is not None
 
 
 def is_reply_to_agent(be) -> bool:
-    """앞 창이 이 CLI 를 띄운 터미널·IDE·Claude 앱인가 — 거기 친 키는 agent 에게 한 답이라 개입이 아니다."""
+    """Is the front window the terminal/IDE/Claude app that launched this CLI — keys typed there answer the agent, not intervention."""
     front = next((w for w in be.windows() if w.get("foreground")), None)
     if not front or not front.get("pid"):
         return False
@@ -105,9 +105,9 @@ def is_reply_to_agent(be) -> bool:
 
 
 def keyboard_takeover_refusal(be, session: dict) -> dict | None:
-    """우리 마지막 입력(last_used) 뒤 사용자가 키를 눌렀으면 세션을 멈춘다 (#985).
+    """If the user pressed a key after our last input (last_used), pause the session (#985).
 
-    감지 불가면 None (fail open). agent 터미널에 친 답(승인 "yes" 등)은 넘긴다.
+    None if undetectable (fail open). Answers typed into the agent terminal (approval "yes" etc.) are let through.
     """
     idle, is_available = user_input_check(be)
     if not is_available:
@@ -120,7 +120,7 @@ def keyboard_takeover_refusal(be, session: dict) -> dict | None:
 
 
 def guarded_mouse_click(be, x: int, y: int, is_double: bool = False) -> tuple[bool, str, dict | None]:
-    """사용자가 마우스를 쓰고 있으면 누르지 않고 세션을 멈춘다. (성공, 이유, 실패 결과)"""
+    """If the user is using the mouse, do not press; pause the session. (success, reason, failure result)"""
     session = desktop_state.my_session() or {}
     if desktop_input.cursor_moved_by_user(session.get("last_cursor"), be.cursor()):
         return False, "user moved the mouse", interrupted("mouse", "click")
@@ -130,7 +130,7 @@ def guarded_mouse_click(be, x: int, y: int, is_double: bool = False) -> tuple[bo
 
 
 def press_node(be, window: dict, node: dict) -> tuple[bool, str, str, dict | None]:
-    """(성공, 이유, transport, 실패 결과). 패턴이 있으면 마우스를 쓰지 않는다."""
+    """(success, reason, transport, failure result). Avoids the mouse when a pattern exists."""
     for action in (a for a in PRESS_ACTIONS if a in (node.get("actions") or [])):
         ok, detail = be.perform(window, node, action)
         if detail in STALE_REASONS:
@@ -138,13 +138,13 @@ def press_node(be, window: dict, node: dict) -> tuple[bool, str, str, dict | Non
         if ok:
             desktop_state.touch_session()
             return True, detail, "invoke", None
-        # 이 패턴이 실패했다 — 다음 패턴, 그다음 마우스
+        # This pattern failed — next pattern, then the mouse
     ok, detail, failure = guarded_mouse_click(be, *node["center"])
     return ok, detail, "mouse", failure
 
 
 def keys_target_refusal(be, window: dict) -> dict | None:
-    """키를 보내기 전 — 시스템 창(배너·팝업)이 정말 앞에 왔는지. 아니면 키가 사용자가 쓰던 앱으로 간다."""
+    """Before sending keys — is the system window (banner, popup) really in front? Otherwise keys go to the app the user was using."""
     if not window.get("overlay"):
         return None
     now = next((w for w in be.windows() if w["handle"] == window["handle"]), None)
@@ -168,7 +168,7 @@ def ensure_front(be, window: dict) -> dict | None:
 
 
 def finish(be, args, region: list[int] | None, before: str | None, payload: dict) -> dict:
-    """화면 변화 · 기다림 · --shot 을 붙인다."""
+    """Attach screen change, wait and --shot."""
     changed, waited = settle(be, region, before)
     payload.update(screen_changed=changed, settle_seconds=waited)
     if changed is False:

@@ -1,4 +1,4 @@
-"""`local` — 저장된 자격증명으로 이 맥에서 sudo 명령을 실행한다."""
+"""`local` — run a sudo command on this Mac with a saved credential."""
 from __future__ import annotations
 
 import shutil
@@ -12,10 +12,10 @@ from pro_launch.runtime.output import out
 
 
 def cmd_local(args) -> int:
-    """저장된 자격증명으로 이 맥에서 sudo 명령을 실행한다 (#784).
+    """Run a sudo command on this Mac with a saved credential (#784).
 
-    비밀번호는 `sudo -S` 의 표준입력으로만 넘긴다 — 명령줄(ps)·응답·로그에 남지 않는다.
-    kind 가 local 인 자격증명만 쓴다: 서버 ssh 비밀번호로 이 맥에 sudo 를 시도하면 안 된다.
+    The password goes only through `sudo -S` stdin — never on the command line (ps), in responses or logs.
+    Only credentials with kind local are used: a server ssh password must not be tried for sudo on this Mac.
     """
     if not args.cred:
         return out({"ok": False, "code": "cred_required", "error": "--cred is required",
@@ -56,7 +56,7 @@ def configure_local(p) -> None:
     p.add_argument("--cred", default=None, help="Name of a credential with kind local (cred list)")
     p.add_argument("--timeout", type=int, default=300)
     p.add_argument("--max-output", dest="max_output", type=int, default=20000)
-    # 실행할 명령은 `--` 뒤에 둔다. main() 이 파서 전에 잘라 args.command 로 넣는다.
+    # The command to run goes after `--`. main() cuts it off before the parser and puts it in args.command.
 
 
 COMMANDS = [

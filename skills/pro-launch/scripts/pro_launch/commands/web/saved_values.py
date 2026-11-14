@@ -1,8 +1,8 @@
-"""화면에서 읽은 값을 출력하지 않고 저장 — `web value --save-env` · `web clipboard --save-env` (#930).
+"""Save values read from the screen without printing them — `web value --save-env` / `web clipboard --save-env` (#930).
 
-입력칸 안 · 복사 버튼으로만 나오는 비밀값(Client Secret · 키 해시)을 OCR · pbpaste 로 읽어 대화 기록에 남겼다.
-값은 상태 폴더의 0600 파일(`export 이름='값'`)에만 쓰고, 결과에는 길이와 sha256 앞 12자만 싣는다.
-`web type --text-env 이름` 은 환경변수에 없으면 이 파일에서 읽는다 — source 없이 바로 쓴다.
+Secrets shown only inside inputs or via copy buttons (Client Secret, key hash) were read via OCR / pbpaste and left in the conversation log.
+Values are written only to a 0600 file in the state folder (`export NAME='value'`); results carry only the length and first 12 chars of sha256.
+`web type --text-env NAME` reads from this file when the environment variable is missing — usable directly without source.
 """
 from __future__ import annotations
 
@@ -14,10 +14,10 @@ from pathlib import Path
 
 from pro_launch.runtime.context import state_home
 
-# 상태 폴더 안의 저장 파일 이름 (사용자만 읽기 · 쓰기)
+# Name of the save file inside the state folder (user read/write only)
 SAVED_VALUES_FILE = "saved-values.env"
 FILE_MODE = 0o600
-# 셸 변수 이름 규칙
+# Shell variable name rule
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 HASH_PREFIX_CHARS = 12
 
@@ -27,12 +27,12 @@ def saved_values_path(root: Path) -> Path:
 
 
 def _sh_quote(value: str) -> str:
-    """작은따옴표로 감싼다 — 큰따옴표면 $ 가 전개되어 다른 값이 된다"""
+    """Wrap in single quotes — with double quotes $ expands and the value changes"""
     return "'" + value.replace("'", "'\\''") + "'"
 
 
 def read_saved_values(root: Path) -> dict[str, str]:
-    """저장 파일 > {이름: 값}. 없거나 못 읽으면 빈 dict"""
+    """Save file > {name: value}. Empty dict if missing or unreadable"""
     try:
         lines = saved_values_path(root).read_text(encoding="utf-8").splitlines()
     except OSError:
@@ -54,13 +54,13 @@ def is_valid_env_name(name: str) -> bool:
 
 
 def save_value(root: Path, name: str, value: str) -> dict:
-    """값을 저장하고 > 결과에 실을 요약(이름 · 파일 · 길이 · 해시 앞자리). 값 자체는 돌려주지 않는다"""
+    """Save the value > summary for the result (name, file, length, hash prefix). Never returns the value itself"""
     values = read_saved_values(root)
     values[name] = value
     path = saved_values_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     body = "".join(f"export {key}={_sh_quote(saved)}\n" for key, saved in values.items())
-    # 만들 때부터 0600 — 쓰고 나서 권한을 바꾸면 그 사이에 읽힐 수 있다
+    # 0600 from creation — changing permissions after writing leaves a window where it can be read
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, FILE_MODE)
     with os.fdopen(descriptor, "w", encoding="utf-8") as saved_file:
         saved_file.write(body)

@@ -1,6 +1,6 @@
-"""`device boot` · `device reboot` — 가상 기기를 띄우고 다시 띄운다. 쓸 수 있을 때까지 기다린다 (#924 · 창 크기).
+"""`device boot` / `device reboot` — boot and reboot virtual devices and wait until usable (#924 · window size).
 
-띄우는 길은 하나(runtime/device_boot.py)다 — reboot --cold 도 같은 launcher 를 쓴다.
+There is one boot path (runtime/device_boot.py) — reboot --cold uses the same launcher.
 """
 from __future__ import annotations
 
@@ -14,13 +14,13 @@ from pro_launch.runtime.devices import list_devices
 from pro_launch.runtime.host_resources import MEMORY_RISK_NEXT, critical_pressure_failure, memory_risk_fields
 from pro_launch.runtime.output import out
 
-# adb reboot 뒤 기기가 내려가기를 기다리는 시간 (초) — 바로 ready 를 보면 내려가기 전 상태를 읽는다
+# Seconds to wait for the device to go down after adb reboot — checking ready right away reads the pre-shutdown state
 SOFT_REBOOT_DOWN_SECONDS = 6
 WAIT_FOR_DEVICE_TIMEOUT_SECONDS = 180
 
 
 def _window_options(args):
-    """(모드, 배율, 오류 응답). 배율 범위를 검사한다."""
+    """(mode, scale, error response). Validates the scale range."""
     if not device_boot.is_valid_scale(args.scale):
         return None, None, out({"ok": False, "code": "args_invalid",
                                 "error": f"--scale must be {device_boot.WINDOW_SCALE_MINIMUM}–{device_boot.WINDOW_SCALE_MAXIMUM}",
@@ -39,7 +39,7 @@ def _unresponsive(action: str, serial: str, ready: dict, **extra) -> int:
 
 
 def _android_started(action: str, avd: str, launched: dict, mode: str, scale, **extra) -> int:
-    """에뮬레이터를 띄운 뒤: adb 에 나타남(가속 실패 징후면 끄고 끝) > 준비 완료 대기 > 응답."""
+    """After launching the emulator: appears in adb (stop on acceleration-failure signs) > wait until ready > response."""
     serial = launched["serial"]
     appeared = device_boot.wait_for_emulator(serial, launched["log"], pid=launched.get("pid"))
     if not appeared["is_ok"]:
@@ -48,7 +48,7 @@ def _android_started(action: str, avd: str, launched: dict, mode: str, scale, **
         return out({"ok": False, "code": "emulator_no_acceleration" if appeared["problem"] else "emulator_start_failed",
                     "action": action, "device": serial, "avd": avd, "log": launched["log"],
                     "error": appeared["problem"] or "The emulator did not appear in adb", **extra,
-                    # 로그 끝부분 · 프로세스 생존 — 로그 파일 따로 안 열고 원인 판단 (#987)
+                    # Log tail and process liveness — judge the cause without opening the log file (#987)
                     "log_tail": appeared.get("log_tail", ""), "process_alive": appeared.get("process_alive"),
                     **android_device.host_pressure_fields(),
                     "next": f"Read the log: {launched['log']}"})
@@ -82,7 +82,7 @@ def run_boot(args) -> int:
     mode, scale, err = _window_options(args)
     if err is not None:
         return err
-    # 새 기기를 띄우기 전 호스트 메모리 — critical 이면 사용자 승인(--user-approved)만 넘는다 (#883 · #972)
+    # Host memory before booting a new device — when critical, only user approval (--user-approved) passes (#883 · #972)
     if not is_user_approved(args) and (failure := critical_pressure_failure("device boot", is_user_approvable=True)):
         return out(failure)
     simulators = device_boot.find_ios_simulators(args.device)
@@ -117,12 +117,12 @@ def run_boot(args) -> int:
 
 
 def is_user_approved(args) -> bool:
-    """사용자가 메모리 위험을 보고 진행하라고 답했다 — 위험 게이트를 넘는 유일한 표시 (--yes 는 넘지 않는다)."""
+    """The user saw the memory risk and said go ahead — the only flag that passes the risk gate (--yes does not)."""
     return bool(getattr(args, "user_approved", False))
 
 
 def _budget_refusal(platform: str, args) -> int | None:
-    """새로 켜기 전 메모리 예산 (#964) — 넘으면 --user-approved 없이 멈춘다."""
+    """Memory budget before booting (#964) — stops without --user-approved if exceeded."""
     if is_user_approved(args):
         return None
     reason = device_capacity.boot_block_reason(platform, device_pool_facts.booted_virtual_counts())
@@ -141,7 +141,7 @@ def run_reboot(args) -> int:
     mode, scale, err = _window_options(args)
     if err is not None:
         return err
-    # 다시 켜면 그 기기의 앱 상태가 사라진다 — 다른 세션이 쥔 기기는 --yes 없이 멈춘다
+    # Rebooting wipes that device's app state — stop without --yes on devices held by another session
     if not args.yes and (refusal := refuse_other_session_owner(dev_id, "reboot")) is not None:
         return refusal
     touch_device(dev_id, str(project_root(args)))
@@ -152,7 +152,7 @@ def run_reboot(args) -> int:
                         "step": "shutdown", "error": detail[-300:], "next": "Check the state with xcrun simctl list devices"})
         return _ios_result("reboot", dev_id, device_boot.boot_ios(dev_id, mode, scale))
     if not args.cold:
-        # 소프트: adb reboot > 내려갔다 올라오기를 기다림 > 준비 완료
+        # Soft: adb reboot > wait for it to go down and come back > ready
         android_device.adb(dev_id, "reboot", timeout=30)
         time.sleep(SOFT_REBOOT_DOWN_SECONDS)
         android_device.adb(dev_id, "wait-for-device", timeout=WAIT_FOR_DEVICE_TIMEOUT_SECONDS)
@@ -166,7 +166,7 @@ def run_reboot(args) -> int:
         return out({"ok": False, "code": "unsupported_on_platform", "action": "reboot", "platform": "android",
                     "device": dev_id, "error": "--cold works only for emulators (a physical device cannot be powered off)",
                     "next": "device reboot --device <serial>  # soft reboot"})
-    # 끄기(emu kill > qemu 강제 종료) > 같은 포트로 -no-snapshot-load 부팅
+    # Power off (emu kill > force-kill qemu) > boot with -no-snapshot-load on the same port
     killed = device_boot.kill_emulator(dev_id, avd)
     if not killed["is_gone"]:
         return out({"ok": False, "code": "emulator_kill_failed", "action": "reboot", "device": dev_id, "avd": avd,

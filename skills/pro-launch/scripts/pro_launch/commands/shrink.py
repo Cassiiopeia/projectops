@@ -1,4 +1,4 @@
-"""`shrink` — 이슈 첨부용으로 이미지를 줄인다."""
+"""`shrink` — shrink images for issue attachments."""
 from __future__ import annotations
 
 from pathlib import Path

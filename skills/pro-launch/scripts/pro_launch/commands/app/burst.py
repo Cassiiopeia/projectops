@@ -1,7 +1,7 @@
-"""`--burst SECONDS[:INTERVAL]` — 동작 전부터 연속 캡처해 바뀐 프레임만 남긴다 (#928).
+"""`--burst SECONDS[:INTERVAL]` — capture continuously from before the action and keep only changed frames (#928).
 
-흐름: 동작 전 캡처 스레드 시작 > 동작 > SECONDS 초 더 캡처 > 같은 화면 걸러내기 > 프레임 파일 저장.
-"탭이 캡처보다 늦게 실행됨" 을 없애려고 캡처를 먼저 띄운다. 비교는 바이트 해시 (Pillow 없이도 돈다).
+Flow: start capture thread before the action > action > capture SECONDS more > drop identical screens > save frame files.
+Capture starts first to avoid "the tap ran before the capture". Comparison uses byte hashes (works without Pillow).
 """
 from __future__ import annotations
 
@@ -15,17 +15,17 @@ from common.image import to_webp
 from pro_launch.runtime.context import project_root
 from pro_launch.runtime.shots import shot_folder
 
-# 동작 뒤 더 찍는 시간 상한 (초) · 캡처 간격 기본·하한 (초) · 한 번에 모으는 프레임 상한 (기기가 느리면 간격이 늘어난다)
+# Max extra capture time after the action (seconds), default and minimum capture interval (seconds), max frames collected (interval grows on slow devices)
 MAXIMUM_BURST_SECONDS = 30.0
 DEFAULT_BURST_INTERVAL_SECONDS = 0.4
 MINIMUM_BURST_INTERVAL_SECONDS = 0.1
 MAXIMUM_BURST_FRAME_COUNT = 150
-# args 에 몰래 얹는 진행 상태 이름 (한 호출 안에서만 산다)
+# Name of the progress state quietly attached to args (lives only within one call)
 BURST_STATE_ATTRIBUTE = "_burst_state"
 
 
 def burst_spec(raw: str) -> tuple[float, float]:
-    """'3' 또는 '5:0.3' > (뒤로 더 찍을 초, 간격 초). argparse type 용."""
+    """'3' or '5:0.3' > (extra seconds to capture, interval seconds). For argparse type."""
     seconds_text, _, interval_text = raw.partition(":")
     try:
         seconds = float(seconds_text)
@@ -38,7 +38,7 @@ def burst_spec(raw: str) -> tuple[float, float]:
 
 
 def start_burst(args, be, dev_id: str) -> None:
-    """--burst 가 있으면 캡처 스레드를 띄운다. 없으면 아무것도 안 한다."""
+    """Start the capture thread if --burst is given. Otherwise do nothing."""
     spec = getattr(args, "burst", None)
     if not spec:
         return
@@ -59,7 +59,7 @@ def start_burst(args, be, dev_id: str) -> None:
 
 
 def changed_frames(frames: list[tuple[float, bytes]]) -> list[tuple[float, bytes]]:
-    """연속 프레임 중 앞 프레임과 달라진 것만 (첫 프레임은 기준이라 항상 남긴다)."""
+    """Only frames that differ from the previous one (the first frame is the baseline and always kept)."""
     kept: list[tuple[float, bytes]] = []
     previous_digest = None
     for at_seconds, data in frames:
@@ -71,7 +71,7 @@ def changed_frames(frames: list[tuple[float, bytes]]) -> list[tuple[float, bytes
 
 
 def finish_burst(args) -> dict:
-    """동작 뒤 SECONDS 초 더 찍고 마무리 > {"burst": {...}} (--burst 가 없으면 빈 dict)."""
+    """Capture SECONDS more after the action and finish > {"burst": {...}} (empty dict without --burst)."""
     state = getattr(args, BURST_STATE_ATTRIBUTE, None)
     if not state:
         return {}

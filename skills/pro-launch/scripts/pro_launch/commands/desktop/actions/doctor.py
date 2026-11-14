@@ -1,4 +1,4 @@
-"""`desktop doctor` — 의존성 · 권한 · 보안 화면 · 입력 세션 상태를 한 번에 본다."""
+"""`desktop doctor` — checks dependencies, permissions, secure screen and input session at once."""
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import load_backend
@@ -26,7 +26,7 @@ def execute(args) -> int:
                "summary": f"{be.name}: {len(windows)} windows" + (f", missing {', '.join(missing)}" if missing else ""),
                "next": "desktop windows" if not missing else None}
     if missing:
-        # 호스트 앱 이름 · 켤 곳 · 사람만 켤 수 있다는 것 (#1132)
+        # Host app name, where to turn it on, and that only a person can (#1132)
         payload.update(permission_guidance(missing))
     return out(payload)
 

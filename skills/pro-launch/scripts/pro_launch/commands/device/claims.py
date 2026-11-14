@@ -1,6 +1,6 @@
-"""`device claim` — 이 세션이 특정 기기를 쥐었다고 알린다 (#925). 반납은 pool.run_release (#953).
+"""`device claim` — announce that this session holds a specific device (#925). Release is pool.run_release (#953).
 
-공용 도우미: 기기 해석 · 남의 소유 거부 · 기록된 설정 되돌리기 명령 실행.
+Shared helpers: resolve device, refuse others' ownership, run recorded setting-revert commands.
 """
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ from pro_launch.runtime.devices import no_device_response, pick_device
 from pro_launch.runtime.output import out
 from pro_launch.runtime.session_identity import session_identity
 
-# 되돌리기 명령 하나의 최대 대기 (초) — iOS 시뮬레이터 재부팅(bootstatus)이 들어 있다
+# Max wait (s) for one revert command — includes an iOS simulator reboot (bootstatus)
 RESTORE_COMMAND_TIMEOUT_SECONDS = 300
 
 
 def resolve_device(args):
-    """(플랫폼, 기기 id, 오류 응답). 이름 없는 booted 는 쥘 수 없다."""
+    """(platform, device id, error response). An unnamed booted cannot be held."""
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return None, None, no_device_response(dev, args.device)
@@ -28,7 +28,7 @@ def resolve_device(args):
 
 
 def refuse_other_session_owner(dev_id: str, action: str) -> int | None:
-    """다른 살아 있는 세션이 쥔 기기에서 --yes 없이는 멈춘다. 통과면 None."""
+    """Stops without --yes on devices held by another live session. None if allowed."""
     owner = device_claims.check_device_owner(dev_id)
     if owner is None:
         return None
@@ -38,7 +38,7 @@ def refuse_other_session_owner(dev_id: str, action: str) -> int | None:
 
 
 def run_restore_commands(setting: dict) -> dict:
-    """기록된 되돌리기 명령을 차례로 실행 > {key, is_ok, failed_command, detail}. 하나가 실패하면 멈춘다."""
+    """Run recorded revert commands in order > {key, is_ok, failed_command, detail}. Stops at the first failure."""
     for command in setting.get("restore_commands") or []:
         try:
             r = subprocess.run(command, capture_output=True, text=True, errors="replace", timeout=RESTORE_COMMAND_TIMEOUT_SECONDS)

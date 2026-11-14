@@ -1,7 +1,7 @@
-"""`device locale` · `device appearance` — 기기 전역 설정(언어·지역·다크 모드)을 바꾸고 원래 값을 기록한다 (#929 · #925).
+"""`device locale` / `device appearance` — change device-wide settings (language, region, dark mode) and record the original value (#929 · #925).
 
-바꾸기 전 값을 device_claims 에 남기므로 `--restore` 나 `device release` 가 되돌린다.
-iOS 시스템 언어는 기기를 다시 켜야 반영된다(그 시뮬레이터의 앱 상태가 사라진다). Android 앱별 언어는 API 33+.
+The previous value is kept in device_claims, so `--restore` or `device release` reverts it.
+iOS system language needs a reboot to apply (that simulator's app state is wiped). Android per-app language needs API 33+.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pro_launch.runtime import device_boot
 from pro_launch.runtime.device_claims import pop_device_setting
 from pro_launch.runtime.output import out
 
-# Android 앱별 언어(cmd locale set-app-locales)가 생긴 API
+# API that introduced Android per-app language (cmd locale set-app-locales)
 APP_LOCALE_MINIMUM_SDK = 33
 APPEARANCE_MODES = ("light", "dark")
 _ANDROID_NIGHT_BY_MODE = {"light": "no", "dark": "yes"}
@@ -66,7 +66,7 @@ def run_appearance(args) -> int:
 
 
 def _ios_domain_values(udid: str, domain: str) -> dict:
-    """iOS defaults 의 AppleLanguages(목록) · AppleLocale(문자열). 없으면 None."""
+    """iOS defaults AppleLanguages (list) and AppleLocale (string). None if absent."""
     base = ["xcrun", "simctl", "spawn", udid, "defaults", "read", domain]
     is_ok, text = _run([*base, "AppleLanguages"])
     languages = [t.strip().strip('",') for t in text.splitlines() if t.strip() not in ("(", ")")] if is_ok else None
@@ -75,7 +75,7 @@ def _ios_domain_values(udid: str, domain: str) -> dict:
 
 
 def _ios_write_commands(udid: str, domain: str, values: dict) -> list[list[str]]:
-    """값을 쓰는 명령들. 값이 None 이면 키를 지운다 (원래 없던 키를 되돌릴 때)."""
+    """Commands that write the value. A None value deletes the key (when reverting a key that did not exist)."""
     spawn = ["xcrun", "simctl", "spawn", udid, "defaults"]
     commands = []
     if values["languages"]:
@@ -93,7 +93,7 @@ def _locale_ios(args, dev_id: str, key: str, lang: str, region: str | None) -> i
     domain = args.app or "-g"
     before = _ios_domain_values(dev_id, domain)
     after = {"languages": [lang], "locale": f"{lang}_{region}" if region else lang}
-    # 시스템 언어는 재부팅해야 반영된다 — 되돌릴 때도 같다
+    # System language applies only after reboot — reverting too
     reboot = [["xcrun", "simctl", "shutdown", dev_id], ["xcrun", "simctl", "boot", dev_id],
               ["xcrun", "simctl", "bootstatus", dev_id, "-b"]]
     _recorded(key, dev_id, before, [*_ios_write_commands(dev_id, domain, before), *(reboot if not args.app else [])],
@@ -174,7 +174,7 @@ def run_locale(args) -> int:
         return _restore(dev_id, platform, key, "locale")
     if not args.lang:
         return _fail("args_required", "--lang is required", "device locale --device $DEV --lang en --region US")
-    # 시스템 언어 변경은 재부팅(iOS)·전역 변경이라 다른 세션 소유 기기에서는 --yes 가 필요하다
+    # System language change means reboot (iOS) and a global change, so devices held by other sessions need --yes
     if not args.app and not args.yes and (refusal := refuse_other_session_owner(dev_id, "locale")) is not None:
         return refusal
     handler = _locale_ios if platform == "ios" else _locale_android

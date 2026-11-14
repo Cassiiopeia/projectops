@@ -1,4 +1,4 @@
-"""`web viewport` — 폭을 바꿔 찍는다."""
+"""`web viewport` — change the width for captures."""
 from __future__ import annotations
 
 import re
@@ -9,19 +9,19 @@ from pro_launch.runtime.browser import write_state
 from pro_launch.runtime.output import out
 
 
-# 폭을 바꿔 찍을 때 쓰는 이름. 숫자를 외우지 않게 한다.
+# Names for widths used in captures, so nobody has to memorize numbers.
 VIEWPORT_PRESETS = {"mobile": (390, 844), "tablet": (820, 1180), "desktop": (1280, 800)}
 
 
 def _web_viewport(args, state: dict, state_f: Path) -> int:
-    """폭을 바꿔 찍는다. 값은 상태 파일에 남아 다음 연결에도 걸린다."""
+    """Change the width for captures. The value stays in the state file and applies to later attaches."""
     if args.clear:
         state["viewport"] = None
         write_state(state_f, state)
         return out({"action": "viewport", "viewport": None,
                     "summary": "Viewport cleared (follows the window size)"})
     preset = args.preset or ""
-    # --width/--height 는 자주 짐작해서 쓰는 형태 — 390x844 와 같은 뜻이다 (#931)
+    # --width/--height is a commonly guessed form — same meaning as 390x844 (#931)
     if args.width or args.height:
         if not (args.width and args.height):
             return out({"ok": False, "code": "bad_viewport", "viewport": None,

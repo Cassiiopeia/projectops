@@ -1,4 +1,4 @@
-"""`access` — 서버에 붙는 법을 적어 두고 꺼내 쓴다."""
+"""`access` — record how to reach a server and read it back."""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,7 @@ from pro_launch.runtime.output import out
 
 
 def cmd_access(args) -> int:
-    """이 프로젝트에 어떻게 붙는지를 적어 두고 꺼내 쓴다. 비밀번호는 **값을 적지 않는다.**"""
+    """Record how to reach this project and read it back. Passwords: **never write the value.**"""
     root = project_root(args)
     state_home(root)
     data = load_access(root)
@@ -44,13 +44,13 @@ def cmd_access(args) -> int:
                                  'write only {"cred":"<name>"} to access (to read it from an environment variable: {"password_env":"APP_DB_PASSWORD"})')})
         data[args.key] = value
         f = save_access(root, data)
-        reset_status(root, args.key)   # 방법이 바뀌었으면 옛 성적은 의미가 없다
+        reset_status(root, args.key)   # a changed method makes the old track record meaningless
         return out({"file": str(f), "key": args.key, "access": data,
                     "summary": f"{args.key} recorded"})
 
     if args.action == "unset":
         if not args.key:
-            # set 과 같게 --key 를 요구한다. 없으면 "None 가 없습니다" 로 성공 처리돼 오해를 부른다 (#713)
+            # Require --key like set does. Without it, "None not found" is treated as success and misleads (#713)
             return out({"ok": False, "code": "key_required",
                         "error": "--key is required (db · logs · base_url, etc.)"})
         if args.key in data:

@@ -1,4 +1,4 @@
-"""`cred` — 이름 붙은 자격증명을 저장하고 꺼낸다."""
+"""`cred` — save and read named credentials."""
 from __future__ import annotations
 
 import json
@@ -12,9 +12,9 @@ from pro_launch.runtime.output import out
 
 
 def _prune_old_ssh(plan: list) -> dict:
-    """가져온 서버를 옛 `ssh` 섹션에서 지운다. 값이 cred 에 실제로 있는 것만, 지우기 전에 백업한다.
+    """Remove imported servers from the old `ssh` section. Only those actually present in cred, backed up before removal.
 
-    참조(`ssh_server`)로 만든 것은 옛 섹션이 아직 필요하므로 지우지 않는다.
+    Ones created as references (`ssh_server`) still need the old section, so they are not removed.
     """
     import shutil
     moved = {p["name"] for p in plan if p["status"] in ("imported", "exists")
@@ -45,11 +45,11 @@ def _prune_old_ssh(plan: list) -> dict:
 
 
 def _cred_import_ssh(args) -> int:
-    """옛 pro-ssh `ssh` 섹션 서버를 launch 자격증명으로 옮긴다.
+    """Move servers from the old pro-ssh `ssh` section into launch credentials.
 
-    **서버 정보는 cred 한 곳에 둔다** — 기본은 host·user·password 값까지 복사한다. 옛 섹션을 계속 쓰고
-    싶으면 `--ref`(참조만 만든다, 비밀번호는 옛 섹션에 남는다). `--prune` 은 가져온 서버를 옛 섹션에서
-    지운다(config 를 먼저 백업한다). 응답에는 비밀 값을 싣지 않는다.
+    **Server info lives in cred only** — by default host, user and password values are copied. To keep using the old
+    section, use `--ref` (creates a reference only; the password stays in the old section). `--prune` removes imported servers
+    from the old section (backs up config first). Secret values are never put in the response.
     """
     existing = credentials.load_all()
     plan = []
@@ -90,14 +90,14 @@ def _cred_import_ssh(args) -> int:
                          else "Fill use_when · scope with cred set. The old ssh section was not removed")})
 
 
-# cred policy 의 하위 동작 3개 / 이름을 위치 인자로 받는 동작 3개
+# 3 sub-actions of cred policy / 3 actions that take the name as a positional argument
 POLICY_ACTIONS = ("get", "set", "unset")
 NAME_POSITIONAL_ACTIONS = ("show", "set", "unset")
 
 
 def _cred_policy(args) -> int:
-    """로그인 중간 화면 정책 조회·변경 (#905). --name 이 있으면 그 계정, 없으면 전체 기본값"""
-    # 입력 확인 (동작, 키, 값)
+    """Read or change the login interstitial policy (#905). With --name, that account; otherwise the global default"""
+    # Validate input (action, key, value)
     if args.policy_action and args.policy_action not in POLICY_ACTIONS:
         return out({"ok": False, "code": "policy_action_required",
                     "error": f"'{args.policy_action}' is not a policy action (one of {' · '.join(POLICY_ACTIONS)})",
@@ -140,15 +140,15 @@ def _cred_policy(args) -> int:
 
 
 def cmd_cred(args) -> int:
-    """자격증명을 저장하고 꺼낸다. 값은 config.json 에만 남고 목록·조회에서는 가려진다."""
-    # show · set · unset 뒤의 위치 인자는 이름이다 (cred show <이름> == --name, #931)
+    """Save and read credentials. Values stay only in config.json and are masked in list and show."""
+    # The positional argument after show · set · unset is the name (cred show <name> == --name, #931)
     if args.policy_action and args.action in NAME_POSITIONAL_ACTIONS and not args.name:
         args.name, args.policy_action = args.policy_action, None
     elif args.policy_action and args.action in NAME_POSITIONAL_ACTIONS:
         return out({"ok": False, "code": "unexpected_argument",
                     "error": f"Name given twice: {args.policy_action} and --name {args.name}",
                     "next": f"cred {args.action} --name {args.name}"})
-    # get · set · unset 은 policy 전용 하위 동작 (다른 동작에 붙으면 조용히 무시하지 않는다)
+    # get · set · unset are policy-only sub-actions (not silently ignored on other actions)
     if args.policy_action and args.action != "policy":
         return out({"ok": False, "code": "unexpected_argument",
                     "error": f"'{args.policy_action}' is a sub-action used only with cred policy",
@@ -187,14 +187,14 @@ def cmd_cred(args) -> int:
             except json.JSONDecodeError as e:
                 return out({"ok": False, "code": "bad_json", "error": f"Invalid --json: {e}"})
             if args.prompt:
-                # 이 맥의 sudo 비밀번호(#784). 채팅이나 파이프로 받지 않는다 — 세션 기록에 평문이 남기 때문이다.
-                # 사용자가 터미널에서 직접 치게 하고(입력은 화면에 보이지 않는다) 그 값만 저장한다.
+                # This Mac's sudo password (#784). Never taken via chat or pipe — the session log would keep it in plain text.
+                # The user types it in the terminal (input is hidden) and only that value is saved.
                 if not sys.stdin.isatty():
                     return out({"ok": False, "code": "no_tty",
                                 "error": "The password must be typed in a terminal (not accepted via chat or pipe)",
                                 "next": f"User, in a terminal: launch_cli.py cred set --name {name} --prompt"})
                 import getpass
-                # kind: ssh 면 서버 접속 비밀번호(#946), 아니면 이 맥의 sudo 비밀번호
+                # kind: ssh means the server login password (#946); otherwise this Mac's sudo password
                 is_ssh_server = (fields or {}).get("kind") == "ssh"
                 pw = getpass.getpass("Server SSH password: " if is_ssh_server else "sudo password for this Mac: ")
                 if not pw:
@@ -223,7 +223,7 @@ def cmd_cred(args) -> int:
 
 def configure_cred(p) -> None:
     p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh", "policy"])
-    # policy 전용: get · set · unset (로그인 중간 화면 정책, #905). show·set·unset 에서는 이름으로 읽는다 (#931)
+    # policy only: get · set · unset (login interstitial policy, #905). show·set·unset read it as the name (#931)
     p.add_argument("policy_action", nargs="?", default=None, metavar="policy_action|name")
     p.add_argument("--name", default=None)
     p.add_argument("--dry-run", dest="dry_run", action="store_true",
@@ -237,7 +237,7 @@ def configure_cred(p) -> None:
     p.add_argument("--json", dest="json_value", default=None,
                    help='Content to save (JSON). e.g. {"kind":"ssh","host":"h","port":22,"user":"u","use_when":"..."}')
     p.add_argument("--replace", action="store_true", help="set: replace the entry instead of merging")
-    # --key · --value 는 choices 를 두지 않는다 — 잘못된 값도 JSON code 로 돌려주기 위해
+    # --key · --value have no choices — so invalid values still come back as a JSON code
     p.add_argument("--key", default=None, help="policy: trust_device · keep_signed_in · skip_nags")
     p.add_argument("--value", default=None, help="policy set: ask · always · never")
     p.add_argument("--reveal", action="store_true", help="show: reveal secret values too (only when really needed)")

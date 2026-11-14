@@ -1,7 +1,7 @@
-"""`app` — 앱 화면을 찍고 · 띄우고 · 끄고 · 글자를 넣고 · 누르고 · 민다 · 위치·권한·푸시·딥링크를 건다.
+"""`app` — capture, launch, stop, type into, tap and swipe app screens; set location, permissions, push and deep links.
 
-동작 하나는 `actions/` 의 모듈 하나다. 플랫폼(Android·iOS)마다 다른 것은 `scripts/app_input.py` 의
-백엔드가 전부 맡는다 — 새 플랫폼은 거기에 백엔드를 추가하고 이 폴더는 건드리지 않는다.
+Each action is one module in `actions/`. Everything that differs per platform (Android, iOS) lives in the
+backends of `scripts/app_input.py` — a new platform adds a backend there and leaves this folder alone.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ ACTIONS = discover_actions(_actions)
 
 
 def configure(p) -> None:
-    # 여러 동작이 함께 쓰는 옵션. 한 동작만 쓰는 옵션은 그 동작의 configure 에 둔다
+    # Options shared by several actions. Options used by one action live in that action's configure
     p.add_argument("action", choices=sorted(ACTIONS))
     p.add_argument("--shot", default=None, help="tap·swipe·back·run: take a shot right after (name or path) — saves a separate shot call")
     p.add_argument("--root", default=".")
@@ -38,13 +38,13 @@ def configure(p) -> None:
 
 def cmd_app(args) -> int:
     MEMORY_CTX["root"] = project_root(args)
-    # 이 앱에 맞는 하네스(안내서)를 응답에 싣는다 — 여기서는 직접 준 --pkg · $PKG 만.
-    # device bind 패키지는 그 패키지를 실제로 쓰는 동작(resolve_target)만 넘긴다 (projectops#1024)
+    # Attach the harness (guide) for this app to the response — here only an explicit --pkg or $PKG.
+    # A device bind package is passed only by actions that actually use it (resolve_target) (projectops#1024)
     set_target(app=getattr(args, "pkg", None) or os.environ.get("PKG"), root=MEMORY_CTX["root"], area=APP_AREA)
-    # 동작이 결과에 elapsed_seconds 를 붙이는 기준점 (기기 고르기·도구 실행 전부 포함)
+    # Reference point for the elapsed_seconds an action adds to its result (includes device pick and tool runs)
     args.started_monotonic = time.monotonic()
     action = ACTIONS.get(args.action, ACTIONS["launch"])
-    # 소유 확인·기록은 여기 한 곳 (동작 선언 device_use)
+    # Ownership check and recording happen here only (declared per action via device_use)
     refusal = gate_device_use(action.device_use, args.device, str(MEMORY_CTX["root"]), bool(getattr(args, "yes", False)))
     if refusal is not None:
         return refusal

@@ -1,7 +1,7 @@
-"""`device text-size` — 기기 전역 글자 크기를 바꾸고 원래 값을 기록한다 (#947).
+"""`device text-size` — change the device-wide text size and record the original value (#947).
 
-큰 글씨에서 레이아웃이 버티는지 보는 QA 용. 바꾸기 전 값을 기록하므로 `--restore` 나 `device release` 가 되돌린다.
-iOS 는 `simctl ui content_size`(콘텐츠 크기 범주), Android 는 `font_scale` 설정.
+For QA of layouts under large text. The previous value is recorded, so `--restore` or `device release` reverts it.
+iOS uses `simctl ui content_size` (content size category), Android the `font_scale` setting.
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pro_launch.commands.device.setting_support import fail, record_change, rest
 from pro_launch.runtime.device_claims import pop_device_setting
 from pro_launch.runtime.output import out
 
-# 이름 하나로 두 플랫폼을 다룬다: (iOS 콘텐츠 크기 범주, Android font_scale)
+# One name covers both platforms: (iOS content size category, Android font_scale)
 TEXT_SIZE_PRESETS = {
     "default": ("large", "1.0"),
     "large": ("accessibility-extra-large", "1.3"),
@@ -23,7 +23,7 @@ SETTING_KEY = "text_size"
 
 
 def _target_values(size: str) -> tuple[str, str] | None:
-    """프리셋 이름 > (iOS 범주, Android 배율). 숫자(1.3)면 Android 배율로, 프리셋이 아닌 글자는 iOS 범주로 그대로"""
+    """Preset name > (iOS category, Android scale). A number (1.3) is an Android scale; non-preset text passes as an iOS category"""
     if size in TEXT_SIZE_PRESETS:
         return TEXT_SIZE_PRESETS[size]
     try:

@@ -1,4 +1,4 @@
-"""`web download` — 눌러서 받은 파일을 이번 실행 폴더에 저장하고 경로·크기를 돌려준다 (#892)."""
+"""`web download` — save the file downloaded by a press into this run's folder and return its path and size (#892)."""
 from __future__ import annotations
 
 import os
@@ -13,9 +13,9 @@ from pro_launch.runtime.shots import shot_folder
 
 
 def download_path(root: Path, out_name: str | None, suggested: str) -> Path:
-    """저장 경로. 경로를 주면 그대로, 이름만 주면 실행 폴더($SHOT_DIR) 아래, 없으면 사이트가 준 이름.
+    """Save path. A path is used as is, a bare name goes under the run folder ($SHOT_DIR), none uses the site's name.
 
-    이름에 확장자가 없으면 사이트가 준 이름의 확장자를 붙인다. 같은 이름이 있으면 시각을 붙여 덮어쓰지 않는다.
+    If the name has no extension, the site's extension is added. If the name exists, a timestamp is added instead of overwriting.
     """
     if out_name and (os.sep in out_name or "/" in out_name):
         target = Path(out_name)
@@ -44,7 +44,7 @@ def execute(page, args, state: dict) -> dict:
     except Exception as e:
         if not is_timeout_error(e):
             raise
-        # 누르기 전에 시간이 다 됐다 — 내려받기 문제가 아니라 대상 문제다
+        # Timed out before pressing — a target problem, not a download problem
         if not has_clicked:
             return not_actionable_failure(page, args, "download", info, e)
         return {"ok": False, "code": "download_not_started", "action": "download", "clicked": info,

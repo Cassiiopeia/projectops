@@ -1,11 +1,11 @@
-"""web 명령의 실행 시간 상한 — 멈추면 `browser_hung` JSON 하나를 내고 프로세스를 끝낸다 (#921).
+"""Time limit for web commands — on a hang, emit one `browser_hung` JSON and end the process (#921).
 
-CDP `/json/version` 은 답하는데 `connect_over_cdp` · `ctx.pages` 가 끝없이 멈춘 일이 있었다(2분+, --timeout 무시).
-Playwright 동기 API 는 신호로 안전하게 끊기지 않는다(script_runner 실측) — 그래서 감시 스레드가 시간을 보고
-상한을 넘으면 결과를 직접 내고 `os._exit` 로 끝낸다. 드라이버(node)는 파이프가 닫히면 스스로 끝난다.
+CDP `/json/version` answered while `connect_over_cdp` / `ctx.pages` hung forever (2+ minutes, ignoring --timeout).
+The Playwright sync API can't be safely interrupted by signals (observed in script_runner) — so a watchdog thread tracks time,
+emits the result itself when the limit passes and ends with `os._exit`. The driver (node) exits by itself when the pipe closes.
 
-상한 2개: 붙기 단계(CONNECT_DEADLINE_SECONDS) · 명령 전체(동작 대기 + 여유, 최소 90초 · 최대 420초 + 사용자 인계 시간).
-멈춘 브라우저는 상태 파일에 hung_at 을 남겨 다음 web open 이 다시 붙지 않고 끄고 새로 띄우게 한다.
+Two limits: attach phase (CONNECT_DEADLINE_SECONDS) and whole command (action wait + margin, min 90s, max 420s + user handoff time).
+A hung browser leaves hung_at in the state file so the next web open kills and relaunches instead of reattaching.
 """
 from __future__ import annotations
 
@@ -19,29 +19,29 @@ import time
 from pro_launch.runtime.browser import read_state, write_state
 from pro_launch.runtime.output import out
 
-# 붙기(connect_over_cdp · 탭 고르기 · 훅 재설치) 상한(초) — 정상이면 3초 안쪽
+# Limit (seconds) for attaching (connect_over_cdp, picking a tab, reinstalling hooks) — normally under 3 seconds
 CONNECT_DEADLINE_SECONDS = 30
-# 동작 대기(--timeout)에 더 주는 여유(초) — 로드 대기 · 제목 읽기 · 결과 정리
+# Extra margin (seconds) on top of the action wait (--timeout) — load wait, title read, result cleanup
 ACTION_MARGIN_SECONDS = 60
-# 명령 전체 상한의 하한 · 상한(초). 하한은 Bash 도구 120초 제한보다 먼저 끝나게
+# Lower and upper bound (seconds) of the whole-command limit. The lower bound ends before the Bash tool's 120s limit
 MINIMUM_DEADLINE_SECONDS = 90
 MAXIMUM_DEADLINE_SECONDS = 420
-# web login 사용자 인계 대기 상한(초) — CLI 한 번이 무한히 붙잡지 않게 (login.py 가 같은 값을 쓴다)
+# Limit (seconds) for waiting on a web login user handoff — so one CLI call doesn't hold forever (login.py uses the same value)
 MAXIMUM_HANDOFF_SECONDS = 600
-# 새로 띄우는 open 의 포트 대기 몫(초)
+# Share (seconds) for port waiting when open launches a new browser
 LAUNCH_EXTRA_SECONDS = 20
-# 감시 간격(초)
+# Watch interval (seconds)
 POLL_SECONDS = 0.25
-# 상태 파일: 멈춘 것으로 판정한 시각 — 다음 open 이 재사용하지 않고 끈다
+# State file: time it was judged hung — the next open kills it instead of reusing
 HUNG_MARK_KEY = "hung_at"
 
 _ACTIVE: dict = {}
 
 
 def deadline_seconds(args, needs: str) -> int:
-    """명령 전체 상한: max(하한, 동작 대기 + 여유) + 동작별 추가(키 입력 · 연속 캡처 · 새로 띄우기 · 사용자 인계), 최대 상한."""
+    """Whole-command limit: max(lower bound, action wait + margin) + per-action extras (key input, burst capture, fresh launch, user handoff), capped at the upper bound."""
     timeout = getattr(args, "timeout", None) or 0
-    # web login --handoff-seconds: 사용자가 2단계 인증을 마치는 시간 — 상한에도 그만큼 더한다 (90초에 끊기던 것)
+    # web login --handoff-seconds: time for the user to finish 2-step verification — add it to the limit too (it used to cut off at 90s)
     handoff_seconds = min(max(getattr(args, "handoff_seconds", None) or 0, 0), MAXIMUM_HANDOFF_SECONDS)
     extra = handoff_seconds
     keys_text = getattr(args, "keys", None) or ""
@@ -55,7 +55,7 @@ def deadline_seconds(args, needs: str) -> int:
 
 
 class Watchdog:
-    """명령 하나를 지켜본다. 단계(connect · action)마다 상한을 보고 넘으면 fire."""
+    """Watch one command. Checks the limit per phase (connect, action) and fires when exceeded."""
 
     def __init__(self, action: str, total_seconds: int, state_file) -> None:
         self.action = action
@@ -87,7 +87,7 @@ class Watchdog:
                 return
 
     def _fire(self, now: float) -> None:
-        """멈춤 결과를 내고 끝낸다 (상태 파일에 hung_at 표시 > JSON 하나 > os._exit)."""
+        """Emit the hang result and exit (mark hung_at in the state file > one JSON > os._exit)."""
         state = read_state(self.state_file) if self.state_file and self.state_file.is_file() else {}
         limit = CONNECT_DEADLINE_SECONDS if self.phase == "connect" else self.total_seconds
         is_same_browser = self.watched_pid is None or str(state.get("pid")) == str(self.watched_pid)
@@ -123,7 +123,7 @@ def set_watched_browser(pid) -> None:
 
 @contextlib.contextmanager
 def connect_phase():
-    """붙기 단계 표시 — 감시 중이면 이 안에서 붙기 상한을 본다. 감시가 없으면(자식 프로세스 등) 아무 일도 안 한다."""
+    """Mark the attach phase — while watched, the attach limit applies inside it. Does nothing when not watched (child processes etc.)."""
     watchdog = _ACTIVE.get("watchdog")
     if watchdog is None:
         yield

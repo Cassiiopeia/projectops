@@ -1,4 +1,4 @@
-"""`app install` — 빌드를 기기에 설치한다 (Android .apk · iOS 시뮬레이터 .app) (#924)."""
+"""`app install` — install a build on the device (Android .apk, iOS simulator .app) (#924)."""
 from __future__ import annotations
 
 import subprocess
@@ -9,7 +9,7 @@ from pro_launch.registry import Action
 from pro_launch.runtime.android_device import host_pressure_fields, install_apk
 from pro_launch.runtime.output import out
 
-# simctl install 한 번의 최대 대기 (초)
+# Maximum wait for one simctl install (seconds)
 IOS_INSTALL_TIMEOUT_SECONDS = 300
 
 
@@ -30,7 +30,7 @@ def _install_ios(udid: str, app_path: Path) -> dict:
 
 
 def _failure_summary(build_name: str, result: dict) -> str:
-    """설치 실패 한 줄. 저장 공간 부족이면 원인과 남은 공간 (#1175)"""
+    """One-line install failure. If storage is full, the cause and remaining space (#1175)"""
     if result["code"] != "insufficient_storage":
         return f"{build_name} install failed ({result['step']})"
     storage = result.get("data_storage")

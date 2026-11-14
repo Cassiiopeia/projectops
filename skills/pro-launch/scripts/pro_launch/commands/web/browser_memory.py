@@ -1,8 +1,8 @@
-"""`web script` 실행 중 브라우저 메모리 감시 — 상한을 넘으면 조각을 멈춘다 (#973).
+"""Browser memory watch while `web script` runs — stops the snippet when over the limit (#973).
 
-실측: 수천 페이지를 브라우저 안에서 도는 조각이 Chrome 을 275GB · 스왑 40GB 까지 키웠고 browser_hung 이 5번 났다.
-브라우저 본 프로세스 + 자식(렌더러·GPU) RSS 합을 `ps` 로 재고, 상한을 넘으면 조각 프로세스를 죽인다.
-`ps` 가 없는 곳(Windows)은 재지 않고 시간 상한만 본다.
+Observed: a snippet walking thousands of pages inside the browser grew Chrome to 275GB with 40GB swap and caused browser_hung 5 times.
+Measures the RSS sum of the main browser process + children (renderers, GPU) with `ps`, and kills the snippet process when over the limit.
+Where `ps` is missing (Windows), memory isn't measured and only the time limit applies.
 """
 from __future__ import annotations
 
@@ -12,18 +12,18 @@ import subprocess
 import time
 from typing import Callable
 
-# 브라우저 프로세스 묶음 RSS 상한 기본값 (MB) — 조각 하나가 컴퓨터를 멈추지 않을 선
-# RSS 합은 렌더러끼리 공유 메모리를 겹쳐 세므로 넉넉히 둔다 (실사고 275GB 는 잡고 평소 다탭 세션은 끄지 않게)
+# Default RSS limit (MB) for the browser process group — the line where one snippet won't freeze the computer
+# The RSS sum double-counts memory shared between renderers, so keep it generous (catch the real 275GB incident, don't kill normal multi-tab sessions)
 DEFAULT_BROWSER_MEMORY_LIMIT_MEGABYTES = 32768
-# 상한을 바꾸는 환경변수 (MB) — --memory-limit-mb 가 있으면 그것이 이긴다
+# Environment variable overriding the limit (MB) — --memory-limit-mb wins if given
 BROWSER_MEMORY_LIMIT_ENV = "PRO_LAUNCH_BROWSER_MEMORY_LIMIT_MB"
-# 메모리를 다시 재는 간격 (초)
+# Interval (seconds) between memory measurements
 MEMORY_SAMPLE_INTERVAL_SECONDS = 2.0
 KILOBYTES_PER_MEGABYTE = 1024
 
 
 def resolve_limit_megabytes(option_value: int | None) -> int:
-    """상한 (MB): --memory-limit-mb > 환경변수 > 기본값. 잘못된 환경변수 값은 기본값."""
+    """Limit (MB): --memory-limit-mb > environment variable > default. Invalid environment values fall back to the default."""
     if option_value and option_value > 0:
         return option_value
     try:
@@ -34,7 +34,7 @@ def resolve_limit_megabytes(option_value: int | None) -> int:
 
 
 def read_process_table() -> list[tuple[int, int, int]] | None:
-    """[(pid, ppid, rss KB)]. ps 가 없거나 못 읽으면 None (감시를 건너뛴다)."""
+    """[(pid, ppid, rss KB)]. None if ps is missing or unreadable (skip the watch)."""
     if not shutil.which("ps"):
         return None
     try:
@@ -50,7 +50,7 @@ def read_process_table() -> list[tuple[int, int, int]] | None:
 
 
 def tree_rss_megabytes(table: list[tuple[int, int, int]], root_pid: int) -> int | None:
-    """root_pid 와 그 자손 전부의 RSS 합 (MB). root 가 표에 없으면 None (이미 끝난 브라우저)."""
+    """RSS sum (MB) of root_pid and all its descendants. None if root is not in the table (browser already gone)."""
     rss_by_pid = {pid: rss for pid, _ppid, rss in table}
     if root_pid not in rss_by_pid:
         return None
@@ -76,9 +76,9 @@ def browser_rss_megabytes(browser_pid: int) -> int | None:
 def run_with_memory_cap(command: list[str], input_text: str, timeout_seconds: float, browser_pid: int | None,
                         limit_megabytes: int, env: dict | None = None,
                         read_rss: Callable[[int], int | None] = browser_rss_megabytes) -> dict:
-    """조각 프로세스를 돌리며 브라우저 RSS 를 잰다 > {status: done|timeout|memory_exceeded, ...}.
+    """Run the snippet process while measuring browser RSS > {status: done|timeout|memory_exceeded, ...}.
 
-    시간 · 메모리 상한을 넘으면 조각 프로세스를 죽이고 거둔다 (브라우저 정리는 부르는 쪽).
+    Past the time or memory limit, kill and reap the snippet process (the caller cleans up the browser).
     """
     process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                text=True, encoding="utf-8", env=env)
@@ -92,7 +92,7 @@ def run_with_memory_cap(command: list[str], input_text: str, timeout_seconds: fl
             return {"status": "done", "stdout": stdout_text, "stderr": stderr_text,
                     "peak_rss_megabytes": peak_megabytes}
         except subprocess.TimeoutExpired:
-            # 다시 부를 때 입력을 또 보내지 않는다 (communicate 가 이미 보낸 것을 기억)
+            # Don't send input again on later calls (communicate remembers what it already sent)
             pending_input = None
         rss_megabytes = read_rss(browser_pid) if browser_pid else None
         if rss_megabytes is not None:

@@ -1,4 +1,4 @@
-"""`web setup` — 전용 환경 · Playwright · 브라우저를 준비한다."""
+"""`web setup` — prepare the dedicated environment, Playwright and browser."""
 from __future__ import annotations
 
 import importlib.util
@@ -15,16 +15,16 @@ from pro_launch.runtime.venv_install import ensure_venv, pip_install
 
 
 def _web_setup(force: bool = False) -> dict:
-    """전용 가상환경 + Playwright + Pillow + Chromium. 약 100MB 라 부르는 쪽이 먼저 묻는다."""
+    """Dedicated venv + Playwright + Pillow + Chromium. About 100MB, so the caller asks first."""
     vd = venv_dir()
     steps = []
     vpy, failure = ensure_venv(steps, force=force)
     if failure:
         return failure
-    # Pillow 를 함께 깐다 — 캡처를 줄이는 수단을 시스템을 건드리지 않고 확보한다
+    # Install Pillow too — a way to shrink captures without touching the system
     pip_ok = pip_install(vpy, ["playwright", "pillow"], steps)
     if not pip_ok:
-        # 내부망: 인덱스가 막혀도 시스템 파이썬에 Playwright 가 이미 있으면 그대로 간다 (#857)
+        # Internal networks: if the index is blocked but system Python already has Playwright, go with it (#857)
         if importlib.util.find_spec("playwright") is None:
             return {"ok": False, "code": "pip_failed", "steps": steps,
                     "error": "Could not install playwright",
@@ -32,7 +32,7 @@ def _web_setup(force: bool = False) -> dict:
                              "system-wide first. The installed Chrome/Edge is used as the browser")}
         steps.append({"step": "use system Playwright", "ok": True, "error": None,
                       "note": "Package index unreachable — skipped the dedicated env and used the system install"})
-    # 이미 쓸 브라우저가 있으면 100MB 를 받지 않는다. 번들이 있으면 기존 동작 그대로다
+    # If a usable browser already exists, skip the 100MB download. With a bundle, behavior is unchanged
     pick = browser_pick.resolve(bundled_chromium_path())
     if pick.get("error"):
         return {"ok": False, "code": "browser_env_invalid", "steps": steps, "error": pick["error"],
@@ -55,7 +55,7 @@ def _web_setup(force: bool = False) -> dict:
     else:
         steps.append({"step": "download chromium", "ok": False, "skipped": True,
                       "error": f"Not downloaded — {host} is unreachable"})
-    # 못 받았다 — 설치된 Chrome·Edge 가 있으면 그것으로 간다
+    # Download failed — fall back to an installed Chrome or Edge
     if pick["exe"]:
         return {"ok": True, "steps": steps, "venv": str(vd), "browser": pick["label"],
                 "browser_source": "system",

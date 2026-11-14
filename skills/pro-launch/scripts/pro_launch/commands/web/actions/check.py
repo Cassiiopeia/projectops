@@ -1,4 +1,4 @@
-"""`web check` — 체크박스·라디오·스위치를 켜거나(--off 면 끈다) 결과 상태를 돌려준다 (#892)."""
+"""`web check` — turn a checkbox, radio or switch on (--off turns it off) and return the resulting state (#892)."""
 from __future__ import annotations
 
 
@@ -6,7 +6,7 @@ from pro_launch.commands.web.element import locate_target, perform_on_target, ta
 from pro_launch.commands.web.session import done_payload
 from pro_launch.registry import Action
 
-# 지금 체크 상태. 체크할 수 없는 요소면 null
+# Current checked state. null if the element cannot be checked
 CHECKED_JS = """(e) => ('checked' in e && typeof e.checked === 'boolean' && e.tagName.toLowerCase() === 'input')
   ? e.checked : (e.hasAttribute('aria-checked') ? e.getAttribute('aria-checked') === 'true' : null)"""
 
@@ -24,7 +24,7 @@ def execute(page, args, state: dict) -> dict:
             return failure
     except Exception as e:
         message = str(e)
-        # 체크박스가 아니거나 라디오를 끄려 했다 — 기다려도 안 되는 일이다
+        # Not a checkbox, or tried to turn a radio off — waiting will not help
         if "checkbox" in message.lower() or "radio" in message.lower():
             return {"ok": False, "code": "not_checkable", "action": "check", "target": info,
                     "url": page.url, "error": message[:300],

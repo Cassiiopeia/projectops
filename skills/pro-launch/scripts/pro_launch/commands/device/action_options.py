@@ -1,17 +1,17 @@
-"""device 동작별 받는 옵션 — 동작이 쓰지 않는 옵션은 조용히 무시하지 않고 bad_args 로 돌려보낸다 (#972).
+"""Options each device action accepts — options an action does not use are sent back as bad_args, not silently ignored (#972).
 
-device 동작은 옵션 묶음 하나를 함께 쓴다(하위 파서 없음) — argparse 만으로는 동작별 무시를 못 잡는다.
-여기 표가 동작마다 실제로 읽는 옵션의 원본이다 — 동작이 새 옵션을 읽으면 여기에도 넣는다.
+device actions share one option set (no subparsers) — argparse alone cannot catch per-action ignoring.
+This table is the source of truth for options each action actually reads — when an action reads a new option, add it here too.
 """
 from __future__ import annotations
 
-# 모든 동작이 받는 옵션 (dest 이름)
+# Options every action accepts (dest names)
 COMMON_OPTIONS = frozenset({"root"})
-# 위치 인자 mode 의 표시 이름
+# Display name of the positional argument mode
 MODE_LABEL = "<mode>"
 
 _DEVICE_TARGET = ("device",)
-# 동작 > 그 동작이 읽는 옵션 (dest 이름, mode 는 위치 인자)
+# Action > options it reads (dest names, mode is positional)
 OPTIONS_BY_ACTION: dict[str, frozenset[str]] = {
     "list": frozenset({"package", "run_dir"}),
     "bind": frozenset({"role", "serial", "note", "package", "run_dir"}),
@@ -41,12 +41,12 @@ OPTIONS_BY_ACTION: dict[str, frozenset[str]] = {
 
 
 def option_label(dest: str) -> str:
-    """dest > 명령줄 표기 (run_dir > --run-dir, mode > <mode>)."""
+    """dest > command-line form (run_dir > --run-dir, mode > <mode>)."""
     return MODE_LABEL if dest == "mode" else "--" + dest.replace("_", "-")
 
 
 def unused_options(action: str, given: dict, defaults: dict) -> list[str]:
-    """이 동작이 읽지 않는데 기본값과 다르게 준 옵션 > 표기 목록. 표에 없는 동작은 거르지 않는다."""
+    """Options this action does not read but were given non-default values > list of forms. Actions not in the table are not filtered."""
     allowed = OPTIONS_BY_ACTION.get(action)
     if allowed is None:
         return []
@@ -55,7 +55,7 @@ def unused_options(action: str, given: dict, defaults: dict) -> list[str]:
 
 
 def unused_options_failure(action: str, unused: list[str]) -> dict:
-    """bad_args 응답: 무시될 옵션 · 이 동작이 받는 옵션 · 메모리 위험에 --yes 를 쓴 경우의 안내."""
+    """bad_args response: ignored options, options this action accepts, and guidance when --yes was used for memory risk."""
     valid = sorted(option_label(dest) for dest in OPTIONS_BY_ACTION[action] | COMMON_OPTIONS)
     payload = {"ok": False, "code": "bad_args", "action": action, "unused_options": unused, "valid_options": valid,
                "error": f"device {action} does not read {', '.join(unused)} — left as is, it would be silently ignored",

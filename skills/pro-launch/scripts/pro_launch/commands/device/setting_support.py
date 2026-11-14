@@ -1,4 +1,4 @@
-"""device 설정 명령(locale · appearance · text-size) 공통 도우미: 명령 실행, 실패 응답, 원래 값 기록·복원."""
+"""Shared helpers for device setting commands (locale, appearance, text-size): run commands, failure responses, record/restore original values."""
 from __future__ import annotations
 
 import subprocess
@@ -30,7 +30,7 @@ def record_change(key: str, dev_id: str, before, restore_commands: list[list[str
 
 
 def restore_recorded(dev_id: str, platform: str, key: str, action: str) -> int:
-    """--restore: 기록한 원래 값으로 되돌린다."""
+    """--restore: revert to the recorded original value."""
     setting = pop_device_setting(dev_id, key)
     if setting is None:
         return out({"action": action, "platform": platform, "device": dev_id, "restored": False,

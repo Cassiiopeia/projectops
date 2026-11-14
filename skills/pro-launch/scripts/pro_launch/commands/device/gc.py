@@ -1,7 +1,7 @@
-"""`device gc` — 기기 정리: 기본은 보고만, --apply 때만 지우고 끈다 (#955).
+"""`device gc` — device cleanup: report only by default, delete and power off only with --apply (#955).
 
---apply 가 하는 일 3개: 기한 지난 임시 기기 삭제 · 원장이 켜 둔 채 버려진 기기 끄기 · 쓸 수 없게 된 시뮬레이터 삭제.
-기록 없는 기기 · 공들인 상태 기기 · 짝 깨진 AVD 는 보고만 한다.
+3 things --apply does: delete expired temporary devices, power off devices the ledger booted and abandoned, delete simulators that became unusable.
+Unrecorded devices, devices with prepared state and AVDs with broken pairs are only reported.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def _gb(size: int) -> float:
 
 
 def _apply_row(row: dict) -> dict:
-    """계획 한 줄 실행 > {key, action, is_done, detail}."""
+    """Run one plan line > {key, action, is_done, detail}."""
     backend = device_backends.backend_named(row["backend"])
     if row["action"] == device_gc.ACTION_SHUTDOWN:
         result = backend.shutdown(row["key"], row["instance"])

@@ -1,4 +1,4 @@
-"""`desktop find` — 글자·id·종류로 후보를 고르고 번호(ref)를 붙인다. 위험 버튼은 mutating: true."""
+"""`desktop find` — pick candidates by text, id or kind and number them (ref). Dangerous buttons get mutating: true."""
 from __future__ import annotations
 
 from pro_launch.commands.desktop.actions.tree import find

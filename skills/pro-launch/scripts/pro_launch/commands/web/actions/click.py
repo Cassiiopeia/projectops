@@ -1,4 +1,4 @@
-"""`web click` — 고른 요소 하나만 누르고 무엇이 바뀌었는지 돌려준다."""
+"""`web click` — press exactly one chosen element and return what changed."""
 from __future__ import annotations
 
 
@@ -8,8 +8,8 @@ from pro_launch.commands.web.element import (is_timeout_error, locate_target, no
                                              outcome_wait_seconds, target_wait_seconds)
 from pro_launch.registry import Action
 
-# 요소 가운데 점을 덮은 것 — 고정 머리글·바닥글·오버레이가 클릭을 가로채는지 본다 (#879).
-# 화면 밖이면 먼저 보이게 하고, 덮은 것이 자기 자신·자손·조상이면 가려진 것이 아니다
+# What covers the element's center point — checks whether a fixed header, footer or overlay intercepts the click (#879).
+# Scroll it into view first if off screen; a cover that is the element itself, a descendant or an ancestor does not count
 COVERING_ELEMENT_JS = """(e, shouldCenter) => {
   if (shouldCenter) e.scrollIntoView({block: 'center', inline: 'center'});
   else { const r0 = e.getBoundingClientRect();
@@ -23,21 +23,21 @@ COVERING_ELEMENT_JS = """(e, shouldCenter) => {
 }"""
 
 
-# 같은 화면에서 무언가 바뀌었는지 보는 지문: 요소 수, 열린 대화상자 수, 보이는 글자 수 (#1048)
+# Fingerprint for spotting a change on the same screen: element count, open dialog count, visible text length (#1048)
 PAGE_FINGERPRINT_JS = """() => [document.querySelectorAll('*').length,
   document.querySelectorAll('dialog[open]').length, (document.body ? document.body.innerText : '').length].join(':')"""
 
 
-# 지문을 읽는 자식 프레임 수 상한 (광고 iframe 이 많은 페이지에서 느려지지 않게)
+# Max child frames to fingerprint (keeps pages with many ad iframes from slowing down)
 MAXIMUM_FINGERPRINTED_FRAMES = 10
-# 못 읽은 프레임 자리 표시
+# Placeholder for a frame that could not be read
 UNREADABLE_FRAME_MARK = "?"
 
 
-# 누름이 실제로 페이지에 닿았는지 세는 감시: 요소가 속한 창의 capture 단계 (#1048)
-# 오래 띄운 공유 브라우저에서 탭이 CDP 마우스·키 입력을 통째로 버리는 상태가 실측됨 > 조용히 "변화 없음"이 되지 않게
+# Watcher counting whether the press actually reached the page: capture phase of the element's window (#1048)
+# Observed: in a long-running shared browser a tab can drop all CDP mouse/key input > do not silently report "no change"
 INPUT_PROBE_EVENT_TYPES = "['pointerdown', 'mousedown', 'click']"
-# recovery 안의 내부 전달값: 닿은 이벤트 수 (응답에는 안 나감)
+# Internal value passed inside recovery: number of events that arrived (not in the response)
 DELIVERED_INPUT_COUNT_KEY = "_delivered_input_count"
 ARM_INPUT_PROBE_JS = """(e) => {
   const w = e.ownerDocument.defaultView;
@@ -56,7 +56,7 @@ READ_INPUT_PROBE_JS = """(e) => {
 
 
 def arm_input_probe(element) -> bool:
-    """감시 설치. 못 하면 False (이동 중 등) — 그때는 닿았는지 판정하지 않는다."""
+    """Install the watcher. False if it cannot (e.g. mid-navigation) — then delivery is not judged."""
     try:
         element.evaluate(ARM_INPUT_PROBE_JS)
         return True
@@ -65,7 +65,7 @@ def arm_input_probe(element) -> bool:
 
 
 def read_delivered_input_count(element) -> int | None:
-    """닿은 입력 이벤트 수, 감시 해제 (성공·실패 공통). 이동·재생성으로 못 읽으면 None."""
+    """Number of input events that arrived, then remove the watcher (success or failure). None if unreadable after navigation or recreation."""
     try:
         return element.evaluate(READ_INPUT_PROBE_JS)
     except Exception:
@@ -73,7 +73,7 @@ def read_delivered_input_count(element) -> int | None:
 
 
 def input_not_delivered_failure(page, args, info: dict) -> dict:
-    """누르기는 끝났는데 페이지에 이벤트가 하나도 안 닿음 > --dom-click 또는 브라우저 재시작 안내"""
+    """Press finished but no event reached the page > suggest --dom-click or a browser restart"""
     return {"ok": False, "code": "input_not_delivered", "action": "click", "clicked": info, "url": page.url,
             "error": "The click was sent, but no pointer or click event reached the page",
             "hint": "This tab is dropping browser input (seen in a long-running shared browser), "
@@ -85,7 +85,7 @@ def input_not_delivered_failure(page, args, info: dict) -> dict:
 
 
 def read_page_fingerprint(page) -> str | None:
-    """못 읽으면 None (이동 중 등)"""
+    """None if unreadable (e.g. mid-navigation)"""
     try:
         return page.evaluate(PAGE_FINGERPRINT_JS)
     except Exception:
@@ -93,15 +93,15 @@ def read_page_fingerprint(page) -> str | None:
 
 
 def read_frames_fingerprint(page) -> str:
-    """자식 프레임별 주소 + 지문 (#1132)
-    교차 출처 로그인 iframe 안 단계 전환은 최상위 지문에 안 잡힘 > 프레임마다 같은 지문을 읽는다
+    """URL + fingerprint per child frame (#1132)
+    Step changes inside a cross-origin login iframe do not show in the top-level fingerprint > read the same fingerprint per frame
     """
     return "|".join(f"{frame.url}={read_page_fingerprint(frame) or UNREADABLE_FRAME_MARK}"
                     for frame in child_frames(page)[:MAXIMUM_FINGERPRINTED_FRAMES])
 
 
 def covering_element(element, should_center: bool) -> str | None:
-    """요소를 덮은 것의 설명 (예: header#top.sticky "관리자"). 안 덮였거나 못 읽으면 None."""
+    """Description of what covers the element (e.g. header#top.sticky "Admin"). None if not covered or unreadable."""
     try:
         return element.evaluate(COVERING_ELEMENT_JS, should_center)
     except Exception:
@@ -109,16 +109,16 @@ def covering_element(element, should_center: bool) -> str | None:
 
 
 def covered_retry_command(args) -> str:
-    """덮인 요소를 --dom-click 으로 다시 누르는 명령 한 줄"""
+    """One-line command to press the covered element again with --dom-click"""
     target = f"--ref {args.ref}" if args.ref is not None else f"--selector \"{args.selector}\""
     frame = f" --frame \"{args.frame}\"" if getattr(args, "frame", None) else ""
     return f"web click {target}{frame} --dom-click"
 
 
 def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, dict | None]:
-    """누른다: 덮였으면 가운데로 스크롤해 다시 보고 > 그래도 덮였고 --dom-click 이면 DOM click().
+    """Press: if covered, scroll it to the center and check again > if still covered and --dom-click, DOM click().
 
-    (복구 기록, 실패 결과). 덮인 채 시간이 다 되면 covered_by 와 --dom-click 안내를 실은 element_not_actionable.
+    (recovery record, failure result). If still covered at timeout, element_not_actionable with covered_by and a --dom-click hint.
     """
     recovery: dict = {}
     url_before_click = page.url
@@ -128,7 +128,7 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
         covered_by = covering_element(element, should_center=True)
         recovery["still_covered"] = bool(covered_by)
     if covered_by and args.dom_click:
-        # 덮은 것을 거치지 않고 요소의 click() 을 바로 부른다 — 사람 클릭과 다를 수 있어 명시할 때만
+        # Call the element's click() directly, bypassing the cover — may differ from a human click, so only when asked
         element.evaluate("(e) => e.click()")
         recovery["dom_click"] = True
         return recovery, None
@@ -140,7 +140,7 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
             read_delivered_input_count(element)
         if not is_timeout_error(error):
             raise
-        # 누른 뒤 페이지가 넘어가 요소가 사라지면 시간 초과처럼 보임: 이동했으면 성공 (#1074)
+        # If the page navigates after the press and the element disappears, it looks like a timeout: navigated means success (#1074)
         if page.url != url_before_click:
             recovery["navigated_during_click"] = True
             return recovery, None
@@ -152,19 +152,19 @@ def click_with_cover_recovery(page, element, args, info: dict) -> tuple[dict, di
                                     "If it need not match a real user click, --dom-click calls the element's click() directly",
                             "next": f"{covered_retry_command(args)}  # click without going through the cover"})
         return recovery, failure
-    # 판정은 화면이 가라앉은 뒤 _web_click 이 한다 (이벤트를 삼키는 페이지에서 오판 방지)
+    # _web_click judges after the screen settles (avoids misjudging pages that swallow events)
     if is_probe_armed and page.url == url_before_click:
         recovery[DELIVERED_INPUT_COUNT_KEY] = read_delivered_input_count(element)
     return recovery, None
 
 
 def is_input_dropped(recovery: dict, changed: bool = False, content_changed: bool = False) -> bool:
-    """이벤트 0건이고 화면도 그대로일 때만 안 닿은 것 (못 읽은 None 은 판정 안 함)"""
+    """Not delivered only when there were 0 events and the screen is unchanged (an unreadable None is not judged)"""
     return recovery.get(DELIVERED_INPUT_COUNT_KEY) == 0 and not changed and not content_changed
 
 
 def dom_click_if_input_dropped(element, args, recovery: dict) -> None:
-    """--dom-click 을 줬고 입력이 안 닿았으면 요소의 click() 으로 한 번 더 (명시했을 때만)"""
+    """If --dom-click was given and input did not arrive, try once more with the element's click() (only when asked)"""
     if args.dom_click and is_input_dropped(recovery):
         element.evaluate("(e) => e.click()")
         recovery.pop(DELIVERED_INPUT_COUNT_KEY, None)
@@ -172,7 +172,7 @@ def dom_click_if_input_dropped(element, args, recovery: dict) -> None:
 
 
 def _web_click(page, args, state: dict) -> dict:
-    """고른 요소 하나만 누르고, 무엇을 눌렀고 무엇이 바뀌었는지 돌려준다."""
+    """Press exactly one chosen element and return what was pressed and what changed."""
     el, info, failure = locate_target(page, args, state, "click")
     if failure:
         return failure
@@ -193,11 +193,11 @@ def _web_click(page, args, state: dict) -> dict:
             waited = "text"
             page.get_by_text(args.expect_text).first.wait_for(state="visible", timeout=outcome_seconds * 1000)
         else:
-            # 기대를 안 줬으면 짧게만 기다린다 — SPA 는 주소가 늦게 바뀐다
+            # Without an expectation, wait only briefly — SPAs change the URL late
             try:
                 page.wait_for_load_state("domcontentloaded", timeout=3000)
             except Exception:
-                pass  # 로드 신호가 늦어도 아래 짧은 대기로 넘어간다
+                pass  # A late load signal is fine; fall through to the short wait below
             page.wait_for_timeout(800)
     except Exception:
         if is_input_dropped(recovery):
@@ -231,7 +231,7 @@ def _web_click(page, args, state: dict) -> dict:
     if recovery:
         payload["recovery"] = recovery
     if not changed and not (args.expect_url or args.expect_text):
-        # 체크박스·펼치기처럼 제자리에서 바뀌는 것일 수도 있다 — 실패로 단정하지 않고 확인을 시킨다
+        # Could be an in-place change like a checkbox or expander — do not call it a failure; ask for a check
         payload["next"] = ("Check with web text / web assert that it did what you intended. If not, pick again with web find"
                            if content_changed else
                            "The click may not have reached the element: check with web text, then try --dom-click or web script")

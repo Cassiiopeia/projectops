@@ -1,4 +1,4 @@
-"""`journal` — 했던 작업을 자유롭게 적어 두고, 다음에 같은 곳에서 다시 읽는다."""
+"""`journal` — freely note what you did and read it again next time in the same place."""
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,7 +1,7 @@
-"""`web open` — 브라우저를 독립 프로세스로 띄우고 CDP 로 붙는다.
+"""`web open` — launch the browser as an independent process and attach over CDP.
 
-기록된 브라우저 판정 (#887): 살아 있고 응답 > 다시 붙는다 · 멈춤 > 끄고 새로 · 죽음 > 남은 잠금 정리 후 새로.
-치운 것은 `recovered` 로 돌려준다. State lost a browser still running on the profile > adopt it (#1154). 탭 (#878): `--new-tab` · `--tab-name` · `LAUNCH_TAB` 으로 세션 전용 탭을 쓴다.
+Recorded browser verdict (#887): alive and responding > reattach · hung > stop and relaunch · dead > clear leftover locks and relaunch.
+What was cleaned up is returned as `recovered`. State lost a browser still running on the profile > adopt it (#1154). Tabs (#878): `--new-tab` · `--tab-name` · `LAUNCH_TAB` give a session its own tab.
 """
 from __future__ import annotations
 
@@ -26,13 +26,13 @@ from pro_launch.runtime.output import out
 from pro_launch.runtime.procs import detach_options, kill_browser, manual_kill_command, pid_alive
 from pro_launch.runtime.session_identity import session_identity
 
-# 새로 띄운 브라우저의 CDP 포트가 열리길 기다리는 횟수 · 간격 (약 15초)
+# Attempts and interval for waiting on a new browser's CDP port (about 15 seconds)
 _PORT_WAIT_TRIES = 60
 _PORT_WAIT_INTERVAL_SECONDS = 0.25
 
 
 def _cert_hint(msg: str) -> str | None:
-    """자체서명·사설 인증서면 고칠 길을 준다. 사내 서버는 대부분 이 경우다."""
+    """For self-signed or private certificates, explain the fix. Most internal servers hit this."""
     if "ERR_CERT" in msg or "ERR_SSL" in msg:
         return ("Blocked by a private/self-signed certificate — run web close, then reopen with "
                 "`web open --ignore-cert-errors --url ...` (test servers only; applies to a fresh launch)")
@@ -45,8 +45,8 @@ def _goto_failed(error: Exception) -> dict:
 
 
 def _pick_tab(ctx, page, state: dict, args):
-    """이번 open 이 몰 탭 > (page, 탭 이름, 자동 분리 여부).
-    이름 없이 왔는데 고른 탭을 다른 세션이 쓰는 중이면 덮지 않고 이 세션 몫의 새 탭을 뒤에 연다 (#1094)."""
+    """Tab this open will drive > (page, tab name, whether auto-split).
+    If no name was given and the chosen tab is in use by another session, do not take it over; open a new tab for this session at the end (#1094)."""
     name = args.tab_name or tabs.session_tab_name()
     if name:
         existing = tabs.named_tab_page(ctx, state, name)
@@ -63,7 +63,7 @@ def _pick_tab(ctx, page, state: dict, args):
 
 
 def _close_stale_browsers(pid_to_keep) -> list[dict]:
-    """방치 브라우저 자동 정리 > 끈 목록 (#1027). 지금 붙을 브라우저는 제외, 정리 실패로 open 을 막지 않음"""
+    """Auto-clean abandoned browsers > list of stopped ones (#1027). Skips the browser about to be attached; cleanup failure never blocks open"""
     closed = []
     try:
         for entry in find_stale_browsers()["stale"]:
@@ -79,7 +79,7 @@ def _stale_closed_note(stale_closed: list[dict]) -> str:
 
 
 def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: list[dict]) -> int | None:
-    """떠 있는 브라우저에 붙는다. 붙기에서 멈췄으면 None — 호출부가 끄고 새로 띄운다 (#921)"""
+    """Attach to a running browser. None if attaching hung — the caller stops it and relaunches (#921)"""
     conn, connect_error = web_connect(prev, allow_missing_tab=True)
     if connect_error:
         if connect_error.get("code") == "browser_hung":
@@ -156,7 +156,7 @@ def _free_port() -> int:
 
 def _wait_for_port(port: int, proc) -> bool:
     for _ in range(_PORT_WAIT_TRIES):
-        # 바로 죽은 브라우저를 15초 기다리지 않는다
+        # Do not wait 15 seconds for a browser that died immediately
         if proc.poll() is not None:
             return False
         with socket.socket() as probe:
@@ -168,7 +168,7 @@ def _wait_for_port(port: int, proc) -> bool:
 
 
 def _start_failed(proc, profile: Path, stderr_log: Path, recovered: list[str]) -> dict:
-    """원인을 가려 준다 — 남은 프로세스·프로필 잠금이면 브라우저를 다시 받아도 소용없다 (#712)."""
+    """Pin down the cause — with a leftover process or profile lock, re-downloading the browser does not help (#712)."""
     exit_code = proc.poll()
     proc.terminate()
     locked = has_profile_lock(profile)
@@ -184,16 +184,16 @@ def _start_failed(proc, profile: Path, stderr_log: Path, recovered: list[str]) -
                      "Read stderr_tail first; if that does not explain it, re-download the browser with web setup")}
 
 
-# 브라우저를 띄울 때만 먹는 설정. 이미 떠 있는 브라우저에는 적용되지 않는다.
-# 여기에 한 줄 더하면 실행 인자 · 상태 기록 · 재시작 경고가 함께 따라온다
+# Settings that only apply at browser launch. A browser already running does not pick them up.
+# Add one line here and launch args, state record and restart warning all follow
 LAUNCH_ONLY_SETTINGS = (
-    # 서버 응답 뒤 window.open 이 null 로 막힌다 (Playwright launch 는 기본으로 넣는 플래그, #987)
+    # window.open after a server response is blocked as null (a flag Playwright launch adds by default, #987)
     {"flag": "--disable-popup-blocking", "state_key": "popup_blocking_off",
      "warning": "This browser was started before popup blocking was turned off — a window opened after a server "
                 "response can be blocked. Run web close, then web open again"},
-    # Playwright 는 붙어 있는 동안 prefers-color-scheme 을 light 로 덮어쓰고(CDP 연결은 바꿀 옵션이 없다) 끊으면 되돌린다.
-    # 다크 모드 PC 에서는 명령마다 테마가 두 번 뒤집혀, 테마 변화에 새로고침하는 사이트(YouTube Studio)가 매번 다시 로드됐다 (#1094 실측).
-    # 브라우저의 실제 값을 light 로 고정하면 뒤집힐 일이 없다
+    # While attached, Playwright overrides prefers-color-scheme to light (CDP connect has no option to change it) and reverts on disconnect.
+    # On a dark-mode PC the theme flipped twice per command, so sites that reload on theme change (YouTube Studio) reloaded every time (#1094 observed).
+    # Pinning the browser's real value to light means nothing flips
     {"flag": "--blink-settings=preferredColorScheme=1", "state_key": "light_color_scheme",
      "warning": "This browser was started before the color scheme was pinned — on a dark-mode PC, sites that reload on a theme "
                 "change (YouTube Studio) reload at every command. Run web close, then web open again"},
@@ -204,14 +204,14 @@ def _launch_command(exe: str, port: int, profile: Path, args, use_stealth: bool)
     cmd = [exe, f"--remote-debugging-port={port}", f"--user-data-dir={profile}",
            f"--window-size={args.width},{args.height}", "--no-first-run", "--no-default-browser-check",
            *(setting["flag"] for setting in LAUNCH_ONLY_SETTINGS)]
-    # Google·Apple 로그인은 자동화 브라우저를 막는다. 실행 인자는 연결을 끊은 뒤 뜨는 팝업에도 걸린다
+    # Google and Apple logins block automated browsers. Launch args also apply to popups opened after disconnect
     if use_stealth:
         cmd += stealth.launch_args(exe)
     if args.ignore_cert_errors:
         cmd.append("--ignore-certificate-errors")
     if not args.headed:
         cmd.append("--headless=new")
-    # ⚠️ 목적지를 여기서 넘기면 **훅을 심기 전에 첫 로드가 끝난다** (#625).
+    # ⚠️ Passing the destination here finishes the first load **before the hooks are installed** (#625).
     cmd.append("about:blank")
     return cmd
 
@@ -221,7 +221,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     if err:
         return out(err)
     prev = read_state(state_f)
-    # 레포 프로필 또는 고른 공용 프로필 (#956)
+    # Repo profile or the chosen shared profile (#956)
     profile = browser_profiles.profile_home(root) / browser_profiles.PROFILE_FOLDER_NAME
     adopted = _adopt_running_browser(prev, profile, root)
     if adopted is not None:
@@ -232,12 +232,12 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     decision, recovered = recover_recorded_browser(prev, profile)
     if adopted is not None:
         recovered = ["adopted_running_browser", *recovered]
-    # 이미 떠 있으면 새로 띄우지 않고 붙는다 (#825). 새로 띄우면 프로필 잠금으로 실패한다
+    # If already running, attach instead of launching (#825). Launching again fails on the profile lock
     if decision == "reuse":
         reused = _reuse(args, prev, state_f, recovered, stale_closed)
         if reused is not None:
             return reused
-        # CDP 는 답하는데 붙기가 멈췄다 — 끄고 같은 프로필로 새로 띄운다 (로그인 쿠키는 프로필에 남는다)
+        # CDP answers but attaching hung — stop it and relaunch with the same profile (login cookies stay in the profile)
         decision, recovered = recover_recorded_browser({**prev, HUNG_MARK_KEY: "connect"}, profile)
     if decision == "blocked":
         pid = prev.get("pid")
@@ -245,12 +245,12 @@ def _web_open(args, root: Path, state_f: Path) -> int:
                     "error": f"Could not stop the unresponsive browser (pid {pid})",
                     "next": f"{manual_kill_command(pid)}  # end it yourself, then reopen"})
 
-    # ⚠️ Playwright의 launch()로 띄우면 **드라이버가 죽을 때 브라우저도 함께 죽는다.**
-    # 호출이 여러 번으로 쪼개지므로 브라우저를 Playwright 밖에서 독립 프로세스로 띄우고 CDP로 붙는다.
+    # ⚠️ Launching via Playwright's launch() makes **the browser die together with the driver.**
+    # Calls are split across several runs, so launch the browser outside Playwright as an independent process and attach over CDP.
     with sync_playwright() as pw:
         bundled = pw.chromium.executable_path
     pick = browser_pick.resolve(bundled)
-    # 환경변수가 틀렸으면 다른 브라우저로 넘어가지 않고 멈춘다 — 지정한 사람이 원한 것은 그것이다
+    # If the env var is wrong, stop instead of falling back to another browser — that is what whoever set it wanted
     if pick.get("error"):
         return out({"ok": False, "code": "browser_env_invalid", "error": pick["error"],
                     "next": f"Fix or unset {browser_pick.ENV_VAR}"})
@@ -265,20 +265,20 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     use_stealth = not args.no_stealth
     stderr_log = browser_profiles.profile_home(root) / BROWSER_STDERR_FILE
     with open(stderr_log, "w", encoding="utf-8") as stderr_file:
-        # 우리가 끝나도 살아 있어야 한다. 표준오류는 실패 원인으로 싣는다
+        # Must outlive us. Stderr is included as the failure cause
         proc = subprocess.Popen(_launch_command(exe, port, profile, args, use_stealth),
                                 stdout=subprocess.DEVNULL, stderr=stderr_file, **detach_options())
     if not _wait_for_port(port, proc):
         return out(_start_failed(proc, profile, stderr_log, recovered))
 
-    # 뷰포트·바꿔치기 규칙은 이어간다 — 설정한 사람이 끈 적이 없다. 탭 기록은 새 브라우저에서 무효다
+    # Viewport and override rules carry over — whoever set them never turned them off. Tab records are invalid in a new browser
     cdp = f"http://127.0.0.1:{port}"
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     state = {"cdp": cdp, "pid": proc.pid, "headed": bool(args.headed),
              "stealth": use_stealth, "profile": str(profile), "opened_at": now, **{setting["state_key"]: True for setting in LAUNCH_ONLY_SETTINGS},
              "browser": pick["label"], "browser_source": pick["source"],
              "last_used": now, "readonly": bool(args.readonly),
-             # 세션 종료 때 이 세션이 띄운 브라우저만 닫는다 (#956)
+             # At session end, close only browsers this session launched (#956)
              "opened_by_session": session_identity(), "profile_name": browser_profiles.chosen_profile(root),
              "viewport": prev.get("viewport"), "routes": prev.get("routes") or []}
     write_state(state_f, state)
@@ -290,7 +290,7 @@ def _web_open(args, root: Path, state_f: Path) -> int:
         _pw, _br, page = conn
         hooked = True
         try:
-            # 빈 탭 정리 — 이전 open 이 남긴 about:blank 가 누적되는 것을 막는다
+            # Clean up blank tabs — stops about:blank tabs left by earlier opens from piling up
             close_blank_tabs(page.context, page)
             name = args.tab_name or tabs.session_tab_name()
             if name:

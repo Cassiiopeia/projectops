@@ -1,4 +1,4 @@
-"""`http` — 단건 HTTP 요청."""
+"""`http` — a single HTTP request."""
 from __future__ import annotations
 
 import json
@@ -16,12 +16,12 @@ from pro_launch.runtime.output import out, set_area, set_target, use_access
 
 
 def cmd_http(args) -> int:
-    """HTTP 한 건. 경로만 주면 access 의 base_url 에 붙인다 — 판정은 부르는 쪽이 한다."""
+    """One HTTP request. A bare path is appended to access's base_url — the caller judges the result."""
     set_area("server", project_root(args))
     root = project_root(args)
     url = args.url
     if not re.match(r"https?://", url):
-        # 경로만 주면 적어 둔 base_url 에 붙인다. 코드에서 짐작하지 않는다.
+        # A bare path is appended to the recorded base_url. Never guessed from code.
         bu = load_access(root).get("base_url")
         base = bu.get("url") if isinstance(bu, dict) else bu
         if not base:
@@ -37,7 +37,7 @@ def cmd_http(args) -> int:
     if err:
         return out(err)
     if cred:
-        # 저장된 토큰·계정으로 Authorization 을 만든다 (직접 준 --header 가 있으면 그것이 이긴다)
+        # Build Authorization from the saved token or account (an explicit --header wins)
         if cred.get("token"):
             headers["Authorization"] = f"Bearer {cred['token']}"
         elif cred.get("username") and cred.get("password"):
@@ -84,7 +84,7 @@ def cmd_http(args) -> int:
     return out({
         "ok": ok, "code": "ok" if ok else "unexpected_status",
         "method": args.method.upper(), "url": url, "status": r["status"],
-        # 요청 헤더 값은 되돌려 주지 않는다 — Authorization 이 기록에 남는다
+        # Request header values are not echoed back — Authorization would end up in the record
         "request_headers": sorted(headers),
         "headers": r["headers"], "json": r["json"], "text": r["text"],
         "elapsed_ms": r["elapsed_ms"], "saved": saved,

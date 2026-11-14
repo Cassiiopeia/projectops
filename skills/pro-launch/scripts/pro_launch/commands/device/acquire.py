@@ -1,7 +1,7 @@
-"""`device acquire` — 조건으로 기기를 빌린다: 판정 > (죽은 세션 설정 되돌림) > (만들기) > (켜기) > 잠금 안에서 확인하고 lease (#953 · #954).
+"""`device acquire` — borrow a device by criteria: decide > (revert dead session settings) > (create) > (boot) > verify inside the lock and lease (#953 · #954).
 
---count N 은 같은 조건으로 서로 다른 기기 N 대 (같은 세션이 쥔 기기는 다음 판정에서 빠진다).
---need 와 함께면 그 상태가 있는 꺼진 기기를 모자란 만큼 먼저 복제한다 (iOS — 복제본의 상태는 확인 전으로 표시).
+--count N borrows N distinct devices with the same criteria (devices held by this session drop out of the next decision).
+With --need, first clone powered-off devices that have that state to cover the shortfall (iOS — clones are marked unconfirmed).
 """
 from __future__ import annotations
 
@@ -19,24 +19,24 @@ from pro_launch.runtime.host_resources import MEMORY_RISK_NEXT
 from pro_launch.runtime.output import out
 from pro_launch.runtime.session_identity import session_identity
 
-# acquire --wait 한 번의 최대 대기 (초) — agent 도구의 명령 시간 상한(기본 2분) 안
+# Max wait (s) for one acquire --wait — within the agent tool's command time limit (default 2 min)
 ACQUIRE_WAIT_MAXIMUM_SECONDS = 90
 ACQUIRE_POLL_SECONDS = 15
-# 경합으로 고른 기기를 놓쳤을 때 다시 판정하는 횟수
+# Number of re-decisions when a chosen device is lost to contention
 CLAIM_RACE_RETRIES = 3
-# --count 상한 (한 번에 빌리는 기기 수)
+# --count cap (devices borrowed at once)
 ACQUIRE_COUNT_MAXIMUM = 4
 
 
 def wait_key(request: AcquireRequest) -> str:
-    """대기 기록 키: 세션 + 조건 (같은 조건을 다시 부르면 대기 시간이 이어진다)."""
+    """Wait record key: session + criteria (calling again with the same criteria continues the wait time)."""
     condition = (f"{request.platform}|{request.form}|{request.os_minimum}|{request.device}|"
                  f"{','.join(request.needs)}|{request.is_fresh_required}")
     return f"{session_identity()}|{hashlib.sha1(condition.encode('utf-8')).hexdigest()[:10]}"
 
 
 def _restore_dead_session_settings(key: str, dead_lease: dict) -> list[dict]:
-    """reclaim: 죽은 세션이 바꾼 설정을 되돌린다 > 실패 목록 (실패한 것은 이 세션 기록으로 남긴다)."""
+    """reclaim: revert settings changed by dead sessions > list of failures (failures are kept as this session's records)."""
     settings = device_claims.pop_settings_of_session(key, dead_lease.get("session"))
     failed = [setting for setting in settings if not run_restore_commands(setting)["is_ok"]]
     if failed:
@@ -50,7 +50,7 @@ def _failure(code: str, verdict: str, device: str | None, detail: str | None, re
 
 
 def _create_device(request: AcquireRequest, args) -> tuple[dict | None, Candidate | None]:
-    """임시 기기를 만들고 원장에 기록 > (실패 응답, 꺼진 새 기기 후보)."""
+    """Create a temporary device and record it in the ledger > (failure response, new powered-off candidate)."""
     backend = next(b for b in device_backends.backends_for(request.platform) if b.capabilities.can_create)
     name = getattr(args, "name", None) or default_device_name(time.strftime("%Y%m%d-%H%M%S"))
     created = backend.create(name, request.form, request.os_minimum)
@@ -67,7 +67,7 @@ def _create_device(request: AcquireRequest, args) -> tuple[dict | None, Candidat
 
 
 def _take(decision, candidate: Candidate, request: AcquireRequest, args) -> tuple[dict | None, dict | None]:
-    """고른 기기를 켜고 쥔다 > (실패 응답, 결과). 경합으로 남이 먼저 쥐었으면 (None, None)."""
+    """Boot and hold the chosen device > (failure response, result). (None, None) if another took it first."""
     backend = device_backends.backend_named(candidate.facts.backend)
     unrestored = (_restore_dead_session_settings(candidate.facts.key, decision.reclaimed_from)
                   if decision.reclaimed_from else [])
@@ -86,14 +86,14 @@ def _take(decision, candidate: Candidate, request: AcquireRequest, args) -> tupl
         return None, None
     if is_booted_now:
         device_claims.set_pool_booted(instance or candidate.facts.key, True)
-    # 누가 한 번 쓴 기기는 더 이상 새 폰이 아니다
+    # A device someone has used once is no longer a fresh phone
     device_marks.clear_pristine(candidate.facts.key)
     return None, {"candidate": candidate, "instance": instance, "booted": is_booted_now, "lease": claimed["lease"],
                   "unrestored_settings": unrestored}
 
 
 def _decide_with_wait(request: AcquireRequest, wait_seconds: float):
-    """판정 > wait 이면 상한까지 폴링하며 다시 판정. > (decision, candidates, waited_total_seconds)"""
+    """Decide > with wait, poll up to the cap and decide again. > (decision, candidates, waited_total_seconds)"""
     key = wait_key(request)
     deadline = time.monotonic() + min(max(wait_seconds, 0), ACQUIRE_WAIT_MAXIMUM_SECONDS)
     while True:
@@ -109,7 +109,7 @@ def _decide_with_wait(request: AcquireRequest, wait_seconds: float):
 
 
 def _android_storage_fields(platform: str, dev_id: str) -> dict:
-    """Android 면 /data 남은 공간, 적으면 경고 — 설치가 저장 공간 부족으로 실패하기 전에 알린다 (#1186)"""
+    """On Android, free space on /data; warn if low — before an install fails from lack of storage (#1186)"""
     if platform != "android":
         return {}
     storage = android_device.read_data_storage(dev_id)
@@ -129,7 +129,7 @@ def identity_next(next_step: str) -> str:
 
 
 def acquire_once(request: AcquireRequest, args) -> dict:
-    """한 대 빌리기 > 응답 dict (출력하지 않는다). 켜야 하면 켜기 차례를 얻은 뒤 최신 상태로 다시 판정한다."""
+    """Borrow one device > response dict (no printing). If it needs booting, get the boot turn and decide again on fresh state."""
     decision, _, _ = _decide_with_wait(request, getattr(args, "wait", 0) or 0)
     if decision.verdict in ("reuse", "reclaim", "create") and decision.is_boot_needed:
         try:
@@ -157,7 +157,7 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
             if failure is not None:
                 return {**base, **failure}
             if taken is None:
-                continue   # 잠금 안에서 보니 남이 먼저 쥐었다 — 다시 판정
+                continue   # inside the lock another took it first — decide again
             device_claims.clear_wait(wait_key(request))
             facts = taken["candidate"].facts
             dev_id = taken["instance"] or facts.key
@@ -173,10 +173,10 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
                     "owners": list(decision.busy_owners),
                     "next": identity_next("Call device acquire again with --wait 90, or do other work first")}
         if decision.verdict == "ask":
-            # 메모리 위험이면 --user-approved 로만 넘는다 (--yes 는 넘지 않는다, #972)
+            # On memory risk only --user-approved passes (--yes does not, #972)
             return {"ok": False, "code": "needs_user", **base, "owners": list(decision.busy_owners),
                     "is_memory_risk": decision.is_memory_risk, **android_device.host_pressure_fields(),
-                    # 메모리 때문에 멈췄으면 기기 밖 큰 소비자를 함께 보여 준다 (#964)
+                    # When stopped for memory, also show large consumers outside devices (#964)
                     "non_device_consumers": device_benchmark.non_device_consumers(),
                     "next": (MEMORY_RISK_NEXT if decision.is_memory_risk
                              else "Show the reasons to the user as is and ask what to do")}
@@ -188,9 +188,9 @@ def _acquire_attempts(request: AcquireRequest, args, wait_seconds: float) -> dic
 
 
 def _clone_for_count(request: AcquireRequest, count: int, args) -> list[dict]:
-    """--count N --need: 그 상태가 있는 빈 기기가 N 대보다 적으면, 꺼진 원본을 모자란 만큼 복제한다 > 복제 결과 목록.
+    """--count N --need: if fewer than N free devices have that state, clone powered-off sources to cover the shortfall > list of clone results.
 
-    원본이 켜져 있으면 복제할 수 없다(simctl 제약) — 그때는 복제하지 않고 acquire 가 wait 를 낸다.
+    A booted source cannot be cloned (simctl limit) — then no clone happens and acquire returns wait.
     """
     from pro_launch.commands.device.lifecycle import clone_device
     candidates = device_pool_facts.build_candidates(request.platform)
@@ -209,7 +209,7 @@ def run_acquire(args) -> int:
     if args.platform not in ("ios", "android"):
         return out({"ok": False, "code": "args_required", "error": "--platform ios or android is required",
                     "next": "device acquire --platform ios --purpose '#issue'"})
-    # --reason 은 --purpose 의 별칭 (create 와 헷갈려 쓴다, #972)
+    # --reason is an alias of --purpose (confused with create, #972)
     request = AcquireRequest(platform=args.platform, form=args.form or "phone", os_minimum=args.os,
                              device=args.device, purpose=args.purpose or getattr(args, "reason", None),
                              needs=tuple(getattr(args, "need", None) or ()),

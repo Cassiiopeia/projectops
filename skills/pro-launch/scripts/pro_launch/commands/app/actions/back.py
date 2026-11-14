@@ -1,16 +1,16 @@
-"""`app back` — 뒤로가기 (Android 뒤로 키). raw `adb shell input keyevent` 대신 쓴다."""
+"""`app back` — go back (Android back key). Use instead of raw `adb shell input keyevent`."""
 from __future__ import annotations
 
 from pro_launch.commands.app.gestures import backend_for, before_shot, gesture_result
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
-# iOS 대안: 왼쪽 가장자리에서 오른쪽으로 밀기 (내비게이션 스택 뒤로) — run.py 의 back 거절 안내와 같은 좌표
+# iOS alternative: swipe right from the left edge (pop the navigation stack) — same coordinates as run.py's back rejection hint
 IOS_EDGE_SWIPE_COMMAND = "app swipe --from 0.02,0.5 --to 0.8,0.5"
 
 
 def _app_back(args) -> int:
-    """뒤로 버튼이 있는 플랫폼(Android)만 누른다. iOS 는 화면마다 뒤로가기 방식이 달라 대안을 안내한다."""
+    """Press only on platforms with a back button (Android). iOS goes back differently per screen, so suggest an alternative."""
     be, dev_id, err = backend_for(args)
     if err is not None:
         return err

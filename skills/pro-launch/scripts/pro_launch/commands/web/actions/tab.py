@@ -1,7 +1,7 @@
-"""`web tab new|list|use|close` — 세션마다 자기 탭에서 일한다 (#878).
+"""`web tab new|list|use|close` — each session works in its own tab (#878).
 
-`web tab new --name A` 후 `LAUNCH_TAB=A` 를 붙여 부르면 그 세션의 web 명령은 A 탭만 몬다.
-다른 세션이 이름 붙인 탭은 닫지 않는다 — 자기 이름을 줘야 닫는다.
+After `web tab new --name A`, calling with `LAUNCH_TAB=A` makes that session's web commands drive only tab A.
+Tabs named by other sessions are not closed — you must give your own name to close one.
 """
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def _tab_list(ctx, state: dict) -> dict:
         rows.append({"index": index, "target_id": page_target_id, "name": name_by_target_id.get(page_target_id),
                      "url": url, "title": title})
     live_names = {row["name"] for row in rows if row["name"]}
-    # 닫힌 탭의 이름은 지운다 — 같은 이름으로 다시 만들 수 있게
+    # Drop the closed tab's name — so the same name can be created again
     for name in list(state.get("tabs") or {}):
         if name not in live_names:
             tabs.forget_tab(state, name)
@@ -58,7 +58,7 @@ def _tab_new(ctx, args, state: dict) -> dict:
 
 
 def _pick_existing_tab(ctx, args):
-    """--target(targetId, 붙을 때마다 안 바뀜) > --index(붙을 때마다 순서가 바뀔 수 있음) > (탭, 실패 결과)"""
+    """--target (targetId, stable across attaches) > --index (order may change per attach) > (tab, failure result)"""
     if args.target:
         page = tabs.find_page_by_target(ctx, args.target)
         if page is None:
@@ -73,7 +73,7 @@ def _pick_existing_tab(ctx, args):
 
 
 def _tab_use(ctx, args, state: dict) -> dict:
-    """이름이 있으면 확인, --target · --index 를 주면 이름 없는 기존 탭에 이름을 붙인다."""
+    """With a name, confirm it; with --target · --index, name an existing unnamed tab."""
     if args.target or args.index is not None:
         page, failure = _pick_existing_tab(ctx, args)
         if failure:
@@ -126,7 +126,7 @@ def execute(args, state: dict, state_f: Path) -> int:
 
 
 def _save_tab_records(state_f: Path, state: dict, tab_names_before: set) -> None:
-    """이번 호출이 더하고 지운 탭 기록만 지금 파일에 합친다 — 다른 세션이 그사이 쓴 값을 덮지 않게."""
+    """Merge only the tab records this call added or removed into the current file — so values another session wrote meanwhile are not overwritten."""
     fresh = read_state(state_f) if state_f.is_file() else state
     current_tabs = state.get("tabs") or {}
     merged_tabs = dict(fresh.get("tabs") or {})

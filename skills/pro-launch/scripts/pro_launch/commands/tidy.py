@@ -1,13 +1,13 @@
-"""`tidy` — 기본은 흩어진 기억 통합(예전 동작). `tidy --buckets` 가 쌓인 상태 보고 · --apply 때만 정리 (#932).
+"""`tidy` — by default merges scattered memories (old behavior). `tidy --buckets` reports accumulated state · cleans only with --apply (#932).
 
---buckets 가 보는 것 4개: 버킷(크기·최근 사용·가짜/임시·고아 프로필), Maestro 테스트 출력(~/.maestro/tests),
-projectops tmp, 낡은 기억. 기본은 보고만(dry). 지우는 것은 --apply 일 때 아래뿐이다.
-  · 가짜/임시 버킷 중 --days 일 넘게 안 쓴 것 (데이터 파일이 든 것은 남긴다)
-  · 상태 파일 없이 프로필만 남은 버킷의 프로필 (--days 일 넘게 안 쓴 것)
-  · --days 일 넘은 Maestro 테스트 폴더 · projectops tmp 항목
-  · 낡은 기억 표 적용 (대체 표시 · 테스트 오염 삭제)
-브라우저 프로세스가 살아 있거나 쓰는 중으로 보이는 프로필은 절대 지우지 않는다.
-실제 레포(owner__repo 키 · 알려진 로컬 레포) 버킷은 프로필도 데이터도 지우지 않고 크기·나이만 보고한다.
+4 things --buckets looks at: buckets (size, last use, fake/temp, orphan profiles), Maestro test output (~/.maestro/tests),
+projectops tmp, stale memories. Default is report only (dry). With --apply only the following is removed.
+  · fake/temp buckets unused for more than --days days (ones holding data files are kept)
+  · profiles of buckets left with only a profile and no state file (unused for more than --days days)
+  · Maestro test folders · projectops tmp entries older than --days days
+  · apply the stale-memory table (mark superseded · delete test pollution)
+Profiles with a live browser process or that look in use are never removed.
+Buckets of real repos (owner__repo key · known local repo) keep both profile and data; only size and age are reported.
 """
 from __future__ import annotations
 
@@ -32,18 +32,18 @@ from pro_launch.runtime.recent_roots import load_recent_roots
 
 SECONDS_PER_DAY = 86400
 DEFAULT_IDLE_DAYS = 7
-# <owner>__<repo> — git remote 에서 나온 정상 레포 키
+# <owner>__<repo> — a normal repo key derived from the git remote
 REPO_KEY_PATTERN = re.compile(r"^[^/_][^/]*__[^/]+$")
-# 버킷으로 보지 않는 폴더 (기계 공용 · 세션 중계 · 가상환경) + 한 단계 더 들어가 보는 _scratch
+# Folders not treated as buckets (machine-wide · session relay · virtualenv) + _scratch, looked into one level deeper
 RESERVED_NAMES = (MACHINE_BUCKET, SCRATCH_BUCKET, "maestro-sessions", ".venv")
 PROFILE_NAME = ".browser-profile"
-# 이 파일이 있으면 지워도 되는 임시 폴더가 아니다 (사람·agent 가 남긴 데이터)
+# With this file present, it is not a disposable temp folder (data left by a person or agent)
 DATA_FILES = ("access.json", "learned.json", "devices.json", "journal.json", "app-map.json")
 BROWSER_STATE_FILE = "browser.json"
 
 
 def _tree_size(path: Path) -> int:
-    """폴더 전체 바이트 (링크는 따라가지 않는다). 읽지 못하는 것은 건너뛴다."""
+    """Total bytes of a folder (does not follow links). Unreadable entries are skipped."""
     total = 0
     stack = [str(path)]
     while stack:
@@ -65,7 +65,7 @@ def _tree_size(path: Path) -> int:
 
 
 def _last_used(path: Path) -> float:
-    """폴더와 바로 아래 항목의 가장 최근 수정 시각 (프로필 내부는 보지 않는다)."""
+    """Most recent mtime of the folder and its direct children (does not look inside profiles)."""
     latest = 0.0
     try:
         latest = path.stat().st_mtime
@@ -81,14 +81,14 @@ def _megabytes(size_bytes: int) -> float:
 
 
 def _bucket_has_data(path: Path) -> bool:
-    """사람이 남긴 데이터(접속 방법 · 기억 · 자리 기록)가 있나."""
+    """Is there data a person left (access method · memory · location records)?"""
     if any((path / name).exists() for name in DATA_FILES):
         return True
     return bool(knowledge.load(path / knowledge.FILE))
 
 
 def _live_browser_pid(path: Path) -> int | None:
-    """browser.json 의 pid 가 살아 있으면 그 pid."""
+    """The pid from browser.json if it is alive."""
     try:
         pid = int(json.loads((path / BROWSER_STATE_FILE).read_text(encoding="utf-8")).get("pid") or 0)
     except (OSError, ValueError, TypeError, AttributeError):
@@ -97,17 +97,17 @@ def _live_browser_pid(path: Path) -> int | None:
 
 
 def _is_profile_in_use(profile: Path, command_lines: str | None) -> bool:
-    """이 프로필을 쓰는 프로세스가 있나. 프로세스 목록을 못 읽으면 쓰는 중으로 본다."""
+    """Is a process using this profile? If the process list cannot be read, treat as in use."""
     return True if not command_lines else str(profile) in command_lines
 
 
 def _known_folder_names() -> set[str]:
-    """최근 루트(레포)의 폴더 이름 — 원격 없는 로컬 레포의 버킷 이름과 대조한다."""
+    """Folder names of recent roots (repos) — matched against bucket names of local repos without a remote."""
     return {Path(row["path"]).name for row in load_recent_roots()}
 
 
 def _classify(parent_name: str, name: str, known_names: set[str]) -> str:
-    """real(원격 키 · 알려진 로컬 레포) | scratch(_scratch 아래) | fake(그 밖의 폴더 이름)."""
+    """real (remote key · known local repo) | scratch (under _scratch) | fake (any other folder name)."""
     if parent_name == SCRATCH_BUCKET:
         return "scratch"
     if REPO_KEY_PATTERN.match(name) or name in known_names:
@@ -144,30 +144,30 @@ def _bucket_rows(command_lines: str | None, now: float) -> list[dict]:
                 "last_used": time.strftime("%Y-%m-%d %H:%M", time.localtime(last_used)) if last_used else None,
                 "idle_days": round((now - last_used) / SECONDS_PER_DAY, 1) if last_used else None,
                 "has_data": _bucket_has_data(path),
-                # 상태(데이터) 없이 프로필만 남은 버킷의 프로필
+                # Profile of a bucket left with only a profile and no state (data)
                 "is_orphan_profile": has_profile and not _bucket_has_data(path),
                 "is_browser_alive": live_pid is not None or (has_profile and _is_profile_in_use(profile, command_lines)),
-                # 로그인 같은 공들인 상태가 기록된 프로필 (#956)
+                # Profile with recorded effortful state such as a login (#956)
                 "has_profile_marks": has_profile and path.name in marked_bucket_names,
             })
     return rows
 
 
 def _buckets_with_profile_marks() -> set[str]:
-    """레포 프로필에 mark 가 있는 버킷 이름들 (원장 키 browser-profile:repo:<버킷>)."""
+    """Bucket names with a mark on their repo profile (ledger key browser-profile:repo:<bucket>)."""
     prefix = f"{browser_profiles.MARK_KEY_PREFIX}repo:"
     return {key[len(prefix):] for key, entry in device_ledger.read_ledger()["devices"].items()
             if key.startswith(prefix) and entry.get("marks")}
 
 
 def _decide_bucket_action(row: dict, idle_days: float) -> str:
-    """버킷 한 건의 처리: delete_bucket | delete_profile | keep (이유는 skipped_reason)."""
+    """Handling for one bucket: delete_bucket | delete_profile | keep (reason in skipped_reason)."""
     if row["is_browser_alive"]:
         return "keep:browser_alive"
-    # 로그인이 기록된 프로필은 지우면 다시 로그인·2단계 인증을 해야 한다
+    # Deleting a profile with a recorded login means logging in and 2FA again
     if row.get("has_profile_marks"):
         return "keep:profile_has_marks"
-    # 실제 레포는 로그인 프로필도 사용자 자산이다 — 보고만 한다
+    # For real repos, login profiles are user assets too — report only
     if row["classification"] == "real" and row["is_orphan_profile"]:
         return "keep:real_repo_profile"
     is_idle = row["idle_days"] is not None and row["idle_days"] > idle_days

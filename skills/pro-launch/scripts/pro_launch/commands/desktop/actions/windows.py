@@ -1,11 +1,11 @@
-"""`desktop windows` — 열린 창 목록 (앞에 있는 것부터). --window 에 넣을 제목을 고르는 용도."""
+"""`desktop windows` — list of open windows (front first). Used to pick a title for --window."""
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import public_window
 from pro_launch.registry import Action
 from pro_launch.runtime.output import out
 
-# 브라우저 — 페이지 안은 web 이 더 정확하다
+# Browsers — web is more accurate inside pages
 BROWSER_APPS = {"chrome.exe", "msedge.exe", "firefox.exe", "whale.exe", "brave.exe",
                 "google chrome", "safari", "firefox", "microsoft edge", "arc"}
 

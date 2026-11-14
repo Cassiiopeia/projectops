@@ -1,4 +1,4 @@
-"""`get-output-path` — 이번 실행의 산출물 자리와 env.sh."""
+"""`get-output-path` — this run's output location and env.sh."""
 from __future__ import annotations
 
 import os
@@ -14,11 +14,11 @@ from pro_launch.runtime.shots import record_last_run
 
 
 def cmd_output_path(args) -> int:
-    """이번 실행의 산출물 자리를 만들고 알려준다.
+    """Create and report this run's output location.
 
-    부르는 작업 스킬이 자기 폴더에 받고 싶으면 --skill 로 자기 id 를 넘긴다
-    (ui-design 는 --skill ui-design). **증거를 내는 스킬만 받는다** — 문서 스킬 폴더에
-    캡처를 쌓으면 추적 제외가 없어 저장소에 커밋된다.
+    A calling task skill that wants output in its own folder passes its id with --skill
+    (ui-design uses --skill ui-design). **Only skills that produce evidence are accepted** — captures piled into a docs
+    skill folder have no tracking exclusion and get committed to the repo.
     """
     try:
         from common.paths import EVIDENCE_SKILLS, resolve_output_path
@@ -26,7 +26,7 @@ def cmd_output_path(args) -> int:
         return out({"ok": False, "code": "common_not_found",
                     "error": "scripts/common/paths.py not found",
                     "hint": "Check that the projectops installation is complete"})
-    # --root 가 가리키는 저장소 기준으로 자리를 계산한다. 없는 경로는 조용히 무시하지 않는다 (#713)
+    # Compute the location from the repo --root points at. A missing path is not silently ignored (#713)
     if args.root and args.root != ".":
         root_dir = Path(args.root).expanduser()
         if not root_dir.is_dir():
@@ -34,7 +34,7 @@ def cmd_output_path(args) -> int:
                         "error": f"--root path does not exist: {root_dir}"})
         os.chdir(root_dir)
     else:
-        # 레포 밖에서 불려도 $PROJECT_ROOT·최근에 쓴 루트 기준으로 자리를 잡는다 (#885) — 아니면 git_not_found
+        # Even when called outside a repo, place it under $PROJECT_ROOT or the recently used root (#885) — otherwise git_not_found
         resolved = project_root(args)
         if resolved.is_dir() and resolved != Path.cwd().resolve():
             os.chdir(resolved)
@@ -48,7 +48,7 @@ def cmd_output_path(args) -> int:
     r = resolve_output_path(skill, args.title)
     if r.get("ok") is False:
         return out(r)
-    md = Path(r["path"])        # <우산>/<skill>/{날짜}_{번호}_{제목}.md
+    md = Path(r["path"])        # <umbrella>/<skill>/{date}_{number}_{title}.md
     run_dir = md.parent / md.stem
     try:
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +61,7 @@ def cmd_output_path(args) -> int:
     if package and package != known["package"]:
         save_devices(root, package, known["bindings"])
     env = write_env_sh(run_dir, package, known["bindings"], skill=skill)
-    # env.sh 를 안 부른 Bash 호출의 캡처도 이 실행 폴더로 오게 (#931)
+    # So captures from Bash calls that did not source env.sh also land in this run folder (#931)
     record_last_run(root, run_dir, run_dir / "screenshots")
     state = r.get("gitignore")
     return out({
@@ -76,10 +76,10 @@ def cmd_output_path(args) -> int:
 
 
 def _resolve_package(given: str | None, stored: str | None, root: Path) -> tuple[str | None, str | None]:
-    """앱 패키지: --package > 프로젝트 파일(applicationId·bundle id) > devices.json 저장값.
+    """App package: --package > project files (applicationId, bundle id) > value saved in devices.json.
 
-    저장값이 프로젝트 파일과 다르면 프로젝트 파일이 이긴다 — 옛 패키지로 env.sh 를 쓴 적이 있다 (#931).
-    > (패키지, 바뀌었으면 "옛 -> 새")
+    If the saved value differs from the project files, the project files win — env.sh was once written with an old package (#931).
+    > (package, "old -> new" if changed)
     """
     if given:
         return given, None

@@ -1,4 +1,4 @@
-"""`app type` — 포커스된 입력창에 글자를 넣는다."""
+"""`app type` — type text into the focused input field."""
 from __future__ import annotations
 
 import os
@@ -17,15 +17,15 @@ from pro_launch.runtime.creds import cred_field, with_login_policy
 from pro_launch.runtime.devices import no_device_response, pick_device
 from pro_launch.runtime.output import out
 
-# 대조 결과에 보이는 글자를 싣지 않을 환경변수 이름 (비밀번호·토큰·코드류)
+# Environment variable names whose visible characters stay out of the check result (passwords, tokens, codes)
 SECRET_ENV_NAME_PATTERN = re.compile(r"PASS|PW|PWD|TOKEN|SECRET|KEY|OTP|PIN|CODE|AUTH|CRED", re.IGNORECASE)
 
 
 def _app_type(args) -> int:
-    """기기 화면의 포커스된 입력창에 글자를 넣는다. 로그인 정보는 저장된 자격증명에서 꺼내 쓴다.
+    """Type text into the focused input field on the device screen. Login info comes from stored credentials.
 
-    값은 명령줄에 싣지 않는다 (호스트 `ps` 에 남지 않게): Android 표준입력, iOS Maestro 환경변수.
-    iOS 는 simctl 에 텍스트 명령이 없어 Maestro inputText 로 넣는다 (#895).
+    Values never go on the command line (so they do not show in host `ps`): Android via stdin, iOS via Maestro environment variables.
+    iOS has no text command in simctl, so text goes in via Maestro inputText (#895).
     """
     if getattr(args, "cred", None):
         value, err = cred_field(args.cred, getattr(args, "cred_field", None))
@@ -36,7 +36,7 @@ def _app_type(args) -> int:
             return out({"ok": False, "code": "env_not_set", "error": f"Environment variable {args.text_env} is empty"})
         value = os.environ[args.text_env]
     else:
-        # 비밀 아닌 값도 --text-env 로 — 명령줄 값은 세션 기록·호스트 ps 에 평문으로 남는다
+        # Use --text-env for non-secret values too — command-line values stay in plain text in session logs and host ps
         return out({"ok": False, "code": "text_required",
                     "error": "--cred or --text-env is required (do not pass the value as --text — it stays in the records in plain text)",
                     "next": "SEARCH_TEXT='coffee' app type --text-env SEARCH_TEXT  # a plain value (Android accepts ASCII only)",
@@ -60,7 +60,7 @@ def _app_type(args) -> int:
 
 
 def _type_on_android(args, dev_id: str, value: str) -> int:
-    """Android: 입력기 확인·전환 > 입력(표준입력) > 필드 대조 > Enter > 원복 (#926)."""
+    """Android: check and switch IME > input (stdin) > field check > Enter > restore (#926)."""
     be = app_input.get_backend("android")
     mode = getattr(args, "ime", None) or "auto"
     should_submit = bool(getattr(args, "submit", False))
@@ -87,12 +87,12 @@ def _type_on_android(args, dev_id: str, value: str) -> int:
                                         if is_mismatch else credentials.mask(detail or "", entry)[:300] or None),
               "summary": f"Typed {len(value)} chars" + (" + Enter" if should_submit and ok else ""),
               "next": _next_after_android_type(ok, is_mismatch, ime_report)}
-    # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
+    # For login input, attach the interstitial screen policy (#905)
     return out(with_login_policy(result, getattr(args, "cred", None)))
 
 
 def _is_secret_source(args) -> bool:
-    """대조 결과에 보이는 글자를 실어도 되나 — 저장된 자격증명이거나 이름이 비밀 같은 환경변수면 비밀."""
+    """Whether visible characters may go in the check result — secret if it is a stored credential or an env var with a secret-like name."""
     if getattr(args, "cred", None):
         return True
     return bool(SECRET_ENV_NAME_PATTERN.search(getattr(args, "text_env", None) or ""))
@@ -110,14 +110,14 @@ def _next_after_android_type(ok: bool, is_mismatch: bool, ime_report: dict) -> s
 
 
 def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
-    """iOS — 조작 백엔드(Maestro)의 input_text. 도구가 없으면 ios_tool_missing (tap·swipe 와 같은 code)."""
+    """iOS — input_text of the control backend (Maestro). If the tool is missing, ios_tool_missing (same code as tap and swipe)."""
     be, err = backend_on(platform, args)
     if err is not None:
         return err
     should_submit = bool(getattr(args, "submit", False))
     ok, detail = be.input_text(dev_id, value, submit=should_submit)
     entry = {"password": value, "token": value}
-    # 비밀 값은 상주 세션에 싣지 않는다 — 세션이 있으면 session_fallback=secret_input_per_call 로 보인다
+    # Secret values are not sent to the persistent session — with a session, this shows as session_fallback=secret_input_per_call
     result = {"ok": ok, "code": "ok" if ok else "app_type_failed", "device": dev_id, "via": be.name,
               **session_fields(be), "chars": len(value), "submitted": should_submit and ok,
               "elapsed_seconds": elapsed_seconds(args),
@@ -126,7 +126,7 @@ def _type_with_backend(args, platform: str, dev_id: str, value: str) -> int:
               "next": "app shot  # check on screen that it was typed (password fields show masked)" if ok
                       else "Tap the field first with app tap to focus it, then try again"}
     with_session_advice(result, be, dev_id, args)
-    # 로그인 입력이면 중간 화면 정책을 싣는다 (#905)
+    # For login input, attach the interstitial screen policy (#905)
     return out(with_login_policy(result, getattr(args, "cred", None)))
 
 

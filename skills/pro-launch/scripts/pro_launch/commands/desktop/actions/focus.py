@@ -1,4 +1,4 @@
-"""`desktop focus` — 창을 앞으로 가져온다 (최소화돼 있으면 되살린다)."""
+"""`desktop focus` — bring a window to front (restore it if minimized)."""
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import pick_window, public_window

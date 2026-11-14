@@ -1,8 +1,8 @@
-"""`web clipboard` — 복사 버튼을 누른 뒤 호스트 클립보드를 출력하지 않고 저장한다 (#930).
+"""`web clipboard` — press a copy button, then save the host clipboard without printing it (#930).
 
-Play 앱 서명 지문처럼 복사 버튼으로만 나오는 값을 `pbcopy </dev/null; click; pbpaste` 로 읽던 것을 대신한다.
-값은 `web value` 와 같은 0600 파일에 저장하고 결과에는 길이 · sha256 앞자리만 싣는다.
-읽는 곳은 이 컴퓨터의 시스템 클립보드다 — headless 브라우저의 복사는 시스템 클립보드에 닿지 않을 수 있어 `--headed` 에서 쓴다.
+Replaces reading values only exposed via a copy button (e.g. Play app signing fingerprints) with `pbcopy </dev/null; click; pbpaste`.
+The value is saved to the same 0600 file as `web value`; the result carries only the length and a sha256 prefix.
+It reads this computer's system clipboard — a headless browser's copy may not reach it, so use it with `--headed`.
 """
 from __future__ import annotations
 

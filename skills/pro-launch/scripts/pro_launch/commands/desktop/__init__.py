@@ -1,13 +1,13 @@
-"""`desktop` — PC 화면에 뜬 프로그램(설치 마법사 · OS 대화상자 · 데스크톱 앱)을 읽고 누른다 (#985).
+"""`desktop` — read and press programs on the PC screen (installer wizards, OS dialogs, desktop apps) (#985).
 
-브라우저 페이지 안은 `web`, 에뮬레이터·시뮬레이터는 `app` 이 맡는다. 여기는 그 밖의 창이다.
+Pages inside a browser belong to `web`, emulators and simulators to `app`. This covers every other window.
 
-안전 관문은 이 파일 한 곳에 있다 (동작 선언 `device_use`).
-    read    의존성만 본다 — 창 목록 · 구조 · 캡처 · 대기
-    mutate  + 보안 화면(UAC·잠금) 아님 + 이 세션이 입력 세션을 쥠 + 일시정지 아님
-            + 우리 마지막 입력 뒤 사용자 키 입력 없음 (Windows 는 마우스 포함)
-    none    동작이 직접 판단한다 (setup · doctor · session)
-OS 차이는 전부 `scripts/desktop_input.py` 의 백엔드가 맡는다. 동작을 추가해도 이 파일은 고치지 않는다.
+The safety gate lives only in this file (action declaration `device_use`).
+    read    checks dependencies only — window list, tree, capture, wait
+    mutate  + not a secure screen (UAC, lock) + this session holds the input session + not paused
+            + no user key input since our last input (mouse included on Windows)
+    none    the action decides itself (setup, doctor, session)
+OS differences are all handled by the backend in `scripts/desktop_input.py`. Adding an action never changes this file.
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def configure(p) -> None:
 
 
 def input_gate(be) -> dict | None:
-    """화면을 바꾸는 동작 전에. 막아야 하면 실패 결과, 지나가면 None."""
+    """Before an action that changes the screen. Failure result if blocked, None if allowed."""
     ready = be.readiness()
     if ready.get("secure_desktop") or ready.get("consent_prompt"):
         return {"ok": False, "code": "needs_user", "reason": "secure_desktop",
@@ -46,7 +46,7 @@ def input_gate(be) -> dict | None:
                 "ask_user": "Please unlock the screen, then tell me when it is done"}
     missing = [k for k, granted in (ready.get("permissions") or {}).items() if not granted]
     if missing:
-        # 클릭 · 입력은 전후 화면 비교라 화면 기록도 필요 — 손쉬운 사용만 켠 호스트가 여기서 막힌다 (#1132)
+        # Click and type compare screens before/after, so screen recording is needed too — hosts with only Accessibility on stop here (#1132)
         return {"ok": False, "code": "permission_missing", "missing": missing,
                 "error": f"macOS has not granted {', '.join(missing)} to {host_app_label(find_host_app())}. "
                          "click · type · press · focus need both Accessibility and Screen Recording",

@@ -1,7 +1,7 @@
-"""`device benchmark` — 이 컴퓨터가 가상 기기를 몇 대까지 감당하나 재서 설정에 넣는다 (#964).
+"""`device benchmark` — measure how many virtual devices this computer can handle and save it to config (#964).
 
-기준 상태 > 종류마다 실험 기기 켜서 비용 측정 > 기기 예산 계산 > 설정(launch.devices) 저장 > 사람이 읽는 결과.
-다른 세션이 기기를 쓰는 중이면 --yes 없이 시작하지 않는다 (측정이 그 세션을 멈추게 할 수 있다).
+Baseline > boot a test device per kind to measure cost > compute device budget > save config (launch.devices) > human-readable result.
+Does not start without --yes if another session is using devices (measuring could stall that session).
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ PLATFORMS = ("ios", "android")
 
 
 def _others_using_devices() -> list[dict]:
-    """다른 살아 있는 세션이 빌린 기기."""
+    """Devices borrowed by other live sessions."""
     owners = device_claims.owners_by_device()
     seen, rows = set(), []
     for view in owners.values():
@@ -33,11 +33,11 @@ def _summary(budget_mb: int, costs: dict[str, int]) -> str:
 
 def run_benchmark(args) -> int:
     platforms = [args.platform] if args.platform in PLATFORMS else list(PLATFORMS)
-    # 켜진 기기가 있는 종류는 그 실제 사용량으로 잰다 (새로 켜지 않는다) · --full 이면 늘려 가며 잰다
+    # Kinds with a booted device are measured by its real usage (no new boot) · with --full, measure while scaling up
     running = device_benchmark.measure_running_devices()
     to_boot = [platform for platform in platforms if args.full or platform not in running]
     others = _others_using_devices()
-    # 새로 켜는 측정만 다른 세션을 멈추게 할 수 있다 — 켜진 기기만 재는 측정은 그대로 한다
+    # Only measurements that boot new devices can stall other sessions — measuring booted devices proceeds as is
     if others and to_boot and not args.yes:
         return out({"ok": False, "code": "devices_in_use", "others": others, "would_boot": to_boot,
                     "error": "Another session is using devices — booting test devices could stall that session",
@@ -55,7 +55,7 @@ def run_benchmark(args) -> int:
                     "next": "Reduce memory-heavy programs (non_device_consumers) or booted devices, then measure again. Settings were not changed"})
     costs = {platform: measured.get(platform) or device_capacity.boot_cost_mb(platform)[0] for platform in PLATFORMS}
     reserve = device_capacity.memory_reserve_mb()
-    # 기기 예산 = 시작 때 남은 메모리 + 이미 켜져 있던 기기들이 쓰던 몫 - 여유분
+    # Device budget = free memory at start + share used by already-booted devices - headroom
     in_use = sum(costs.get(platform, 0) * count for platform, count in booted_at_start.items())
     budget = max(0, int((baseline.get("available_mb") or 0) + in_use - reserve))
     details = {"ram_mb": baseline.get("total_mb"), "cores": os.cpu_count(), "results": results,

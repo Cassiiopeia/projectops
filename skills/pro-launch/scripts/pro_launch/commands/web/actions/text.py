@@ -1,4 +1,4 @@
-"""`web text` — 보이는 글자를 읽는다 (스크린샷보다 싸다). --grep 이면 맞는 줄과 앞뒤만 (#891)."""
+"""`web text` — read visible text (cheaper than a screenshot). With --grep, only matching lines and their context (#891)."""
 from __future__ import annotations
 
 
@@ -8,7 +8,7 @@ from pro_launch.registry import Action
 
 
 def grep_lines(lines: list[str], needle: str, around: int) -> tuple[str, int]:
-    """대소문자 무시 부분 문자열로 맞는 줄 + 앞뒤 around 줄. 떨어진 묶음은 '…' 줄로 가른다. (글, 맞은 줄 수)"""
+    """Lines matching a case-insensitive substring + `around` lines of context. Separate groups are split by a '…' line. (text, matched line count)"""
     lowered = needle.lower()
     hits = [i for i, line in enumerate(lines) if lowered in line.lower()]
     keep: set[int] = set()
@@ -25,7 +25,7 @@ def grep_lines(lines: list[str], needle: str, around: int) -> tuple[str, int]:
 
 
 def _web_text(page, args) -> dict:
-    # --frame 이면 그 iframe 문서의 글자 (#877)
+    # With --frame, the text of that iframe's document (#877)
     scope, failure = frame_scope(page, args, "text")
     if failure:
         return failure

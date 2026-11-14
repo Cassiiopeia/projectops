@@ -1,4 +1,4 @@
-"""`desktop click` — ref 로 누른다 (마우스 없이가 기본). 구조가 없는 화면만 --at 0~1 비율."""
+"""`desktop click` — press by ref (no mouse by default). Only screens without a tree use --at 0~1 ratios."""
 from __future__ import annotations
 
 import desktop_input
@@ -25,7 +25,7 @@ def _click_at(be, args) -> int:
     if failure:
         return out(failure)
     if not args.confirm_mutating:
-        # 글자를 모르는 곳을 누르므로 무엇이 바뀔지 판단할 수 없다 — 사람에게 먼저 묻는다
+        # Pressing a spot with unknown text means the effect cannot be judged — ask the person first
         return out({"ok": False, "code": "mutating_blocked", "reason": "unknown_target",
                     "error": "A ratio click cannot tell what it presses",
                     "ask_user": "I need to click a spot I cannot read as a button. Shall I click it?",
@@ -82,7 +82,7 @@ def configure(p) -> None:
     p.add_argument("--ref", type=int, default=None, help="number from the last find/tree")
     p.add_argument("--at", default=None, help="0-1 ratio inside the window, only when there is no element")
     p.add_argument("--double", action="store_true", help="--at: double click")
-    # dest 를 바꾼다 — args.action 은 desktop 의 동작 이름(click)이라 덮으면 동작을 못 찾는다
+    # Change dest — args.action is desktop's action name (click); overwriting it loses the action
     p.add_argument("--action", dest="named_action", default=None,
                    help="press a named hidden button of the element (named_actions, e.g. a notification's Close)")
 

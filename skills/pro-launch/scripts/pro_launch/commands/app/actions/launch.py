@@ -1,4 +1,4 @@
-"""`app launch` — 앱을 띄운다 (띄운 뒤 앞에 있는지까지 확인)."""
+"""`app launch` — launch the app (and confirm it is in the foreground)."""
 from __future__ import annotations
 
 import time
@@ -16,7 +16,7 @@ def _app_launch(args) -> int:
     launched_epoch = time.time()
     ok, detail = launch_package(platform, dev_id, package)
     if ok:
-        # 띄우라고 보낸 것과 앞에 나온 것은 다르다 (#923)
+        # What we asked to launch and what came to the front can differ (#923)
         check = check_after_launch(platform, dev_id, package, launched_epoch)
         if check["state"] in ("not_foreground", "app_exited"):
             return launch_failure_response("launch", platform, dev_id, package, check)

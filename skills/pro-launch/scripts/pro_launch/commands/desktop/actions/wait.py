@@ -1,4 +1,4 @@
-"""`desktop wait` — 글자가 나타날 때까지 · 사라질 때까지 · 화면이 멈출 때까지 기다린다."""
+"""`desktop wait` — wait until text appears, disappears, or the screen settles."""
 from __future__ import annotations
 
 import time
@@ -13,7 +13,7 @@ from pro_launch.runtime.output import out
 POLL_SECONDS = 0.5
 
 
-# 결과에 싣는 일치 노드 수
+# Number of matching nodes included in the result
 MAX_MATCHES = 10
 
 
@@ -23,7 +23,7 @@ def _matches(be, args, window) -> list[dict]:
 
 
 def _first_with_text(be, args) -> tuple[dict | None, list[dict]]:
-    """(글자가 있는 창, 일치 노드). 없으면 첫 창과 빈 목록 — 창이 하나도 없으면 (None, [])."""
+    """(window with the text, matching nodes). Otherwise the first window and an empty list — (None, []) if there are no windows."""
     windows, _ = windows_to_search(be, args.window)
     for window in windows:
         found = _matches(be, args, window)
@@ -45,15 +45,15 @@ def execute(args) -> int:
         return out({"ok": True, "code": "ok", "changed": changed, "waited_seconds": waited,
                     "summary": "Screen settled", "next": "desktop tree"})
     while time.monotonic() - started < args.timeout:
-        # 창이 새로 뜨거나 닫힐 수 있어 매번 다시 고른다 (설치 마법사의 다음 단계 창)
+        # Re-pick each time since windows may open or close (next step window of an installer)
         window, found = _first_with_text(be, args)
-        # 창 자체가 닫혔으면 글자도 사라진 것이다 (닫힌 배너 · 설치 창)
+        # If the window itself closed, the text is gone too (closed banner, installer window)
         if (window is not None or args.gone) and bool(found) != args.gone:
             payload = {"ok": True, "code": "ok", "waited_seconds": round(time.monotonic() - started, 2),
                        "window": window["title"] if window else None,
                        "summary": f"{args.text!r} {'is gone' if args.gone else 'appeared'}", "next": "desktop find"}
             if found:
-                # ref 를 바로 남긴다 — 알림 배너는 약 5초면 사라져 find 를 한 번 더 부를 틈이 없다
+                # Record the ref right away — notification banners vanish in about 5s, leaving no time for another find
                 payload["matches"] = remember(window, found)[:MAX_MATCHES]
                 payload["next"] = "desktop click --ref <n>  # refs are ready, no find needed"
             return out(payload)

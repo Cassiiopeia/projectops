@@ -1,4 +1,4 @@
-"""`desktop shot` — 창 · 영역 · 주 화면을 찍는다 (WebP, 긴 변 1200px)."""
+"""`desktop shot` — capture a window, region or main screen (WebP, long side 1200px)."""
 from __future__ import annotations
 
 from pro_launch.commands.desktop.common import pick_window, public_window, save_shot

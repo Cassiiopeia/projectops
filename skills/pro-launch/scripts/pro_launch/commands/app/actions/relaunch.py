@@ -1,4 +1,4 @@
-"""`app relaunch` — 앱을 끄고 다시 띄운다 (상태 초기화 없이 처음 화면부터)."""
+"""`app relaunch` — stop and relaunch the app (from the first screen, without resetting state)."""
 from __future__ import annotations
 
 import time
@@ -14,7 +14,7 @@ def _app_relaunch(args) -> int:
     if err is not None:
         return err
     foreground_fields: dict = {}
-    # 끄기 > 띄우기 (끄기 실패면 띄우지 않는다 — 옛 프로세스 위에 덮이면 재시작이 아니다)
+    # Stop > launch (if stop fails, do not launch — starting over the old process is not a restart)
     ok, was_running, detail = terminate_package(platform, dev_id, package)
     if not ok:
         return control_result("relaunch", platform, dev_id, ok, detail, "terminate_failed",
@@ -23,7 +23,7 @@ def _app_relaunch(args) -> int:
     launched_epoch = time.time()
     ok, detail = launch_package(platform, dev_id, package)
     if ok:
-        # 띄운 뒤 앞에 있는지 확인 (#923)
+        # Confirm it is in the foreground after launch (#923)
         check = check_after_launch(platform, dev_id, package, launched_epoch)
         if check["state"] in ("not_foreground", "app_exited"):
             return launch_failure_response("relaunch", platform, dev_id, package, check, was_running=was_running)

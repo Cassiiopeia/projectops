@@ -1,8 +1,8 @@
-"""`harness` — 반복하는 사이트·작업의 안내서 폴더를 찾고·보고·맞추고·만든다 (projectops#1023).
+"""`harness` — find, show, match and create guide folders for repeated sites and tasks (projectops#1023).
 
-하네스는 폴더 하나다(`harness_store`). 새 사이트·작업을 더할 때 코드를 고치지 않는다 — `harness new` 나 손으로 폴더를 만든다.
-읽기는 맞는 주소·호스트·앱·창으로 향하는 명령의 응답에 `harness` 로 자동으로 실리고, 이 명령은 전체를 볼 때 쓴다.
-앱(패키지명·번들 ID)·창(제목·프로그램 이름) 맞추기는 projectops#1024.
+A harness is one folder (`harness_store`). Adding a site or task needs no code change — use `harness new` or make the folder by hand.
+Reading happens automatically: responses to commands aimed at a matching URL, host, app or window carry `harness`; this command is for viewing all.
+App (package name, bundle ID) and window (title, program name) matching: projectops#1024.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from pro_launch.runtime.context import project_root
 from pro_launch.runtime.output import out
 
 HARNESS_ACTIONS = ("list", "show", "match", "new")
-# show 가 돌려주는 README 상한 — 넘으면 잘라서 주고 경로로 Read 하게 한다
+# README size cap returned by show — longer ones are truncated and the path is given for Read
 SHOW_MAX_CHARS = 12000
 
 
@@ -102,7 +102,7 @@ _HANDLERS = {"list": _list, "show": _show, "match": _match, "new": _new}
 
 
 def cmd_harness(args) -> int:
-    # match 는 --url · --host · --app · --window · --area 를 한 값(마지막 값)으로 쓴다. new 는 목록 그대로
+    # match uses one value (the last) for --url · --host · --app · --window · --area. new keeps the full list
     args.url = (args.url_list or [None])[-1]
     args.host = (args.host_list or [None])[-1]
     args.app = (args.app_list or [None])[-1]
@@ -113,10 +113,10 @@ def cmd_harness(args) -> int:
 
 def configure(p) -> None:
     p.add_argument("action", choices=list(HARNESS_ACTIONS))
-    # 위치 인자는 하나 (#622): show · new 의 이름
+    # One positional argument (#622): the name for show · new
     p.add_argument("name", nargs="?", default=None, help="show · new: harness name (folder name)")
     p.add_argument("--description", default=None, help="new: one line on what this harness is for")
-    # match 는 한 값, new 는 여러 번 줄 수 있다
+    # match takes one value; new can repeat
     p.add_argument("--url", dest="url_list", action="append", default=None,
                    help="match: the URL to test · new: URL pattern to auto-surface on (* wildcard, repeatable)")
     p.add_argument("--host", dest="host_list", action="append", default=None,
@@ -127,7 +127,7 @@ def configure(p) -> None:
     p.add_argument("--window", dest="window_list", action="append", default=None,
                    help="match: the window title or program name to test · new: desktop window title / program "
                         "pattern to auto-surface on (* wildcard, repeatable)")
-    # app 명령의 영역 app 은 ios · android 와 통한다 (harness_store.area_applies)
+    # The app area of app commands also covers ios · android (harness_store.area_applies)
     p.add_argument("--area", dest="area_list", action="append", choices=[*knowledge.AREAS, harness_store.APP_AREA],
                    default=None,
                    help="match: only harnesses for this area · new: areas it applies to (repeatable; none = all)")

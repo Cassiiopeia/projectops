@@ -1,4 +1,4 @@
-"""`app shot` — 앱 화면을 찍는다."""
+"""`app shot` — capture the app screen."""
 from __future__ import annotations
 
 import re
@@ -14,9 +14,9 @@ from pro_launch.runtime.output import out
 from pro_launch.runtime.shots import finish_shot, shot_target
 
 
-# 상태바를 고정해 캡처끼리 시각·배터리가 달라 보이지 않게 한다. 찍은 뒤 되돌린다.
+# Pin the status bar so time and battery do not differ between captures. Restored after capture.
 DEFAULT_STATUS_TIME = "9:41"
-# --time 값: H:MM 또는 HH:MM (24시간)
+# --time value: H:MM or HH:MM (24-hour)
 STATUS_TIME_PATTERN = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 
 _ANDROID_DEMO = [
@@ -42,7 +42,7 @@ _IOS_STATUS = ["--time", "{time}", "--batteryState", "charged", "--batteryLevel"
 
 
 def _status_time(args) -> tuple[str | None, str | None]:
-    """--time > (H:MM 표시용, 오류). --time 이 없으면 기본 9:41."""
+    """--time > (H:MM for display, error). Default 9:41 when --time is absent."""
     given = getattr(args, "time", None)
     if not given:
         return DEFAULT_STATUS_TIME, None
@@ -57,13 +57,13 @@ def _app_shot(args) -> int:
     status_time, time_error = _status_time(args)
     if time_error:
         return out({"ok": False, "code": "bad_time", "error": time_error, "next": "e.g. app shot --time 7:42"})
-    # --time 은 상태바 고정을 뜻한다
+    # --time means pinning the status bar
     should_clean_status = bool(args.clean_status or getattr(args, "time", None))
     hhmm = "".join(part.zfill(2) for part in status_time.split(":"))
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return no_device_response(dev, args.device)
-    # --shot 은 tap·swipe·run 의 이름 옵션이지만 shot 에서도 --out 과 같은 뜻으로 받는다
+    # --shot is the name option of tap/swipe/run, but shot also accepts it with the same meaning as --out
     raw, explicit = shot_target(root, args.out or getattr(args, "shot", None))
 
     restore = None
@@ -71,7 +71,7 @@ def _app_shot(args) -> int:
         if platform == "android":
             adb = sdk_tool("adb")
             if should_clean_status:
-                # 데모 모드 허용 설정도 찍기 전 값으로 되돌린다 — 남의 기기 설정을 바꿔 두지 않는다
+                # Also restore the demo-mode allow setting to its pre-capture value — do not leave someone else's device settings changed
                 prev = adb_shell(dev_id, "settings", "get", "global",
                                   "sysui_demo_allowed").strip()
                 for c in _ANDROID_DEMO:
@@ -86,7 +86,7 @@ def _app_shot(args) -> int:
                                    "sysui_demo_allowed", prev)
                 restore = _undo_demo
                 time.sleep(0.6)
-            # exec-out 은 바이너리를 그대로 준다. shell 로 받으면 줄바꿈이 바뀌어 PNG 가 깨진다
+            # exec-out passes binary as is. Via shell, line endings change and the PNG breaks
             r = subprocess.run([adb, "-s", dev_id, "exec-out", "screencap", "-p"],
                                capture_output=True, timeout=30)
             data = r.stdout

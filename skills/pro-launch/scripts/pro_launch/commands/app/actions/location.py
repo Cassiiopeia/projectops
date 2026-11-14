@@ -1,4 +1,4 @@
-"""`app location` — 기기의 가상 위치를 정한다 (iOS simctl location · Android 에뮬레이터 geo fix)."""
+"""`app location` — set the device's simulated location (iOS simctl location, Android emulator geo fix)."""
 from __future__ import annotations
 
 from pro_launch.commands.app.app_control import (adb_command, control_result, resolve_target, run_tool,
@@ -22,7 +22,7 @@ def _app_location(args) -> int:
     if err is not None:
         return err
     if platform == "android":
-        # geo fix 는 에뮬레이터 콘솔 명령 — 실기기에는 없다. 인자 순서는 경도 먼저
+        # geo fix is an emulator console command — not available on real devices. Longitude comes first
         if not dev_id.startswith("emulator-"):
             return unsupported_response(platform, dev_id, "location",
                                         "adb cannot change the location of a real Android device (emulators only)",

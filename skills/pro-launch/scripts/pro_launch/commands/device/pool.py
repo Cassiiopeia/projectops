@@ -1,6 +1,6 @@
-"""`device release` · `device shutdown` — 반납하며 이 빌림이 켠 것을 끈다 · 끈다 (#953). 빌리기는 acquire.py.
+"""`device release` / `device shutdown` — release and power off what this lease booted / power off (#953). Borrowing is acquire.py.
 
-release: 설정 되돌림 > lease 삭제 > 이 빌림이 켰고 남은 소유가 없으면 끔.
+release: revert settings > delete lease > power off if this lease booted it and no other ownership remains.
 """
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from pro_launch.runtime.session_identity import session_identity
 
 
 def _release_one(dev_id: str, lease_id: str | None, is_keep_booted: bool) -> dict:
-    """lease 하나 반납 > 결과 행 {device, released, restored, shutdown, shutdown_reason}."""
+    """Release one lease > result row {device, released, restored, shutdown, shutdown_reason}."""
     released = device_claims.release_device(dev_id, lease_id)
     if released is None:
         return {"device": dev_id, "released": False, "restored": [], "shutdown": False, "shutdown_reason": "no_lease"}
@@ -32,7 +32,7 @@ def _release_one(dev_id: str, lease_id: str | None, is_keep_booted: bool) -> dic
 
 
 def _resolve_for_release(args):
-    """반납할 기기: 붙은 기기 > 원장 키 그대로 (끈 기기는 adb·simctl 목록에 없지만 lease 는 남아 있다)."""
+    """Devices to release: attached devices > ledger keys as is (powered-off devices are missing from adb/simctl lists but leases remain)."""
     platform, dev_id, err = resolve_device(args)
     if err is None:
         return platform, dev_id, None
@@ -86,7 +86,7 @@ def run_shutdown(args) -> int:
     if not result["is_ok"]:
         return out({"ok": False, "code": "shutdown_failed", "device": dev_id, "error": result["detail"],
                     "next": "Check the state with device list"})
-    # lease 는 남긴다 — 설정 되돌리기 기록을 잃지 않게 (반납은 device release)
+    # Keep the lease — so setting-revert records are not lost (release via device release)
     device_claims.set_pool_booted(key, False)
     return out({"action": "shutdown", "platform": platform, "device": dev_id, "key": facts.key,
                 "summary": f"Shut down {facts.name}", "next": None})

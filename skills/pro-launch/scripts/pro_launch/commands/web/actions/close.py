@@ -1,4 +1,4 @@
-"""`web close` — 브라우저를 닫는다 · --stale 버려진 것 정리 · --session-end 이 세션이 띄운 것 정리 (#956)."""
+"""`web close` — close the browser · --stale cleans up abandoned ones · --session-end cleans up what this session launched (#956)."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,7 +20,7 @@ def _web_close(state: dict, state_f: Path) -> int:
             alive = kill_browser(int(pid))
         except ValueError:
             pass
-    # ⚠️ 살아 있으면 상태 파일을 남긴다. 지우면 떠 있는 브라우저에 다시 붙을 길이 사라진다(실측).
+    # ⚠️ If it is alive, keep the state file. Deleting it loses the way back to the running browser (observed).
     if alive:
         return out({"ok": False, "code": "browser_still_alive", "pid": pid,
                     "error": f"The browser (pid {pid}) is still alive",
@@ -30,11 +30,11 @@ def _web_close(state: dict, state_f: Path) -> int:
 
 
 def _close_by_connection(state: dict, state_f: Path) -> int:
-    """pid 를 모르는 옛 상태 파일 — 연결해서 닫는 수밖에 없다."""
+    """Old state file without a pid — the only way is to connect and close."""
     conn, err = web_connect(state)
     if err:
         if err.get("code") == "browser_gone":
-            # 죽은 브라우저 정보만 지운다. 뷰포트·규칙은 사람이 정한 것이라 남긴다
+            # Remove only the dead browser's info. Viewport and rules were set by a person, so keep them
             for k in ("cdp", "pid"):
                 state.pop(k, None)
             write_state(state_f, state)
@@ -52,7 +52,7 @@ def _close_by_connection(state: dict, state_f: Path) -> int:
 
 
 def _close_stale(args) -> int:
-    """pro-launch 가 띄우고 버려진 브라우저만 끈다 (프로필 사라짐 · 상태 파일이 안 가리킴 · 오래 쉼). 쓰는 중인 것은 보고만"""
+    """Stop only abandoned browsers pro-launch launched (profile gone · not pointed to by a state file · idle long). In-use ones are only reported"""
     found = find_stale_browsers(maximum_idle_hours=args.idle_hours)
     if not found["readable"]:
         return out({"ok": False, "code": "process_list_unreadable", "action": "close", "stale": [], "kept": [],
@@ -72,7 +72,7 @@ def _close_stale(args) -> int:
 
 
 def _close_session_browsers() -> int:
-    """세션 종료: 이 세션이 띄웠고 다른 세션 탭이 없는 브라우저만 닫는다 (쿠키는 프로필에 남아 로그인은 유지)."""
+    """Session end: close only browsers this session launched that hold no other session's tabs (cookies stay in the profile, so logins persist)."""
     session, closed, kept = session_identity(), [], []
     for state_file in browser_profiles.all_web_state_files():
         state = read_state(state_file)
@@ -99,7 +99,7 @@ def execute(args, state: dict, state_f: Path) -> int:
     if getattr(args, "session_end", False):
         return _close_session_browsers()
     if state.get("pid"):
-        # 연결부터 맺지 않는다 — 응답 없는 브라우저에서는 연결·close 가 모두 멈춘다 (#712)
+        # Do not connect first — on an unresponsive browser both connect and close hang (#712)
         return _web_close(state, state_f)
     return _close_by_connection(state, state_f)
 

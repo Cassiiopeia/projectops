@@ -1,8 +1,8 @@
-"""`web inspect` — 입력창·버튼·체크·선택·링크를 이름·값·상태와 함께 읽는다 (읽기 전용, #899).
+"""`web inspect` — read inputs, buttons, checkboxes, selects and links with name, value and state (read-only, #899).
 
-`web find` 는 누를 것을 고르고, 이것은 **폼을 읽는다** — 무엇을 채워야 하고 무엇이 비활성인지.
-돌려준 `ref` 는 click · type · check · select · hover 의 --ref 로 그대로 쓴다 (find 와 같은 data-pops-ref).
-임의 JS 실행 창구는 두지 않는다 — 읽는 항목이 고정돼 있다.
+`web find` picks what to press; this **reads the form** — what needs filling and what is disabled.
+The returned `ref` works directly as --ref for click · type · check · select · hover (same data-pops-ref as find).
+No arbitrary JS entry point — the fields read are fixed.
 """
 from __future__ import annotations
 
@@ -13,14 +13,14 @@ from pro_launch.commands.web.targets import (INSPECT_JS, MAXIMUM_OPTIONS, REF_AT
                                              ROLE_SELECTORS)
 from pro_launch.registry import Action
 
-# 한 번에 돌려줄 최대 개수 — 넘으면 truncated 로 알린다
+# Max items returned at once — beyond that, report truncated
 MAXIMUM_LIMIT = 100
 
 
 def _web_inspect(page, args) -> dict:
-    args.role = ROLE_ALIASES.get(args.role, args.role)   # textbox · searchbox 같은 흔한 이름 (#930)
+    args.role = ROLE_ALIASES.get(args.role, args.role)   # common names like textbox · searchbox (#930)
     limit = max(1, min(args.limit, MAXIMUM_LIMIT))
-    # --frame 이면 그 iframe 안의 폼 (#877)
+    # With --frame, the form inside that iframe (#877)
     scope, failure = frame_scope(page, args, "inspect")
     if failure:
         return failure

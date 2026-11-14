@@ -1,4 +1,4 @@
-"""`web route` — 응답을 바꿔치기해 빈 목록·실패·지연을 연출한다."""
+"""`web route` — override responses to stage empty lists, failures and delays."""
 from __future__ import annotations
 
 import json
@@ -11,12 +11,12 @@ from pro_launch.runtime.output import out
 
 
 def _looks_like_path(text: str) -> bool:
-    """JSON·문장이 아니라 파일 경로처럼 보이나. 공백·따옴표·괄호가 없고 슬래시나 확장자가 있으면 경로로 본다."""
+    """Does it look like a file path rather than JSON or a sentence? No spaces, quotes or brackets, and a slash or extension, means a path."""
     t = text.strip()
     if not t or re.search(r"[\s{}\[\]\"<>]", t):
         return False
     try:
-        json.loads(t)    # 1.5 · true 같은 JSON 값은 파일명이 아니라 본문이다
+        json.loads(t)    # JSON values like 1.5 · true are a body, not a file name
         return False
     except json.JSONDecodeError:
         pass
@@ -24,7 +24,7 @@ def _looks_like_path(text: str) -> bool:
 
 
 def _web_route(args, state: dict, state_f: Path) -> int:
-    """응답 바꿔치기 — 빈 목록·실패·지연을 서버를 건드리지 않고 연출한다."""
+    """Override responses — stage empty lists, failures and delays without touching the server."""
     rules = list(state.get("routes") or [])
     if args.clear:
         state["routes"] = []
@@ -46,18 +46,18 @@ def _web_route(args, state: dict, state_f: Path) -> int:
         return out({"ok": False, "code": "bad_delay", "error": f"--delay must be 0 or more ({args.delay})"})
     body, ctype = "", "application/json"
     if args.body_text is not None:
-        body = args.body_text   # 경로 오타와 구분되도록 인라인 본문은 이 옵션으로 명시한다
+        body = args.body_text   # Inline bodies are explicit via this option, to tell them apart from path typos
     elif args.body:
         bf = Path(args.body)
         if bf.is_file():
             body = bf.read_text(encoding="utf-8")
         elif _looks_like_path(args.body):
-            # 오타 경로가 조용히 가짜 응답 본문이 되면 연출 결과가 통째로 틀어진다 (#711)
+            # A mistyped path silently becoming a fake response body would skew the whole staging (#711)
             return out({"ok": False, "code": "body_not_found",
                         "error": f"--body file not found: {args.body}",
                         "next": "Check the path. To use the text itself as the body, use --body-text"})
         else:
-            body = args.body   # 짧은 JSON 본문은 그대로 받는다: --body '[]'
+            body = args.body   # Short JSON bodies are taken as is: --body '[]'
     if body:
         try:
             json.loads(body)

@@ -1,7 +1,7 @@
-"""`web wait` — 조건이 맞을 때까지 기다린다: 주소 · 글자 · 사라짐 · 요소 (#880).
+"""`web wait` — wait until conditions hold: URL · text · disappearance · element (#880).
 
-다른 기기의 2단계 승인 · 업로드 끝 · 저장 토스트 · 주소 바뀜을 고정 sleep 이나 text 반복 대신 기다린다.
-주어진 조건은 **모두** 맞아야 끝난다. 승인 화면에서는 이동하지 않는다 — 이동하면 걸린 승인이 취소된다.
+Waits for 2FA approval on another device, upload completion, save toasts or URL changes instead of fixed sleeps or repeated text.
+**All** given conditions must hold to finish. It does not navigate on an approval screen — navigating cancels the pending approval.
 """
 from __future__ import annotations
 
@@ -13,24 +13,24 @@ from pro_launch.commands.web.targets import SELECTOR_SYNTAX_HINT, is_selector_sy
 from pro_launch.commands.web.url_match import url_without_query
 from pro_launch.registry import Action
 
-# 조건을 다시 보는 간격(ms)
+# Interval for rechecking conditions (ms)
 POLL_INTERVAL_MILLISECONDS = 500
-# 기본 대기 상한(초) — 사람이 다른 기기에서 승인하는 시간
+# Default wait cap (seconds) — time for a person to approve on another device
 DEFAULT_WAIT_SECONDS = 120
 
-# 보이는 글자 전체 (innerText 는 숨긴 글자를 빼고 준다)
+# All visible text (innerText omits hidden text)
 VISIBLE_TEXT_JS = "() => document.body ? document.body.innerText : ''"
-# --reload-every 하한(초) — 서버를 두드리지 않게 · 새로고침 한 번의 로드 상한(초)
+# Lower bound for --reload-every (seconds) — so the server is not hammered · load cap for one reload (seconds)
 MINIMUM_RELOAD_SECONDS = 5
 RELOAD_LOAD_SECONDS = 15
 
 
 class InvalidSelectorError(Exception):
-    """선택자 문법 오류: '아직 안 보임' 이 아니라 즉시 실패할 일"""
+    """Selector syntax error: fail immediately rather than 'not visible yet'"""
 
 
 def reload_page(page) -> bool:
-    """새로고침 한 번. 실패(로드 지연 · 이동 중)해도 다음 바퀴에 다시 본다 > 성공 여부"""
+    """One reload. On failure (slow load · mid-navigation) check again next round > whether it succeeded"""
     try:
         page.reload(wait_until="domcontentloaded", timeout=RELOAD_LOAD_SECONDS * 1000)
         return True
@@ -39,13 +39,13 @@ def reload_page(page) -> bool:
 
 
 def wait_conditions(args) -> dict:
-    """주어진 조건만 모은다. 이름 → 기대값"""
+    """Collect only the given conditions. name → expected value"""
     named = {"url_contains": args.url_contains, "text": args.text, "gone": args.gone, "selector": args.selector}
     return {name: value for name, value in named.items() if value}
 
 
 def unmet_conditions(conditions: dict, url: str, visible_text: str, is_selector_visible: bool) -> list[str]:
-    """아직 안 맞은 조건 이름들. 빈 목록이면 끝"""
+    """Names of conditions not yet met. Empty list means done"""
     unmet = []
     needle = conditions.get("url_contains")
     if needle and needle not in url_without_query(url, needle):
@@ -60,7 +60,7 @@ def unmet_conditions(conditions: dict, url: str, visible_text: str, is_selector_
 
 
 def _read_snapshot(page, scope, conditions: dict) -> tuple[str, str, bool]:
-    """(주소, 보이는 글자, 선택자가 보이나). 이동 중이라 못 읽으면 빈 값 — 다음 바퀴에 다시 본다"""
+    """(URL, visible text, whether the selector is visible). Empty values if unreadable mid-navigation — check again next round"""
     try:
         visible_text = scope.evaluate(VISIBLE_TEXT_JS) if ("text" in conditions or "gone" in conditions) else ""
     except Exception:
@@ -73,7 +73,7 @@ def _read_snapshot(page, scope, conditions: dict) -> tuple[str, str, bool]:
         except Exception as error:
             if is_selector_syntax_error(str(error)):
                 raise InvalidSelectorError(str(error)[:200]) from error
-            is_selector_visible = False   # 이동 중 문맥 파괴 등 — 다음 바퀴에 다시 본다
+            is_selector_visible = False   # e.g. context destroyed mid-navigation — check again next round
     return page.url, visible_text or "", is_selector_visible
 
 
@@ -95,7 +95,7 @@ def execute(page, args, state: dict) -> dict:
     deadline = started + args.timeout
     last_reload = started
     reload_count = 0
-    # 마지막 한 번은 시간이 지나도 본다 — 경계에서 맞은 것을 놓치지 않게
+    # Check one last time even past the deadline — so a match right at the boundary is not missed
     while True:
         try:
             url, visible_text, is_selector_visible = _read_snapshot(page, scope, conditions)
@@ -116,12 +116,12 @@ def execute(page, args, state: dict) -> dict:
                     "error": f"Conditions not met within {args.timeout}s: {', '.join(unmet)}",
                     "next": "web text  # look at the current screen. If it is waiting for approval, do not navigate; call web wait again"}
         page.wait_for_timeout(POLL_INTERVAL_MILLISECONDS)
-        # 새로고침해야 바뀌는 화면(PR 상태 · 배포 결과) — 정한 간격마다 다시 받는다 (#930)
+        # Screens that only change on reload (PR state · deploy result) — reload at the set interval (#930)
         if reload_seconds and time.monotonic() - last_reload >= reload_seconds and time.monotonic() < deadline:
             reload_count += reload_page(page)
             last_reload = time.monotonic()
             if args.frame:
-                # 새로고침하면 iframe 문서도 새것이다 — 다시 고른다 (아직 안 그려졌으면 다음 바퀴에)
+                # A reload also gives the iframe a new document — pick it again (next round if not rendered yet)
                 scope = frame_scope(page, args, "wait")[0] or scope
 
 

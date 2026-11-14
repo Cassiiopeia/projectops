@@ -1,7 +1,7 @@
-"""`app flow` — 프로젝트의 Maestro flow 파일을 기기에서 돌리고 명령별 결과 · 캡처를 JSON 하나로 돌려준다 (#862).
+"""`app flow` — run a project's Maestro flow file on the device and return per-command results and captures as one JSON (#862).
 
-`app tap|swipe|run` 으로 안 되는 복잡한 제스처(밀고 곧바로 탭, 재시도 탭, 조건 대기)는 전용 옵션을 늘리지 않고
-Maestro flow 로 쓴다. 이 동작은 그 flow 를 실행하는 통로만 맡는다: 실행 > driver 기동 실패면 한 번 다시 > 결과.
+Complex gestures that `app tap|swipe|run` cannot do (swipe then tap at once, retry taps, conditional waits) are written
+as Maestro flows instead of adding options. This action is only the conduit: run > retry once if the driver fails to start > result.
 """
 from __future__ import annotations
 
@@ -20,16 +20,16 @@ from pro_launch.runtime.context import project_root
 from pro_launch.runtime.output import out
 from pro_launch.runtime.shots import finish_shot, shot_target
 
-# flow 한 번의 대기 기본 · 최대 (초) — Maestro 기동만 30~40초 (iOS 시뮬레이터 실측 33초)
+# Default and maximum wait for one flow (seconds) — Maestro startup alone takes 30-40s (measured 33s on iOS simulator)
 DEFAULT_FLOW_TIMEOUT_SECONDS = 300
 MAXIMUM_FLOW_TIMEOUT_SECONDS = 1800
-# Maestro driver 가 시간 안에 안 뜬 출력 (Android 실측, 에뮬레이터 과부하) — 한 번만 다시 시도
+# Output when the Maestro driver did not start in time (measured on Android, overloaded emulator) — retry once only
 DRIVER_START_TIMEOUT_MARKERS = ("did not start up in time",)
-# Android 에 깔리는 Maestro driver 앱 — 다시 시도 전 강제 종료 (호스트의 다른 maestro 프로세스는 건드리지 않는다)
+# Maestro driver app installed on Android — force-stop before retrying (other maestro processes on the host are left alone)
 ANDROID_MAESTRO_DRIVER_PACKAGES = ("dev.mobile.maestro", "dev.mobile.maestro.test")
-# 실패 원인으로 남길 출력 줄 수
+# Number of output lines kept as the failure cause
 FAILURE_DETAIL_LINE_COUNT = 8
-# 응답 code 4개 > 다음 행동
+# 4 response codes > next action
 FLOW_OUTCOMES = (
     {"code": "ok", "next": "Read the screenshots images to check the result"},
     {"code": "flow_failed", "next": "Check failed_command with app tree, fix the flow and run app flow again"},
@@ -45,12 +45,12 @@ def is_driver_start_timeout(lines: list[str]) -> bool:
 
 
 def collect_flow_screenshots(output_folder: Path) -> list[Path]:
-    """`--test-output-dir` 아래 takeScreenshot 결과 (<시각>/<flow>/takeScreenshot/<이름>.png), 찍은 순서."""
+    """takeScreenshot results under `--test-output-dir` (<time>/<flow>/takeScreenshot/<name>.png), in capture order."""
     return sorted(output_folder.glob("**/takeScreenshot/*.png"), key=lambda p: p.stat().st_mtime)
 
 
 def _app_flow(args) -> int:
-    """flow 파일 실행: 검증 > 기기 > Maestro 실행(driver 기동 실패면 정리 후 1회 더) > 캡처 옮기기 > 결과."""
+    """Run a flow file: validate > device > run Maestro (on driver start failure, clean up and retry once) > move captures > result."""
     flow_file = Path(getattr(args, "file", None) or "")
     if not getattr(args, "file", None) or not flow_file.is_file():
         return out({"ok": False, "code": "flow_file_required",
@@ -77,7 +77,7 @@ def _app_flow(args) -> int:
 
 def _run_with_driver_retry(maestro: str, platform: str, dev_id: str, flow_file: Path,
                            output_folder: Path, timeout_seconds: int) -> tuple[bool | None, list[str], bool]:
-    """(성공 여부 · 시간 초과면 None, 출력 줄, 다시 시도했나). driver 가 시간 안에 안 뜨면 정리하고 한 번만 더."""
+    """(success, or None on timeout; output lines; whether retried). If the driver does not start in time, clean up and retry once."""
     is_success, lines = _run_maestro(maestro, dev_id, flow_file, output_folder, timeout_seconds)
     if is_success or not is_driver_start_timeout(lines):
         return is_success, lines, False
@@ -91,21 +91,21 @@ def _run_with_driver_retry(maestro: str, platform: str, dev_id: str, flow_file: 
 
 def _run_maestro(maestro: str, dev_id: str, flow_file: Path, output_folder: Path,
                  timeout_seconds: int) -> tuple[bool | None, list[str]]:
-    # 기록(maestro.log 에 입력값이 평문으로 남는다)은 임시 폴더로 돌려 함께 지운다
+    # Redirect logs (maestro.log keeps input values in plain text) to a temp folder that is deleted with it
     command = [maestro, *(["--device", dev_id] if dev_id != "booted" else []),
                "test", "--test-output-dir", str(output_folder), str(flow_file)]
     try:
         r = maestro_runs.run_recorded(command, capture_output=True, text=True, errors="replace", timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
         return None, [f"maestro did not respond ({timeout_seconds}s)"]
-    # 끝의 광고 상자(│ ╭ ╰)를 걷어야 실패 원인 줄이 보인다
+    # Strip the trailing ad box (│ ╭ ╰) so the failure cause line is visible
     lines = [l for l in ((r.stdout or "") + (r.stderr or "")).splitlines()
              if l.strip() and not l.lstrip().startswith(("│", "╭", "╰"))]
     return r.returncode == 0, lines
 
 
 def _keep_screenshot(args, png: Path) -> Path:
-    """takeScreenshot 결과 > SHOT_DIR (이름 앞에 --shot 접두, 기본은 WebP 로 줄인다)."""
+    """takeScreenshot results > SHOT_DIR (names prefixed with --shot; shrunk to WebP by default)."""
     prefix = getattr(args, "shot", None)
     raw, _ = shot_target(project_root(args), f"{prefix}_{png.stem}" if prefix else png.stem)
     shutil.copyfile(png, raw)
@@ -113,7 +113,7 @@ def _keep_screenshot(args, png: Path) -> Path:
 
 
 def _result_code(is_success: bool | None, lines: list[str]) -> str:
-    """성공 > 시간 초과 > driver 기동 실패 > 그 밖의 flow 실패 순으로 응답 code."""
+    """Response code in order: success > timeout > driver start failure > other flow failure."""
     if is_success:
         return "ok"
     if is_success is None:
@@ -125,7 +125,7 @@ def _result_code(is_success: bool | None, lines: list[str]) -> str:
 
 def _flow_result(args, be, dev_id: str, flow_file: Path, is_success: bool | None, lines: list[str],
                  retried: bool, screenshots: list[str]) -> int:
-    """명령별 상태 + 캡처 + 원인 code > JSON 하나."""
+    """Per-command status + captures + cause code > one JSON."""
     commands = [{"command": description, "status": status.lower()}
                 for description, status in steps_module.maestro_statuses(lines)]
     failed_command = next((c["command"] for c in commands if c["status"] == "failed"), None)

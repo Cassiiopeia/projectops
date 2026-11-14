@@ -1,4 +1,4 @@
-"""`mask` · `redact` — 이슈에 올리기 전 가리기. 무엇을 가릴지는 에이전트가 정하고, 원본은 그대로 둔다"""
+"""`mask` · `redact` — hide things before posting to an issue. The agent decides what to hide; the original is untouched"""
 from __future__ import annotations
 
 import re
@@ -17,7 +17,7 @@ NEXT_AFTER_REDACT = ("This catches known formats only: read the result yourself 
 
 
 def _resolve_input(raw: str, root: str | None) -> Path:
-    """상대 경로는 --root 기준 (셸 폴더가 바뀐 뒤에도 같은 파일)"""
+    """Relative paths resolve against --root (same file even after the shell folder changes)"""
     path = Path(raw).expanduser()
     return Path(root).expanduser() / path if root and not path.is_absolute() else path
 

@@ -1,4 +1,4 @@
-"""`web type` — 입력창에 글자를 넣는다. `--keys` 면 키를 하나씩 쳐 넣는다 (xterm · 코드 편집기처럼 fill 이 안 먹는 곳, #930)."""
+"""`web type` — put text into an input. `--keys` types key by key (for places where fill does not work, like xterm or code editors, #930)."""
 from __future__ import annotations
 
 
@@ -6,16 +6,16 @@ from pro_launch.commands.web.element import locate_target, perform_on_target, ta
 from pro_launch.commands.web.session import done_payload
 from pro_launch.registry import Action
 
-# 키 입력 사이 기본 간격(ms) — 터미널 에뮬레이터가 따라올 만큼
+# Default delay between keystrokes (ms) — slow enough for terminal emulators to keep up
 DEFAULT_KEY_DELAY_MILLISECONDS = 60
-# 넣은 값이 남았는지 보기 전에 페이지의 입력 처리가 돌 틈(ms)
+# Time for the page's input handling to run before checking the value stayed (ms)
 VALUE_SETTLE_MILLISECONDS = 300
-# 입력 칸의 지금 값 (contenteditable 은 글자)
+# Current value of the input (text for contenteditable)
 READ_VALUE_JS = "(e) => ('value' in e ? e.value : e.innerText) || ''"
 
 
 def value_status(page, element) -> str:
-    """kept · cleared · gone. 형식이 바뀐 값(전화번호 하이픈 등)은 남은 것으로 본다 — 비었을 때만 cleared"""
+    """kept · cleared · gone. A reformatted value (e.g. phone number hyphens) counts as kept — cleared only when empty"""
     page.wait_for_timeout(VALUE_SETTLE_MILLISECONDS)
     try:
         return "kept" if (element.evaluate(READ_VALUE_JS) or "").strip() else "cleared"
@@ -24,7 +24,7 @@ def value_status(page, element) -> str:
 
 
 def retype_key_by_key(element, args) -> None:
-    """칩 입력창처럼 fill 값을 지우는 칸 — 사람처럼 눌러 키 이벤트를 받게 한다 (#1094)"""
+    """Fields that wipe a fill value, like chip inputs — press it like a human so it gets key events (#1094)"""
     timeout_milliseconds = target_wait_seconds(args) * 1000
     element.click(timeout=timeout_milliseconds)
     element.press_sequentially(args.text, delay=DEFAULT_KEY_DELAY_MILLISECONDS,
@@ -40,7 +40,7 @@ def value_not_kept_failure(page, info: dict | None, status: str) -> dict:
 
 
 def _type_keys(page, args, state: dict) -> dict:
-    """--keys: 대상(없으면 지금 초점)에 키를 하나씩 친다. fill 과 달리 keydown/keyup 이 발생한다"""
+    """--keys: type key by key into the target (or current focus). Unlike fill, keydown/keyup fire"""
     delay = args.delay_ms if args.delay_ms is not None else DEFAULT_KEY_DELAY_MILLISECONDS
     info = None
     if args.selector or args.ref is not None:
@@ -66,7 +66,7 @@ def execute(page, args, state: dict) -> dict:
     if not ((args.selector or args.ref is not None) and args.text is not None):
         return {"ok": False, "code": "missing_argument", "url": None,
                 "error": "--selector (or --ref) and --text are required (to type key by key, use --keys)"}
-    # 입력창이 늦게 그려지는 화면이 있어 선택자는 붙기를 기다린다. 입력은 바꾸는 조작이 아니라 막지 않는다
+    # Some screens render inputs late, so selectors wait for attach. Typing is not a changing action, so it is not blocked
     element, info, failure = locate_target(page, args, state, "type", should_wait=True,
                                            should_guard_mutating=False)
     if failure:
@@ -75,7 +75,7 @@ def execute(page, args, state: dict) -> dict:
                                 lambda: element.fill(args.text, timeout=target_wait_seconds(args) * 1000))
     if failure:
         return failure
-    # ok 를 내기 전에 값이 정말 남았는지 본다 — 지워졌는데 ok 가 나가던 자리 (#1094)
+    # Check the value really stayed before returning ok — ok used to be returned even when it was wiped (#1094)
     status = value_status(page, element) if args.text.strip() else "kept"
     was_retyped = status == "cleared"
     if was_retyped:

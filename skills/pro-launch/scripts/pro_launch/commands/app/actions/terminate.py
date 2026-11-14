@@ -1,4 +1,4 @@
-"""`app terminate` — 앱을 끈다 (iOS simctl terminate · Android am force-stop)."""
+"""`app terminate` — stop the app (iOS simctl terminate, Android am force-stop)."""
 from __future__ import annotations
 
 from pro_launch.commands.app.app_control import control_result, resolve_target, terminate_package

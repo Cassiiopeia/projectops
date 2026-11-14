@@ -1,7 +1,7 @@
-"""`web scroll` — 글자·ref 가 보이게, 또는 정한 거리만큼 내린다 (#880).
+"""`web scroll` — scroll until text or a ref is visible, or by a set distance (#880).
 
-관리 콘솔은 창이 아니라 안쪽 상자가 스크롤하는 경우가 많다. --by 에서 창이 안 움직이면
-가장 큰 스크롤 상자를 골라 그것을 움직이고 무엇을 움직였는지(container) 돌려준다.
+Admin consoles often scroll an inner box, not the window. If --by does not move the window,
+pick the largest scroll box, move that, and return what moved (container).
 """
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pro_launch.commands.web.element import locate_target
 from pro_launch.commands.web.frames import frame_scope
 from pro_launch.registry import Action
 
-# 창 또는 상자를 by 만큼 내린다. selector 가 없고 창이 안 움직이면 가장 큰 스크롤 상자를 쓴다
+# Scroll the window or a box by `by`. Without a selector, if the window does not move, use the largest scroll box
 SCROLL_BY_JS = """(o) => {
   const describe = e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '')
     + (typeof e.className === 'string' && e.className.trim() ? '.' + e.className.trim().split(/\\s+/)[0] : '');
@@ -59,7 +59,7 @@ def _scroll_by(scope, args) -> dict:
 
 
 def scroll_summary(moved: dict, has_moved: bool, is_at_end: bool) -> str:
-    """움직임 > 한 줄. 안 움직였으면 끝인지 · 스크롤 상자가 아닌지 가른다"""
+    """Movement > one line. If nothing moved, tell apart reaching the end from not being a scroll box"""
     if has_moved:
         return f"Moved {moved['container']} by {moved['after'] - moved['before']}px" + (" (reached the end)" if is_at_end else "")
     if is_at_end and moved["max"] > 0:

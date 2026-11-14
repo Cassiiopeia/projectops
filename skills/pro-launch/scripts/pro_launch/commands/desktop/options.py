@@ -1,4 +1,4 @@
-"""`desktop` 동작들이 함께 쓰는 옵션. 동작은 쓰는 이름만 `Action.options` 에 적는다 (#985)."""
+"""Options shared by `desktop` actions. Each action lists only the names it uses in `Action.options` (#985)."""
 from __future__ import annotations
 
 import desktop_input
@@ -39,7 +39,7 @@ def _confirm(p) -> None:
 
 SHARED_OPTIONS = {"window": _window, "root": _root, "shot": _shot, "timeout": _timeout,
                   "limits": _limits, "confirm": _confirm}
-# 모든 동작에 붙는다
+# Attached to every action
 ALWAYS_OPTIONS = ("root",)
-# 초 상한 — web·app 과 같다
+# Seconds cap — same as web and app
 MAX_TIMEOUT_SECONDS = 300

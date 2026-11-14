@@ -1,7 +1,7 @@
-"""`web profile` — 브라우저 프로필 보기 · 고르기 · 공들인 상태(로그인) 기록 (#956).
+"""`web profile` — list and choose browser profiles, and mark carefully built state (logins) (#956).
 
-list: 레포 프로필 + 이 컴퓨터 공용 프로필, 각 mark 와 떠 있는 브라우저 · use: 이 레포가 쓸 프로필 기억
-mark · unmark: 지금 프로필(또는 --profile)에 로그인 같은 상태를 기록 — tidy 가 그 프로필을 지우지 않고, open --need 가 고른다.
+list: repo profiles + this computer's shared profiles, each with mark and running browser · use: remember the profile this repo uses
+mark · unmark: record state like a login on the current profile (or --profile) — tidy keeps that profile and open --need picks it.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ PROFILE_OPERATIONS = ("list", "use", "mark", "unmark")
 
 
 def _profile_row(root, name: str, devices: dict) -> dict:
-    """프로필 하나 요약: 이름 · mark · 떠 있는 브라우저 pid."""
+    """Summary of one profile: name · mark · running browser pid."""
     is_repo = name == browser_profiles.REPO_PROFILE_NAME
     key = browser_profiles.profile_mark_key(root, name)
     state_file = (browser_profiles.state_path(root) if is_repo

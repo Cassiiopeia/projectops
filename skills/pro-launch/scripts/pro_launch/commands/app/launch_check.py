@@ -1,8 +1,8 @@
-"""app launch · relaunch 가 띄운 뒤 앞에 있는지 확인한 결과를 응답으로 만든다 (#923).
+"""Turn the check that app launch/relaunch is in the foreground after launch into a response (#923).
 
-Android: 초점 창 · 재개된 액티비티가 대상 앱인가 (최대 ~5초 기다림).
-iOS: 잠시 뒤 앱 프로세스가 살아 있나. 죽었으면 가장 새 크래시 리포트의 예외 줄.
-판정 못 하면(unknown) 성공을 뒤집지 않는다 — 기기가 버거울 때 확인 자체가 막힌다.
+Android: is the focused window / resumed activity the target app (waits up to ~5s).
+iOS: is the app process alive shortly after. If it died, the exception line of the newest crash report.
+If undecidable (unknown), success is not overturned — the check itself gets blocked when the device is struggling.
 """
 from __future__ import annotations
 
@@ -11,13 +11,13 @@ import time
 from pro_launch.runtime import crash_reports, foreground
 from pro_launch.runtime.output import out
 
-# iOS 크래시 리포트가 디스크에 쓰이기를 더 기다리는 횟수 · 간격 (초)
+# Extra retries and interval (seconds) waiting for the iOS crash report to be written to disk
 CRASH_REPORT_WAIT_ATTEMPTS = 3
 CRASH_REPORT_WAIT_SECONDS = 1.0
 
 
 def check_after_launch(platform: str, dev_id: str, package: str, launched_epoch: float) -> dict:
-    """> {state: ok|not_foreground|app_exited|unknown, ...}. launched_epoch: 띄우기 직전 time.time()."""
+    """> {state: ok|not_foreground|app_exited|unknown, ...}. launched_epoch: time.time() just before launch."""
     if platform == "android":
         return _check_android(dev_id, package)
     return _check_ios(dev_id, package, launched_epoch)
@@ -43,7 +43,7 @@ def _check_ios(udid: str, bundle_id: str, launched_epoch: float) -> dict:
         return {"state": "unknown"}
     if is_running:
         return {"state": "ok", "is_app_running": True}
-    # 죽었다 — 리포트는 죽은 뒤 조금 늦게 쓰인다
+    # It died — the report is written a little after the crash
     report = None
     for attempt in range(CRASH_REPORT_WAIT_ATTEMPTS):
         report = crash_reports.newest_crash_report(bundle_id, udid, launched_epoch)
@@ -55,7 +55,7 @@ def _check_ios(udid: str, bundle_id: str, launched_epoch: float) -> dict:
 
 def launch_failure_response(action: str, platform: str, dev_id: str, package: str, check: dict,
                             **extra) -> int:
-    """not_foreground · app_exited 실패 응답. 기존 code 는 건드리지 않는다."""
+    """not_foreground / app_exited failure response. Existing codes are left untouched."""
     if check["state"] == "not_foreground":
         blocker = check.get("blocking_activity") or "(no focused window)"
         return out({"ok": False, "code": "not_foreground", "action": action, "platform": platform,

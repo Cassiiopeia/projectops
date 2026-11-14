@@ -1,7 +1,7 @@
-"""`app session start|stop|status` — iOS 상주 Maestro 세션 (#894 2단계, 선택).
+"""`app session start|stop|status` — iOS persistent Maestro session (#894 phase 2, optional).
 
-세션이 떠 있으면 iOS tap·swipe·tree·run 이 JVM 을 새로 띄우지 않고 그 세션을 쓴다 (호출당 20초 > 1초 안팎).
-세션이 없으면 지금처럼 호출마다 Maestro 를 띄운다. 클라이언트는 scripts/maestro_session.py, 중계 프로세스는 scripts/maestro_session_relay.py.
+While a session is up, iOS tap, swipe, tree and run use it instead of starting a new JVM (20s per call > about 1s).
+Without a session, Maestro starts on every call as before. Client: scripts/maestro_session.py, relay process: scripts/maestro_session_relay.py.
 """
 from __future__ import annotations
 
@@ -19,19 +19,19 @@ from pro_launch.runtime import procs
 from pro_launch.runtime.output import out
 
 SESSION_VERBS = ("start", "stop", "status")
-# 백그라운드로 띄울 중계 스크립트 (같은 폴더)
+# Relay script started in the background (same folder)
 RELAY_SCRIPT = Path(maestro_session.__file__).with_name("maestro_session_relay.py")
-# start: 중계가 maestro mcp 기동 + 기기 연결 예열을 끝낼 때까지 기다리는 최대 시간 (초)
+# start: maximum wait for the relay to start maestro mcp and warm up the device connection (seconds)
 START_WAIT_SECONDS = 150
 START_POLL_SECONDS = 0.5
-# stop: 정중히 끝내자는 요청 뒤 기다리는 시간 (초)
+# stop: wait after a polite shutdown request (seconds)
 STOP_WAIT_SECONDS = 10
-# 유휴 종료 허용 범위 (분)
+# Allowed idle shutdown range (minutes)
 MINIMUM_IDLE_MINUTES, MAXIMUM_IDLE_MINUTES = 1, 240
 
 
 def _app_session(args) -> int:
-    """세션 동사 고르기 > 기기·백엔드(iOS 만) > start · stop · status."""
+    """Pick the session verb > device and backend (iOS only) > start, stop, status."""
     verb = getattr(args, "session_verb", None)
     if verb not in SESSION_VERBS:
         return out({"ok": False, "code": "session_verb_required",
@@ -54,14 +54,14 @@ def _app_session(args) -> int:
 
 
 def _relay_state(dev_id: str) -> tuple[dict | None, bool]:
-    """(상태, 중계가 살아 있나). 중계가 죽었는데 파일만 남았으면 걷어낸다."""
+    """(state, whether the relay is alive). If the relay died but the file remains, remove it."""
     session = maestro_session.read_session(dev_id)
     if session is None:
         return None, False
     pid = session.get("relay_pid")
     if pid and procs.pid_alive(int(pid)):
         return session, True
-    # 중계만 강제로 죽었으면 maestro mcp(java)가 고아로 남는다 — 같은 프로세스 묶음이라 묶음째 끝낸다
+    # If only the relay was force-killed, maestro mcp (java) is left orphaned — same process group, so end the whole group
     maestro_pid = session.get("maestro_pid")
     if pid and maestro_pid and procs.pid_alive(int(maestro_pid)):
         procs.kill_process_group(int(pid), grace=2.0)
@@ -73,7 +73,7 @@ def _relay_state(dev_id: str) -> tuple[dict | None, bool]:
 
 
 def _start(args, be, dev_id: str) -> int:
-    """중계 띄우기 > 상태 파일 ready·failed 대기 > 결과. 이미 떠 있으면 그대로 쓴다."""
+    """Start the relay > wait for state file ready or failed > result. Reuse it if already running."""
     session, is_alive = _relay_state(dev_id)
     if is_alive and maestro_session.is_ready(session):
         return out(_session_payload(args, dev_id, session, summary="Using the session that is already running", is_already_running=True))
@@ -89,8 +89,8 @@ def _start(args, be, dev_id: str) -> int:
     command = [sys.executable, str(RELAY_SCRIPT), "serve", "--device", dev_id,
                "--idle-minutes", str(idle_minutes), "--maestro", be._maestro(), "--state-file", str(state_path)]
     relay_pid = procs.spawn_detached(command, str(state_path.parent), state_path.with_suffix(".log"))
-    # 예열 동안 maestro mcp 가 기기에 붙는다 — 이 구간도 pro-launch 실행으로 기록
-    with maestro_runs.start_lock(), maestro_runs.recording():   # 다른 Maestro 시작과 겹치지 않게 (#922)
+    # maestro mcp attaches to the device during warm-up — record this span as a pro-launch run too
+    with maestro_runs.start_lock(), maestro_runs.recording():   # do not overlap with other Maestro starts (#922)
         session = _wait_until_settled(dev_id, relay_pid)
     if maestro_session.is_ready(session):
         return out(_session_payload(args, dev_id, session, summary="Session started — iOS tap·swipe·tree·run now use this session"))
@@ -108,21 +108,21 @@ def _start(args, be, dev_id: str) -> int:
     elif failure.get("host_load"):
         failure["next"] = "Host load is high — retry once it drops (the driver start wait was already raised automatically)"
     if reason == "session_tools_missing":
-        # 이 Maestro 버전의 MCP 도구 이름을 모른다 — 기동 실패와 다른 대처라 code 를 나눈다
+        # Unknown MCP tool names for this Maestro version — a different remedy than a start failure, so use a separate code
         failure.update(code="session_tools_missing")
     return out(failure)
 
 
 def _diagnostics(dev_id: str) -> dict:
-    """세션 시작 실패에 붙일 진단: 남은 고아 드라이버 · 다른 Maestro · 호스트 부하."""
+    """Diagnostics for a session start failure: leftover orphan drivers, other Maestro runs, host load."""
     try:
         return {**maestro_drivers.failure_fields(dev_id), **host_load_fields(), **maestro_runs.lock_wait_report()}
-    except Exception:   # noqa: BLE001 — 진단이 실패 응답을 망치면 안 된다
+    except Exception:   # noqa: BLE001 — diagnostics must not spoil the failure response
         return {}
 
 
 def _wait_until_settled(dev_id: str, relay_pid: int) -> dict | None:
-    """상태 파일이 ready·failed 가 되거나, 중계가 죽거나, 시간이 다 될 때까지."""
+    """Until the state file becomes ready or failed, the relay dies, or time runs out."""
     deadline = time.monotonic() + START_WAIT_SECONDS
     session = None
     while time.monotonic() < deadline:
@@ -147,7 +147,7 @@ def _failure_text(session: dict | None, state_path) -> str:
 
 
 def _stop(args, be, dev_id: str) -> int:
-    """정중히 끝내자고 요청 > 안 끝나면 프로세스 묶음째 종료 > 상태 파일 정리."""
+    """Ask for a polite shutdown > if it does not end, kill the process group > clean up the state file."""
     session, is_alive = _relay_state(dev_id)
     stale = maestro_drivers.kill_stale(dev_id) if getattr(args, "kill_stale", False) else {}
     if not is_alive:
@@ -191,7 +191,7 @@ def _status(args, be, dev_id: str) -> int:
 
 
 def _session_payload(args, dev_id: str, session: dict, summary: str, **extra) -> dict:
-    # 토큰·포트는 내보내지 않는다 (상태 파일에만)
+    # Token and port are not exposed (state file only)
     return {"ok": True, "code": "ok", "device": dev_id, "is_running": True, **extra,
             "relay_pid": session.get("relay_pid"), "tools": session.get("tools"),
             "idle_minutes": session.get("idle_minutes"), "started_at": session.get("started_at"),

@@ -1,4 +1,4 @@
-"""`doctor` — 무엇이 되고 무엇이 안 되는지."""
+"""`doctor` — what works and what does not."""
 from __future__ import annotations
 
 import shutil
@@ -35,7 +35,7 @@ _TOOLS = [
 
 
 def cmd_doctor(args) -> int:
-    """무엇이 되고 무엇이 안 되는지. 능력 스킬이라 필수 도구는 없다 — 쓰려는 것만 있으면 된다."""
+    """What works and what does not. A capability skill has no required tools — only what you plan to use."""
     checks = []
     for name, required, why, how in _TOOLS:
         path = sdk_tool(name) if name in ("adb", "emulator") else shutil.which(name)
@@ -45,13 +45,13 @@ def cmd_doctor(args) -> int:
     home = state_home(root)
     shrink_by = resize_tool()
     pw = playwright_state()
-    # Playwright 가 있어야 번들 경로를 알 수 있다. 없어도 환경변수·설치된 브라우저는 보인다
+    # Playwright is needed to know the bundled path. Without it, env vars and installed browsers are still visible
     chosen = browser_choice()
     open_browser = open_browser_status(browser_profiles.web_state_path(root))
     memory = _memory_counts(root)
     payload = {
         "plugin_version": plugin_version(),
-        # 지금 도는 스크립트 버전의 SKILL.md · references 자리 — 다른 버전 문서를 읽고 있지 않은지 대조 (#920)
+        # SKILL.md · references location of the running script version — check you are not reading another version's docs (#920)
         "docs_dir": str(SKILL_DIR),
         "checks": checks,
         "browser": pw,
@@ -78,22 +78,22 @@ def cmd_doctor(args) -> int:
 
 
 def _memory_counts(root) -> dict:
-    """영역별 기억 건수·마지막 사용일 — launch_cli 를 안 거치는 작업(adb·Maestro 직접)에도 기억이 있음을 보이게 (#863)."""
+    """Memory count and last-used date per area — shows memory exists even for work outside launch_cli (adb, Maestro directly) (#863)."""
     scopes = ("machine",) if repo_unknown(root) else ("repo", "machine")
     return knowledge.area_summary({scope: knowledge.store_path(scope, root) for scope in scopes})
 
 
 def _attach_resources(payload: dict) -> None:
-    """--resources: 메모리 압박 단계 · 큰 프로세스 · 켜진 가상 기기와 묶은 레포 (#883). 보고만 한다."""
+    """--resources: memory pressure level · large processes · running virtual devices and their bound repos (#883). Report only."""
     report = host_resources.resource_report(list_devices())
     payload["resources"] = report
-    # 기기 켜기 예산 (#964) — 측정 전이면 기본값과 측정 권고
+    # Device boot budget (#964) — before measuring, the default and a recommendation to measure
     capacity = device_capacity.capacity_view()
     payload["capacity"] = capacity
     payload["summary"] += f" · memory pressure {report['pressure']} · device budget {capacity['memory_budget_mb']}MB"
     advice = host_resources.pressure_advice(report["pressure"])
     if report["pressure"] == "critical":
-        # 압박이 풀리기를 폴링하며 기다리지 않게 — 기기 밖 소비자를 보여 주고 사용자에게 묻는다 (#972)
+        # Do not poll waiting for pressure to ease — show consumers outside devices and ask the user (#972)
         payload.update(host_resources.memory_risk_fields())
         payload["next"] = f"{advice} {host_resources.MEMORY_RISK_ASK_NEXT}"
     elif advice:

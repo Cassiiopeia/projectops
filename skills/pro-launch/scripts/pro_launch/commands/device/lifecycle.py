@@ -1,7 +1,7 @@
-"""`device create · clone · erase · delete · mark · unmark · adopt · records` — 기기 수명과 공들인 상태 기록 (#954 · #955).
+"""`device create · clone · erase · delete · mark · unmark · adopt · records` — device lifecycle and records of carefully prepared state (#954 · #955).
 
-raw simctl·avdmanager 대신 여기를 거친다: 만든 기기는 이유·기한과 함께 원장에 남고(정리 대상),
-mark 가 있는 기기·남이 빌린 기기·사람이 켠 기기는 --yes 없이 지우거나 초기화하지 않는다.
+Use this instead of raw simctl/avdmanager: created devices go into the ledger with reason and expiry (cleanup targets),
+and devices with a mark, borrowed by others, or booted by a person are not deleted or erased without --yes.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pro_launch.runtime.output import out
 
 
 def _resolve_any(args):
-    """꺼진 기기까지 찾는다 > (facts, backend, 오류 응답)."""
+    """Finds powered-off devices too > (facts, backend, error response)."""
     if not args.device:
         return None, None, out({"ok": False, "code": "args_required", "error": "--device is required",
                                 "next": "See the device key (UDID · AVD name) with device records or devices"})
@@ -30,9 +30,9 @@ def _resolve_any(args):
 
 
 def _resource_refusal(action: str, args) -> int | None:
-    """만들기·복제 전 디스크 확인 — --yes 로만 넘는다.
+    """Disk check before create/clone — only --yes passes.
 
-    켜지 않으므로 메모리는 보지 않는다 (켤 때 acquire 가 메모리 압박을 따로 본다).
+    Memory is not checked since nothing boots (acquire checks memory pressure separately when booting).
     """
     if args.yes:
         return None
@@ -45,7 +45,7 @@ def _resource_refusal(action: str, args) -> int | None:
 
 
 def creation_reason(args) -> str | None:
-    """--reason, 없으면 --purpose (acquire 와 헷갈려 쓴다, #972)."""
+    """--reason, or --purpose if absent (confused with acquire, #972)."""
     return args.reason or getattr(args, "purpose", None)
 
 
@@ -71,7 +71,7 @@ def run_create(args) -> int:
 
 
 def clone_device(facts, backend, name: str | None, reason: str, ttl_days: float | None) -> dict:
-    """꺼진 원본 복제 > 응답 dict: 새 기기 기록(임시) + 원본 mark 를 확인 전 상태로 복사."""
+    """Clone a powered-off source > response dict: new device record (temporary) + source mark copied as unconfirmed."""
     if not backend.capabilities.can_clone:
         return {"ok": False, "code": "not_supported", "device": facts.key, "error": f"{facts.platform} devices cannot be cloned",
                 "next": "Get another device with device acquire --count 2"}
@@ -107,7 +107,7 @@ def run_clone(args) -> int:
 
 
 def _destructive_refusal(action: str, facts, args) -> int | None:
-    """지우기·초기화 거부 사유 3개: 남이 빌림 · 공들인 상태 · 사람이 켠 기기. --yes 로만 넘는다."""
+    """3 reasons to refuse delete/erase: borrowed by another, prepared state, booted by a person. Only --yes passes."""
     if args.yes:
         return None
     if (refusal := refuse_other_session_owner(facts.instance or facts.key, action)) is not None:
@@ -204,7 +204,7 @@ def run_adopt(args) -> int:
 
 
 def run_records(args) -> int:
-    """기기마다 사실 + 원장 기록 (출처 · mark · 임시 기한 · 빌림)."""
+    """Facts per device + ledger record (origin, mark, temporary expiry, lease)."""
     records = device_marks.record_views()
     owners = device_claims.owners_by_device()
     rows = []

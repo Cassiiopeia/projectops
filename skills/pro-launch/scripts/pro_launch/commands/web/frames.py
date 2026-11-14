@@ -1,16 +1,16 @@
-"""--frame 으로 iframe 안을 다룬다 — find · click · type · assert 등 대상을 고르는 동작이 함께 쓴다 (#877).
+"""Handle iframe contents via --frame — shared by target-picking actions such as find, click, type and assert (#877).
 
-로그인 폼이 교차 출처 iframe 안이면 page.locator 는 그 안을 못 본다.
-찾는 순서: 프레임 이름 > iframe 선택자 > 주소 일부. 못 찾으면 지금 페이지의 프레임 목록을 돌려준다.
+If a login form is inside a cross-origin iframe, page.locator can't see inside.
+Lookup order: frame name > iframe selector > part of the URL. If not found, return the current page's frame list.
 """
 from __future__ import annotations
 
-# 실패·안내에 싣는 프레임 수
+# Number of frames included in failures and hints
 MAXIMUM_LISTED_FRAMES = 10
 
 
 def child_frames(page) -> list:
-    """최상위를 뺀 프레임들. 못 읽으면 빈 목록."""
+    """Frames other than the top one. Empty list if unreadable."""
     try:
         main = page.main_frame
         return [frame for frame in page.frames if frame != main]
@@ -19,7 +19,7 @@ def child_frames(page) -> list:
 
 
 def describe_frames(page) -> list[dict]:
-    """자식 프레임 목록 (name · url) — --frame 에 그대로 넣을 수 있는 값이다."""
+    """Child frame list (name, url) — values usable as-is for --frame."""
     described = []
     for frame in child_frames(page)[:MAXIMUM_LISTED_FRAMES]:
         try:
@@ -30,7 +30,7 @@ def describe_frames(page) -> list[dict]:
 
 
 def _frame_by_selector(page, spec: str):
-    """iframe 요소 선택자 → 그 안의 문서. 선택자가 아니거나 iframe 이 아니면 None."""
+    """iframe element selector → its document. None if not a selector or not an iframe."""
     try:
         locator = page.locator(spec)
         if locator.count() == 0:
@@ -42,7 +42,7 @@ def _frame_by_selector(page, spec: str):
 
 
 def find_frame(page, spec: str):
-    """--frame 값 하나로 프레임을 고른다: 이름 > iframe 선택자 > 주소 일부. 없으면 None."""
+    """Pick a frame from one --frame value: name > iframe selector > part of the URL. None if not found."""
     frames = child_frames(page)
     for frame in frames:
         if frame.name and frame.name == spec:
@@ -57,7 +57,7 @@ def find_frame(page, spec: str):
 
 
 def frame_scope(page, args, action: str):
-    """(찾을 곳, 실패 결과). --frame 이 없으면 페이지 자체."""
+    """(where to search, failure result). The page itself if --frame is absent."""
     spec = getattr(args, "frame", None)
     if not spec:
         return page, None
@@ -71,7 +71,7 @@ def frame_scope(page, args, action: str):
 
 
 def frames_hint(page) -> dict:
-    """대상을 못 찾았을 때 붙일 안내 — 자식 프레임이 있으면 목록과 --frame 쓰는 법."""
+    """Hint added when the target isn't found — lists child frames and how to use --frame, if any."""
     frames = describe_frames(page)
     if not frames:
         return {}
