@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
-""".gitignore 기반 로컬 파일 복사: 패턴 추출 > 파일 탐색 > 권장·비권장 분류 > 복사·결과 출력"""
+"""Local file copy based on .gitignore: extract patterns > find files > classify recommended/not recommended > copy and print results"""
 
 import shutil
 from pathlib import Path
 
 from git_worktree.console import print_info
 
-# 복사 비권장 패턴 — 재생성 가능하거나 IDE/캐시/빌드 결과물
+# Patterns not recommended for copying — regenerable, or IDE/cache/build output
 SKIP_PATTERNS = [
   'build/', 'target/', '.gradle', 'node_modules', 'Pods/', '.dart_tool',
   'Generated', 'generate', '.last_build_id', '.framework', '.flx', '.zip',
@@ -18,7 +18,7 @@ SKIP_PATTERNS = [
   'tool/venv', 'tool/node_modules',
 ]
 
-# 복사 권장 패턴 — 런타임/인증/플랫폼 설정
+# Patterns recommended for copying — runtime/auth/platform settings
 RECOMMEND_PATTERNS = [
   '.env', '.env.local', '.env.',
   'application-', 'application.',
@@ -30,7 +30,7 @@ RECOMMEND_PATTERNS = [
 
 
 def should_skip(pattern: str) -> bool:
-  """복사 비권장 패턴인지 확인"""
+  """Check whether the pattern is not recommended for copying"""
   p = pattern.lower()
   for skip in SKIP_PATTERNS:
     if skip.lower() in p:
@@ -39,7 +39,7 @@ def should_skip(pattern: str) -> bool:
 
 
 def classify_file(rel_path: str) -> str:
-  """파일 분류: recommend / skip"""
+  """Classify a file: recommend / skip"""
   name = Path(rel_path).name
   for rec in RECOMMEND_PATTERNS:
     if rec.lower() in name.lower() or rec.lower() in rel_path.lower():
@@ -49,7 +49,7 @@ def classify_file(rel_path: str) -> str:
 
 def parse_gitignore(git_root: Path):
   """
-  .gitignore에서 단순 패턴 추출 (negation/주석/빈줄/복잡한 glob 제외)
+  Extract simple patterns from .gitignore (excluding negations/comments/blank lines/complex globs)
   """
   gitignore = git_root / '.gitignore'
   if not gitignore.exists():
@@ -69,14 +69,14 @@ def parse_gitignore(git_root: Path):
 
 def find_local_files(git_root: Path, patterns: list) -> list:
   """
-  패턴 목록에서 소스 루트에 실제 존재하는 파일 탐색 (1MB 이하)
-  반환: [(절대경로, 소스루트 기준 상대경로)] 리스트
+  Find files from the pattern list that actually exist in the source root (under 1MB)
+  Returns: list of [(absolute path, path relative to source root)]
   """
   found = []
   seen = set()
 
   for pattern in patterns:
-    # 단순 경로 (와일드카드 없음)
+    # Plain path (no wildcard)
     if '*' not in pattern and '?' not in pattern:
       candidate = git_root / pattern
       if candidate.is_file() and candidate.stat().st_size < 1_048_576:
@@ -85,20 +85,20 @@ def find_local_files(git_root: Path, patterns: list) -> list:
           seen.add(rel)
           found.append((candidate, rel))
     else:
-      # 와일드카드 패턴 — find로 탐색
+      # Wildcard pattern — search with rglob
       for match in git_root.rglob(pattern.lstrip('/')):
         if not match.is_file():
           continue
         if match.stat().st_size >= 1_048_576:
           continue
         rel = str(match.relative_to(git_root))
-        # 빌드/캐시 경로 제외
+        # Exclude build/cache paths
         skip_dirs = {'build', 'target', '.gradle', 'node_modules', 'Pods',
                      '.dart_tool', 'DerivedData', 'dist', 'out', 'bin'}
         parts = set(match.parts)
         if parts & skip_dirs:
           continue
-        # 워크트리 경로 제외
+        # Exclude worktree paths
         if '-Worktree' in str(match):
           continue
         if rel not in seen:
@@ -110,16 +110,16 @@ def find_local_files(git_root: Path, patterns: list) -> list:
 
 def copy_local_files(git_root: Path, worktree_path: Path):
   """
-  .gitignore 기반 로컬 파일을 worktree에 자동 복사하고 결과 출력
+  Automatically copy .gitignore-based local files into the worktree and print the results
   """
   print()
   print("━" * 60)
-  print("📋 로컬 설정 파일 복사")
+  print("📋 Copying local config files")
   print("━" * 60)
 
   patterns = parse_gitignore(git_root)
   if not patterns:
-    print_info(".gitignore 없음 — 복사 스킵")
+    print_info("No .gitignore — skipping copy")
     return
 
   candidates = find_local_files(git_root, patterns)
@@ -128,45 +128,45 @@ def copy_local_files(git_root: Path, worktree_path: Path):
   skipped = []
 
   for abs_path, rel_path in candidates:
-    # 비권장 패턴이면 스킵
+    # Skip patterns not recommended for copying
     if should_skip(rel_path):
-      skipped.append((rel_path, '빌드/캐시/IDE 파일'))
+      skipped.append((rel_path, 'build/cache/IDE file'))
       continue
 
-    # 이미 워크트리에 존재하면 스킵
+    # Skip if it already exists in the worktree
     dest = worktree_path / rel_path
     if dest.exists():
-      skipped.append((rel_path, '워크트리에 이미 존재'))
+      skipped.append((rel_path, 'already exists in worktree'))
       continue
 
     classification = classify_file(rel_path)
 
     if classification == 'recommend':
-      # 복사 실행
+      # Copy
       try:
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(str(abs_path), str(dest))
         if dest.exists():
-          copied.append((rel_path, '런타임/인증/플랫폼 설정 파일'))
+          copied.append((rel_path, 'runtime/auth/platform config file'))
         else:
-          skipped.append((rel_path, '복사 후 파일 미확인'))
+          skipped.append((rel_path, 'file not found after copy'))
       except Exception as e:
-        skipped.append((rel_path, f'복사 실패: {e}'))
+        skipped.append((rel_path, f'copy failed: {e}'))
     else:
-      skipped.append((rel_path, '복사 권장 패턴 미해당'))
+      skipped.append((rel_path, 'does not match a recommended copy pattern'))
 
-  # 결과 출력
+  # Print results
   if copied:
     print()
     for rel, reason in copied:
       print(f"  ✅ copied  {rel}")
       print(f"     reason: {reason}")
   else:
-    print_info("복사된 파일 없음")
+    print_info("No files copied")
 
   if skipped:
     print()
-    print("  ⏭ 스킵된 파일:")
+    print("  ⏭ Skipped files:")
     for rel, reason in skipped:
       print(f"     - {rel}")
       print(f"       reason: {reason}")

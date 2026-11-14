@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""브랜치명 입력: Windows 환경 변수 > 파일 > stdin > argv 순서"""
+"""Branch name input: Windows environment variable > file > stdin > argv, in that order"""
 
 import os
 import sys
@@ -8,7 +8,7 @@ from git_worktree.console import IS_WINDOWS, print_warning
 
 
 def get_base_ref() -> str:
-  """새 브랜치를 딸 ref: GIT_BASE_REF 환경 변수 > `--base <ref>` 인자. 없으면 빈 문자열 (#944)"""
+  """Ref to branch the new branch from: GIT_BASE_REF environment variable > `--base <ref>` argument. Empty string if neither (#944)"""
   from_env = os.environ.get('GIT_BASE_REF', '').strip()
   if from_env:
     return from_env
@@ -23,31 +23,31 @@ def get_base_ref() -> str:
 
 def get_branch_name() -> str:
   """
-  브랜치명을 안전하게 받기 (Windows 인코딩 문제 해결)
+  Get the branch name safely (works around Windows encoding issues)
 
-  Windows 환경에서 PowerShell → Python 스크립트로 한글 브랜치명을 전달할 때
-  인코딩 문제가 발생하므로, 환경 변수나 파일에서 읽는 방식을 우선 사용합니다.
+  Passing a Korean branch name from PowerShell to a Python script on Windows
+  causes encoding issues, so reading from an environment variable or file is preferred.
 
   Returns:
-      str: 브랜치명 (비어있을 수 있음)
+      str: Branch name (may be empty)
   """
-  # 환경 변수는 플랫폼과 무관하게 먼저 본다 (macOS/Linux 에서도 argv 를 비운 호출이 있다, #944)
+  # Check the environment variable first on every platform (macOS/Linux callers may also pass an empty argv, #944)
   if not IS_WINDOWS:
     branch_name = os.environ.get('GIT_BRANCH_NAME', '').strip()
     if branch_name:
       return branch_name
 
   if IS_WINDOWS:
-    # 방법 1: 환경 변수에서 읽기 (가장 간단하고 안전)
-    # Windows에서 환경 변수는 시스템 기본 인코딩을 사용하므로 UTF-8로 디코딩 시도
+    # Method 1: read from environment variable (simplest and safest)
+    # Windows environment variables use the system default encoding, so try decoding as UTF-8
     branch_name_raw = os.environ.get('GIT_BRANCH_NAME', '')
     if branch_name_raw:
       try:
-        # 환경 변수가 이미 올바른 인코딩인 경우
+        # Environment variable already has the correct encoding
         branch_name = branch_name_raw.strip()
-        # 한글이 깨져있는지 확인 (깨진 경우 복구 시도)
+        # Check whether Korean text is garbled (try to recover if so)
         if '\xef\xbf\xbd' in branch_name.encode('utf-8', errors='replace').decode('utf-8', errors='replace'):
-          # 깨진 경우, 시스템 인코딩으로 디코딩 후 UTF-8로 재인코딩 시도
+          # Garbled: try re-encoding with the system encoding and decoding as UTF-8
           import locale
           sys_encoding = locale.getpreferredencoding()
           branch_name = branch_name_raw.encode(sys_encoding, errors='replace').decode('utf-8', errors='replace').strip()
@@ -56,16 +56,16 @@ def get_branch_name() -> str:
         if branch_name:
           return branch_name
       except Exception:
-        # 인코딩 변환 실패 시 원본 사용
+        # Use the original value if conversion fails
         branch_name = branch_name_raw.strip()
         if branch_name:
           return branch_name
 
-    # 방법 2: 임시 파일에서 읽기 (init-worktree에서 파일 생성 후 전달)
+    # Method 2: read from a temp file (init-worktree creates it and passes the path)
     temp_file = os.environ.get('BRANCH_NAME_FILE', '')
     if temp_file and os.path.exists(temp_file):
       try:
-        # 여러 인코딩 시도: UTF-8, UTF-8 with BOM, 시스템 기본 인코딩
+        # Try several encodings: UTF-8, UTF-8 with BOM, system default encodings
         encodings = ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr']
         branch_name = None
         for encoding in encodings:
@@ -73,7 +73,7 @@ def get_branch_name() -> str:
             with open(temp_file, 'r', encoding=encoding) as f:
               branch_name = f.read().strip()
               if branch_name and not any(ord(c) > 0xFFFF for c in branch_name if ord(c) > 0x7F):
-                # 한글이 제대로 읽혔는지 확인 (깨진 문자가 없는지)
+                # Check that Korean text was read correctly (no garbled characters)
                 break
           except (UnicodeDecodeError, UnicodeError):
             continue
@@ -81,18 +81,18 @@ def get_branch_name() -> str:
         if branch_name:
           return branch_name
       except Exception as e:
-        print_warning(f"브랜치명 파일 읽기 실패: {e}")
+        print_warning(f"Failed to read branch name file: {e}")
 
-    # 방법 3: stdin에서 읽기 시도 (파이프 입력인 경우)
+    # Method 3: try reading from stdin (piped input)
     if not sys.stdin.isatty():
       try:
         branch_name = sys.stdin.read().strip()
         if branch_name:
           return branch_name
       except Exception:
-        pass  # stdin 을 못 읽으면 아래 argv 로 받는다
+        pass  # If stdin cannot be read, fall back to argv below
 
-  # 기본: sys.argv에서 받기 (macOS/Linux 또는 Windows에서도 인자로 전달된 경우)
+  # Default: read from sys.argv (macOS/Linux, or Windows when passed as an argument)
   positional = [arg for arg in sys.argv[1:] if not arg.startswith('--')]
   if positional:
     return positional[0].strip()
