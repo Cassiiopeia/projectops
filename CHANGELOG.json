@@ -1,14 +1,40 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T10:29:38Z",
-    "currentVersion": "4.104.4",
+    "lastUpdated": "2026-11-14T13:34:27Z",
+    "currentVersion": "4.104.5",
     "projectType": "basic",
-    "totalReleases": 414,
+    "totalReleases": 415,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.104.5",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-14",
+      "pr_number": 1209,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * web login --until-url no longer finishes early on a sign-in page whose address mentions the target (contributed with @luanpv2003)\n\n* **Documentation**\n  * The worktree script and its helper package print English (contributed with @luanpv2003)\n  * The README translation check runs on demand instead of in CI",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "web login --until-url no longer finishes early on a sign-in page whose address mentions the target (contributed with @luanpv2003)"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The worktree script and its helper package print English (contributed with @luanpv2003)",
+            "The README translation check runs on demand instead of in CI"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.4",
       "project_type": "basic",

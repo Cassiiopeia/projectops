@@ -1,7 +1,20 @@
 # Changelog
 
-**Current version:** 4.104.4  
-**Last updated:** 2026-11-14T10:29:38Z  
+**Current version:** 4.104.5  
+**Last updated:** 2026-11-14T13:34:27Z  
+
+---
+
+## [4.104.5] - 2026-11-14
+
+**PR:** #1209  
+
+**Bug fixes**
+- web login --until-url no longer finishes early on a sign-in page whose address mentions the target (contributed with @luanpv2003)
+
+**Documentation**
+- The worktree script and its helper package print English (contributed with @luanpv2003)
+- The README translation check runs on demand instead of in CI
 
 ---
 
