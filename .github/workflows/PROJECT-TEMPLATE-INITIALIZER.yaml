@@ -44,7 +44,7 @@ permissions:
 
 jobs:
   check-initialization-needed:
-    name: 초기화 필요성 확인
+    name: Check whether initialization is needed
     runs-on: ubuntu-latest
     outputs:
       needs_init: ${{ steps.check.outputs.needs_init }}
@@ -52,25 +52,25 @@ jobs:
       current_version: ${{ steps.check.outputs.current_version }}
     
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 1
 
-      - name: 초기화 필요성 확인 (이슈 개수 + 저장소 생성일)
+      - name: Check whether initialization is needed (issue count + repository age)
         id: check
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            console.log("=== 🔍 템플릿 초기화 필요성 확인 ===");
+            console.log("=== 🔍 Checking whether template initialization is needed ===");
             
             let needsInit = true;
             let failureReasons = [];
             
             // 1. 이슈 개수 확인 (0개 = 새 저장소)
-            console.log("1️⃣ 이슈 개수 확인 중...");
+            console.log("1️⃣ Checking issue count...");
             const { data: issues } = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -79,15 +79,15 @@ jobs:
             });
             
             if (issues.length > 0) {
-              console.log(`❌ 이슈가 ${issues.length}개 존재합니다. (새 저장소가 아님)`);
-              failureReasons.push(`이슈 ${issues.length}개 존재`);
+              console.log(`❌ Found ${issues.length} issue(s). (not a new repository)`);
+              failureReasons.push(`${issues.length} issue(s) exist`);
               needsInit = false;
             } else {
-              console.log("✅ 이슈가 0개입니다. (새 저장소 확인)");
+              console.log("✅ No issues. (new repository)");
             }
             
             // 2. 저장소 생성일 확인 (최근 1시간 이내)
-            console.log("2️⃣ 저장소 생성일 확인 중...");
+            console.log("2️⃣ Checking repository creation time...");
             const { data: repo } = await github.rest.repos.get({
               owner: context.repo.owner,
               repo: context.repo.repo
@@ -97,77 +97,77 @@ jobs:
             const now = new Date();
             const ageHours = (now - createdAt) / (1000 * 60 * 60);
             
-            console.log(`저장소 생성: ${createdAt.toISOString()}`);
-            console.log(`현재 시간: ${now.toISOString()}`);
-            console.log(`저장소 나이: ${ageHours.toFixed(1)}시간`);
+            console.log(`Repository created: ${createdAt.toISOString()}`);
+            console.log(`Current time: ${now.toISOString()}`);
+            console.log(`Repository age: ${ageHours.toFixed(1)} hours`);
             
             if (ageHours > 1) { // 1시간 이상
-              console.log("❌ 저장소가 1시간 이상 오래되었습니다.");
-              failureReasons.push(`저장소 나이 ${ageHours.toFixed(1)}시간`);
+              console.log("❌ Repository is more than 1 hour old.");
+              failureReasons.push(`repository age ${ageHours.toFixed(1)} hours`);
               needsInit = false;
             } else {
-              console.log("✅ 최근 1시간 이내에 생성된 저장소입니다.");
+              console.log("✅ Repository was created within the last hour.");
             }
             
             // 결과 설정
             const projectName = context.repo.repo;
-            const currentVersion = "템플릿";
+            const currentVersion = "template";
             
             core.setOutput('needs_init', needsInit.toString());
             core.setOutput('project_name', projectName);
             core.setOutput('current_version', currentVersion);
             
-            console.log("\n=== 🎯 최종 판정 ===");
+            console.log("\n=== 🎯 Result ===");
             if (needsInit) {
-              console.log("✅ 템플릿 초기화가 필요합니다!");
-              console.log(`프로젝트명: ${projectName}`);
-              console.log(`저장소 나이: ${ageHours.toFixed(1)}시간`);
+              console.log("✅ Template initialization is needed.");
+              console.log(`Project name: ${projectName}`);
+              console.log(`Repository age: ${ageHours.toFixed(1)} hours`);
             } else {
-              console.log("❌ 템플릿 초기화가 필요하지 않습니다.");
-              console.log("실패 이유:", failureReasons.join(', '));
+              console.log("❌ Template initialization is not needed.");
+              console.log("Reasons:", failureReasons.join(', '));
             }
 
   initialize-template:
-    name: 템플릿 초기화 실행
+    name: Initialize template
     runs-on: ubuntu-latest
     needs: check-initialization-needed
     if: needs.check-initialization-needed.outputs.needs_init == 'true'
     
     steps:
-      - name: 저장소 체크아웃
+      - name: Check out repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: Git 사용자 설정
+      - name: Configure Git user
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
 
-      - name: 초기화 스크립트 권한 설정
+      - name: Make initializer script executable
         run: |
           chmod +x .github/scripts/template_initializer.sh
 
-      - name: 템플릿 초기화 실행
+      - name: Run template initializer
         run: |
-          echo "=== 템플릿 초기화 시작 ==="
+          echo "=== Template initialization started ==="
           
           # 스크립트 실행 (옵션 플래그 방식)
           ./.github/scripts/template_initializer.sh \
             --version 0.0.0 \
             --type basic
           
-          echo "=== 초기화 완료 ==="
+          echo "=== Initialization finished ==="
 
-      - name: 변경사항 커밋 및 푸시
+      - name: Commit and push changes
         run: |
-          echo "=== 변경사항 커밋 준비 ==="
+          echo "=== Preparing commit ==="
           
           # 워크플로우 파일 삭제 (일회성 실행)
           if [ -f ".github/workflows/PROJECT-TEMPLATE-INITIALIZER.yaml" ]; then
             rm -f .github/workflows/PROJECT-TEMPLATE-INITIALIZER.yaml
-            echo "✅ 템플릿 초기화 워크플로우 파일이 삭제되었습니다."
+            echo "✅ Removed the template initializer workflow file."
           fi
           
           # 변경된 파일들 확인
@@ -178,24 +178,24 @@ jobs:
           
           # 변경사항이 있는지 확인
           if git diff --staged --quiet; then
-            echo "❌ 커밋할 변경사항이 없습니다."
+            echo "❌ No changes to commit."
             exit 1
           fi
           
           # 커밋 메시지 생성
-          commit_message="projectops : init : ${{ needs.check-initialization-needed.outputs.project_name }} 기본 Template 초기화 완료
+          commit_message="projectops : init : ${{ needs.check-initialization-needed.outputs.project_name }} base template initialized
 
-          자동으로 수행된 초기화 작업:
-          - version.yml → 0.0.0, basic 타입으로 초기화
-          - CHANGELOG.md, CHANGELOG.json → 삭제
-          - LICENSE, CONTRIBUTING.md → 삭제
-          - 테스트 폴더 (.github/scripts/test) → 삭제
-          - README.md → 기본 템플릿으로 초기화  
-          - 이슈 템플릿 assignee → ${{ github.repository_owner }}로 변경
-          - 템플릿 초기화 워크플로우 삭제 (일회성 실행 완료)
+          Initialization steps run automatically:
+          - version.yml → 0.0.0, basic type
+          - CHANGELOG.md, CHANGELOG.json → removed
+          - LICENSE, CONTRIBUTING.md → removed
+          - test folder (.github/scripts/test) → removed
+          - README.md → reset to the base template
+          - issue template assignee → ${{ github.repository_owner }}
+          - template initializer workflow removed (one-time run finished)
           
-          프로젝트: ${{ needs.check-initialization-needed.outputs.project_name }}
-          초기화 시간: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          Project: ${{ needs.check-initialization-needed.outputs.project_name }}
+          Initialized at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
           
           # 커밋 실행
           git commit -m "$commit_message"
@@ -206,17 +206,17 @@ jobs:
           
           # 충돌이 있으면 강제 푸시 (템플릿 초기화는 한 번만 실행되므로 안전)
           if ! git push origin $DEFAULT_BRANCH; then
-            echo "⚠️ 푸시 충돌 발생, 강제 푸시 실행..."
+            echo "⚠️ Push rejected, retrying with --force-with-lease..."
             git push --force-with-lease origin $DEFAULT_BRANCH
           fi
           
-          echo "✅ 초기화 완료 및 변경사항 푸시 완료"
+          echo "✅ Initialization committed and pushed"
 
-      - name: develop 브랜치 생성
+      - name: Create develop branch
         run: |
           if git ls-remote --exit-code --heads origin develop >/dev/null 2>&1; then
-            echo "✅ develop 브랜치가 이미 존재합니다 — 건너뜀"
+            echo "✅ develop branch already exists — skipped"
           else
             git push origin HEAD:develop
-            echo "✅ develop 브랜치 생성 완료 (일상 개발은 develop에서, 릴리스는 develop→main PR)"
+            echo "✅ Created develop branch (day-to-day work goes to develop; releases go through a develop→main PR)"
           fi
