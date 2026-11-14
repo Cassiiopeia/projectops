@@ -14,6 +14,27 @@
 
 ---
 
+## 댓글 명령어
+
+이슈나 PR 댓글로 시작할 수 있는 명령어 전체입니다. 각 명령어는 처리하는 워크플로우가 설치된 경우에만 동작합니다.
+
+| 댓글 | 하는 일 | 쓰는 곳 | 워크플로우 |
+|---|---|---|---|
+| `@projectops server build [브랜치]` | 임시 Preview 서버 빌드·배포 | PR, 이슈 | `PROJECT-SPRING-PR-PREVIEW.yaml` / `PROJECT-PYTHON-PR-PREVIEW.yaml` |
+| `@projectops server status [브랜치]` | Preview 상태 확인 | PR, 이슈 | 위와 같음 |
+| `@projectops server destroy [브랜치]` | Preview 삭제 | PR, 이슈 | 위와 같음 |
+| `@projectops app build [브랜치]` | Flutter 테스트 빌드, Android + iOS | PR, 이슈 | `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` |
+| `@projectops apk build [브랜치]` | Flutter 테스트 빌드, Android만 | PR, 이슈 | 위와 같음 |
+| `@projectops ios build [브랜치]` | Flutter 테스트 빌드, iOS만 | PR, 이슈 | 위와 같음 |
+| `@projectops create qa` | 이 이슈와 연결된 QA 이슈 생성 | PR, 이슈 | `PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml` |
+
+- `[브랜치]`를 생략하면 PR은 head 브랜치를, 이슈는 Issue Helper 댓글에 적힌 브랜치를 씁니다. 자세히: [PR Preview](PR-PREVIEW.md), [Flutter 빌드 트리거](FLUTTER-TEST-BUILD-TRIGGER.md)
+- `server` 명령어는 위에 적힌 어순 그대로여야 합니다. Flutter 명령어는 `build app` / `build apk` / `build ios`도 받고, QA 봇은 댓글 어딘가에 `@projectops`, `create`, `qa`가 모두 있으면 동작합니다.
+- **누가 실행할 수 있나:** 공개 저장소에서는 `OWNER`, `MEMBER`, `COLLABORATOR`의 댓글만 명령을 실행하고 나머지는 무시합니다. 비공개 저장소는 검사하지 않습니다. 목록은 저장소 변수 `PROJECTOPS_TRIGGER_ASSOCIATIONS`에 JSON 배열로 바꿉니다. 예: `["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]` (v4.85.0). JSON이 잘못되면 이 워크플로우들이 모든 댓글에서 실패하니, 변수를 지우면 기본값으로 돌아갑니다.
+- Issue Helper가 직접 단 댓글은 명령을 실행하지 않습니다.
+
+---
+
 ## Issue Helper
 
 이슈가 생성되면 자동으로 권장 브랜치명과 커밋 메시지를 댓글로 제안합니다.
@@ -200,12 +221,14 @@ on:
 
 4종의 이슈 템플릿이 자동으로 설치됩니다.
 
-| 템플릿 | 파일 | 용도 |
+| 템플릿 | 파일 | 언제 쓰나 |
 |--------|------|------|
-| 버그 리포트 | `bug_report.md` | 버그 신고 |
-| 기능 요청 | `feature_request.md` | 기능 추가/개선 |
-| 디자인 요청 | `design_request.md` | UI/UX 디자인 |
-| QA 요청 | `qa_request.md` | 테스트 요청 |
+| 버그 리포트 | `bug_report.md` | 되던 것, 또는 되어야 할 것이 안 될 때. 증상·재현 방법·기대 동작을 적습니다 |
+| 기능 요청 | `feature_request.md` | 새 기능을 더하거나 기존 기능을 개선할 때 |
+| 디자인 요청 | `design_request.md` | 만들기 전에 UI/UX 디자인(화면·에셋)을 요청할 때 |
+| QA 요청 | `qa_request.md` | 기능 개발이나 버그 수정이 끝나 테스트를 요청할 때. [QA 봇](#qa-봇)(`@projectops create qa`)이 대신 채워 줍니다 |
+
+같은 폴더의 `projectops-installer-bug.yml`, `projectops-skill-bug.yml`은 projectops 저장소 자체용 양식(설치기·에이전트 스킬 버그)이라 사용자 저장소에는 설치되지 않습니다.
 
 ### 템플릿 위치
 
@@ -247,5 +270,5 @@ on:
 ## 관련 문서
 
 - [PR Preview](PR-PREVIEW.md) - `@projectops server` 명령어
-- [Flutter 빌드 트리거](FLUTTER-TEST-BUILD-TRIGGER.md) - `@projectops build app/apk build/ios build` 명령어
+- [Flutter 빌드 트리거](FLUTTER-TEST-BUILD-TRIGGER.md) - `@projectops app build/apk build/ios build` 명령어
 - [트러블슈팅](TROUBLESHOOTING.md)

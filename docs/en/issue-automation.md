@@ -14,6 +14,27 @@ When an issue is created, the template suggests a branch name and commit message
 
 ---
 
+## Comment commands
+
+Every command a comment on an issue or PR can start. Each one is installed only with the workflow that handles it.
+
+| Comment | What it does | Where | Workflow |
+|---|---|---|---|
+| `@projectops server build [branch]` | Builds and deploys a temporary Preview server | PR or issue | `PROJECT-SPRING-PR-PREVIEW.yaml` / `PROJECT-PYTHON-PR-PREVIEW.yaml` |
+| `@projectops server status [branch]` | Shows the Preview state | PR or issue | same |
+| `@projectops server destroy [branch]` | Removes the Preview | PR or issue | same |
+| `@projectops app build [branch]` | Flutter test build, Android + iOS | PR or issue | `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml` |
+| `@projectops apk build [branch]` | Flutter test build, Android only | PR or issue | same |
+| `@projectops ios build [branch]` | Flutter test build, iOS only | PR or issue | same |
+| `@projectops create qa` | Creates a QA issue linked to this one | PR or issue | `PROJECT-COMMON-QA-ISSUE-CREATION-BOT.yaml` |
+
+- Without `[branch]`, a PR builds its head branch and an issue builds the branch named in its Issue Helper comment. Details: [PR Preview](./pr-preview.md), [Flutter build trigger](./flutter-test-build-trigger.md).
+- `server` commands take the exact word order shown. The Flutter commands also accept `build app` / `build apk` / `build ios`, and the QA bot only needs `@projectops`, `create` and `qa` somewhere in the comment.
+- **Who can trigger them:** on a public repository, only comments from `OWNER`, `MEMBER` or `COLLABORATOR` run a command; other comments are ignored. Private repositories are not checked. To change the list, set the repository variable `PROJECTOPS_TRIGGER_ASSOCIATIONS` to a JSON array, for example `["OWNER","MEMBER","COLLABORATOR","CONTRIBUTOR"]` (v4.85.0). An invalid JSON value makes these workflows fail on every comment; delete the variable to go back to the default.
+- Comments the Issue Helper posts itself never trigger a command.
+
+---
+
 ## Issue Helper
 
 When an issue is created, it posts a comment with a recommended branch name and commit message.
@@ -200,12 +221,14 @@ on:
 
 Four issue templates are installed automatically.
 
-| Template | File | Purpose |
+| Template | File | When to use it |
 |--------|------|------|
-| Bug report | `bug_report.md` | Report a bug |
-| Feature request | `feature_request.md` | Add or improve a feature |
-| Design request | `design_request.md` | UI/UX design |
-| QA request | `qa_request.md` | Request testing |
+| Bug report | `bug_report.md` | Something that worked, or should work, is broken: describe it, how to reproduce it, and what you expected |
+| Feature request | `feature_request.md` | Add a new feature or improve an existing one |
+| Design request | `design_request.md` | Ask for UI/UX design work (screens, assets) before it is built |
+| QA request | `qa_request.md` | Ask for testing after a feature or a bug fix is done. The [QA bot](#qa-bot) (`@projectops create qa`) fills it in for you |
+
+`projectops-installer-bug.yml` and `projectops-skill-bug.yml` in the same folder are forms for the projectops repository itself (installer and agent skill bugs). They are not installed into your repository.
 
 ### Template location
 
@@ -247,5 +270,5 @@ Four issue templates are installed automatically.
 ## Related docs
 
 - [PR Preview](./pr-preview.md) - the `@projectops server` command
-- [Flutter build trigger](./flutter-test-build-trigger.md) - the `@projectops build app/apk build/ios build` commands
+- [Flutter build trigger](./flutter-test-build-trigger.md) - the `@projectops app build/apk build/ios build` commands
 - [Troubleshooting](./troubleshooting.md)
