@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-14T17:09:44Z",
-    "currentVersion": "4.104.8",
+    "lastUpdated": "2026-11-15T12:17:18Z",
+    "currentVersion": "4.105.0",
     "projectType": "basic",
-    "totalReleases": 418,
+    "totalReleases": 419,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.105.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-15",
+      "pr_number": 1219,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-remote-link: ask for an Orca or Paseo link and get one link to open the app from outside\n  * Paseo links come from its relay, no tunnel needed, with a warning when no password is set\n  * New `apps` check shows which supported apps are running and reachable now\n\n* **Other**\n  * pro-orca-tunnel is renamed to pro-remote-link; saved Orca links keep working",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-remote-link: ask for an Orca or Paseo link and get one link to open the app from outside",
+            "Paseo links come from its relay, no tunnel needed, with a warning when no password is set",
+            "New `apps` check shows which supported apps are running and reachable now"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "pro-orca-tunnel is renamed to pro-remote-link; saved Orca links keep working"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.104.8",
       "project_type": "basic",

@@ -1,7 +1,21 @@
 # Changelog
 
-**Current version:** 4.104.8  
-**Last updated:** 2026-11-14T17:09:44Z  
+**Current version:** 4.105.0  
+**Last updated:** 2026-11-15T12:17:18Z  
+
+---
+
+## [4.105.0] - 2026-11-15
+
+**PR:** #1219  
+
+**New features**
+- pro-remote-link: ask for an Orca or Paseo link and get one link to open the app from outside
+- Paseo links come from its relay, no tunnel needed, with a warning when no password is set
+- New `apps` check shows which supported apps are running and reachable now
+
+**Other**
+- pro-orca-tunnel is renamed to pro-remote-link; saved Orca links keep working
 
 ---
 
