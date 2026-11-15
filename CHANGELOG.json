@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-15T12:17:18Z",
-    "currentVersion": "4.105.0",
+    "lastUpdated": "2026-11-15T12:22:29Z",
+    "currentVersion": "4.105.1",
     "projectType": "basic",
-    "totalReleases": 419,
+    "totalReleases": 420,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.105.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-15",
+      "pr_number": 1220,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Improvements**\n  * pro-remote-link keeps its saved links and tunnel records in a folder named after the skill (`~/.projectops/remote-link`). If you saved an Orca link before, move the old `~/.projectops/tunnel` folder there",
+      "parsed_changes": {
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "pro-remote-link keeps its saved links and tunnel records in a folder named after the skill (`~/.projectops/remote-link`). If you saved an Orca link before, move the old `~/.projectops/tunnel` folder there"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.105.0",
       "project_type": "basic",

@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.105.0  
-**Last updated:** 2026-11-15T12:17:18Z  
+**Current version:** 4.105.1  
+**Last updated:** 2026-11-15T12:22:29Z  
+
+---
+
+## [4.105.1] - 2026-11-15
+
+**PR:** #1220  
+
+**Improvements**
+- pro-remote-link keeps its saved links and tunnel records in a folder named after the skill (`~/.projectops/remote-link`). If you saved an Orca link before, move the old `~/.projectops/tunnel` folder there
 
 ---
 
