@@ -477,7 +477,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely) and `/pro-orca-tunnel` (a public Orca Web URL on request) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely) and `/pro-remote-link` (a link to open Orca or Paseo from outside) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
 
 ```bash
 # Claude Code
@@ -528,17 +528,21 @@ Every deleting command only prints a plan unless it gets `--yes`. A worktree is 
 
 ---
 
-### `/pro-orca-tunnel`
+### `/pro-remote-link`
 
 **What does it do?**
-It **answers "give me the Orca URL" with one link you can open from anywhere**. It reuses the running cloudflared quick tunnel for Orca Web (or opens a new one), then returns your saved Orca pairing link with the tunnel address swapped in. No Cloudflare account is needed; only `cloudflared` must be installed. Orca-specific facts (port, check page, link shape) live in a harness file the agent updates when Orca changes. Works on macOS, Windows and Linux.
+It **answers "give me the Orca link" or "give me the Paseo link" with one link you can open from anywhere**. Each app connects its own way:
+- **Orca (tunnel)**: reuses the running cloudflared quick tunnel for Orca Web (or opens a new one), then returns your saved Orca pairing link with the tunnel address swapped in. No Cloudflare account is needed; only `cloudflared` must be installed.
+- **Paseo (relay)**: no tunnel. The Paseo CLI (`paseo daemon pair`) makes a fresh `https://app.paseo.sh/#offer=...` link every time. If the relay is off it asks you before turning it on, and if the daemon has no password it adds a warning with the command to set one. It never restarts the daemon, changes its listen address or turns on the web UI.
 
-**Modifies**: starts or stops quick tunnels; saves the pairing link in an owner-only file under `~/.projectops/tunnel/`
-**Returns**: one URL (the link carries a device token, so it is sent only to you in the chat)
+App-specific facts (port, CLI location, link shape) live in one harness file per app that the agent updates when the app changes. The `apps` command lists the supported apps and whether each is running and reachable now. A new app needs one harness file and a small adapter. Works on macOS, Windows and Linux.
+
+**Modifies**: starts or stops quick tunnels; saves the Orca pairing link in an owner-only file under `~/.projectops/tunnel/` (same place as before)
+**Returns**: one link (it is a key to your computer, so it is sent only to you in the chat)
 
 **When to use it**
-- "Give me the Orca URL", "open Orca remotely"
-- You are away from the Mac and want Orca desktop in a browser
+- "Give me the Orca URL", "Paseo link", "open Orca / Paseo from outside"
+- You are away from the computer and want Orca or Paseo desktop in a browser
 
 ---
 

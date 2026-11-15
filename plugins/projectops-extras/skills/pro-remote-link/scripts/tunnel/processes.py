@@ -1,4 +1,4 @@
-"""cloudflared quick tunnel processes: find > start (detached from the session) > stop, find the Orca Web port"""
+"""cloudflared quick tunnel processes: find > start (detached from the session) > stop, listening ports of an app"""
 from __future__ import annotations
 
 import json
@@ -11,7 +11,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import proc
+from . import proc, state
 
 IS_WINDOWS = sys.platform.startswith("win")
 # Quick tunnel address printed in the cloudflared log
@@ -74,6 +74,15 @@ def is_alive(pid: int) -> bool:
     if pid <= 0:
         return False
     return proc.pid_alive(pid)
+
+
+def live_tunnel(port: int) -> dict | None:
+    """Tunnel this skill started for the port, if its process is still alive and its URL is known"""
+    record = state.load()["tunnels"].get(str(port))
+    if not record or not is_alive(int(record.get("pid") or 0)):
+        return None
+    url = record.get("url") or url_from_log(Path(record.get("log") or ""))
+    return {**record, "url": url} if url else None
 
 
 def stop(pid: int) -> bool:

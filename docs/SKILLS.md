@@ -480,7 +480,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 ## Extras (선택 플러그인)
 
-`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-orca-tunnel`(Orca Web 원격 주소)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-remote-link`(Orca·Paseo를 밖에서 여는 링크)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
 
 ```bash
 # Claude Code
@@ -531,17 +531,21 @@ macOS·Windows·Linux에서 스택과 상관없이 **되찾을 수 있는 디스
 
 ---
 
-### `/pro-orca-tunnel`
+### `/pro-remote-link`
 
 **무엇을 하나요?**
-"orca 주소 줘"에 **어디서나 열 수 있는 링크 하나로 답합니다**. Orca Web용으로 떠 있는 cloudflared 빠른 터널을 재사용하거나 새로 열고, 저장해 둔 Orca 짝 맞추기 링크의 주소를 터널 주소로 바꿔 돌려줍니다. Cloudflare 계정은 필요 없고 `cloudflared`만 설치돼 있으면 됩니다. Orca 고유 사실(포트·확인 화면·링크 모양)은 하네스 파일에 두고 Orca가 바뀌면 에이전트가 고칩니다. macOS·Windows·Linux에서 동작합니다.
+"orca 링크 줘", "paseo 링크 줘"에 **어디서나 열 수 있는 링크 하나로 답합니다**. 앱마다 연결 방식이 다릅니다.
+- **Orca (터널)**: Orca Web용으로 떠 있는 cloudflared 빠른 터널을 재사용하거나 새로 열고, 저장해 둔 Orca 짝 맞추기 링크의 주소를 터널 주소로 바꿔 돌려줍니다. Cloudflare 계정은 필요 없고 `cloudflared`만 설치돼 있으면 됩니다.
+- **Paseo (릴레이)**: 터널 없이 Paseo CLI(`paseo daemon pair`)로 매번 새 `https://app.paseo.sh/#offer=...` 링크를 만듭니다. 릴레이가 꺼져 있으면 켜기 전에 사용자에게 묻고, 데몬 비밀번호가 없으면 경고와 설정 명령을 함께 알려 줍니다. 데몬 재시작·접속 주소 변경·웹 UI 켜기는 하지 않습니다.
 
-**수정되는 것**: 빠른 터널 시작·중지, 짝 맞추기 링크를 `~/.projectops/tunnel/` 아래 본인만 읽는 파일에 저장
-**돌려주는 것**: URL 하나 (기기 토큰이 들어 있어 채팅에서 사용자에게만 보냄)
+앱 고유 사실(포트·CLI 위치·링크 모양)은 앱별 하네스 파일에 두고 앱이 바뀌면 에이전트가 고칩니다. `apps` 명령이 지원 앱과 지금 실행·접속 가능 여부를 보여 줍니다. 새 앱은 하네스 하나와 작은 어댑터 하나로 추가합니다. macOS·Windows·Linux에서 동작합니다.
+
+**수정되는 것**: 빠른 터널 시작·중지, Orca 짝 맞추기 링크를 `~/.projectops/tunnel/` 아래 본인만 읽는 파일에 저장 (기존 저장 위치 그대로)
+**돌려주는 것**: 링크 하나 (기기에 들어오는 열쇠라서 채팅에서 사용자에게만 보냄)
 
 **언제 쓰나요?**
-- "orca 주소 줘", "밖에서 Orca 열고 싶어"
-- Mac에서 떨어져 있을 때 브라우저로 Orca 데스크톱을 쓰고 싶을 때
+- "orca 주소 줘", "paseo 링크 줘", "밖에서 Orca/Paseo 열고 싶어"
+- 컴퓨터에서 떨어져 있을 때 브라우저로 Orca·Paseo 데스크톱을 쓰고 싶을 때
 
 ---
 

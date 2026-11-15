@@ -11,7 +11,7 @@ COPIES = [
     ("skills/references/preferences.md", "skills/references/preferences.md"),
     ("hooks/run_python.sh", "hooks/run_python.sh"),
     ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # redaction rules original (extras cannot use common)
-    ("scripts/common/proc.py", "skills/pro-orca-tunnel/scripts/tunnel/proc.py"),  # original of the per-OS process liveness check
+    ("scripts/common/proc.py", "skills/pro-remote-link/scripts/tunnel/proc.py"),  # original of the per-OS process liveness check
 ]
 
 if __name__ == "__main__":

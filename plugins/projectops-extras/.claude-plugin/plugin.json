@@ -1,6 +1,6 @@
 {
   "name": "projectops-extras",
-  "description": "Optional projectops skills outside the core dev cycle (Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up on macOS, Windows and Linux, a public Orca Web URL on request).",
+  "description": "Optional projectops skills outside the core dev cycle (Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up on macOS, Windows and Linux, a link to open Orca or Paseo from outside on request).",
   "version": "4.104.7",
   "author": {
     "name": "Cassiiopeia",

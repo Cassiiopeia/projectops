@@ -1,4 +1,4 @@
-"""State folder ~/.projectops/tunnel: per-port tunnel records, logs, Orca pairing source (shared across accounts and sessions)"""
+"""State folder ~/.projectops/tunnel: per-port tunnel records, logs, saved app links, harness overrides (shared across accounts and sessions)"""
 from __future__ import annotations
 
 import json
@@ -7,9 +7,12 @@ import time
 from pathlib import Path
 
 # One place under the user home so every account and session sees the same records
+# Folder name stays "tunnel" for every app: saved links (link-orca.txt) and harness/ overrides keep working
 STATE_DIR = Path(os.environ.get("PROJECTOPS_TUNNEL_DIR") or Path.home() / ".projectops" / "tunnel")
 STATE_FILE = STATE_DIR / "state.json"
 PAIRING_FILE = STATE_DIR / "orca-pairing.json"
+# Local harness copies: {STATE_DIR}/harness/{app}.md wins over the bundled harness/{app}.md
+HARNESS_OVERRIDE_DIR = STATE_DIR / "harness"
 
 
 def ensure_dir() -> Path:

@@ -12,6 +12,8 @@ Last checked: Orca 1.4.253 on macOS, 2026-11-11. Windows and Linux lines marked 
 - Check: `local --port 6768` returns `title: "Orca Web"`.
 - If 6768 does not answer: `ports --process orca` lists the ports the Orca process listens on (works on macOS, Windows
   and Linux); run `local --port N` on each and take the one titled `Orca Web`.
+- `apps` uses the same port and title (`scripts/remote_apps/orca.py`). If they change, its `ports` fallback still
+  finds Orca Web, but update both.
 - Not Orca Web: the second, loopback-only port (for example `127.0.0.1:61115`) answers 404 at `/`.
 
 ## If Orca is not running
@@ -44,3 +46,4 @@ Last checked: Orca 1.4.253 on macOS, 2026-11-11. Windows and Linux lines marked 
 ## Change log
 
 - 2026-11-11: first version.
+- 2026-11-15: skill renamed to pro-remote-link (CLI `remote_link_cli.py`); the local copy stays at `~/.projectops/tunnel/harness/orca.md`.

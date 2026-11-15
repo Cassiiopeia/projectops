@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-"""tunnel_cli: pro-orca-tunnel quick tunnel (cloudflared) open, reuse and cleanup, swap the tunnel host in app links — output is always JSON (ok·code·summary·next)
-Per-app facts (port, screen to check, link shape) live in the harness doc; this CLI knows no app. Standard library only
+"""remote_link_cli: pro-remote-link one link to open a desktop app from outside — output is always JSON (ok·code·summary·next)
+Tunnel apps (Orca): cloudflared quick tunnel open, reuse, cleanup + swap the tunnel host in the saved link
+Relay apps (Paseo): the app's own CLI makes a fresh pairing link. Per-app facts live in harness/<app>.md. Standard library only
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import re
 import sys
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from remote_apps import SUPPORTED_APPS, harness_path  # noqa: E402
 from tunnel import links, probe, processes, state  # noqa: E402
 
 # Time to wait for the new tunnel address to respond (seconds)
@@ -46,31 +45,9 @@ def emit(payload: dict) -> int:
     return 0 if payload["ok"] else 1
 
 
-def _local_page(port: int, path: str) -> dict:
-    """Result of asking this computer's port directly: response code and <title>"""
-    try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=3) as response:
-            body = response.read(16384).decode("utf-8", errors="replace")
-            status = response.status
-    except urllib.error.HTTPError as error:
-        return {"status": error.code, "title": None}
-    except OSError:
-        return {"status": None, "title": None}
-    match = re.search(r"<title>([^<]*)</title>", body, re.IGNORECASE)
-    return {"status": status, "title": match.group(1).strip() if match else None}
-
-
 def _local_answers(port: int, path: str) -> bool:
-    status = _local_page(port, path)["status"]
+    status = probe.local_page(port, path)["status"]
     return status is not None and 200 <= status < 400
-
-
-def _saved_tunnel(port: int) -> dict | None:
-    record = state.load()["tunnels"].get(str(port))
-    if not record or not processes.is_alive(int(record.get("pid") or 0)):
-        return None
-    url = record.get("url") or processes.url_from_log(Path(record.get("log") or ""))
-    return {**record, "url": url} if url else None
 
 
 def _wait_answer(url: str, path: str) -> dict:
@@ -83,6 +60,17 @@ def _wait_answer(url: str, path: str) -> dict:
 
 
 # Subcommands: parse input > call module > result + next
+
+def cmd_apps(_args) -> dict:
+    rows = []
+    for name, adapter in SUPPORTED_APPS.items():
+        harness = harness_path(name)
+        rows.append({"app": name, "connection": adapter.CONNECTION,
+                     "harness": str(harness) if harness else None, **adapter.inspect()})
+    reachable = [row["app"] for row in rows if row["is_reachable"]]
+    return {"apps": rows, "summary": f"{len(rows)} supported app(s); reachable from outside now: {', '.join(reachable) or 'none'}",
+            "next": "link get --app NAME (tunnel apps also need --url from open)"}
+
 
 def cmd_status(_args) -> dict:
     saved = state.load()["tunnels"]
@@ -107,7 +95,7 @@ def cmd_open(args) -> dict:
                 "summary": f"nothing answers on http://127.0.0.1:{args.port}{args.path}",
                 "next": "start the app first, or find its port with the harness"}
     # Alive and responding > reuse as is
-    saved = _saved_tunnel(args.port)
+    saved = processes.live_tunnel(args.port)
     if saved and not args.fresh:
         result = probe.check(saved["url"], args.path)
         if result["answers"]:
@@ -139,7 +127,7 @@ def cmd_ports(args) -> dict:
 
 
 def cmd_local(args) -> dict:
-    page = _local_page(args.port, args.path)
+    page = probe.local_page(args.port, args.path)
     return {"port": args.port, "path": args.path, **page, "ok": page["status"] is not None,
             "code": "ok" if page["status"] is not None else "local_not_listening",
             "summary": f"{args.port}{args.path}: status {page['status']}, title {page['title']!r}"}
@@ -154,6 +142,10 @@ def cmd_stop(args) -> dict:
 
 
 def cmd_link_save(args) -> dict:
+    adapter = SUPPORTED_APPS.get(args.app)
+    if adapter and adapter.CONNECTION == "relay":
+        return {"ok": False, "code": "not_needed", "summary": f"{args.app} makes a fresh link each time; nothing to save",
+                "next": f"link get --app {args.app}"}
     # The link is not taken as a command-line argument (so it doesn't show in the process list)
     link = os.environ.get("TUNNEL_LINK", "").strip()
     if not link:
@@ -163,7 +155,10 @@ def cmd_link_save(args) -> dict:
     return {"app": args.app, "summary": f"saved the {args.app} link (owner-only file)"}
 
 
-def cmd_link_get(args) -> dict:
+def _tunnel_link(args) -> dict:
+    if not args.url:
+        return {"ok": False, "code": "url_required", "summary": f"{args.app} is reached through a tunnel; --url is required",
+                "next": f"open --port N (port from harness/{args.app}.md), then link get --app {args.app} --url <url>"}
     link = links.load(args.app)
     if not link:
         return {"ok": False, "code": "no_saved_link",
@@ -178,9 +173,18 @@ def cmd_link_get(args) -> dict:
     return {"link": updated, "replaced": replaced, "summary": f"{replaced} address(es) switched to {new_host}"}
 
 
+def cmd_link_get(args) -> dict:
+    """Relay apps > the app's CLI makes the link. Every other app > saved link pointed at the tunnel URL"""
+    adapter = SUPPORTED_APPS.get(args.app)
+    if adapter and adapter.CONNECTION == "relay":
+        return adapter.fresh_link(should_enable_relay=args.enable_relay)
+    return _tunnel_link(args)
+
+
 def build_parser() -> JsonArgumentParser:
-    parser = JsonArgumentParser(prog="tunnel_cli")
+    parser = JsonArgumentParser(prog="remote_link_cli")
     commands = parser.add_subparsers(dest="command", required=True, parser_class=JsonArgumentParser)
+    commands.add_parser("apps").set_defaults(handler=cmd_apps)
     commands.add_parser("status").set_defaults(handler=cmd_status)
     opener = commands.add_parser("open")
     opener.add_argument("--port", type=int, required=True)
@@ -206,7 +210,9 @@ def build_parser() -> JsonArgumentParser:
     saver.set_defaults(handler=cmd_link_save)
     getter = link_commands.add_parser("get")
     getter.add_argument("--app", required=True)
-    getter.add_argument("--url", required=True, help="current tunnel URL from `open`")
+    getter.add_argument("--url", help="current tunnel URL from `open` (tunnel apps only)")
+    getter.add_argument("--enable-relay", action="store_true",
+                        help="relay apps: turn the relay on while pairing (only after the user agreed)")
     getter.set_defaults(handler=cmd_link_get)
     return parser
 
@@ -216,7 +222,7 @@ def main(argv: list[str] | None = None) -> int:
         args = build_parser().parse_args(argv)
     except _BadArgumentsExit as error:
         return emit({"ok": False, "code": "bad_args", "summary": error.message,
-                     "next": "commands: status, ports --process NAME, local --port N, open --port N, stop --port N|--all, link save|get --app NAME"})
+                     "next": "commands: apps, status, ports --process NAME, local --port N, open --port N, stop --port N|--all, link save --app NAME, link get --app NAME [--url URL] [--enable-relay]"})
     try:
         return emit(args.handler(args))
     except Exception as error:  # noqa: BLE001 — unexpected exceptions also go out as JSON

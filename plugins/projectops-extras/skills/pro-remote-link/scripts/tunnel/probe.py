@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import json
+import re
 import socket
 import ssl
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -51,3 +53,17 @@ def check(url: str, path: str = "/") -> dict:
     status = http_status(host, addresses[0], path) if addresses else None
     return {"answers": status is not None and 200 <= status < 400, "status": status,
             "local_dns_ready": resolves_locally(host)}
+
+
+def local_page(port: int, path: str = "/") -> dict:
+    """{status, title} from asking this computer's port directly. status None when nothing answers"""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=3) as response:
+            body = response.read(16384).decode("utf-8", errors="replace")
+            status = response.status
+    except urllib.error.HTTPError as error:
+        return {"status": error.code, "title": None}
+    except OSError:
+        return {"status": None, "title": None}
+    match = re.search(r"<title>([^<]*)</title>", body, re.IGNORECASE)
+    return {"status": status, "title": match.group(1).strip() if match else None}
