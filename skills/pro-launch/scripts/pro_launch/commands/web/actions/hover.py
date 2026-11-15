@@ -23,6 +23,6 @@ def execute(page, args, state: dict) -> dict:
     return payload
 
 
-ACTION = Action(name="hover", run=execute, options=("selector", "ref", "target_timeout"),
+ACTION = Action(name="hover", run=execute, options=("selector", "ref", "target_timeout", "frame"),
                 help="Hover over an element — tooltips and dropdown menus",
                 example="web hover --selector '#menu'")

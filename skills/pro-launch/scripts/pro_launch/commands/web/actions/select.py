@@ -53,6 +53,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="select", run=execute, configure=configure,
-                options=("selector", "ref", "target_timeout", "confirm_mutating"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating", "frame"),
                 help="Pick one option in a dropdown (<select>) by value or visible label",
                 example='web select --ref 4 --value "Seoul"')

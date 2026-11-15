@@ -54,6 +54,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="press", run=execute, configure=configure,
-                options=("selector", "ref", "target_timeout", "confirm_mutating", "capture_requests"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating", "frame", "capture_requests"),
                 help="Press a key — on the target if given, otherwise at the current focus",
                 example="web press --ref 2 --key Enter")

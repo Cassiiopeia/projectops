@@ -283,7 +283,7 @@ Use `python` · `py -3` or the real installed `python.exe` path.
 ... web scroll --to "{text}" | --ref {N} | --by 600 [--container "{css}"]
 ... web upload --files a.png,b.png [--selector "{css}" | --ref {N} | --click-ref {dropzone N}]   # over 50MB total goes through CDP (via: "cdp"); if that fails, file_too_large_for_transfer
 ... web script --file {snippet.py} [--timeout 60]   # or standard input
-... web find|type|click|assert|text|inspect ... --frame {name|iframe selector|part of URL}
+... web find|inspect|text|wait|assert|click|type|check|select|hover|press|download|upload|value|scroll ... --frame {name|iframe selector|part of URL}
 ```
 
 - **Call `find`/`inspect` before `type`·`click`** unless the selector came from the latest `find` · `inspect` result.
@@ -308,7 +308,7 @@ Use `python` · `py -3` or the real installed `python.exe` path.
 
 Inputs inside a cross-origin iframe (Apple or IdP login, etc.) are not visible to top-level selectors. If `find` returns `nothing_found`, look at `frames` (name · url) in the result
 and add `--frame`. The value is matched as **frame name > iframe selector > part of URL**, in that order. If nothing matches: `frame_not_found` + `frames`.
-A `ref` from `find --frame X` belongs to that frame, so add the same `--frame`, as in `click --ref N --frame X`.
+A `ref` from `find --frame X` belongs to that frame, so add the same `--frame`, as in `click --ref N --frame X` or `download --ref N --frame X` (a download link inside an iframe, such as an install page). `press` without a target ignores `--frame` and sends the key to the current focus.
 
 ```bash
 ... web open --headed --url https://appstoreconnect.apple.com/login

@@ -43,6 +43,6 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="check", run=execute, configure=configure,
-                options=("selector", "ref", "target_timeout", "confirm_mutating"),
+                options=("selector", "ref", "target_timeout", "confirm_mutating", "frame"),
                 help="Turn a checkbox, radio or switch on (--off turns it off)",
                 example="web check --ref 5 --off")

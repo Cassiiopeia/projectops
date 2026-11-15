@@ -65,6 +65,6 @@ def execute(page, args, state: dict) -> dict:
 
 
 ACTION = Action(name="download", run=execute,
-                options=("selector", "ref", "out", "target_timeout", "confirm_mutating"),
+                options=("selector", "ref", "out", "target_timeout", "confirm_mutating", "frame"),
                 help="Click to download, save the file in the run folder ($SHOT_DIR), and return its path and size",
                 example="web download --ref 3 --out report.csv")
