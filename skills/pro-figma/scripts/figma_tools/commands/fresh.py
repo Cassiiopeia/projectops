@@ -28,7 +28,8 @@ def cmd_check_fresh(args) -> int:
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
-        return emit({"ok": False, "code": "meta_unreadable", "error": str(e)})
+        return emit({"ok": False, "code": "meta_unreadable", "error": str(e),
+                     "next": "The ingest metadata is damaged. Run ingest on the get_figma_data result again"})
 
     recorded = {"last_modified": meta.get("last_modified"), "version": meta.get("version")}
     if not recorded["last_modified"]:

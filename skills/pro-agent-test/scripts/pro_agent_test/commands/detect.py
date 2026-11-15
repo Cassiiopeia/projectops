@@ -35,7 +35,8 @@ def cmd_detect(args) -> int:
     data, raw, _ = _launch(["detect", "--path", str(start)])
     if data is None:
         return emit({"ok": False, "code": "launch_unavailable",
-                     "error": "Could not call pro-launch detect", "output": raw[-400:]})
+                     "error": "Could not call pro-launch detect", "output": raw[-400:],
+                     "next": "Read output for the cause, then run launch detect directly to see the full error"})
     root = Path(data.get("root") or start)
 
     targets = list(data.get("kinds") or [])

@@ -79,6 +79,7 @@ def fetch_file_state(file_key: str, token: str) -> dict:
         return {"ok": False, "code": "figma_file_not_found", "status": status}
     body = r.get("json")
     if status != 200 or not isinstance(body, dict):
-        return {"ok": False, "code": "request_failed", "status": status}
+        return {"ok": False, "code": "request_failed", "status": status,
+                "next": "429: wait a minute and retry. 5xx: Figma is failing, retry later. No status: check the network"}
     return {"ok": True, "lastModified": body.get("lastModified"), "version": body.get("version"),
             "name": body.get("name")}

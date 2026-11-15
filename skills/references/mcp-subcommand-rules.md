@@ -51,6 +51,10 @@ Then the agent has no reason to write ad-hoc Python in `/tmp` — ad-hoc Python 
 | `summary` | Recommended | One-line natural-language summary |
 | `next` | ✅ | Hint for the next subcommand the agent should call (`null` if none) |
 
+**A failure must never leave the agent stuck.** Write a specific `next` (or `hint`, `ask_user`) where you know the way out.
+Where you do not, `emit` fills `next` with a pointer to `--help` and the skill's failure-code table, so a new failure path is never a dead end.
+Put fixed, repeatable steps in the CLI; when the right move depends on judgment, explain the situation in the response or the skill's references and let the agent decide, instead of adding a half-built check.
+
 ### Data in the helper (gh_client), judgment in the command layer
 
 `gh_client.py` functions do **pure API lookups** only (return raw dicts, no judgment). The `cmd_*` functions in `<scope>_cli.py`

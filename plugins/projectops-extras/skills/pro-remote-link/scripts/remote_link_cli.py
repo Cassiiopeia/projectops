@@ -226,7 +226,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         return emit(args.handler(args))
     except Exception as error:  # noqa: BLE001 — unexpected exceptions also go out as JSON
-        return emit({"ok": False, "code": "internal_error", "summary": f"{type(error).__name__}: {error}"})
+        return emit({"ok": False, "code": "internal_error", "summary": f"{type(error).__name__}: {error}",
+                     "next": "An unexpected error in the CLI. Report it with pro-skill-bug"})
 
 
 if __name__ == "__main__":

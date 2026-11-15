@@ -194,7 +194,8 @@ def run_launch_ssh(launch_cli: Path, connection_arguments: list[str], remote_com
         return json.loads(completed.stdout)
     except (json.JSONDecodeError, TypeError):
         return {"ok": False, "code": "launch_output_unreadable",
-                "error": (completed.stdout or "")[-500:] + (completed.stderr or "")[-500:]}
+                "error": (completed.stdout or "")[-500:] + (completed.stderr or "")[-500:],
+                "next": "launch ssh did not return JSON. Read error, then run launch ssh with the same connection to see it directly"}
 
 
 def read_script(args) -> tuple[str | None, str | None, dict | None]:

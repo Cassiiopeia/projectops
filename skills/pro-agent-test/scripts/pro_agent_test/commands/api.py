@@ -106,10 +106,12 @@ def cmd_api(args) -> int:
 
     data, problems = _expand(d, f)
     if problems:
-        return emit({"ok": False, "code": "scenario_invalid", "problems": problems})
+        return emit({"ok": False, "code": "scenario_invalid", "problems": problems,
+                     "next": "Fix each entry in problems in the scenario file, then run it again"})
     problems = _validate(data)
     if problems:
-        return emit({"ok": False, "code": "scenario_invalid", "problems": problems})
+        return emit({"ok": False, "code": "scenario_invalid", "problems": problems,
+                     "next": "Fix each entry in problems in the scenario file, then run it again"})
     if scenario_target(data) != "server":
         return emit({"ok": False, "code": "wrong_target",
                      "error": f"This scenario's target is '{scenario_target(data)}'",

@@ -66,7 +66,8 @@ def _app_record(args) -> int:
     if not platform:
         return no_device_response(dev, args.device)
     if platform not in ("ios", "android"):
-        return out({"ok": False, "code": "platform_unsupported", "error": f"{platform} does not support recording"})
+        return out({"ok": False, "code": "platform_unsupported", "error": f"{platform} does not support recording",
+                    "next": "Recording works on Android and iOS devices only"})
     state_file = _state_file(root, dev_id)
     if verb == "start":
         return _start(args, root, platform, dev_id, state_file)
@@ -96,7 +97,8 @@ def _start(args, root: Path, platform: str, dev_id: str, state_file: Path) -> in
     time.sleep(START_CHECK_SECONDS)
     if not pid_alive(pid):
         error = log_path.read_text(encoding="utf-8", errors="replace").strip()[-300:] if log_path.exists() else ""
-        return out({"ok": False, "code": "record_start_failed", "device": dev_id, "error": error or "The recording process exited right away"})
+        return out({"ok": False, "code": "record_start_failed", "device": dev_id, "error": error or "The recording process exited right away",
+                    "next": "Read error. A recording already running or a locked screen are common causes: app record stop, unlock the device, then start again"})
     state_file.write_text(json.dumps({"pid": pid, "platform": platform, "file": str(target), "started_at": time.time(),
                                       "remote_file": remote_file,
                                       "is_gif_requested": bool(getattr(args, "gif", False))}), encoding="utf-8")
@@ -126,7 +128,8 @@ def _stop(args, root: Path, platform: str, dev_id: str, state_file: Path) -> int
         error = None if target.exists() and target.stat().st_size > 0 else "The recording file was not created"
     state_file.unlink(missing_ok=True)
     if error:
-        return out({"ok": False, "code": "record_stop_failed", "device": dev_id, "error": error})
+        return out({"ok": False, "code": "record_stop_failed", "device": dev_id, "error": error,
+                    "next": "The video was not saved. Start a new recording and keep it under the device limit"})
     wall_clock_seconds = round(time.time() - state["started_at"], 1)
     video = inspect_mp4(target)
     if not video["is_playable"]:

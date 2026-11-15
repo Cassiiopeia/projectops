@@ -39,7 +39,8 @@ def _rest_failure(response: dict, file_key: str) -> dict | None:
                 "next": "Check the file key and that the token's account can open the file"}
     if status != 200 or not isinstance(response.get("json"), dict):
         return {"ok": False, "code": "request_failed", "status": status,
-                "error": (response.get("text") or "")[:300]}
+                "error": (response.get("text") or "")[:300],
+                "next": "429: wait a minute and retry. 5xx: Figma is failing, retry later. No status: check the network"}
     return None
 
 

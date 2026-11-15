@@ -20,7 +20,8 @@ def ensure_venv(steps: list, force: bool = False) -> tuple[Path | None, dict | N
                       "error": (r.stderr or "")[-300:] or None})
         if r.returncode != 0:
             return None, {"ok": False, "code": "venv_failed", "steps": steps,
-                          "error": "Could not create the virtualenv"}
+                          "error": "Could not create the virtualenv",
+                          "next": "Read steps for the cause. On Debian or Ubuntu install python3-venv; elsewhere check disk space and folder permissions"}
     vpy = venv_python()
     if vpy is None:
         return None, {"ok": False, "code": "venv_missing", "steps": steps,

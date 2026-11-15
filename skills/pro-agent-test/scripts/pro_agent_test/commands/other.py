@@ -220,7 +220,8 @@ def cmd_other(args) -> int:
         data, pre = _expand(d, f)
         problems = _validate(data) + pre
         if problems:
-            return emit({"ok": False, "code": "scenario_invalid", "problems": problems})
+            return emit({"ok": False, "code": "scenario_invalid", "problems": problems,
+                         "next": "Fix each entry in problems in the scenario file, then run it again"})
         if scenario_target(data) != "other":
             return emit({"ok": False, "code": "wrong_target",
                          "error": f"This scenario's target is '{scenario_target(data)}'",

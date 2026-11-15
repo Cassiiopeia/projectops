@@ -150,7 +150,8 @@ def cmd_ssh(args) -> int:
             r = subprocess.run(argv_prefix + ssh + [dest, remote], input=stdin.encode("utf-8") if stdin else None,
                                env=env, capture_output=True, timeout=args.timeout, **popen_options)
         except subprocess.TimeoutExpired:
-            return out({"ok": False, "code": "ssh_timeout", "error": f"No response ({args.timeout}s)"})
+            return out({"ok": False, "code": "ssh_timeout", "error": f"No response ({args.timeout}s)",
+                        "next": "A long command: raise --timeout. No answer at all: check the host, port and that the server is up"})
         ok = r.returncode == 0
         if ok and args.cred and not adhoc:
             _record_server_facts(args.cred, argv_prefix + ssh + [dest], env, popen_options)

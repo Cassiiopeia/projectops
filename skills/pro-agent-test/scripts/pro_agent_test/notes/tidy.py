@@ -110,7 +110,8 @@ def _note_tidy(args, root: Path, notes: dict, today: str) -> dict:
     mf = _machine_note_path()
     machine, warn = _read_notes(mf)
     if warn:
-        return {"ok": False, "code": "machine_unreadable", "error": warn}
+        return {"ok": False, "code": "machine_unreadable", "error": warn,
+                "next": "The machine notes file is not valid JSON. Open the file named in error, fix or move it aside, then retry"}
     merged = 0
     for row in plan["to_machine"]:
         p = pits[row["index"]]

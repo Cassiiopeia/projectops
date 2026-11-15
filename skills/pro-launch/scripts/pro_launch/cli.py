@@ -142,7 +142,9 @@ def main(argv: list[str] | None = None) -> int:
         payload.update(diagnosis)
         payload["summary"] = ("Argument error: unknown " + " ".join(diagnosis["unknown"])
                               if diagnosis.get("unknown") else payload["error"])
-        if diagnosis.get("did_you_mean"):
+        if diagnosis.get("accepted_by"):
+            payload["next"] = diagnosis["accepted_by_note"]
+        elif diagnosis.get("did_you_mean"):
             fixes = ", ".join(f"{wrong} > {right}" for wrong, right in diagnosis["did_you_mean"].items())
             payload["next"] = f"Fix the name and call again ({fixes})"
         elif diagnosis.get("example"):

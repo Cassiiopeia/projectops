@@ -59,7 +59,8 @@ def _run_worker(job_file: Path, timeout_seconds: float) -> dict:
         output = subprocess.run([str(interpreter), str(WORKER_SCRIPT), "--job", str(job_file)], capture_output=True,
                                 text=True, encoding="utf-8", errors="replace", timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
-        return {"ok": False, "code": "capture_timeout", "error": f"Capture took over {int(timeout_seconds)} seconds"}
+        return {"ok": False, "code": "capture_timeout", "error": f"Capture took over {int(timeout_seconds)} seconds",
+                "next": "Too many steps or screens in one call, or a page that keeps loading. Split the capture and retry"}
     lines = output.stdout.strip().splitlines()
     try:
         return json.loads(lines[-1])

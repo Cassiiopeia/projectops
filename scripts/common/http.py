@@ -59,6 +59,7 @@ def request(method: str, url: str, headers: dict | None = None,
         status, rh = e.code, dict(e.headers.items()) if e.headers else {}
     except Exception as e:  # when the network itself fails
         return {"ok": False, "code": "request_failed", "url": url, "error": str(e),
+                "next": "The network call itself failed (no HTTP status). Check the connection, proxy or VPN, then retry once",
                 "elapsed_ms": int((time.time() - started) * 1000)}
     text = raw.decode("utf-8", "replace")
     try:

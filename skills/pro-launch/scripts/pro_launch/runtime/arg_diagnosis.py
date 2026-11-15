@@ -78,7 +78,7 @@ def _example(parser: argparse.ArgumentParser) -> str:
 def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> dict:
     """Fields added to bad_args: unknown · did_you_mean · valid_options (or commands/actions) · example · empty_values."""
     found: dict = {}
-    target, path = parser, []
+    target, parent, path = parser, None, []
     tokens = list(raw)
     # Walk down command > action to find the target parser. On an unknown name, stop there and offer similar names
     while tokens and _subparsers(target):
@@ -94,11 +94,11 @@ def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> di
                 found["did_you_mean"] = {head: suggestion[0]}
             found["commands" if target is parser else "actions"] = list(choices)
             break
-        target = choices[head]
+        parent, target = target, choices[head]
         path.append(head)
         tokens = tokens[1:]
     if target is not parser and "unknown" not in found:
-        _diagnose_options(found, target, tokens, reason)
+        _diagnose_options(found, target, tokens, reason, parent)
     if path:
         found["example"] = _example(target)
     empty = empty_value_options(raw)
@@ -109,7 +109,15 @@ def diagnose(parser: argparse.ArgumentParser, raw: list[str], reason: str) -> di
     return found
 
 
-def _diagnose_options(found: dict, target: argparse.ArgumentParser, tokens: list[str], reason: str) -> None:
+def _actions_taking(parent: argparse.ArgumentParser | None, option: str) -> list[str]:
+    """Sibling actions that do accept this option (web download --frame > click, find, ...)."""
+    if parent is None:
+        return []
+    return [name for name, sibling in _subparsers(parent).items() if option in _option_strings(sibling)]
+
+
+def _diagnose_options(found: dict, target: argparse.ArgumentParser, tokens: list[str], reason: str,
+                      parent: argparse.ArgumentParser | None = None) -> None:
     """Find unknown options and leftover positional args. The option list covers only this command (action)."""
     known = _option_strings(target)
     valid = _long_options(target)
@@ -122,7 +130,13 @@ def _diagnose_options(found: dict, target: argparse.ArgumentParser, tokens: list
                    if not t.startswith("-") and not (i > 0 and extras[i - 1].startswith("--"))]
     if unknown or positionals:
         found["unknown"] = unknown + positionals
-    suggestions = {name: hint for name in unknown if (hint := _suggest(name, valid))}
+    # A real option of other actions is not a typo — say which actions take it instead of a look-alike name
+    taken_elsewhere = {name: actions for name in unknown if (actions := _actions_taking(parent, name))}
+    if taken_elsewhere:
+        found["accepted_by"] = taken_elsewhere
+        found["accepted_by_note"] = ("This action does not take " + ", ".join(taken_elsewhere) + "; the actions in "
+                                     "accepted_by do. Use one of them, or reach the same result another way")
+    suggestions = {name: hint for name in unknown if name not in taken_elsewhere and (hint := _suggest(name, valid))}
     if suggestions:
         found["did_you_mean"] = suggestions
     name_option = next((o for o in NAME_OPTIONS if o in valid), None)

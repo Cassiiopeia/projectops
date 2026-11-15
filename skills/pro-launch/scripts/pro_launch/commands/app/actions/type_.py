@@ -76,7 +76,8 @@ def _type_on_android(args, dev_id: str, value: str) -> int:
                                     "Or install ADBKeyboard"})
             ok, detail, verification = android_ime.type_and_verify(be, dev_id, value, is_secret, should_submit)
     except subprocess.TimeoutExpired:
-        return out({"ok": False, "code": "app_type_timeout", "error": "Device did not respond (30s)"})
+        return out({"ok": False, "code": "app_type_timeout", "error": "Device did not respond (30s)",
+                    "next": "device doctor to check the device is alive (it may be frozen or asleep), then type again"})
     entry = {"password": value, "token": value}
     is_mismatch = detail == "typed_text_mismatch"
     result = {"ok": ok, "code": "ok" if ok else ("typed_text_mismatch" if is_mismatch else "app_type_failed"),

@@ -13,9 +13,11 @@ Global output options (run_cli pulls them from argv):
   --fields a,b   {path: value} JSON — JSON even for one path (#1187)
 """
 import difflib
+import itertools
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Optional
 
 # Keep one unencodable char (— etc.) on a cp949 console from killing the CLI. Clean UTF-8 comes via PYTHONIOENCODING
@@ -25,6 +27,8 @@ for _stream in (sys.stdout, sys.stderr):
 
 # Keys placed first in the response — truncated reads still keep what is needed to decide
 _HEAD_KEYS = ("ok", "code", "summary", "next")
+# A failure that already carries one of these tells the agent what to do; no fallback next is added
+_FAILURE_GUIDE_KEYS = ("hint", "ask_user", "fix", "known_fix", "usage", "example")
 # Guidance keys kept under --brief too
 _GUIDE_KEYS = _HEAD_KEYS + ("error", "hint", "usage", "example", "did_you_mean", "available_subcommands",
                               "newer_installed", "count", "warning", "warnings")
@@ -138,6 +142,13 @@ def _emit_fields(payload: dict, field: str) -> int:
     return 0
 
 
+def _fallback_next() -> str:
+    """Where to look when a failure carries no next step, so the agent is never left without one."""
+    command = [Path(sys.argv[0]).name] + list(itertools.takewhile(lambda token: not token.startswith("-"), sys.argv[1:3]))
+    return (f"Read error first. If an argument is wrong: {' '.join(command)} --help. Otherwise look up this code "
+            "in the skill's failure-code table (SKILL.md and its references) and decide from there")
+
+
 def emit(payload: dict) -> int:
     """Print JSON to stdout and return rc based on ok.
 
@@ -155,6 +166,8 @@ def emit(payload: dict) -> int:
     elif not isinstance(payload["summary"], str):
         payload["summary"] = str(payload["summary"])
     payload.setdefault("next", None)
+    if not payload["ok"] and not payload["next"] and not any(payload.get(key) for key in _FAILURE_GUIDE_KEYS):
+        payload["next"] = _fallback_next()
     payload = {**{key: payload[key] for key in _HEAD_KEYS}, **{k: v for k, v in payload.items() if k not in _HEAD_KEYS}}
     # One-time notice (e.g. warning that an old version is running)
     for key, value in _output_options["extra"].items():

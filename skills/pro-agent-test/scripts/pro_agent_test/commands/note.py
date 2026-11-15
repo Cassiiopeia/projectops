@@ -77,7 +77,8 @@ def cmd_note(args) -> int:
 
     if args.action == "tidy":
         if warning:
-            return emit({"ok": False, "code": "note_unreadable", "error": warning})
+            return emit({"ok": False, "code": "note_unreadable", "error": warning,
+                         "next": "The repo notes file is not valid JSON. Open the file named in error, fix or move it aside, then retry"})
         return emit(_note_tidy(args, root, notes, today))
 
     f = _note_path(root, create=True)
@@ -93,7 +94,8 @@ def cmd_note(args) -> int:
         mf = _machine_note_path()
         machine, mwarn = (_read_notes(mf) if args.action == "pitfall" else ({"pitfalls": []}, None))
         if mwarn:
-            return emit({"ok": False, "code": "machine_unreadable", "error": mwarn})
+            return emit({"ok": False, "code": "machine_unreadable", "error": mwarn,
+                         "next": "The machine notes file is not valid JSON. Open the file named in error, fix or move it aside, then retry"})
         target = machine if machine_scope else notes
         target_file = mf if machine_scope else f
         entries = target.setdefault(kind, [])

@@ -40,7 +40,8 @@ def cmd_local(args) -> int:
         r = subprocess.run(["sudo", "-S", "-p", "", *command], input=str(password) + "\n",
                            capture_output=True, text=True, errors="replace", timeout=args.timeout)
     except subprocess.TimeoutExpired:
-        return out({"ok": False, "code": "sudo_timeout", "error": f"No response ({args.timeout}s)"})
+        return out({"ok": False, "code": "sudo_timeout", "error": f"No response ({args.timeout}s)",
+                    "next": "The command may be waiting for input. Raise --timeout for long work, or check the saved password"})
     stdout = credentials.mask(r.stdout, cred)
     stderr = credentials.mask(r.stderr, cred)
     ok = r.returncode == 0

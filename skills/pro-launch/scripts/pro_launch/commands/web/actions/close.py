@@ -56,7 +56,8 @@ def _close_stale(args) -> int:
     found = find_stale_browsers(maximum_idle_hours=args.idle_hours)
     if not found["readable"]:
         return out({"ok": False, "code": "process_list_unreadable", "action": "close", "stale": [], "kept": [],
-                    "error": "Could not read the process list, so abandoned browsers cannot be identified"})
+                    "error": "Could not read the process list, so abandoned browsers cannot be identified",
+                    "next": "Nothing was closed. web close without --stale still closes this session browser"})
     closed, still_alive = [], []
     for entry in found["stale"]:
         if not args.dry_run and kill_browser(int(entry["pid"]), grace=2.0):
