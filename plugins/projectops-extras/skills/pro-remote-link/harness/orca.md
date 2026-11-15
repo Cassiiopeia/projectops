@@ -1,7 +1,7 @@
 # Orca facts (harness)
 
 > Orca is open source and changes often. Everything here can go stale. When a step below fails, find the new fact,
-> write it into the local copy `~/.projectops/tunnel/harness/orca.md` (create it from this file), add a line under
+> write it into the local copy `~/.projectops/remote-link/harness/orca.md` (create it from this file), add a line under
 > "Change log", and tell the user. The local copy wins over this file.
 
 Last checked: Orca 1.4.253 on macOS, 2026-11-11. Windows and Linux lines marked "not checked yet" are best guesses.
@@ -46,4 +46,4 @@ Last checked: Orca 1.4.253 on macOS, 2026-11-11. Windows and Linux lines marked 
 ## Change log
 
 - 2026-11-11: first version.
-- 2026-11-15: skill renamed to pro-remote-link (CLI `remote_link_cli.py`); the local copy stays at `~/.projectops/tunnel/harness/orca.md`.
+- 2026-11-15: skill renamed to pro-remote-link (CLI `remote_link_cli.py`); the local copy lives at `~/.projectops/remote-link/harness/orca.md`.

@@ -537,7 +537,7 @@ It **answers "give me the Orca link" or "give me the Paseo link" with one link y
 
 App-specific facts (port, CLI location, link shape) live in one harness file per app that the agent updates when the app changes. The `apps` command lists the supported apps and whether each is running and reachable now. A new app needs one harness file and a small adapter. Works on macOS, Windows and Linux.
 
-**Modifies**: starts or stops quick tunnels; saves the Orca pairing link in an owner-only file under `~/.projectops/tunnel/` (same place as before)
+**Modifies**: starts or stops quick tunnels; saves the Orca pairing link in an owner-only file under `~/.projectops/remote-link/`
 **Returns**: one link (it is a key to your computer, so it is sent only to you in the chat)
 
 **When to use it**

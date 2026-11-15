@@ -1,7 +1,7 @@
 # Paseo facts (harness)
 
 > Paseo changes often. Everything here can go stale. When a step below fails, find the new fact,
-> write it into the local copy `~/.projectops/tunnel/harness/paseo.md` (create it from this file), add a line under
+> write it into the local copy `~/.projectops/remote-link/harness/paseo.md` (create it from this file), add a line under
 > "Change log", and tell the user. The local copy wins over this file.
 > Docs: https://paseo.sh/docs/connectivity.md , https://paseo.sh/docs/security.md , https://paseo.sh/docs/configuration.md
 

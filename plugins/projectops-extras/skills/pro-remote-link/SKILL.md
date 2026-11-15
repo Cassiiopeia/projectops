@@ -22,7 +22,7 @@ Reply in the user's language. If the user names no app, run `apps` and use the o
 | `paseo` | relay: the Paseo CLI makes a fresh `https://app.paseo.sh/#offer=...` link; no tunnel, nothing saved | Paseo desktop running, relay on | `harness/paseo.md` |
 
 Each app has a harness with its facts (port, CLI location, link shape, what to do when it is not running).
-A local copy `~/.projectops/tunnel/harness/<app>.md` wins over the bundled one. Read the harness first (`apps` shows
+A local copy `~/.projectops/remote-link/harness/<app>.md` wins over the bundled one. Read the harness first (`apps` shows
 which file is in effect). If a fact there turns out wrong, fix the local copy and add a line to its change log.
 
 **Adding an app:** write `harness/<app>.md` and `scripts/remote_apps/<app>.py` (`NAME`, `CONNECTION`, `inspect()`;
@@ -59,7 +59,7 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SKILL_DIR}/scripts/remote_lin
 | `local --port N [--path P]` | Status code and `<title>` of a local page (use it instead of curl, so it works the same on Windows) |
 | `open --port N [--path P] [--fresh]` | Reuse the live tunnel for the port, or stop stale ones for that port and start a new detached one. Waits until it answers |
 | `stop --port N` · `stop --all` | Stop quick tunnels |
-| `link save --app orca` | Save the link in `TUNNEL_LINK` (owner-only file under `~/.projectops/tunnel/`). Tunnel apps only |
+| `link save --app orca` | Save the link in `TUNNEL_LINK` (owner-only file under `~/.projectops/remote-link/`). Tunnel apps only |
 | `link get --app orca --url URL` | Tunnel apps: the saved link with every tunnel host switched to URL |
 | `link get --app paseo [--enable-relay]` | Relay apps: a fresh pairing link from the app's CLI. `--enable-relay` only after the user agreed |
 
