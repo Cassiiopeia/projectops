@@ -8,12 +8,15 @@ from __future__ import annotations
 import argparse
 import contextlib
 import io
+import os
+import subprocess
 import sys
 
 from pro_launch import registry
 from pro_launch.registry import Command
 from pro_launch.runtime.arg_diagnosis import diagnose, empty_value_options
 from pro_launch.runtime.context import ACCESS_CTX, INPUT_CTX, OUTPUT_CTX, ROOT_CTX, TARGET_CTX
+from pro_launch.runtime import host_resources
 from pro_launch.runtime.output import attach_known_fix, emit_shaped
 
 # Order shown in help. Commands not listed here follow by name (registration itself is independent of this table)
@@ -102,6 +105,22 @@ def _pop_output_options(raw: list[str]) -> tuple[list[str], bool, list[str] | No
     return kept + rest, is_brief, field_names, None
 
 
+def tool_timeout_payload(error: subprocess.TimeoutExpired) -> dict:
+    """Hung external tool > tool_timeout with the tool, its timeout and host load (memory pressure is the usual cause)"""
+    command = error.cmd if isinstance(error.cmd, (list, tuple)) else str(error.cmd).split()
+    tool = os.path.basename(str(command[0])) if command else "tool"
+    try:
+        memory_pressure = host_resources.memory_summary()["pressure"]
+    except Exception:   # noqa: BLE001 — load info is auxiliary
+        memory_pressure = None
+    return {"ok": False, "code": "tool_timeout", "tool": tool,
+            "command": " ".join(str(part) for part in command[1:6]),
+            "timeout_seconds": error.timeout, "memory_pressure": memory_pressure,
+            "error": f"{tool} did not answer within {error.timeout:g} s",
+            "next": "Check host load with `doctor --resources`. If memory pressure is high, ask the user before closing other "
+                    "simulators or emulators, then call the same command again (do not switch to raw adb or simctl)"}
+
+
 def main(argv: list[str] | None = None) -> int:
     from common.stable_entry import refresh_and_check
     refresh_and_check(sys.argv[0])   # refresh the fixed entry point like other skill CLIs (never blocks the command on failure)
@@ -132,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     except SystemExit as e:
         if e.code in (0, None):
             raise
-        sys.stderr.write(err.getvalue())
+        # argparse usage is not echoed: printed before the JSON it hid the did_you_mean hint under `| head` (#1224)
         reason = err.getvalue().strip().splitlines()[-1] if err.getvalue().strip() else ""
         payload = {"ok": False, "code": "bad_args",
                    "error": f"Invalid arguments: {reason}",
@@ -160,6 +179,10 @@ def main(argv: list[str] | None = None) -> int:
     TARGET_CTX.clear()
     try:
         return args.func(args)
+    except subprocess.TimeoutExpired as e:   # a device tool (adb, simctl, ...) hung: not an input error (#1223)
+        payload = tool_timeout_payload(e)
+        attach_known_fix(payload)
+        return emit_shaped(payload)
     except Exception as e:   # so unexpected input never ends in a traceback — the agent reads only JSON (#705)
         payload = {"ok": False, "code": "handler_error", "error": f"{type(e).__name__}: {e}",
                    "next": "Check the input (paths, values) and call again"}

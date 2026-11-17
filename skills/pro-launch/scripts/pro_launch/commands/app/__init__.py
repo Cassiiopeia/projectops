@@ -14,10 +14,12 @@ from pro_launch.commands.app import actions as _actions
 from pro_launch.registry import Command, discover_actions
 from pro_launch.runtime.context import MEMORY_CTX, project_root
 from pro_launch.runtime.device_gate import gate_device_use
-from pro_launch.runtime.output import set_target
+from pro_launch.runtime.output import out, set_target
 from pro_launch.runtime.shots import add_shot_args
 
 ACTIONS = discover_actions(_actions)
+# Actions that read the shared positional word (session_verb); any other action rejects a stray word (#1224)
+POSITIONAL_WORD_ACTIONS = ("session", "record", "swipe")
 
 
 def configure(p) -> None:
@@ -44,6 +46,11 @@ def cmd_app(args) -> int:
     # Reference point for the elapsed_seconds an action adds to its result (includes device pick and tool runs)
     args.started_monotonic = time.monotonic()
     action = ACTIONS.get(args.action, ACTIONS["launch"])
+    stray_word = getattr(args, "session_verb", None)
+    if stray_word and args.action not in POSITIONAL_WORD_ACTIONS:
+        return out({"ok": False, "code": "bad_args", "error": f"app {args.action} takes no positional word: {stray_word}",
+                    "summary": f"Argument error: unexpected '{stray_word}'",
+                    "next": f"launch_cli.py app {args.action} --help  # pass values with their option name"})
     # Ownership check and recording happen here only (declared per action via device_use)
     refusal = gate_device_use(action.device_use, args.device, str(MEMORY_CTX["root"]), bool(getattr(args, "yes", False)))
     if refusal is not None:

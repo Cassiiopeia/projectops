@@ -54,7 +54,7 @@ source "{env_file value}"
   `screen_changed: false` means the tap did nothing — pick another element.
 - Use `--at 0.5,0.8` **ratio** coordinates (0–1) only for things that are not elements (canvas, map). Pixels are rejected (`bad_ratio`) —
   captures are downscaled, so taps at those coordinates miss.
-- `swipe --dir up|down|left|right` moves 15% inside the screen edges to avoid edge gestures.
+- `swipe --dir up|down|left|right` moves 15% inside the screen edges to avoid edge gestures. `--direction up` and a bare `app swipe up` work too (#1224).
   For an exact path use `--from`·`--to` ratio coordinates and `--ms` (default 300).
 - `app back` is the Android back key. iOS has no back button, so it returns `back_unsupported_on_platform` with alternatives
   (tap the on-screen back button with `app tap --desc|--text`, or an edge swipe `app swipe --from 0.02,0.5 --to 0.8,0.5`).
@@ -222,6 +222,7 @@ Instead of starting Maestro (JVM) on every call, start `maestro mcp` once and re
 | `android_system_not_ready` | The boot animation is showing (system_server restart loop measured). If waiting does not help, ask the user about a cold boot |
 | `ui_automation_unavailable` | uiautomator could not attach to UiAutomation. Check whether another automation (Maestro · Appium) holds the device |
 | `ui_dump_timeout` | Did not finish in 20 seconds (after one retry). On a screen with continuous animation, use `--at` ratio coordinates |
+| `tool_timeout` | A device tool (`tool`: adb, xcrun, ...) hung past `timeout_seconds`, usually under host memory pressure (`memory_pressure`). Check `doctor --resources`, ask the user before closing other simulators or emulators, then retry the same command. Do not fall back to raw adb (#1223) |
 | `tree_unsupported` | This device backend cannot read the screen structure. Look with `app shot` and tap with `--text`, or use `--at` ratio coordinates |
 | `ios_tool_missing` · `android_tool_missing` | Suggest the install command in `next` (Maestro for iOS) to the user |
 | `adb_missing` | Set PATH as below, or use `adb_path` from `doctor` |

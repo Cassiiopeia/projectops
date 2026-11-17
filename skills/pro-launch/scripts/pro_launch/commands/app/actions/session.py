@@ -201,8 +201,9 @@ def _session_payload(args, dev_id: str, session: dict, summary: str, **extra) ->
 
 
 def configure(p) -> None:
-    p.add_argument("session_verb", nargs="?", default=None, choices=SESSION_VERBS,
-                   help="session: start · stop · status")
+    # Shared positional word, checked by the action that reads it (session, record verbs; swipe direction, #1224)
+    p.add_argument("session_verb", nargs="?", default=None, metavar="WORD",
+                   help="session: start · stop · status / record: start · stop / swipe: up · down · left · right")
     p.add_argument("--kill-stale", dest="kill_stale", action="store_true",
                    help="session stop: also end orphan Maestro drivers left on this device (xcodebuild·JVM whose parent is gone). Live ones of other sessions are left alone")
     p.add_argument("--idle-minutes", dest="idle_minutes", type=float, default=None,
