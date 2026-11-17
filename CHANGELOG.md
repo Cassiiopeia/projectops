@@ -1,7 +1,21 @@
 # Changelog
 
-**Current version:** 4.105.1  
-**Last updated:** 2026-11-15T12:22:29Z  
+**Current version:** 4.106.0  
+**Last updated:** 2026-11-17T03:12:15Z  
+
+---
+
+## [4.106.0] - 2026-11-17
+
+**PR:** #1225  
+
+**New features**
+- Every failure answer now says what to do next, so an agent never hits a dead end
+
+**Bug fixes**
+- Links and buttons inside an iframe can be downloaded, checked, selected, hovered and pressed
+- App swipe accepts `--direction up` and a plain `app swipe up`, and argument errors show the hint first
+- A hung device tool now reports a timeout with host memory load instead of a vague "check the input" error
 
 ---
 
