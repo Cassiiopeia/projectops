@@ -75,7 +75,8 @@ GUIDANCE_KEYS = ("known_fix", "known_fix_note", "memory", "memory_note", "learn_
 # Version + old-install warning on failures and doctor only (including success, once) — kept in reports · kept when trimmed
 VERSION_KEYS = ("plugin_version", "newer_installed")
 # Main result of read commands (logs lines · web text · ssh/local stdout · db rows · http json/text) — dropping it loses the value read (#1188)
-PRIMARY_OUTPUT_KEYS = ("lines", "text", "stdout", "stderr", "rows", "json")
+# handoff: the `web signin` hand-over — without it the result has nothing to sign in with (#1231)
+PRIMARY_OUTPUT_KEYS = ("lines", "text", "stdout", "stderr", "rows", "json", "handoff")
 # Keys --brief keeps: head + error + cause + guidance + version + main result
 BRIEF_KEYS = (*HEAD_KEYS, "error", *CAUSE_KEYS, *GUIDANCE_KEYS, *VERSION_KEYS, *PRIMARY_OUTPUT_KEYS)
 # Keys kept in --brief on failure — the evidence next points to (#972)

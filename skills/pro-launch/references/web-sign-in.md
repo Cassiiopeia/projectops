@@ -37,13 +37,13 @@ Start every web sign-in with `web signin --cred <name>`. It starts no browser; i
 `--engine` is `auto` (default), `ego` or `legacy`. `auto` uses Ego Lite when it is installed, onboarded and has a display, and stays on the current
 engine when a current-engine profile is already marked signed in for that provider (no new sign-in, no second factor).
 
-| Result `code` | Meaning | Do |
+| Result | Meaning | Do |
 |---|---|---|
-| `ego_handoff` | Ego Lite will be used. `handoff` holds `provider`, `account`, `password`, `second_factor`, `login_policy` | Sign in through `ego-browser` as below |
-| `legacy_engine` | The current engine is used (`reason` says why: `requested`, `signed_in_profile`, `ego_not_found`, `ego_not_onboarded`, `ego_no_display`, `ego_probe_timeout`) | Follow the [Common flow](#common-flow) |
-| `ego_unavailable` | `--engine ego` was forced and Ego Lite cannot run | Open the Ego Lite app once to finish its setup, or use `--engine legacy` |
+| `code: ok`, `engine: ego` | Ego Lite will be used. `handoff` holds `provider`, `account`, `password`, `second_factor`, `login_policy` | Sign in through `ego-browser` as below |
+| `code: ok`, `engine: legacy` | The current engine is used (`reason` says why: `requested`, `signed_in_profile`, `ego_not_found`, `ego_not_onboarded`, `ego_no_display`, `ego_probe_timeout`) | Follow the [Common flow](#common-flow) |
+| `code: ego_unavailable` | `--engine ego` was forced and Ego Lite cannot run | Open the Ego Lite app once to finish its setup, or use `--engine legacy` |
 
-When the result is `ego_handoff`, follow the `ego-browser` skill and drive the page yourself. There is no per-site script, so read each screen before acting:
+When `engine` is `ego`, follow the `ego-browser` skill and drive the page yourself. There is no per-site script, so read each screen before acting:
 
 1. Open one Ego space for the goal (`taskSpace`), go to the provider's sign-in page, and take a snapshot.
 2. Enter the account, continue, read the next screen, then enter the password once and continue.
@@ -55,6 +55,7 @@ Engine rules:
 
 - Never retry a failed password or code, and never switch engines after you typed a credential. Stop and ask.
 - Sign-in state is per engine. A sign-in through Ego Lite is not visible to the current engine's profiles, and the reverse. One job stays on one engine.
+- If the job goes on with other `web` actions after the sign-in (`shot`, `assert`, `route`, `console`, `click` and so on), call `web signin --cred <name> --engine legacy`: those actions only drive the current engine, whose profile must hold the sign-in.
 - The `handoff` values are plaintext in this result. Never copy them into issues, commits, reports, `learn`, `journal` or captures.
 - Ego Lite's readiness probe opens its setup window when onboarding is not finished; that is why `ego_not_onboarded` can make a window appear.
 

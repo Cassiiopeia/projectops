@@ -4,6 +4,7 @@ engine ego:    starts no browser. Returns provider, account, password, second-fa
                through ego-browser by reading each page (no per-site script). The password is in this result on purpose (owner's choice).
 engine legacy: starts nothing either; points to the current flow (web open, web type --cred, web login).
 `web login` is not touched: it still needs an attached page and still never prints values.
+Both successes use code `ok` (the attempt tracker counts any other code as a failure); the engine is told by the `engine` field.
 """
 from __future__ import annotations
 
@@ -48,7 +49,7 @@ def execute(args) -> int:
     if decision.engine == "legacy":
         open_step = (f"web open --need login:{provider} --url <login url>" if decision.reason == "signed_in_profile"
                      else "web open --headed --url <login url>")
-        return out({"ok": True, "code": "legacy_engine", "action": "signin", "engine": "legacy", "reason": decision.reason,
+        return out({"ok": True, "code": "ok", "action": "signin", "engine": "legacy", "reason": decision.reason,
                     "summary": f"Using the current engine ({decision.reason})",
                     "next": f"{open_step}  # then follow the common flow in references/web-sign-in.md"})
 
@@ -56,7 +57,7 @@ def execute(args) -> int:
         credential, credentials.resolve_login_policy(args.signin_cred))
     if failure:
         return out(failure)
-    return out({"ok": True, "code": "ego_handoff", "action": "signin", "engine": "ego", "reason": decision.reason,
+    return out({"ok": True, "code": "ok", "action": "signin", "engine": "ego", "reason": decision.reason,
                 "summary": "Sign in through Ego Lite with the information below (one Ego space for the goal)",
                 "handoff": handoff,
                 "next": f"Follow {EGO_GUIDE_POINTER}: never retry a failed password or code, and never switch engines after typing"})

@@ -20,8 +20,8 @@ EGO_PROBE_TIMEOUT_SECONDS = 20
 EGO_PROBE_READY_TEXT = "ego-browser ready"
 # Fields handed to the agent, in this order. Notes and every other credential field stay out
 HANDOFF_FIELD_NAMES = ("provider", "account", "password", "second_factor", "login_policy")
-# Credential fields that must have a value before anything is handed over
-REQUIRED_CREDENTIAL_FIELDS = ("account", "password")
+# Same names `web login` accepts for the user id (commands/web/actions/login.py); the first one with a value is handed over as `account`
+IDENTIFIER_FIELD_CANDIDATES = ("username", "account", "email", "user", "login", "id")
 
 
 @dataclass(frozen=True)
@@ -96,7 +96,8 @@ def decide_engine(requested: str, availability: EgoAvailability, has_signed_in_c
 
 def build_signin_handoff(credential: dict, login_policy: dict) -> tuple[dict | None, dict | None]:
     """(hand-over block, None), or (None, cred_field_missing payload) when account or password is empty."""
-    missing = [field for field in REQUIRED_CREDENTIAL_FIELDS if not credential.get(field)]
+    account = next((credential[field] for field in IDENTIFIER_FIELD_CANDIDATES if credential.get(field) not in (None, "")), None)
+    missing = [field for field, value in (("account", account), ("password", credential.get("password"))) if not value]
     if missing:
         name = credential.get("name") or "<name>"
         return None, {"ok": False, "code": "cred_field_missing",
@@ -104,7 +105,7 @@ def build_signin_handoff(credential: dict, login_policy: dict) -> tuple[dict | N
                       "next": f"cred set --name {name} --json '{{\"{missing[0]}\": \"...\"}}'"}
     return {
         "provider": credential.get("provider"),
-        "account": credential["account"],
+        "account": account,
         "password": credential["password"],
         "second_factor": credential.get("two_factor"),
         "login_policy": login_policy,

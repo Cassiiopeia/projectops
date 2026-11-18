@@ -1,4 +1,5 @@
 """Engine choice for `web signin` and the Ego Lite hand-over block (#1231)."""
+import argparse
 import json
 import subprocess
 import sys
@@ -9,7 +10,8 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "skills" / "pro-launch" / "scripts"))
 
-from pro_launch.runtime import ego_engine  # noqa: E402
+from pro_launch.commands.web.actions import signin  # noqa: E402
+from pro_launch.runtime import ego_engine, output  # noqa: E402
 
 EGO_COMMAND = "/usr/local/bin/ego-browser"
 PROBE_COMMAND = [EGO_COMMAND, "nodejs", "-e", "console.log('ego-browser ready')"]
@@ -83,3 +85,43 @@ def test_signin_handoff_fields():
     without_provider = {key: value for key, value in credential.items() if key != "provider"}
     handoff, error = ego_engine.build_signin_handoff(without_provider, policy)
     assert error is None and handoff["provider"] is None
+
+    with_username = {**{key: value for key, value in credential.items() if key != "account"}, "username": "login-name"}
+    handoff, error = ego_engine.build_signin_handoff(with_username, policy)
+    assert error is None and handoff["account"] == "login-name"
+
+
+def _run_signin(monkeypatch, engine, availability):
+    """Run the real action with the credential store, profile marks and output stubbed; returns the emitted result."""
+    emitted = []
+    credential = {"name": "demo", "provider": "google", "account": "demo@example.invalid",
+                  "password": "demo-password", "two_factor": "phone approval"}
+    monkeypatch.setattr(signin, "load_cred", lambda name: (credential, None))
+    monkeypatch.setattr(signin.ego_engine, "check_ego_availability", lambda: availability)
+    monkeypatch.setattr(signin.credentials, "resolve_login_policy", lambda name: {"trust_device": "always"})
+    monkeypatch.setattr(signin, "_has_signed_in_current_profile", lambda root, provider: False)
+    monkeypatch.setattr(signin, "project_root", lambda args: None)
+    monkeypatch.setattr(signin, "out", lambda payload: emitted.append(payload) or 0)
+    signin.execute(argparse.Namespace(signin_cred="demo", engine=engine))
+    return emitted[0]
+
+
+def test_signin_results_use_ok_code_and_engine_field(monkeypatch):
+    """A successful signin must carry code `ok` (the attempt tracker counts any other code as a failure); the engine is told by `engine`."""
+    ready = ego_engine.EgoAvailability(True, "ready", "/usr/local/bin/ego-browser")
+    missing = ego_engine.EgoAvailability(False, "ego_not_found", None)
+
+    handed_over = _run_signin(monkeypatch, "auto", ready)
+    assert (handed_over["ok"], handed_over["code"], handed_over["engine"]) == (True, "ok", "ego")
+    assert set(handed_over["handoff"]) == set(ego_engine.HANDOFF_FIELD_NAMES)
+
+    current = _run_signin(monkeypatch, "auto", missing)
+    assert (current["ok"], current["code"], current["engine"]) == (True, "ok", "legacy")
+
+    forced = _run_signin(monkeypatch, "ego", missing)
+    assert (forced["ok"], forced["code"]) == (False, "ego_unavailable")
+
+
+def test_brief_keeps_handoff_block():
+    """--brief is the recommended flag; it must not drop the hand-over, which is the whole result."""
+    assert "handoff" in output.BRIEF_KEYS
