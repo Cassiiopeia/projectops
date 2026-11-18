@@ -66,7 +66,8 @@ def check_ego_availability(find_command=find_ego_browser_command, check_display=
         return EgoAvailability(False, "ego_no_display", command)
     try:
         result = run_probe([command, "nodejs", "-e", f"console.log('{EGO_PROBE_READY_TEXT}')"],
-                           capture_output=True, text=True, timeout=EGO_PROBE_TIMEOUT_SECONDS)
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=EGO_PROBE_TIMEOUT_SECONDS)
     except subprocess.TimeoutExpired:
         return EgoAvailability(False, "ego_probe_timeout", command)
     except OSError:

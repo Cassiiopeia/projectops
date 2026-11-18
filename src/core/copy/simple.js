@@ -35,6 +35,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "asc_client.py",
     // iOS version pre-check, upload rejection classification, retries from archive to upload (#643).
     "ios_release.py",
+    // Pure rules imported by ios_release.py (version closing, upload error classification, IPA check), copied with it (#1232).
+    "ios_release_rules.py",
     // Xcode selection for Flutter iOS builds (empty = latest on the runner) and missing SDK diagnosis (#758). The only home of the selection rules.
     "select_xcode.py",
     // Closes issues labelled done when a release is merged (#771). Works only in repos with the close_on_release option on.

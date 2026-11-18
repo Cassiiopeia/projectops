@@ -7,7 +7,7 @@
     ".github/scripts/changelog_manager.py": 7,
     ".github/scripts/close_issues_on_release.py": 1,
     ".github/scripts/i18n/contracts.py": 2,
-    ".github/scripts/ios_release.py": 2,
+    ".github/scripts/ios_release_rules.py": 2,
     ".github/scripts/issue_helper.py": 9,
     ".github/scripts/store_notes.py": 1,
     ".github/scripts/template_initializer.py": 2,

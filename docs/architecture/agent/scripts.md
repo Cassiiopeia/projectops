@@ -47,7 +47,7 @@ The app build number and the interpretation of Apple upload errors are **each de
 | What | Where | Rule |
 |---|---|---|
 | Build number | `.github/scripts/build_number.py` | `max(seconds since 2024-01-01 UTC, latest ASC number + 1, number required by the rejection message + 1)`. Shared by iOS test, iOS release and Android test |
-| Apple upload error interpretation | `.github/scripts/ios_release.py classify-error` | Classified as `duplicate` / `too_low` / `train_closed` / `other`. Whether to retry is decided from this classification too |
+| Apple upload error interpretation | `.github/scripts/ios_release.py classify-error` (rules in `ios_release_rules.py`) | Classified as `duplicate` / `too_low` / `train_closed` / `other`, plus `is_upload_reported_ok` when altool said the upload succeeded. Whether to retry is decided from this classification too |
 
 - `version_code` is **for Android releases only** (Play Store, Firebase CICD). Do not use it for iOS or test build numbers.
 - **To handle a new Apple error code (ITMS-...)**, add a pattern to `classify_upload_error` based on the **actual error text**. Do not make up the text.
