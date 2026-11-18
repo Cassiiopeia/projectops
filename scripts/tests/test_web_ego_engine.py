@@ -16,7 +16,7 @@ PROBE_COMMAND = [EGO_COMMAND, "nodejs", "-e", "console.log('ego-browser ready')"
 ONBOARDING_MESSAGE = "Please complete the onboarding process first. A setup window has opened."
 
 
-def _fake_probe(exit_code=0, stdout="ego-browser ready", error=None):
+def _fake_probe(exit_code=0, stdout="ego-browser ready", stderr="", error=None):
     """Probe stand-in that records how it was called."""
     calls = []
 
@@ -24,7 +24,7 @@ def _fake_probe(exit_code=0, stdout="ego-browser ready", error=None):
         calls.append((command, options))
         if error:
             raise error
-        return subprocess.CompletedProcess(command, exit_code, stdout=stdout, stderr="")
+        return subprocess.CompletedProcess(command, exit_code, stdout=stdout, stderr=stderr)
 
     run_probe.calls = calls
     return run_probe
@@ -34,6 +34,7 @@ def _fake_probe(exit_code=0, stdout="ego-browser ready", error=None):
     "requested, command, has_display, probe_options, is_signed_in, expected_engine, expected_reason, expected_probe_calls",
     [
         ("auto", EGO_COMMAND, True, {}, False, "ego", "ready", 1),
+        ("auto", EGO_COMMAND, True, {"stdout": "", "stderr": "ego-browser ready\n"}, False, "ego", "ready", 1),
         ("auto", EGO_COMMAND, True, {}, True, "legacy", "signed_in_profile", 1),
         ("auto", None, True, {}, False, "legacy", "ego_not_found", 0),
         ("auto", EGO_COMMAND, True, {"exit_code": 1, "stdout": ONBOARDING_MESSAGE}, False, "legacy", "ego_not_onboarded", 1),

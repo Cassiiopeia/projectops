@@ -71,7 +71,9 @@ def check_ego_availability(find_command=find_ego_browser_command, check_display=
         return EgoAvailability(False, "ego_probe_timeout", command)
     except OSError:
         return EgoAvailability(False, "ego_not_found", command)
-    is_ready = result.returncode == 0 and EGO_PROBE_READY_TEXT in (result.stdout or "")
+    # ego-browser prints the script's console.log output to stderr, so both streams are checked
+    probe_output = f"{result.stdout or ''}{result.stderr or ''}"
+    is_ready = result.returncode == 0 and EGO_PROBE_READY_TEXT in probe_output
     return EgoAvailability(is_ready, "ready" if is_ready else "ego_not_onboarded", command)
 
 
