@@ -405,6 +405,16 @@ env:
 
 `XCODE_VERSION`을 비워 두면 러너의 `/Applications/Xcode_*.app` 중 가장 높은 정식 버전을 씁니다. 특정 버전을 고정하려면 이 값이나 레포 변수 `XCODE_VERSION`(Settings > Secrets and variables > Actions > Variables)을 지정합니다. 레포 변수는 템플릿을 업데이트해도 유지됩니다. 고정한 버전이 러너에 없으면 설치된 버전 목록을 출력하고 실패합니다.
 
+### iOS 27 SDK (ITMS-90725)
+
+2027년 4월부터 App Store Connect는 iOS 27 SDK(Xcode 27 이상)로 빌드한 앱만 받습니다. 기본 러너 `macos-26`에는 Xcode 26까지만 있어서, 그대로 두면 빌드할 때마다 마감 경고가 뜹니다.
+
+1. 앱이 UIScene 생명주기를 쓰는지 확인합니다. iOS 27 SDK로 빌드한 앱은 UIScene이 없으면 실행 직후 꺼집니다. Flutter 3.38 이상이면 `ios/Runner/Info.plist`에 `UIApplicationSceneManifest`가 있어야 합니다([이전 가이드](https://flutter.dev/go/uiscene-migration)).
+2. 레포 변수 `IOS_RUNNER`를 `xcode-27`로 지정합니다(Settings > Secrets and variables > Actions > Variables). iOS 빌드 작업이 Xcode 27 러너에서 돕니다.
+3. `XCODE_VERSION`을 26.x로 고정해 두었다면 비웁니다. Xcode 27 러너에는 26.x가 없습니다.
+
+Xcode 27로 빌드하는데 `Info.plist`에 UIScene 선언이 없으면, 꺼지는 앱이 올라가지 않도록 Xcode 선택 단계에서 빌드를 멈춥니다.
+
 ---
 
 ## 관련 문서

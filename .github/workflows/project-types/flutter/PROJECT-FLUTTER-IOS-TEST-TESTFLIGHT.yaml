@@ -304,7 +304,7 @@ jobs:
   # ===================================================================
   prepare-test-build:
     name: Prepare test build
-    runs-on: macos-26
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-26' }}  # repo variable IOS_RUNNER=xcode-27 builds with the iOS 27 SDK (ITMS-90725)
     defaults:
       run:
         shell: bash
@@ -741,7 +741,7 @@ jobs:
   #   ios_release.py handles archive through upload: deciding the number, verifying bundle numbers and retrying.
   build-upload-ios-test:
     name: iOS test build and TestFlight upload
-    runs-on: macos-26
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-26' }}  # repo variable IOS_RUNNER=xcode-27 builds with the iOS 27 SDK (ITMS-90725)
     defaults:
       run:
         shell: bash

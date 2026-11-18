@@ -407,9 +407,21 @@ Environment variables you can set in each workflow:
 ```yaml
 env:
   FLUTTER_VERSION: "3.24.5"      # Flutter version
-  XCODE_VERSION: "16.4"          # Xcode version (iOS only)
+  XCODE_VERSION: ""              # Xcode version (iOS only). Empty = the latest stable Xcode on the runner
   ENV_FILE_PATH: ".env"          # env file path
 ```
+
+Leave `XCODE_VERSION` empty to use the highest stable `/Applications/Xcode_*.app` on the runner. To pin a version, set this value or the repo variable `XCODE_VERSION` (Settings > Secrets and variables > Actions > Variables); the repo variable survives template updates. If the pinned version is not on the runner, the step prints the installed list and fails.
+
+### iOS 27 SDK (ITMS-90725)
+
+From April 2027, App Store Connect accepts only apps built with the iOS 27 SDK (Xcode 27 or later). The default runner `macos-26` ships Xcode 26 only, so every build prints a deadline warning until you switch.
+
+1. Make sure the app uses the UIScene lifecycle. Apps built with the iOS 27 SDK quit at launch without it. With Flutter 3.38 or later, `ios/Runner/Info.plist` must have `UIApplicationSceneManifest` ([migration guide](https://flutter.dev/go/uiscene-migration)).
+2. Set the repo variable `IOS_RUNNER` to `xcode-27` (Settings > Secrets and variables > Actions > Variables). The iOS build jobs then run on the Xcode 27 runner.
+3. If you pinned `XCODE_VERSION` to 26.x, clear it: the Xcode 27 runner has no 26.x.
+
+When Xcode 27 builds an app whose `Info.plist` has no UIScene declaration, the Xcode selection step stops the build so an app that quits at launch is never uploaded.
 
 ---
 

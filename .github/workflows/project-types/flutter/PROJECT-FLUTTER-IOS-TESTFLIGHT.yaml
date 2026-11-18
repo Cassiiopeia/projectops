@@ -156,7 +156,7 @@ env:
 jobs:
   prepare-build:
     name: Set up and prepare
-    runs-on: macos-26
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-26' }}  # repo variable IOS_RUNNER=xcode-27 builds with the iOS 27 SDK (ITMS-90725)
     defaults:
       run:
         shell: bash
@@ -354,7 +354,7 @@ jobs:
   # A rejected number requires redoing everything from the archive, so build and deploy share one job (#643).
   build-upload-ios:
     name: iOS build and TestFlight upload
-    runs-on: macos-26
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-26' }}  # repo variable IOS_RUNNER=xcode-27 builds with the iOS 27 SDK (ITMS-90725)
     defaults:
       run:
         shell: bash

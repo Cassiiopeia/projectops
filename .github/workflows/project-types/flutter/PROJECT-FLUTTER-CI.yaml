@@ -552,7 +552,7 @@ jobs:
     if: |
       needs.prepare.outputs.analyze_only != 'true' &&
       needs.prepare.outputs.enable_ios == 'true'
-    runs-on: macos-26
+    runs-on: ${{ vars.IOS_RUNNER || 'macos-26' }}  # repo variable IOS_RUNNER=xcode-27 builds with the iOS 27 SDK (ITMS-90725)
     needs: prepare
 
     outputs:
