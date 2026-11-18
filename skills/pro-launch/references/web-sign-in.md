@@ -9,7 +9,7 @@ interstitial screens, profiles) apply; this file only adds the order and the pro
 
 ## Contents
 
-- [Common flow](#common-flow) · [Two-factor kinds](#two-factor-kinds) · [Rules](#rules)
+- [Common flow](#common-flow) · [Ego Lite engine](#ego-lite-engine) · [Two-factor kinds](#two-factor-kinds) · [Rules](#rules)
 - Providers: [Google](#google) · [Apple](#apple) · [Naver](#naver) · [Kakao](#kakao) · [GitHub](#github)
 - [macOS permissions for the desktop part](#macos-permissions-for-the-desktop-part) · [Out of scope](#out-of-scope)
 
@@ -30,6 +30,33 @@ interstitial screens, profiles) apply; this file only adds the order and the pro
 
 The flow is the same with `web login` (`--user-selector` · `--password-selector` · `--submit-selector` · `--until-url`) when the form is on the top page.
 `web login` has no `--frame`; for iframe forms use the steps above.
+
+## Ego Lite engine
+
+Start every web sign-in with `web signin --cred <name>`. It starts no browser; it picks the engine and tells you what to do next.
+`--engine` is `auto` (default), `ego` or `legacy`. `auto` uses Ego Lite when it is installed, onboarded and has a display, and stays on the current
+engine when a current-engine profile is already marked signed in for that provider (no new sign-in, no second factor).
+
+| Result `code` | Meaning | Do |
+|---|---|---|
+| `ego_handoff` | Ego Lite will be used. `handoff` holds `provider`, `account`, `password`, `second_factor`, `login_policy` | Sign in through `ego-browser` as below |
+| `legacy_engine` | The current engine is used (`reason` says why: `requested`, `signed_in_profile`, `ego_not_found`, `ego_not_onboarded`, `ego_no_display`, `ego_probe_timeout`) | Follow the [Common flow](#common-flow) |
+| `ego_unavailable` | `--engine ego` was forced and Ego Lite cannot run | Open the Ego Lite app once to finish its setup, or use `--engine legacy` |
+
+When the result is `ego_handoff`, follow the `ego-browser` skill and drive the page yourself. There is no per-site script, so read each screen before acting:
+
+1. Open one Ego space for the goal (`taskSpace`), go to the provider's sign-in page, and take a snapshot.
+2. Enter the account, continue, read the next screen, then enter the password once and continue.
+3. Read the result. Answer interstitial screens (trust this device, stay signed in, passkey nags) only as `login_policy` allows; ask when it says `ask`.
+4. At a second factor, report its kind (compare `second_factor` with the screen) and wait for the person; see [Two-factor kinds](#two-factor-kinds). A passkey challenge may offer "try another way" with a phone prompt.
+5. When the page shows the signed-in state, finish the space.
+
+Engine rules:
+
+- Never retry a failed password or code, and never switch engines after you typed a credential. Stop and ask.
+- Sign-in state is per engine. A sign-in through Ego Lite is not visible to the current engine's profiles, and the reverse. One job stays on one engine.
+- The `handoff` values are plaintext in this result. Never copy them into issues, commits, reports, `learn`, `journal` or captures.
+- Ego Lite's readiness probe opens its setup window when onboarding is not finished; that is why `ego_not_onboarded` can make a window appear.
 
 ## Two-factor kinds
 

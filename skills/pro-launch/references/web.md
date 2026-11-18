@@ -36,6 +36,8 @@ Talk to the user in the user's language (or the configured `language` preference
 
 ### Credentials — take them and enter them if the user wants
 
+For a web sign-in, call `web signin --cred <name>` first: it picks the engine (Ego Lite when available, else the steps below) — see `web-sign-in.md` "Ego Lite engine".
+
 **First check for a saved login.** If `cred list` has an entry with `kind: login` whose `provider` (google · apple · naver · kakao · github · app name) and
 `use_when` fit the current screen, **use it without asking** (stop only at a two-factor screen):
 
@@ -551,6 +553,7 @@ Do not click by coordinates.
 | `expect_not_met` | The expected result did not come. Look at the current screen with `web text` and pick another candidate |
 | `mutating_blocked` | The read-only session blocked a risky button. Tell the user what would change and get approval |
 | `needs_user` | Hand the remaining login steps (2FA · device approval) to the user. Ask with `ask_user`; when they say they are done, run `web login --resume ...` from `next` |
+| `ego_unavailable` | `web signin --engine ego` was forced but Ego Lite cannot run (`reason`: `ego_not_found` · `ego_not_onboarded` · `ego_no_display` · `ego_probe_timeout`). Open the Ego Lite app once to finish setup, or run `web signin --cred <name> --engine legacy` |
 | `no_matching_profile` | No browser profile has the `--need` state recorded. After a person logs in, run `web profile mark` |
 | `tab_gone` | The `LAUNCH_TAB` tab was closed. Run `web tab new --name <same name>` |
 | `playwright_missing` · `browser_not_open` · `browser_gone` | Ask the user and run `web setup` · run `web open` again |
