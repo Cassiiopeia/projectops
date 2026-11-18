@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.106.0  
-**Last updated:** 2026-11-17T03:12:15Z  
+**Current version:** 4.107.0  
+**Last updated:** 2026-11-18T18:47:27Z  
+
+---
+
+## [4.107.0] - 2026-11-18
+
+**PR:** #1234  
+
+**New features**
+- iOS builds can run on the Xcode 27 runner (repo variable `IOS_RUNNER=xcode-27`) to meet the App Store iOS 27 SDK rule (ITMS-90725), and a build stops early if the app lacks the UIScene lifecycle
+- Web sign-in can use the Ego Lite browser when it is available, with the old engine as the fallback
+
+**Bug fixes**
+- TestFlight uploads made with Xcode 27.2 are no longer reported as failed when they reached App Store Connect (newer fastlane and Ruby, plus a check against App Store Connect)
+- Sign-in engine checks no longer break on non-UTF-8 console output
+
+**Improvements**
+- The iOS release script is split into its flow and its rules, so each part stays small
 
 ---
 
