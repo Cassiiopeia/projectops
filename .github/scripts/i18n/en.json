@@ -142,6 +142,7 @@
   "ios_release.fail.state_corrupt": "State file is corrupted: {path} ({error}). Run again from --phase build",
   "ios_release.fail.state_no_ipa": "The IPA in the state file does not exist: {path}",
   "ios_release.fail.already_uploaded": "A build with this number is already in App Store Connect, not uploading again (a step after upload failed, or a concurrent build used the same number). Running again uses a new number: {reason}",
+  "ios_release.fail.altool_misread": "altool reported a successful upload and App Store Connect has build {number}, but fastlane failed on a stray altool ERROR line (fastlane < 2.240 with Xcode 27), so the App Store version step after the upload did not run. Upgrade fastlane to 2.240 or later and run again, or finish the version in App Store Connect: {reason}",
   "ios_release.fail.reupload_unknown": "Stopping: App Store Connect lookup is unavailable, so it is unknown whether this build was already uploaded ({error}). Original reason: {reason}",
   "ios_release.fail.closed_unknown_error": "Not retrying: the closed version is unknown ({error}). Original reason: {reason}",
   "ios_release.fail.closed_unknown": "Not retrying: the closed version is unknown. Original reason: {reason}",

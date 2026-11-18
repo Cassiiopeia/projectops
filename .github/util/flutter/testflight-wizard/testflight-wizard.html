@@ -8,10 +8,18 @@
     <script type="application/json" id="versionJson">
 {
   "name": "iOS TestFlight Setup Wizard",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Setup wizard for deploying a Flutter iOS app to TestFlight",
-  "lastUpdated": "2026-11-14",
+  "lastUpdated": "2026-11-19",
   "changelog": [
+    {
+      "version": "1.7.2",
+      "date": "2026-11-19",
+      "changes": [
+        "Gemfile asks for fastlane 2.240 or later: older versions fail on a stray altool ERROR line after a successful Xcode 27 upload (fastlane#30586, projectops#1232)",
+        "The Python wizard writes the Gemfile from templates/Gemfile instead of its own copy"
+      ]
+    },
     {
       "version": "1.7.1",
       "date": "2026-11-14",

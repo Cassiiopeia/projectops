@@ -1,6 +1,6 @@
 {
   "_about": "Hangul non-comment lines per file (#769). Numbers may only go down. Regenerate lowered numbers: python3 scripts/tests/test_korean_line_budget.py --update",
-  "total": 1030,
+  "total": 1026,
   "files": {
     ".github/config/breaking-changes.json": 1,
     ".github/config/issue-labels.yml": 9,
@@ -33,7 +33,6 @@
     ".github/util/flutter/testflight-wizard/templates/Fastfile.ios.template": 1,
     ".github/util/flutter/testflight-wizard/testflight-wizard.html": 68,
     ".github/util/flutter/testflight-wizard/testflight-wizard.js": 2,
-    ".github/util/flutter/testflight-wizard/testflight-wizard.py": 4,
     ".github/util/flutter/testflight-wizard/version.json": 67,
     ".github/workflows/PROJECT-COMMON-AI-PR-SUMMARY.yaml": 1,
     ".github/workflows/PROJECT-COMMON-PROJECTS-SYNC-MANAGER.yaml": 9,

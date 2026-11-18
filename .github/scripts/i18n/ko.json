@@ -142,6 +142,7 @@
   "ios_release.fail.state_corrupt": "상태 파일이 손상되었습니다: {path} ({error}). --phase build부터 다시 실행하세요",
   "ios_release.fail.state_no_ipa": "상태 파일이 가리키는 IPA가 없습니다: {path}",
   "ios_release.fail.already_uploaded": "같은 번호의 빌드가 이미 App Store Connect에 있어 재업로드하지 않습니다(업로드 후 단계 실패 또는 동시 빌드와 번호 충돌). 다시 실행하면 새 번호를 씁니다: {reason}",
+  "ios_release.fail.altool_misread": "altool은 업로드 성공을 알렸고 App Store Connect에 빌드 {number}가 있지만, fastlane이 altool의 불필요한 ERROR 줄 때문에 실패해(Xcode 27 + fastlane 2.240 미만) 업로드 다음의 App Store 버전 단계가 실행되지 않았습니다. fastlane을 2.240 이상으로 올려 다시 실행하거나 App Store Connect에서 버전을 마무리하세요: {reason}",
   "ios_release.fail.reupload_unknown": "ASC 조회 불가로 재업로드 여부를 확인할 수 없어 중단 ({error}). 원래 사유: {reason}",
   "ios_release.fail.closed_unknown_error": "닫힌 버전을 알 수 없어 재시도하지 않습니다 ({error}). 원래 사유: {reason}",
   "ios_release.fail.closed_unknown": "닫힌 버전을 알 수 없어 재시도하지 않습니다. 원래 사유: {reason}",

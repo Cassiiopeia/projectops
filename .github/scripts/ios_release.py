@@ -153,6 +153,10 @@ _KIND_PATTERNS: list[tuple[str, list[re.Pattern]]] = [
                    re.compile(r"INVALID\.DUPLICATE"), re.compile(r"(?<!\d)-19232(?!\d)")]),
 ]
 _FALLBACK_LINE = re.compile(r"ITMS-\d+|ERROR|error|실패|\[!\]")
+# altool's own success line. fastlane < 2.240 still fails on a stray ERROR line printed after it (Xcode 27.2, fastlane#30586)
+_ALTOOL_UPLOAD_SUCCEEDED = "UPLOAD SUCCEEDED with no errors"
+# DEPLOY_MODE values whose deploy lane ends at the TestFlight upload (Fastfile default: testflight_only)
+_UPLOAD_ONLY_DEPLOY_MODES = ("store_only", "testflight_only")
 
 
 def _first_group(patterns: list[re.Pattern], text: str, group: str) -> str | None:
@@ -192,6 +196,7 @@ def classify_upload_error(log: str) -> dict:
         hits = [l for l in lines if _FALLBACK_LINE.search(l)]
         reason = _clean_line(hits[-1]) if hits else ""
     return {"kind": kind, "required_build": required, "closed_version": closed_version,
+            "is_upload_reported_ok": _ALTOOL_UPLOAD_SUCCEEDED in text,
             "reason_line": reason or message("ios_release.no_reason")}
 
 
@@ -495,6 +500,35 @@ def _confirm_not_uploaded(cfg: _Cfg, number: int, reason: str) -> None:
         raise _Fail(_reason(message("ios_release.fail.reupload_unknown", error=e, reason=reason)))
 
 
+def _is_build_in_asc(cfg: _Cfg, number: int) -> bool:
+    """ASC lists this build number? (retries: a fresh upload shows up late; lookup errors count as no)"""
+    try:
+        token, app_id = _asc_context(cfg)
+        for i in range(_REEXIST_CHECKS):
+            if asc_client.build_exists(app_id, number, token):
+                return True
+            if i < _REEXIST_CHECKS - 1:
+                sleep(_REEXIST_INTERVAL)
+    except asc_client.AscError as e:
+        print(f"warning: could not check App Store Connect for build {number}: {e}", file=sys.stderr)
+    return False
+
+
+def _accept_misread_upload(cfg: _Cfg, env: dict, number: int, reason: str) -> bool:
+    """altool said the upload succeeded but fastlane failed > success only when the lane ends at the upload and ASC has the build
+
+    Lanes that go on to the App Store step (store_prepare, store_submit) skipped it, so they still fail with the fix.
+    """
+    if not _is_build_in_asc(cfg, number):
+        return False
+    if env.get("DEPLOY_MODE", "testflight_only").strip() not in _UPLOAD_ONLY_DEPLOY_MODES:
+        raise _Fail(_reason(message("ios_release.fail.altool_misread", number=number, reason=reason)))
+    print(f"::warning title=fastlane misread the upload::altool reported success and App Store Connect has build {number}, "
+          "but fastlane failed on a stray altool ERROR line (fastlane < 2.240, Xcode 27). Treated as uploaded; "
+          "upgrade fastlane to 2.240 or later.")
+    return True
+
+
 def _next_closed_version(cfg: _Cfg, closed_version: str | None, reason: str) -> str:
     """Next patch version when the train is closed. If the version is unknown (90478), get it from ASC."""
     if not closed_version:
@@ -543,6 +577,8 @@ def _phase_upload(cfg: _Cfg, info: dict) -> None:
         r = classify_upload_error(out)
         reason = _reason(r["reason_line"])
         kind = r["kind"]
+        if r["is_upload_reported_ok"] and _accept_misread_upload(cfg, env, number, reason):
+            return
         if kind == "other":
             raise _Fail(reason)
         if kind == "train_closed" and cfg.mode == "release":

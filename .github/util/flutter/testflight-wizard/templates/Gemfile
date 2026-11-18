@@ -4,7 +4,7 @@ source "https://rubygems.org"
 
 # Fastlane - iOS build automation
 # Officially supported on Ruby 3.4+ (2.228+)
-gem "fastlane", "~> 2.228"
+gem "fastlane", ">= 2.240"  # 2.240+ reads the Xcode 27 altool upload result correctly (fastlane#30586); needs Ruby 3.2+
 
 # multi_json - works around an upstream bug where a google-apis transitive dependency is undeclared in its gemspec (prevents Gem::LoadError)
 gem "multi_json"

@@ -355,20 +355,9 @@ def create_gemfile():
         print_warning(f"Backing up existing Gemfile: {gemfile_path}.bak")
         backup_file(gemfile_path)
 
-    write_text(gemfile_path, """# frozen_string_literal: true
-
-source "https://rubygems.org"
-
-# Fastlane - iOS 빌드 자동화
-# Ruby 3.4+ 공식 지원 버전 (2.228+)
-gem "fastlane", "~> 2.228"
-
-# multi_json - google-apis transitive 의존성이 gemspec에 선언 누락한 upstream 버그 회피 (Gem::LoadError 방지)
-gem "multi_json"
-
-# CocoaPods - iOS 의존성 관리
-gem "cocoapods", "~> 1.15"
-""")
+    # Single source: templates/Gemfile (fastlane floor and comments live there)
+    with open(f"{TEMPLATE_DIR}/Gemfile", encoding="utf-8") as template_gemfile:
+        write_text(gemfile_path, template_gemfile.read())
 
     print_success(f"Gemfile created: {gemfile_path}")
 
