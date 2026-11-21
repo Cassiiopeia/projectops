@@ -24,10 +24,14 @@ function renderTypeList(separator) {
   return PROJECT_TYPES.map((type) => code(type.id)).join(separator);
 }
 
-// Whole markdown table (header row in the document's language). Markers sit outside the table:
-// GitHub ends a table at the first line that does not start with "|"
-function renderTable(headers, rows) {
-  return [`| ${headers.join(" | ")} |`, `|${headers.map(() => "------").join("|")}|`, ...rows].join("\n");
+// Whole markdown table. Markers sit outside the table (GitHub ends a table at the first line that does not start with "|").
+// The header and separator rows already in the block are kept, so each document keeps its own language
+function renderTable(rows) {
+  return (currentBlockText) => {
+    const [headerRow, separatorRow] = currentBlockText.split("\n").filter((line) => line.startsWith("|"));
+    if (!headerRow || !separatorRow) throw new Error("[project types] table block needs its header and separator rows");
+    return `\n${[headerRow, separatorRow, ...rows].join("\n")}\n`;
+  };
 }
 
 // CLAUDE.md table rows: Type | Description | Version sync file
@@ -68,10 +72,10 @@ const DOCUMENT_BLOCKS = [
   { path: "docs/i18n/README.ko.md", blocks: { "types-list": () => renderTypeList(", ") } },
   { path: "docs/i18n/README.ja.md", blocks: { "types-list": () => renderTypeList("、") } },
   { path: "docs/i18n/README.zh-CN.md", blocks: { "types-list": () => renderTypeList("、") } },
-  { path: "CLAUDE.md", blocks: { "types-table": () => `\n${renderTable(["Type", "Description", "Version sync file"], renderTypeTableRows())}\n` } },
-  { path: "docs/en/version-control.md", blocks: { "version-files": () => `\n${renderTable(["Type", "Version file", "Version location"], renderVersionFileRows())}\n` } },
-  { path: "docs/VERSION-CONTROL.md", blocks: { "version-files": () => `\n${renderTable(["타입", "버전 파일", "버전 위치"], renderVersionFileRows())}\n` } },
-  { path: "skills/references/project-detection.md", blocks: { detection: () => `\n${renderTable(["Type", "Required files", "Secondary checks"], renderDetectionRows())}\n` } },
+  { path: "CLAUDE.md", blocks: { "types-table": () => renderTable(renderTypeTableRows()) } },
+  { path: "docs/en/version-control.md", blocks: { "version-files": () => renderTable(renderVersionFileRows()) } },
+  { path: "docs/VERSION-CONTROL.md", blocks: { "version-files": () => renderTable(renderVersionFileRows()) } },
+  { path: "skills/references/project-detection.md", blocks: { detection: () => renderTable(renderDetectionRows()) } },
 ];
 
 // Replace one named block (error if its markers are missing)
@@ -80,7 +84,9 @@ function replaceBlock(documentText, blockName, content, documentPath) {
   const startIndex = documentText.indexOf(startMarker);
   const endIndex = documentText.indexOf(BLOCK_END_MARKER, startIndex);
   if (startIndex < 0 || endIndex < 0) throw new Error(`[project types] markers for "${blockName}" missing in ${documentPath}`);
-  return documentText.slice(0, startIndex + startMarker.length) + content + documentText.slice(endIndex);
+  const currentBlockText = documentText.slice(startIndex + startMarker.length, endIndex);
+  const nextBlockText = typeof content === "function" ? content(currentBlockText) : content;
+  return documentText.slice(0, startIndex + startMarker.length) + nextBlockText + documentText.slice(endIndex);
 }
 
 const isCheckMode = process.argv.includes("--check");
