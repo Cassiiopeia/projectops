@@ -143,6 +143,19 @@ def cmd_aged(args) -> dict:
     return {**result, "location": location.key, "tier": location.tier, "older_than_days": args.older_than_days,
             "running_builds": snapshot.is_running("xcodebuild", "XCBBuildService", "GradleDaemon")}
 
+def cmd_plugin_versions(args) -> dict:
+    location, failure = _location_or_failure(args.key, ("plugin-versions",))
+    if failure:
+        return failure
+
+    candidates = cleaners.plugin_version_candidates(location)
+    result = cleaners.delete_candidates(candidates, location.path, args.yes)
+    return {
+        **result,
+        "location": location.key,
+        "tier": location.tier,
+        "note": location.note,
+    }
 
 def cmd_tool(args) -> dict:
     location, failure = _location_or_failure(args.key, ("tool",))
@@ -205,6 +218,10 @@ def build_parser() -> JsonArgumentParser:
     aged.add_argument("--older-than-days", type=float, required=True)
     aged.add_argument("--yes", action="store_true")
     aged.set_defaults(handler=cmd_aged)
+    plugin_versions = commands.add_parser("plugin-versions", help="Remove old plugin versions, keeping the newest two per plugin")
+    plugin_versions.add_argument("key")
+    plugin_versions.add_argument("--yes", action="store_true")
+    plugin_versions.set_defaults(handler=cmd_plugin_versions)
     tool = commands.add_parser("tool")
     tool.add_argument("key")
     tool.add_argument("--yes", action="store_true")

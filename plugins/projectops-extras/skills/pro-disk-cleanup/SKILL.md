@@ -50,6 +50,7 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/disk_cli.py <command
 | Sub-folders of a cache older than N days (DerivedData, Gradle, DeviceSupport...) | `aged KEY --older-than-days N [--yes]` |
 | A tool's own clean-up (npm, uv, pip, yarn, CocoaPods, Homebrew, unavailable simulators) | `tool KEY [--yes]` |
 | pro-launch browser caches, logins kept, running browsers skipped | `browser [--yes]` |
+| Old Claude Code plugin versions, keeping the newest two per plugin | `plugin-versions claude-plugin-cache [--yes]` |
 | Docker facts · ordered clean-up | `docker` · `docker --volumes --images [--containers NAME ...] [--yes]` |
 
 Worktree search roots: `--roots` > `disk-cleanup.roots` in `~/.projectops/config/config.json` > the folder that holds the current repo.
@@ -77,6 +78,9 @@ Anything touched within `--idle-hours` (default 2, `disk-cleanup.idle_hours`) is
    ("not used in 7 days?"). An open-issue worktree the user named goes with `--approved-stale`.
    A worktree with `real_change_count > 0` and no issue: show `real_change_sample` and ask before removing; the backup
    keeps it, but the user must know it existed.
+   For Claude Code plugin caches, run `plugin-versions claude-plugin-cache` to show the plan. Keep the newest two
+   versions per plugin because running sessions may still read the previous version. Unrecognized version names
+   are kept. Add `--yes` only after the user names this location. `CLAUDE_CONFIG_DIR` overrides `~/.claude`.
 5. **Docker.** Run `docker` first and show stopped containers and unused volumes. Remove containers only by name the
    user agreed to. `docker --volumes` lists unused volumes **before** anything else is removed and deletes only that list;
    volumes that become unused after a container goes are reported in `newly_unused_volumes` and kept. Show them before

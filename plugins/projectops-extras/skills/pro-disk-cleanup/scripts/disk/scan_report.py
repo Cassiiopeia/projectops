@@ -5,7 +5,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from . import catalog, docker_cleanup, generated, sizes, worktrees
+from . import catalog, cleaners, docker_cleanup, generated, sizes, worktrees
 from .processes import ProcessSnapshot
 
 # Location kind > cleanup command hint
@@ -14,6 +14,7 @@ NEXT_BY_KIND = {
     "aged": "aged {key} --older-than-days N  # N from the user for decide-tier items",
     "browser": "browser --yes",
     "info": None,
+    "plugin-versions": "plugin-versions {key}",
 }
 
 
@@ -28,9 +29,29 @@ def _location_row(location: catalog.Location, max_seconds: int) -> dict:
                 "note": "Mount point or other volume; not counted"}
     byte_count, is_partial = sizes.folder_bytes(location.path, max_seconds)
     hint = NEXT_BY_KIND[location.kind]
-    return {**row, "size_gb": sizes.to_gigabytes(byte_count), "size_bytes": byte_count or 0,
-            "is_partial_size": is_partial, "next": hint.format(key=location.key) if hint else None}
+    row.update({
+        "size_gb": sizes.to_gigabytes(byte_count), "size_bytes": byte_count or 0, "is_partial_size": is_partial, "next": hint.format(key=location.key)
+        if hint else None,
+    })
 
+    if location.kind == "plugin-versions":
+        candidates = cleaners.plugin_version_candidates(location)
+        old_versions = [
+            item for item in candidates
+            if item["skip_reason"] is None
+        ]
+        row.update({
+            "old_versions": old_versions,
+            "kept_versions": [
+                item for item in candidates
+                if item["skip_reason"] is not None
+            ],
+            "reclaimable_gb": sizes.to_gigabytes(
+                sum(item["size_bytes"] for item in old_versions)
+            ),
+        })
+
+    return row
 
 def _worktree_summary(roots: list[Path], idle_hours: float, snapshot: ProcessSnapshot) -> dict:
     facts = worktrees.collect(roots, idle_hours, should_measure_size=False, snapshot=snapshot)
