@@ -102,21 +102,20 @@ def _real_subfolders(parent: Path) -> list[Path]:
     ]
 
 
-def _installed_plugin_paths(location: Location) -> set[Path]:
-    """Resolve installPath values from Claude Code's installed_plugins.json.
-
-    A missing, malformed or unreadable file is not fatal: the newest-two
-    rule still applies on its own. Only resolved paths are returned, so a
-    version pinned with a different spelling still compares equal.
-    """
+def _installed_plugin_paths() -> set[Path]:
+    """installed_plugins.json installPath values > resolved paths (missing, unreadable or wrongly shaped file > empty set)"""
     config = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
     manifest = config / "plugins" / "installed_plugins.json"
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return set()
+    # Valid JSON of another shape (array, string) falls back the same way
+    plugins = data.get("plugins") if isinstance(data, dict) else None
+    if not isinstance(plugins, dict):
+        return set()
     paths = set()
-    for entries in (data.get("plugins") or {}).values():
+    for entries in plugins.values():
         if not isinstance(entries, list):
             continue
         for entry in entries:
@@ -129,6 +128,8 @@ def _installed_plugin_paths(location: Location) -> set[Path]:
 def plugin_version_candidates(location: Location) -> list[dict]:
     """List cached versions, keeping the newest two per plugin."""
     candidates = []
+    # An install pinned in installed_plugins.json stays even when it is older than the newest two (read once)
+    installed = _installed_plugin_paths()
 
     for marketplace in _real_subfolders(location.path):
         for plugin in _real_subfolders(marketplace):
@@ -147,16 +148,13 @@ def plugin_version_candidates(location: Location) -> list[dict]:
                 reverse=True,
             )
             kept = set(recognized[:2])
-            # An install pinned in installed_plugins.json stays even when it
-            # is older than the newest two: a project can depend on it.
-            installed = _installed_plugin_paths(location)
 
             for folder in versions:
                 if parsed[folder] is None:
                     skip_reason = "unknown_version"
                 elif folder in kept:
                     skip_reason = "newest_two"
-                elif any(folder.resolve() == installed_path for installed_path in installed):
+                elif folder.resolve() in installed:
                     skip_reason = "installed"
                 else:
                     skip_reason = None
