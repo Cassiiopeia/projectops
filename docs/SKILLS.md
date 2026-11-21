@@ -480,7 +480,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 ## Extras (선택 플러그인)
 
-`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-remote-link`(Orca·Paseo를 밖에서 여는 링크)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-remote-link`(Orca·Paseo를 밖에서 여는 링크), `/pro-project-blueprint`(평소 방식으로 새 프로젝트 시작)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
 
 ```bash
 # Claude Code
@@ -546,6 +546,20 @@ macOS·Windows·Linux에서 스택과 상관없이 **되찾을 수 있는 디스
 **언제 쓰나요?**
 - "orca 주소 줘", "paseo 링크 줘", "밖에서 Orca/Paseo 열고 싶어"
 - 컴퓨터에서 떨어져 있을 때 브라우저로 Orca·Paseo 데스크톱을 쓰고 싶을 때
+
+---
+
+### `/pro-project-blueprint`
+
+**무엇을 하나요?**
+**주인이 프로젝트를 시작하고 운영하는 방식을 담은 표준**이라, 새 레포를 다시 설명하지 않고 같은 방식으로 세웁니다: 모노레포 구조(스택 폴더, `brand/`, `docs/superpowers/specs/`, 스택별 파일로 안내하는 루트 `CLAUDE.md`, `version.yml`), 3단 브랜치(이슈 브랜치 > `develop` > `main` > `deploy`, 승격은 PR 머지), 공개 레포의 시크릿(워크플로 시크릿은 값 하나씩, 실행용 시크릿은 플랫폼마다 파일 통째로 `APPLICATION_PROD_YML`·`ENV_FILE`, 서버에 읽기 전용으로 기록하고 NAS에 백업), NAS 배포(Docker Hub sha 태그, Traefik Blue-Green, 역방향 프록시, 공용 PostgreSQL). 프로젝트마다 반복되는 인프라 값은 개인 설정 `~/.projectops/config/config.json`의 `project-blueprint` 섹션에 두고, 스킬에는 자리표시자 예시만 들어 있습니다.
+
+**수정되는 것**: 직접 바꾸지 않음. 답을 정해 `pro-github`, `npx projectops`, `pro-synology-expose`, `pro-ssh`에 넘김
+**돌려주는 것**: 이 프로젝트에 맞춰 채운 준비 점검표
+
+**언제 쓰나요?**
+- "새 프로젝트 시작하자", "이 레포 내 다른 레포처럼 세팅해줘"
+- "새 시크릿 키는 어디에 넣어?", "배포 브랜치를 main에서 분리해줘"
 
 ---
 

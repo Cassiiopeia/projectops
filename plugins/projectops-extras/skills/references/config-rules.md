@@ -266,6 +266,45 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 | `idle_hours` | | Anything touched within this many hours is kept. Default `2` |
 | `backup_dir` | | Where worktree backups go before removal (one dated folder per day). Default `~/.projectops/backups/disk-cleanup` |
 
+### `project-blueprint` section (#1249)
+
+Read by the extras skill `pro-project-blueprint`. Holds the infra values the owner reuses in every project, so a new
+repo is set up without asking again. Placeholders below; the annotated shape ships as the skill's `config.sample.json`.
+No passwords or tokens here: SSH credentials stay in the `ssh` section, registry tokens go straight into GitHub Secrets.
+
+```json
+{
+  "project-blueprint": {
+    "infra": {
+      "docker_username": "<docker-username>",
+      "ssh_server_name": "<pro-ssh entry name>",
+      "server_host": "<nas-host>",
+      "ssh_port": "<ssh-port>",
+      "server_user": "<server-user>",
+      "volume_base_path": "<volume-base>",
+      "root_domain": "<root-domain>",
+      "api_host_pattern": "api.{project}.{root_domain}",
+      "dns_provider": "cloudflare",
+      "traefik": { "internal_port": "<traefik-port>", "network": "<traefik-network>", "entrypoint": "web" },
+      "postgres": { "host": "<postgres-host>", "port": "<postgres-port>" },
+      "timezone": "<timezone>"
+    },
+    "defaults": {
+      "default_branch": "main",
+      "development_branch": "develop",
+      "deploy_trigger_branch": "deploy",
+      "secret_backup": true
+    }
+  }
+}
+```
+
+| Field | Required | Description |
+|------|------|------|
+| `infra.*` | | Values filled into workflow `env:` blocks and GitHub Secrets of a new repo. Asked once, one at a time, when missing |
+| `infra.ssh_server_name` | | Name of the `ssh` section entry for the server, so credentials are not duplicated |
+| `defaults.*` | | Branch names and options the user picked once; used as the answers to the projectops install questions |
+
 ### `image` section
 
 Read by `pro-image` (`image_cli.py`). Every field is optional. Without `priority`, the skill asks the user once and saves it.

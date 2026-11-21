@@ -68,6 +68,19 @@
     "idle_hours": 2,
     "backup_dir": "~/.projectops/backups/disk-cleanup"
   },
+  "project-blueprint": {
+    "_comment": "extras pro-project-blueprint: infra values reused by every new project (no passwords or tokens). Annotated shape: plugins/projectops-extras/skills/pro-project-blueprint/config.sample.json.",
+    "infra": {
+      "docker_username": "{docker-username}",
+      "ssh_server_name": "{pro-ssh entry name}",
+      "volume_base_path": "{volume-base}",
+      "root_domain": "{root-domain}"
+    },
+    "defaults": {
+      "development_branch": "develop",
+      "deploy_trigger_branch": "deploy"
+    }
+  },
   "skill-bug": {
     "_comment": "extras watch hook: false stops automatic reports of suspected projectops bugs (default true).",
     "auto_report": true

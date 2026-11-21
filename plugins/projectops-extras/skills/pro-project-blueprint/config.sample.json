@@ -1,0 +1,32 @@
+{
+  "_comment": "Shape of the project-blueprint section in ~/.projectops/config/config.json. Placeholders only: real values go in that private file, never in a repo, issue or report.",
+  "project-blueprint": {
+    "infra": {
+      "docker_username": "<docker-username>",
+      "ssh_server_name": "<pro-ssh entry name for the NAS>",
+      "server_host": "<nas-host>",
+      "ssh_port": "<ssh-port>",
+      "server_user": "<server-user>",
+      "volume_base_path": "<volume-base, e.g. /volume1/projects>",
+      "root_domain": "<root-domain>",
+      "api_host_pattern": "api.{project}.{root_domain}",
+      "dns_provider": "<cloudflare|route53|other>",
+      "traefik": {
+        "internal_port": "<traefik-port>",
+        "network": "<traefik-network>",
+        "entrypoint": "web"
+      },
+      "postgres": {
+        "host": "<postgres-host>",
+        "port": "<postgres-port>"
+      },
+      "timezone": "<timezone, e.g. UTC>"
+    },
+    "defaults": {
+      "default_branch": "main",
+      "development_branch": "develop",
+      "deploy_trigger_branch": "deploy",
+      "secret_backup": true
+    }
+  }
+}

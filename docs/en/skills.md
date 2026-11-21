@@ -477,7 +477,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely) and `/pro-remote-link` (a link to open Orca or Paseo from outside) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside) and `/pro-project-blueprint` (start a project the owner's way) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
 
 ```bash
 # Claude Code
@@ -543,6 +543,20 @@ App-specific facts (port, CLI location, link shape) live in one harness file per
 **When to use it**
 - "Give me the Orca URL", "Paseo link", "open Orca / Paseo from outside"
 - You are away from the computer and want Orca or Paseo desktop in a browser
+
+---
+
+### `/pro-project-blueprint`
+
+**What does it do?**
+It **holds the owner's house standard for starting and running a project**, so a new repo is set up without explaining it again: monorepo layout (stack folders, `brand/`, `docs/superpowers/specs/`, a root `CLAUDE.md` index with per-stack files, `version.yml`), three branch tiers (issue branch > `develop` > `main` > `deploy`, promoted by a merged PR), secrets in a public repo (workflow secrets one value each, runtime secrets as one whole file per platform such as `APPLICATION_PROD_YML` or `ENV_FILE`, written read-only to the server and backed up to the NAS), and the NAS deploy (Docker Hub sha tags, Traefik Blue-Green, reverse proxy, shared PostgreSQL). Infra values that repeat across projects live in the `project-blueprint` section of your private `~/.projectops/config/config.json`; the skill ships only a placeholder sample.
+
+**Modifies**: nothing by itself; it decides the answers and hands the work to `pro-github`, `npx projectops`, `pro-synology-expose` and `pro-ssh`
+**Returns**: the setup checklist filled in for this project
+
+**When to use it**
+- "Start a new project", "set this repo up like my other ones"
+- "Where does this new secret key go?", "split deploy from main"
 
 ---
 
