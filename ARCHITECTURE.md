@@ -55,11 +55,47 @@ These are parsed by other code. Changing them silently breaks installed projects
 
 ## How to add a new project type
 
-1. Add the type to the detection and marker tables (`src/core/detect.js`, `src/core/paths-resolve.js`).
-2. Create `.github/workflows/project-types/<type>/` with its CI/CD workflows. Server deployment workflows go under `<type>/server-deploy/` so they are skipped when `deploy` is not `docker-ssh`. Registry publishing goes under `<type>/publish/<target>/`.
-3. Declare which deploy and publish targets the type supports in `src/core/options-ask.js` (`TYPE_DEPLOY_TARGETS`, `TYPE_PUBLISH_TARGETS`). Keep them in line with the `server-deploy/` and `publish/<target>/` folders.
-4. Teach `version_manager` how to sync the version file for the type.
-5. Run the wizard against a sample repo and `npm test` (guard checks). Do not commit new tests.
+The type list is still written by hand in several places (a single registry is planned in #1244). Use this checklist and
+`grep -rn '"react-native-expo"'` to find every spot; the Expo support in #1240 is a complete worked example.
+Open an issue first and agree on the markers, the version file and the build commands.
+
+**Detection and installer (`src/`)**
+
+1. Add the id to `VALID_TYPES` (`src/context.js`) and to the type menu (`src/ui/prompts.js`, `all`).
+2. Markers: `detectTypesFromMarkers`, `markerForType`, `extraMarkers` and the extension scan order in `src/core/detect.js`;
+   `KNOWN_MARKER_TYPES` and the marker names in `findTypePathCandidates` (`src/core/paths-resolve.js`); the type order in
+   `detectTypesInSubfolders` (`src/core/detect-fs.js`).
+3. Deploy and publish axes: `TYPE_DEPLOY_TARGETS` and `TYPE_PUBLISH_TARGETS` in `src/core/options-ask.js`. Keep them in line
+   with the `server-deploy/` and `publish/<target>/` folders. App types use empty arrays.
+4. Text: the supported list in `src/cli/help.js` (English and Korean), the `--type` and `--deploy` entries in
+   `src/core/options-schema.js` (then `node scripts/build_options_reference.mjs`), and the sync-file comments in
+   `src/core/version-yml.js` (both languages).
+5. If workflows need the project folder, add a resolver in `makeResolvers` (`src/core/detect-fs.js`) and use it as
+   `APP_ROOT: "."  # @wizard auto:<type>-root`.
+6. Push-to-deploy workflows go into `DEPLOY_TRIGGER_WORKFLOWS` (`src/core/branch-sub.js`); decide whether CI belongs in
+   `src/core/ci-minutes-sub.js`.
+7. Per-type lines on the finish screen: `src/ui/summary.js` and both `src/i18n/summary.*.js` dictionaries.
+
+**Workflows and scripts (`.github/`)**
+
+8. Create `.github/workflows/project-types/<type>/`. Server deployment goes under `<type>/server-deploy/`, registry publishing
+   under `<type>/publish/<target>/`. Read `docs/architecture/agent/workflows.md` first (permissions, `@wizard` markers,
+   `paths-anchor` for monorepos).
+9. Version sync in `.github/scripts/version_manager.py`: the path in `get_type_path`, the read branch, a `_sync_<type>`
+   function in `TYPE_SYNCERS` and the file name map. Also `VALID_TYPES` and the comments in `template_initializer.py`.
+10. Shared script logic goes into a script in `.github/scripts/` and that file into `copyScripts` (`src/core/copy/simple.js`),
+    or user repos never get it. Workflows that read the issue branch name go into `GUIDE_LINES` (`issue_helper.py`).
+
+**Skills and docs**
+
+11. App types: `_APP_PROJECT_TYPES` in `skills/pro-changelog-deploy/scripts/release_context.py`; detection in
+    `skills/pro-launch/scripts/pro_launch/commands/detect.py` and `skills/references/project-detection.md`.
+12. The type table in `README.md` (and the ja, ko, zh-CN copies), `CLAUDE.md`, `docs/*VERSION-CONTROL*` and a docs page
+    in both languages with the same slug (`site/.vitepress/config.mts`).
+
+**Verify**: install into a sample repo from the working tree (copy the tree into `.template_download_temp/` of the sample,
+then `node <repo>/bin/projectops.js --mode full --force`), once with `--type` and once without, also as a monorepo
+subfolder. Run `npm test` and the Python watch tests. Do not commit new tests.
 
 ## How to add a CLI flag
 
