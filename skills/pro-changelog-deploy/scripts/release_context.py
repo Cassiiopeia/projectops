@@ -9,11 +9,13 @@ import os
 import re
 from pathlib import Path
 
+from common.project_types import app_type_ids
+
 # Workflow file name keywords that lead straight to app store review (case-insensitive substring match).
 # For a new store or platform, adding a keyword here extends detection (no change to SKILL.md or decision logic).
 _STORE_WORKFLOW_KEYWORDS = ("PLAYSTORE", "TESTFLIGHT", "APPSTORE", "APP-STORE")
-# Project types with a strong app (store release) nature.
-_APP_PROJECT_TYPES = ("flutter", "react-native", "react-native-expo")
+# Project types with a strong app (store release) nature: registry is_app (#1244)
+_APP_PROJECT_TYPES = app_type_ids()
 # Hints that count as app review signals
 APP_SIGNAL_HINTS = ("strong_app", "app_release_likely")
 

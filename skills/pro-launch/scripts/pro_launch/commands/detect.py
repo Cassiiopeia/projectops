@@ -6,6 +6,7 @@ from pathlib import Path
 
 from common.access import load_access
 from common.proc import run
+from common.project_types import launch_kinds_by_type
 
 from pro_launch.registry import Command
 from pro_launch.runtime.app_identity import android_package as _android_package
@@ -20,18 +21,9 @@ from pro_launch.runtime.output import out
 KINDS = ("app", "web", "server")
 
 
-# projectops project type → what can be launched. One type can yield several.
-_TYPE_TO_KIND = {
-    "flutter": ["app"],
-    "react-native": ["app"],
-    "react-native-expo": ["app"],
-    "react": ["web"],
-    "next": ["web"],
-    "node": ["web", "server"],
-    "spring": ["server"],
-    "python": ["server"],
-    "basic": [],
-}
+# projectops project type → what can be launched (registry launch_kinds, #1244). One type can yield several.
+# "next" was merged into react in v4.1.0; old version.yml files may still name it.
+_TYPE_TO_KIND = {**launch_kinds_by_type(), "next": ["web"]}
 
 
 def _version_yml_types(root: Path) -> list[str]:
