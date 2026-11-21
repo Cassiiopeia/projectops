@@ -49,6 +49,7 @@
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml": 3,
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-CI.yaml": 5,
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml": 2,
+    ".github/workflows/project-types/react-native-expo/PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER.yaml": 2,
     ".github/workflows/project-types/python/PROJECT-PYTHON-CI.yaml": 1,
     ".github/workflows/project-types/python/server-deploy/PROJECT-PYTHON-PR-PREVIEW.yaml": 4,
     ".github/workflows/project-types/spring/server-deploy/PROJECT-SPRING-PR-PREVIEW.yaml": 4,

@@ -1,8 +1,5 @@
-"""Repo admin subcommands: update-repo (visibility only), delete-repo (#1241).
-
-The api pass-through keeps blocking repo admin writes; these two narrow commands are the only way in,
-each with --dry-run and an explicit confirmation the agent passes only after the user asked in this conversation.
-"""
+"""Repo admin subcommands: update-repo (visibility only), delete-repo (#1241)
+api pass-through keeps blocking admin writes > these two are the only way in (--dry-run, explicit --confirm)"""
 from __future__ import annotations
 
 import re

@@ -1,13 +1,6 @@
 #!/usr/bin/env python3
-"""React Native Expo build helpers shared by the PROJECT-REACT-NATIVE-EXPO-* workflows (#1240).
-
-Commands (stdlib only, results go to $GITHUB_OUTPUT and stdout as JSON):
-  detect           package manager, install command, lockfile and check tools of the app folder
-  read-config      resolved app config (expo config, else app.json): Android package, iOS bundle ID, name
-  set-version      version values > app.json (expo.version, android.versionCode, ios.appleTeamId)
-  ios-prepare      after prebuild: workspace and scheme, Info.plist numbers to build variables
-  ios-signing      provisioning profile facts > ExportOptions.plist + Fastfile (deploy lane) + Gemfile
-"""
+"""React Native Expo build helpers for the PROJECT-REACT-NATIVE-EXPO-* workflows (#1240)
+Commands 5: detect, read-config, set-version, ios-prepare, ios-signing > $GITHUB_OUTPUT + one JSON line"""
 from __future__ import annotations
 
 import argparse
@@ -17,6 +10,9 @@ import plistlib
 import subprocess
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from github_output import emit_json as emit, write_github_output  # noqa: E402
 
 # Lockfile > package manager (first match wins, same order as Expo CLI detection)
 LOCKFILE_MANAGERS = (
@@ -43,19 +39,6 @@ MARKETING_VERSION_VARIABLE = "$(MARKETING_VERSION)"
 
 class ExpoAppError(Exception):
     """Failure with a reason line for ::error and the JSON result"""
-
-
-def write_github_output(pairs: dict) -> None:
-    path = os.environ.get("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as handle:
-        for key, value in pairs.items():
-            handle.write(f"{key}={'' if value is None else value}\n")
-
-
-def emit(payload: dict) -> None:
-    print(json.dumps(payload, ensure_ascii=False))
 
 
 def read_json_file(path: Path) -> dict:

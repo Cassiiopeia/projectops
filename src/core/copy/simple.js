@@ -31,6 +31,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "apply_build_profile.py",
     // Build number rules for iOS/Android test builds and iOS releases (#643). The only home of the numbering rules.
     "build_number.py",
+    // Step outputs ($GITHUB_OUTPUT) + JSON result line, imported by build_number, ios_release and expo_app
+    "github_output.py",
     // App Store Connect lookups (#643). Used by ios_release.py, so it must be copied with it.
     "asc_client.py",
     // iOS version pre-check, upload rejection classification, retries from archive to upload (#643).

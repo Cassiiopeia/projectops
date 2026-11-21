@@ -24,11 +24,13 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import json
-import os
 import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from github_output import emit_json as _emit, write_github_output as _write_github_output  # noqa: E402
 
 # 2024-01-01 00:00:00 UTC
 EPOCH_2024 = 1704067200
@@ -57,20 +59,6 @@ def next_build_number(floors: list[int] | None = None, now: float | None = None)
     else:
         number, source = t, "time"
     return {"build_number": number, "source": source, "built_at_utc": describe(number)}
-
-
-def _write_github_output(pairs: dict) -> None:
-    """Append key=value only when GITHUB_OUTPUT exists."""
-    path = os.environ.get("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as f:
-        for k, v in pairs.items():
-            f.write(f"{k}={v}\n")
-
-
-def _emit(payload: dict) -> None:
-    print(json.dumps(payload, ensure_ascii=False))
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -36,6 +36,7 @@ from xml.parsers.expat import ExpatError
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import asc_client  # noqa: E402
 import build_number  # noqa: E402
+from github_output import emit_json as _emit, write_github_output as _write_github_output  # noqa: E402
 from i18n.messages import t as message  # noqa: E402
 from ios_release_rules import (  # noqa: E402  pure rules (version, upload errors, IPA check)
     classify_upload_error,
@@ -49,7 +50,6 @@ from ios_release_rules import (  # noqa: E402  pure rules (version, upload error
     verify_ipa,
     write_runtime_export_options,
     _last_error_line,
-    _one_line,
     _reason,
     _scrub,
     _status_markdown,
@@ -61,20 +61,6 @@ sleep = time.sleep
 
 
 # ── CLI ───────────────────────────────────────────────────────────────
-def _write_github_output(pairs: dict) -> None:
-    path = os.environ.get("GITHUB_OUTPUT")
-    if not path:
-        return
-    with open(path, "a", encoding="utf-8") as f:
-        for k, v in pairs.items():
-            # A newline in a value breaks the GITHUB_OUTPUT format and the next line is read as another key
-            f.write(f"{k}={_one_line(v)}\n")
-
-
-def _emit(payload: dict) -> None:
-    print(json.dumps(payload, ensure_ascii=False))
-
-
 def _stale_outputs(args: argparse.Namespace) -> dict:
     """Stale branch warning outputs (stale, stale_reason) — always emitted together, whether or not the ASC lookup succeeded."""
     reason = stale_branch_reason(args.version, args.base_version)
