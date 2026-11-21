@@ -108,7 +108,7 @@ After changing that file, run `node scripts/build_options_reference.mjs` to refr
 | Flag | `version.yml` key | Values / default | Description |
 |---|---|---|---|
 | `-m`, `--mode MODE` |  | values: `interactive` `full` `version` `workflows` `issues` `skills` `doctor` `options`; default: interactive | What to do. Agents and CI should always pass an explicit non-interactive mode together with --force. |
-| `-t`, `--type CSV` |  | values: `spring` `flutter` `react` `react-native` `react-native-expo` `node` `python` `basic`; default: auto-detected | Project types, comma separated. The first one is the primary type. |
+| `-t`, `--type CSV` |  | values: `flutter` `spring` `python` `react` `react-native` `react-native-expo` `node` `basic`; default: auto-detected | Project types, comma separated. The first one is the primary type. |
 | `--project-version VERSION` |  | default: auto-detected | Initial version of the target project (x.y.z). |
 | `--paths type=path,...` | `project_paths` | default: repo root | Per-type project folders for monorepos, e.g. flutter=app,react=client. |
 | `--intent KIND` | `metadata.template.options.intent` | values: `app` `library` `both` `none` `manual`; default: inferred from --deploy/--publish | Project kind. Decides whether deploy and publish questions are asked. |
