@@ -17,10 +17,10 @@ const OWNED_SKILL_NAME = /^(pro|suh)-/;
 const SHARED_SCRIPTS_MARKER = join("common", "__init__.py");
 export const SHARED_SCRIPTS_DIR_NAME = "scripts";
 const PYTHON_CACHE_DIR_NAME = "__pycache__";
-// 3 top-level shared Python entries used only by repo maintainers: guide doc, troubleshooting index generator, extras copy sync (#988)
+// Top-level shared entries used only by repo maintainers: guide doc, troubleshooting index generator, extras copy sync (#988), project type generator (#1244)
 // Why an exclude list, not an allow list: missing a new runtime module kills skills on import,
 // while missing a new dev file only ships one extra file. test/ide-home-install-e2e.test.js catches runtime entries landing here
-export const SHARED_SCRIPTS_DEV_ONLY = new Set(["README.md", "build_troubleshooting.py", "sync_extras.py"]);
+export const SHARED_SCRIPTS_DEV_ONLY = new Set(["README.md", "build_troubleshooting.py", "sync_extras.py", "build_project_types.mjs"]);
 
 // Skill source: downloaded template (TEMP)/skills first, else local skills/
 export function resolveSkillsSrc(ctx = {}) {

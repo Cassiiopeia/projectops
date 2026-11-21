@@ -222,3 +222,8 @@ test("package.json classification follows the registry dependency rules", async 
   // Broken JSON keeps the old text rule instead of failing
   assert.equal(classify('{"react-native" expo'), "react-native-expo");
 });
+
+test("generated project type copies and doc blocks are current", () => {
+  // Throws (exit 1) when a copy or a <!-- generated: project-types:* --> block is stale
+  execFileSync("node", ["scripts/build_project_types.mjs", "--check"], { encoding: "utf8", stdio: "pipe" });
+});

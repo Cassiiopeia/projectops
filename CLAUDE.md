@@ -100,16 +100,18 @@ Each row's incidents really happened because someone edited without reading that
 ## Project overview
 
 ### Supported project types
+<!-- generated: project-types:types-table -->
 | Type | Description | Version sync file |
-|------|------|-----------------|
-| `spring` | Spring Boot | `build.gradle` |
+|------|------|------|
 | `flutter` | Flutter | `pubspec.yaml` |
-| `react` | React.js / Next.js | `package.json` |
-| `node` | Node.js | `package.json` |
+| `spring` | Spring Boot | `build.gradle` |
 | `python` | FastAPI/Django | `pyproject.toml` |
-| `react-native` | React Native CLI | `Info.plist` + `build.gradle` |
+| `react` | React.js / Next.js | `package.json` |
+| `react-native` | React Native CLI (no app workflows) | `Info.plist + build.gradle` |
 | `react-native-expo` | Expo | `app.json` |
-| `basic` | General purpose | `version.yml` only |
+| `node` | Node.js | `package.json` |
+| `basic` | General purpose | `version.yml only` |
+<!-- /generated -->
 
 > **Multi-type**: when several types coexist in one repo, pass them as csv with `--type spring,react,python`. They are saved in the `project_types` array in `version.yml`, and the first item is the primary type (the singular `project_type` key was removed in v4.1.0 — SSOT).
 >

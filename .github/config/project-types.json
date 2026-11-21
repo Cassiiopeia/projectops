@@ -1,0 +1,215 @@
+[
+  {
+    "id": "flutter",
+    "label": "Flutter",
+    "description": "Flutter",
+    "detect": {
+      "markers": ["pubspec.yaml"],
+      "extensions": { "patterns": ["\\.dart$"], "min_count": 1 },
+      "secondary": "`lib/` directory"
+    },
+    "path_search": { "files": ["pubspec.yaml"], "require_dir": "lib", "exclude_parts": ["example"] },
+    "version": {
+      "format": "pubspec",
+      "build_number": null,
+      "display": "pubspec.yaml",
+      "comment": "pubspec.yaml (version: x.y.z+i, includes buildNumber)",
+      "example": "version: 1.0.0+1"
+    },
+    "axes": { "deploy": [], "publish": [] },
+    "is_app": true,
+    "launch_kinds": ["app"],
+    "root_resolver": "flutter-root",
+    "deploy_trigger_workflows": [
+      "PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml",
+      "PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml",
+      "PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml",
+      "PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml"
+    ]
+  },
+  {
+    "id": "spring",
+    "label": "Spring Boot",
+    "description": "Spring Boot",
+    "detect": {
+      "markers": ["build.gradle", "build.gradle.kts", "pom.xml"],
+      "extensions": { "patterns": ["\\.java$", "\\.kt$", "\\.gradle$"], "min_count": 3 },
+      "secondary": "`src/main/java/`, Spring dependencies"
+    },
+    "path_search": {
+      "files": ["build.gradle", "build.gradle.kts", "pom.xml"],
+      "exclude_parts": ["android"],
+      "gradle_settings_root": true
+    },
+    "version": {
+      "format": "gradle",
+      "build_number": null,
+      "display": "build.gradle",
+      "comment": "build.gradle (version = \"x.y.z\")",
+      "example": "version = '1.0.0'"
+    },
+    "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
+    "is_app": false,
+    "launch_kinds": ["server"],
+    "root_resolver": null,
+    "deploy_trigger_workflows": [
+      "PROJECT-SPRING-SIMPLE-CICD.yaml",
+      "PROJECT-SPRING-NEXUS-PUBLISH.yml",
+      "PROJECT-SPRING-GITHUB-PACKAGES-PUBLISH.yml"
+    ]
+  },
+  {
+    "id": "python",
+    "label": "Python",
+    "description": "FastAPI/Django",
+    "detect": {
+      "markers": ["pyproject.toml", "setup.py", "requirements.txt"],
+      "extensions": { "patterns": ["\\.py$"], "min_count": 3 },
+      "secondary": "`manage.py` (Django), `main.py` (FastAPI)"
+    },
+    "path_search": { "files": ["pyproject.toml", "setup.py", "requirements.txt"] },
+    "version": {
+      "format": "pyproject",
+      "build_number": null,
+      "display": "pyproject.toml",
+      "comment": "pyproject.toml (version = \"x.y.z\")",
+      "example": "version = \"1.0.0\""
+    },
+    "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
+    "is_app": false,
+    "launch_kinds": ["server"],
+    "root_resolver": null,
+    "deploy_trigger_workflows": ["PROJECT-PYTHON-SIMPLE-CICD.yaml"]
+  },
+  {
+    "id": "react",
+    "label": "React / Next.js",
+    "description": "React.js / Next.js",
+    "detect": {
+      "markers": ["package.json"],
+      "package_json": {
+        "requires_any": ["react", "next"],
+        "excludes_any": ["react-native"],
+        "excludes_any_prefix": ["@react-native/"]
+      },
+      "extensions": { "patterns": ["\\.tsx$", "\\.jsx$"], "min_count": 3 },
+      "secondary": "`src/` or `app/`, `tsconfig.json`, `next.config.js`"
+    },
+    "path_search": { "files": ["package.json"] },
+    "version": {
+      "format": "package_json",
+      "build_number": null,
+      "display": "package.json",
+      "comment": "package.json (\"version\": \"x.y.z\")",
+      "example": "\"version\": \"1.0.0\""
+    },
+    "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
+    "is_app": false,
+    "launch_kinds": ["web"],
+    "root_resolver": null,
+    "deploy_trigger_workflows": ["PROJECT-REACT-CICD.yaml"]
+  },
+  {
+    "id": "react-native",
+    "label": "React Native CLI",
+    "description": "React Native CLI (no app workflows)",
+    "detect": {
+      "markers": ["package.json"],
+      "package_json": {
+        "requires_any": ["react-native"],
+        "requires_any_prefix": ["@react-native/"],
+        "excludes_any": ["expo"]
+      },
+      "secondary": "`android/`, `ios/` directories"
+    },
+    "path_search": { "files": ["package.json"] },
+    "version": {
+      "format": "rn_native",
+      "build_number": "rn_native",
+      "display": "Info.plist + build.gradle",
+      "comment": "iOS Info.plist or Android build.gradle",
+      "example": "CFBundleShortVersionString / versionName"
+    },
+    "axes": { "deploy": [], "publish": [] },
+    "is_app": true,
+    "launch_kinds": ["app"],
+    "root_resolver": null,
+    "deploy_trigger_workflows": []
+  },
+  {
+    "id": "react-native-expo",
+    "label": "React Native (Expo)",
+    "description": "Expo",
+    "detect": {
+      "markers": ["package.json"],
+      "package_json": {
+        "requires_all": ["expo"],
+        "requires_any": ["react-native"],
+        "requires_any_prefix": ["@react-native/"]
+      },
+      "secondary": "`expo` key in `app.json`; `android/` and `ios/` may be absent"
+    },
+    "path_search": { "files": ["app.json"] },
+    "version": {
+      "format": "expo_app_json",
+      "build_number": "expo_android_version_code",
+      "display": "app.json",
+      "comment": "app.json (expo.version)",
+      "example": "\"version\": \"1.0.0\""
+    },
+    "axes": { "deploy": [], "publish": [] },
+    "is_app": true,
+    "launch_kinds": ["app"],
+    "root_resolver": "expo-root",
+    "deploy_trigger_workflows": [
+      "PROJECT-REACT-NATIVE-EXPO-ANDROID-PLAYSTORE-CICD.yaml",
+      "PROJECT-REACT-NATIVE-EXPO-IOS-TESTFLIGHT.yaml"
+    ]
+  },
+  {
+    "id": "node",
+    "label": "Node.js",
+    "description": "Node.js",
+    "detect": {
+      "markers": ["package.json"],
+      "fallback_only": true,
+      "extensions": { "patterns": ["\\.ts$", "\\.js$"], "min_count": 3 },
+      "secondary": "`express`, `fastify`, and so on"
+    },
+    "path_search": { "files": ["package.json"] },
+    "version": {
+      "format": "package_json",
+      "build_number": null,
+      "display": "package.json",
+      "comment": "package.json (\"version\": \"x.y.z\")",
+      "example": "\"version\": \"1.0.0\""
+    },
+    "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
+    "is_app": false,
+    "launch_kinds": ["web", "server"],
+    "root_resolver": null,
+    "deploy_trigger_workflows": ["PROJECT-NODE-NPM-PUBLISH.yaml"]
+  },
+  {
+    "id": "basic",
+    "label": "Basic",
+    "description": "General purpose",
+    "detect": {
+      "markers": [],
+      "secondary": "Only `version.yml` exists"
+    },
+    "path_search": { "files": [] },
+    "version": {
+      "format": null,
+      "build_number": null,
+      "display": "version.yml only",
+      "comment": "version.yml only",
+      "example": "-"
+    },
+    "axes": { "deploy": [], "publish": [] },
+    "is_app": false,
+    "launch_kinds": [],
+    "root_resolver": null,
+    "deploy_trigger_workflows": []
+  }
+]

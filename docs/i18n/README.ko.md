@@ -151,7 +151,7 @@ npx projectops --mode skills
 - **릴리스가 잦습니다.** `latest`는 `main`을 따릅니다. `npx projectops@<버전>`은 설치 도구만 고정하고 워크플로 템플릿은 고정하지 않습니다.
 - **서버 배포는 SSH로 접속되는 Docker 호스트를 가정합니다.** 개인 액세스 토큰은 선택입니다 ([설정](https://cassiiopeia.github.io/projectops/ko/getting-started)).
 
-지원 타입: `spring`, `flutter`, `react` (Next.js 포함), `node`, `python`, `react-native`, `react-native-expo`, `basic`. `@projectops server build`, `@projectops build app` 같은 댓글 명령: [PR Preview](https://cassiiopeia.github.io/projectops/ko/pr-preview), [Flutter 빌드](https://cassiiopeia.github.io/projectops/ko/flutter-test-build-trigger), [이슈 자동화](https://cassiiopeia.github.io/projectops/ko/issue-automation).
+지원 타입: <!-- generated: project-types:types-list -->`flutter`, `spring`, `python`, `react`, `react-native`, `react-native-expo`, `node`, `basic`<!-- /generated --> (`react`는 Next.js 포함). `@projectops server build`, `@projectops build app` 같은 댓글 명령: [PR Preview](https://cassiiopeia.github.io/projectops/ko/pr-preview), [Flutter 빌드](https://cassiiopeia.github.io/projectops/ko/flutter-test-build-trigger), [이슈 자동화](https://cassiiopeia.github.io/projectops/ko/issue-automation).
 
 ## 커뮤니티
 

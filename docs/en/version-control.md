@@ -62,16 +62,18 @@ project_paths:
 
 ## Version files by project type
 
+<!-- generated: project-types:version-files -->
 | Type | Version file | Version location |
-|------|----------|----------|
-| `spring` | `build.gradle` | `version = '1.0.0'` |
+|------|------|------|
 | `flutter` | `pubspec.yaml` | `version: 1.0.0+1` |
-| `react` (including Next.js) | `package.json` | `"version": "1.0.0"` |
-| `node` | `package.json` | `"version": "1.0.0"` |
+| `spring` | `build.gradle` | `version = '1.0.0'` |
 | `python` | `pyproject.toml` | `version = "1.0.0"` |
-| `react-native` | `Info.plist` + `build.gradle` | iOS/Android separate |
+| `react` | `package.json` | `"version": "1.0.0"` |
+| `react-native` | `Info.plist + build.gradle` | `CFBundleShortVersionString / versionName` |
 | `react-native-expo` | `app.json` | `"version": "1.0.0"` |
-| `basic` | `version.yml` only | - |
+| `node` | `package.json` | `"version": "1.0.0"` |
+| `basic` | `version.yml only` | - |
+<!-- /generated -->
 
 ---
 

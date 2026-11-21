@@ -151,7 +151,7 @@ npx projectops --mode skills
 - **发布频繁。** `latest` 跟随 `main`；`npx projectops@<version>` 只固定安装器，不固定工作流模板。
 - **服务器部署假定有可通过 SSH 访问的 Docker 主机。** 个人访问令牌是可选的（[设置](https://cassiiopeia.github.io/projectops/getting-started)）。
 
-支持的类型：`spring`、`flutter`、`react`（含 Next.js）、`node`、`python`、`react-native`、`react-native-expo`、`basic`。`@projectops server build`、`@projectops build app` 等评论命令：[PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)、[Flutter 构建](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger)、[Issue 自动化](https://cassiiopeia.github.io/projectops/issue-automation)。
+支持的类型：<!-- generated: project-types:types-list -->`flutter`、`spring`、`python`、`react`、`react-native`、`react-native-expo`、`node`、`basic`<!-- /generated -->（`react` 含 Next.js）。`@projectops server build`、`@projectops build app` 等评论命令：[PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)、[Flutter 构建](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger)、[Issue 自动化](https://cassiiopeia.github.io/projectops/issue-automation)。
 
 ## 社区
 

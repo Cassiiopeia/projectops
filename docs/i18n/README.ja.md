@@ -151,7 +151,7 @@ npx projectops --mode skills
 - **リリースが頻繁です。** `latest` は `main` に追従します。`npx projectops@<version>` が固定するのはインストーラーだけで、ワークフローテンプレートは固定されません。
 - **サーバーデプロイは SSH で接続できる Docker ホストを前提とします。** 個人アクセストークンは任意です（[設定](https://cassiiopeia.github.io/projectops/getting-started)）。
 
-対応タイプ：`spring`、`flutter`、`react`（Next.js を含む）、`node`、`python`、`react-native`、`react-native-expo`、`basic`。`@projectops server build`、`@projectops build app` などのコメントコマンド：[PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)、[Flutter ビルド](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger)、[Issue 自動化](https://cassiiopeia.github.io/projectops/issue-automation)。
+対応タイプ：<!-- generated: project-types:types-list -->`flutter`、`spring`、`python`、`react`、`react-native`、`react-native-expo`、`node`、`basic`<!-- /generated -->（`react` は Next.js を含む）。`@projectops server build`、`@projectops build app` などのコメントコマンド：[PR Preview](https://cassiiopeia.github.io/projectops/pr-preview)、[Flutter ビルド](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger)、[Issue 自動化](https://cassiiopeia.github.io/projectops/issue-automation)。
 
 ## コミュニティ
 

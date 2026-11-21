@@ -55,47 +55,39 @@ These are parsed by other code. Changing them silently breaks installed projects
 
 ## How to add a new project type
 
-The type list is still written by hand in several places (a single registry is planned in #1244). Use this checklist and
-`grep -rn '"react-native-expo"'` to find every spot; the Expo support in #1240 is a complete worked example.
-Open an issue first and agree on the markers, the version file and the build commands.
+Type facts live in one file, **`src/core/project-types.json`** (#1244). The installer reads it directly; the Python
+scripts in user repos and the skills read generated copies. Open an issue first and agree on the markers, the version
+file and the build commands. Example: adding `go`.
 
-**Detection and installer (`src/`)**
-
-1. Add the id to `VALID_TYPES` (`src/context.js`) and to the type menu (`src/ui/prompts.js`, `all`).
-2. Markers: `detectTypesFromMarkers`, `markerForType`, `extraMarkers` and the extension scan order in `src/core/detect.js`;
-   `KNOWN_MARKER_TYPES` and the marker names in `findTypePathCandidates` (`src/core/paths-resolve.js`); the type order in
-   `detectTypesInSubfolders` (`src/core/detect-fs.js`).
-3. Deploy and publish axes: `TYPE_DEPLOY_TARGETS` and `TYPE_PUBLISH_TARGETS` in `src/core/options-ask.js`. Keep them in line
-   with the `server-deploy/` and `publish/<target>/` folders. App types use empty arrays.
-4. Text: the supported list in `src/cli/help.js` (English and Korean), the `--type` and `--deploy` entries in
-   `src/core/options-schema.js` (then `node scripts/build_options_reference.mjs`), and the sync-file comments in
-   `src/core/version-yml.js` (both languages).
-5. If workflows need the project folder, add a resolver in `makeResolvers` (`src/core/detect-fs.js`) and use it as
-   `APP_ROOT: "."  # @wizard auto:<type>-root`.
-6. Push-to-deploy workflows go into `DEPLOY_TRIGGER_WORKFLOWS` (`src/core/branch-sub.js`); decide whether CI belongs in
-   `src/core/ci-minutes-sub.js`.
-7. Per-type lines on the finish screen: `src/ui/summary.js` and both `src/i18n/summary.*.js` dictionaries.
-
-**Workflows and scripts (`.github/`)**
-
-8. Create `.github/workflows/project-types/<type>/`. Server deployment goes under `<type>/server-deploy/`, registry publishing
-   under `<type>/publish/<target>/`. Read `docs/architecture/agent/workflows.md` first (permissions, `@wizard` markers,
-   `paths-anchor` for monorepos).
-9. Version sync in `.github/scripts/version_manager.py`: the path in `get_type_path`, the read branch, a `_sync_<type>`
-   function in `TYPE_SYNCERS` and the file name map. Also `VALID_TYPES` and the comments in `template_initializer.py`.
-10. Shared script logic goes into a script in `.github/scripts/` and that file into `copyScripts` (`src/core/copy/simple.js`),
-    or user repos never get it. Workflows that read the issue branch name go into `GUIDE_LINES` (`issue_helper.py`).
-
-**Skills and docs**
-
-11. App types: `_APP_PROJECT_TYPES` in `skills/pro-changelog-deploy/scripts/release_context.py`; detection in
-    `skills/pro-launch/scripts/pro_launch/commands/detect.py` and `skills/references/project-detection.md`.
-12. The type table in `README.md` (and the ja, ko, zh-CN copies), `CLAUDE.md`, `docs/*VERSION-CONTROL*` and a docs page
-    in both languages with the same slug (`site/.vitepress/config.mts`).
-
-**Verify**: install into a sample repo from the working tree (copy the tree into `.template_download_temp/` of the sample,
-then `node <repo>/bin/projectops.js --mode full --force`), once with `--type` and once without, also as a monorepo
-subfolder. Run `npm test` and the Python watch tests. Do not commit new tests.
+1. **Add an entry** to `src/core/project-types.json`. Array position is the detection order and decides the primary type
+   when several types are found. Fields:
+   - `detect`: `markers` (files that mean this type), optional `package_json` rule (dependency keys:
+     `requires_all`, `requires_any`, `requires_any_prefix`, `excludes_any`, `excludes_any_prefix`), optional
+     `fallback_only`, optional `extensions` (`patterns`, `min_count`) for the no-marker recommendation, and `secondary`
+     (text for the detection doc)
+   - `path_search`: `files` that locate the project folder in a monorepo (first = main marker), optional `require_dir`,
+     `exclude_parts`, `gradle_settings_root`
+   - `version`: `format` (a handler in `.github/scripts/version_manager.py`, or null for version.yml only),
+     `build_number` (handler or null), `display`, `comment` (language-neutral), `example`
+   - `axes`: deploy and publish targets (empty for app types), `is_app`, `launch_kinds` (`app`, `web`, `server`),
+     `root_resolver` (`<name>-root` when workflows use `APP_ROOT: "."  # @wizard auto:<name>-root`, else null),
+     `deploy_trigger_workflows` (workflow files that deploy on push)
+   Unknown fields fail the check, so a typo cannot silently do nothing.
+2. **Create `.github/workflows/project-types/<id>/`** with its workflows. Server deployment goes under
+   `<id>/server-deploy/`, registry publishing under `<id>/publish/<target>/`. Read `docs/architecture/agent/workflows.md`
+   first (permissions, `@wizard` markers, `paths-anchor` for monorepos). A type without workflows has no folder.
+3. **Only if the version file has a new format**, add a handler to `VERSION_FORMAT_HANDLERS` (and
+   `BUILD_NUMBER_HANDLERS` if it has a build number) in `.github/scripts/version_manager.py`. Go has no version file:
+   `"format": null`.
+4. **Run `node scripts/build_project_types.mjs`.** It writes the copies (`.github/config/project-types.json`,
+   `scripts/common/project_types.json`) and the generated blocks in the READMEs, `CLAUDE.md`, the version-control docs
+   and `skills/references/project-detection.md`.
+5. **Optional, by hand:** per-type lines on the finish screen (`src/ui/summary.js` + both `src/i18n/summary.*.js`), shared
+   script logic in `.github/scripts/` added to `copyScripts` (`src/core/copy/simple.js`), branch-name guide lines in
+   `issue_helper.py` (`GUIDE_LINES`), CI minutes rewrites (`src/core/ci-minutes-sub.js`), a docs page in both languages.
+6. **Verify:** `npm test` (registry check and generated blocks), then install into a sample repo from the working tree
+   (copy the tree into `.template_download_temp/` of the sample, then `node <repo>/bin/projectops.js --mode full --force`),
+   with and without `--type`, also as a monorepo subfolder. Do not commit new tests.
 
 ## How to add a CLI flag
 

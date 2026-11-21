@@ -62,16 +62,18 @@ project_paths:
 
 ## 프로젝트 타입별 버전 파일
 
+<!-- generated: project-types:version-files -->
 | 타입 | 버전 파일 | 버전 위치 |
-|------|----------|----------|
-| `spring` | `build.gradle` | `version = '1.0.0'` |
+|------|------|------|
 | `flutter` | `pubspec.yaml` | `version: 1.0.0+1` |
-| `react` (Next.js 포함) | `package.json` | `"version": "1.0.0"` |
-| `node` | `package.json` | `"version": "1.0.0"` |
+| `spring` | `build.gradle` | `version = '1.0.0'` |
 | `python` | `pyproject.toml` | `version = "1.0.0"` |
-| `react-native` | `Info.plist` + `build.gradle` | iOS/Android 분리 |
+| `react` | `package.json` | `"version": "1.0.0"` |
+| `react-native` | `Info.plist + build.gradle` | `CFBundleShortVersionString / versionName` |
 | `react-native-expo` | `app.json` | `"version": "1.0.0"` |
-| `basic` | `version.yml` 만 | - |
+| `node` | `package.json` | `"version": "1.0.0"` |
+| `basic` | `version.yml only` | - |
+<!-- /generated -->
 
 ---
 

@@ -150,7 +150,7 @@ If you only need one piece of this, a smaller tool may suit you better ([full co
 - **Frequent releases.** `latest` follows `main`; `npx projectops@<version>` pins the installer only, not the workflow templates.
 - **Server deploys assume a Docker host reachable over SSH.** A personal access token is optional ([setup](https://cassiiopeia.github.io/projectops/getting-started)).
 
-Supported types: `spring`, `flutter`, `react` (incl. Next.js), `node`, `python`, `react-native`, `react-native-expo`, `basic`. Comment commands such as `@projectops server build` and `@projectops build app`: [PR Preview](https://cassiiopeia.github.io/projectops/pr-preview), [Flutter builds](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger), [Issue automation](https://cassiiopeia.github.io/projectops/issue-automation).
+Supported types: <!-- generated: project-types:types-list -->`flutter`, `spring`, `python`, `react`, `react-native`, `react-native-expo`, `node`, `basic`<!-- /generated --> (`react` includes Next.js). Comment commands such as `@projectops server build` and `@projectops build app`: [PR Preview](https://cassiiopeia.github.io/projectops/pr-preview), [Flutter builds](https://cassiiopeia.github.io/projectops/flutter-test-build-trigger), [Issue automation](https://cassiiopeia.github.io/projectops/issue-automation).
 
 ## Community
 

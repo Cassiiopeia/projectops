@@ -4,17 +4,18 @@ Determine the type from which files exist at the project root.
 
 ## Detection rules
 
+<!-- generated: project-types:detection -->
 | Type | Required files | Secondary checks |
-|------|----------|----------|
-| **Spring Boot** | `pom.xml` or `build.gradle` / `build.gradle.kts` | `src/main/java/`, Spring dependencies |
-| **React** | `package.json` + `react` dependency | `src/` or `app/`, `tsconfig.json` |
-| **React Native** | `package.json` + `react-native` dependency | `android/`, `ios/` directories |
-| **React Native Expo** | `package.json` + `expo` dependency | `expo` key in `app.json`; `android/` and `ios/` may be absent |
-| **Flutter** | `pubspec.yaml` | `lib/` directory |
-| **Next.js** | `package.json` + `next` dependency | `next.config.js` |
-| **Node.js** | `package.json` (no framework) | `express`, `fastify`, and so on |
-| **Python** | `pyproject.toml` or `requirements.txt` | `manage.py` (Django), `main.py` (FastAPI) |
-| **basic** | Matches none of the types above | Only `version.yml` exists |
+|------|------|------|
+| **Flutter** (`flutter`) | `pubspec.yaml` | `lib/` directory |
+| **Spring Boot** (`spring`) | `build.gradle` or `build.gradle.kts` or `pom.xml` | `src/main/java/`, Spring dependencies |
+| **Python** (`python`) | `pyproject.toml` or `setup.py` or `requirements.txt` | `manage.py` (Django), `main.py` (FastAPI) |
+| **React / Next.js** (`react`) | `package.json` + `react` or `next` dependency, no `react-native` or `@react-native/*` | `src/` or `app/`, `tsconfig.json`, `next.config.js` |
+| **React Native CLI** (`react-native`) | `package.json` + `react-native` or `@react-native/*` dependency, no `expo` | `android/`, `ios/` directories |
+| **React Native (Expo)** (`react-native-expo`) | `package.json` + `expo` and `react-native` or `@react-native/*` dependency | `expo` key in `app.json`; `android/` and `ios/` may be absent |
+| **Node.js** (`node`) | `package.json` (only when no other type matches) | `express`, `fastify`, and so on |
+| **Basic** (`basic`) | Matches no other type | Only `version.yml` exists |
+<!-- /generated -->
 
 ## Detection order
 

@@ -1,6 +1,6 @@
 {
   "_about": "Hangul non-comment lines per file (#769). Numbers may only go down. Regenerate lowered numbers: python3 scripts/tests/test_korean_line_budget.py --update",
-  "total": 1026,
+  "total": 1025,
   "files": {
     ".github/config/breaking-changes.json": 1,
     ".github/config/issue-labels.yml": 9,
@@ -49,9 +49,9 @@
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml": 3,
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-CI.yaml": 5,
     ".github/workflows/project-types/flutter/PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml": 2,
-    ".github/workflows/project-types/react-native-expo/PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER.yaml": 2,
     ".github/workflows/project-types/python/PROJECT-PYTHON-CI.yaml": 1,
     ".github/workflows/project-types/python/server-deploy/PROJECT-PYTHON-PR-PREVIEW.yaml": 4,
+    ".github/workflows/project-types/react-native-expo/PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER.yaml": 2,
     ".github/workflows/project-types/spring/server-deploy/PROJECT-SPRING-PR-PREVIEW.yaml": 4,
     "README.md": 1,
     "plugins/projectops-extras/skills/pro-disk-cleanup/SKILL.md": 2,
@@ -134,7 +134,7 @@
     "src/core/migrations/rules/settings-extractors.js": 2,
     "src/core/options-schema.js": 1,
     "src/core/paths-resolve.js": 5,
-    "src/core/version-yml.js": 40,
+    "src/core/version-yml.js": 37,
     "src/i18n/en.js": 1
   }
 }
