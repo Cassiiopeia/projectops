@@ -70,7 +70,8 @@ export function detectTypesInSubfolders(root, maxDepth = MONOREPO_MARKER_DEPTH) 
   // Same order as the root scan (first = primary type), not folder name order
   const unique = [...new Set(found)].sort((left, right) => MARKER_TYPE_ORDER.indexOf(left) - MARKER_TYPE_ORDER.indexOf(right));
   // Same rule as the root scan: a plain node folder (tooling scripts) does not count next to a real project
-  return unique.length > 1 ? unique.filter((type) => type !== "node") : unique;
+  const fallbackIds = new Set(PROJECT_TYPES.filter((type) => type.detect.fallback_only).map((type) => type.id));
+  return unique.length > 1 ? unique.filter((type) => !fallbackIds.has(type)) : unique;
 }
 
 // Type detection — version.yml project_types first (source of truth), else a marker scan.
