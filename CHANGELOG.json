@@ -1,14 +1,46 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-21T15:46:02Z",
-    "currentVersion": "4.110.1",
+    "lastUpdated": "2026-11-21T20:50:28Z",
+    "currentVersion": "4.110.2",
     "projectType": "basic",
-    "totalReleases": 426,
+    "totalReleases": 427,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.110.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-21",
+      "pr_number": 1258,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Disk cleanup keeps plugin versions that a project still has installed, even when they are older than the newest two\n  * Disk cleanup no longer crashes on an unexpected installed_plugins.json shape\n\n* **Improvements**\n  * Monorepo detection takes the fallback type from the project type registry\n\n* **Documentation**\n  * The CLI docs point to the generated type table and describe bare React Native correctly",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Disk cleanup keeps plugin versions that a project still has installed, even when they are older than the newest two",
+            "Disk cleanup no longer crashes on an unexpected installed_plugins.json shape"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Monorepo detection takes the fallback type from the project type registry"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The CLI docs point to the generated type table and describe bare React Native correctly"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.110.1",
       "project_type": "basic",

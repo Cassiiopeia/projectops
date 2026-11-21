@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.110.1  
-**Last updated:** 2026-11-21T15:46:02Z  
+**Current version:** 4.110.2  
+**Last updated:** 2026-11-21T20:50:28Z  
+
+---
+
+## [4.110.2] - 2026-11-21
+
+**PR:** #1258  
+
+**Bug fixes**
+- Disk cleanup keeps plugin versions that a project still has installed, even when they are older than the newest two
+- Disk cleanup no longer crashes on an unexpected installed_plugins.json shape
+
+**Improvements**
+- Monorepo detection takes the fallback type from the project type registry
+
+**Documentation**
+- The CLI docs point to the generated type table and describe bare React Native correctly
 
 ---
 
