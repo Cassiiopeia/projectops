@@ -147,7 +147,7 @@ Each skill has its own `scripts/<scope>_cli.py`. CLIs with many subcommands are 
 
 | skill | CLI file | Main subcommands |
 |---|---|---|
-| github | `skills/pro-github/scripts/github_cli.py` | create-issue, get-issue, get-issues, list-issues, update-issue, close-issue, reopen-issue, search-issues, add-comment, list-comments, edit-comment, delete-comment, list-labels, add-labels, remove-label, set-labels, add-assignees, remove-assignees, create-pr, list-prs, update-pr, get-pr, add-pr-comment, close-pr, reopen-pr, merge-pr, normalize-title, create-branch-name, get-commit-template, explore, create-repo, secrets, actions, upload-image, delete-image, get-output-path |
+| github | `skills/pro-github/scripts/github_cli.py` | create-issue, get-issue, get-issues, list-issues, update-issue, close-issue, reopen-issue, search-issues, add-comment, list-comments, edit-comment, delete-comment, list-labels, add-labels, remove-label, set-labels, add-assignees, remove-assignees, create-pr, list-prs, update-pr, get-pr, add-pr-comment, close-pr, reopen-pr, merge-pr, normalize-title, create-branch-name, get-commit-template, explore, create-repo, update-repo, delete-repo, secrets, actions, upload-image, delete-image, get-output-path |
 | commit | `skills/pro-commit/scripts/commit_cli.py` | get-issue-number, get-issue, normalize-title, sanitize-message, get-commit-template, resolve-style |
 | report | `skills/pro-report/scripts/report_cli.py` | get-output-path, add-comment |
 | review | `skills/pro-review/scripts/review_cli.py` | get-output-path |

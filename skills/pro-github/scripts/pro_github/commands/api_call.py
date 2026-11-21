@@ -101,7 +101,7 @@ def cmd_api(args, api) -> int:
     if is_repository_admin_write(method, path, prefix):
         return emit({"ok": False, "code": "repo_admin_blocked",
                      "error": f"repo settings, deletion, transfer, secrets and permission writes do not go through this pass-through: {method} {path}",
-                     "next": "use secrets set for secrets; the user changes repo settings in the GitHub UI"})
+                     "next": _repository_admin_next(args, method, path, prefix)})
     # Reject paths outside the target repo (other repos, users, orgs) — keeps the pass-through from becoming a general token runner
     if not is_path_in_scope(method, path, prefix):
         return emit({"ok": False, "code": "path_out_of_scope",
@@ -127,6 +127,27 @@ def cmd_api(args, api) -> int:
         if not is_json:
             return _emit_binary_saved(args, method, path, data)
     return _emit_api_result(args, method, path, data)
+
+
+def _repository_admin_next(args, method: str, path: str, prefix: str) -> str:
+    """Blocked repo admin write > dedicated command when one fits (visibility-only PATCH, DELETE of the repo, #1241)"""
+    is_repository_root = path.split("?", 1)[0].rstrip("/") == prefix.rstrip("/")
+    if is_repository_root and method == "DELETE":
+        return f"delete-repo {args.owner} {args.repo} --dry-run (deleting then needs --confirm {args.owner}/{args.repo})"
+    if is_repository_root and method == "PATCH" and _is_visibility_only_body(args.body_file):
+        return f"update-repo {args.owner} {args.repo} --visibility public|private --dry-run"
+    return "use secrets set for secrets; update-repo for visibility; the user changes other repo settings in the GitHub UI"
+
+
+def _is_visibility_only_body(body_file: str | None) -> bool:
+    """Body file holds only private and/or visibility (unreadable or empty > False)"""
+    if not body_file:
+        return False
+    try:
+        payload = json.loads(Path(body_file).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(payload, dict) and bool(payload) and set(payload) <= {"private", "visibility"}
 
 
 def _out_of_scope_next(args, method: str, path: str) -> str:

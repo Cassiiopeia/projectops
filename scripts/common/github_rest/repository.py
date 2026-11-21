@@ -1,4 +1,4 @@
-"""Repo exploration and creation: owner type, repo list and details, README, languages, commits, visibility, new repo."""
+"""Repo exploration and admin: owner type, repo list and details, README, languages, commits, visibility, create, delete."""
 
 from __future__ import annotations
 
@@ -52,6 +52,12 @@ def get_repo_detail(owner: str, repo: str, pat: str) -> dict:
         # Visibility: used for evidence image rendering and open-source audit decisions
         "private": data.get("private", False),
         "visibility": data.get("visibility"),
+        # Shown before update-repo / delete-repo (size in KB)
+        "full_name": data.get("full_name"),
+        "size_kb": data.get("size", 0),
+        "pushed_at": data.get("pushed_at"),
+        "archived": data.get("archived", False),
+        "fork": data.get("fork", False),
     }
 
 
@@ -130,3 +136,22 @@ def create_repo(owner: str, name: str, pat: str, *, is_private: bool, descriptio
         "default_branch": data.get("default_branch"),
         "clone_url": data.get("clone_url"),
     }
+
+
+def update_repo_visibility(owner: str, repo: str, pat: str, *, is_private: bool) -> dict:
+    """PATCH /repos/{owner}/{repo} with the private field only (#1241)"""
+    data = client._request("PATCH", f"{_API_BASE}/repos/{owner}/{repo}", {"private": is_private}, pat)
+    return {"full_name": data.get("full_name"), "private": data.get("private"),
+            "visibility": data.get("visibility"), "url": data.get("html_url")}
+
+
+def delete_repo(owner: str, repo: str, pat: str) -> None:
+    """DELETE /repos/{owner}/{repo} — irreversible; needs delete_repo scope or Administration write (#1241)"""
+    client._request("DELETE", f"{_API_BASE}/repos/{owner}/{repo}", None, pat)
+
+
+def list_tree_paths(owner: str, repo: str, ref: str, pat: str) -> tuple[list[str], bool]:
+    """File paths on ref (one recursive tree call) > (paths, truncated by GitHub)"""
+    data = client._request("GET", f"{_API_BASE}/repos/{owner}/{repo}/git/trees/{ref}?recursive=1", None, pat)
+    paths = [item["path"] for item in data.get("tree", []) if item.get("type") == "blob"]
+    return paths, bool(data.get("truncated"))

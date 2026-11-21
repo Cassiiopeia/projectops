@@ -24,7 +24,7 @@ from common.github_rest.issues import (  # noqa: F401
 )
 from common.github_rest.repository import (  # noqa: F401
     get_user_type, list_repos, get_repo_detail, get_readme, get_languages, list_commits,
-    get_authenticated_login, create_repo,
+    get_authenticated_login, create_repo, update_repo_visibility, delete_repo, list_tree_paths,
     is_repo_private,
 )
 from common.github_rest.actions_secrets import (  # noqa: F401

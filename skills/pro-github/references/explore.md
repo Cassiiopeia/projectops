@@ -51,3 +51,30 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-repo {owner} {nam
 | `repo_exists` | The name is already taken | Nothing was created. Ask for another name |
 | `github_api_403` / `github_api_404` | The PAT cannot create repos for this owner | Tell the user the PAT needs repo-creation rights for that owner |
 
+
+## Change visibility (update-repo) · delete a repository (delete-repo)
+
+The `api` command keeps refusing repo settings and deletion (`repo_admin_blocked`); these two narrow commands are the only way.
+**Pass `--confirm` only after the user explicitly asked for this exact change in this conversation.** A request for something else, an earlier session or your own judgment does not count. Always run `--dry-run` first and show the user what it returned.
+
+```bash
+# Visibility: dry run shows current vs target and warnings (going public: history becomes public, Actions secrets count, tracked credential-like files)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-repo {owner} {repo} --visibility public --dry-run
+# Apply (only the private field changes; description, settings and permissions are untouched)
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py update-repo {owner} {repo} --visibility public --confirm
+```
+
+**Deletion is destructive and irreversible** (code, issues, PRs, releases, wiki and Actions history are gone). The dry run shows visibility, default branch, size, last push and open issues; read them back to the user before deleting. `--confirm` takes the exact `owner/repo` typed back, so a wrong target is refused.
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py delete-repo {owner} {repo} --dry-run
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py delete-repo {owner} {repo} --confirm {owner}/{repo}
+```
+
+| code | Meaning | Next action |
+|---|---|---|
+| `unchanged` | update-repo: already at the target visibility | Nothing to do |
+| `confirm_required` | No `--confirm` (and not a dry run); nothing changed | Ask the user; run the `next` command only if they asked for this change |
+| `confirm_mismatch` | delete-repo: `--confirm` is not exactly `owner/repo`; nothing deleted | Check the target with the user |
+| `repo_not_found` | The repo does not exist or the PAT cannot see it | Check the name with `explore list-repos` |
+| `github_api_403` | The PAT lacks admin rights (`hint` names the scope) | update-repo: classic `repo` scope; delete-repo: classic `delete_repo` scope; fine-grained: Administration write |

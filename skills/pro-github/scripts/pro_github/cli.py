@@ -6,7 +6,7 @@ import functools
 from common.cli_parser import JSONArgumentParser
 from pro_github.commands import (
     actions, actions_secrets, api_call, assignees, comments, conventions, finish, images, issues, labels, pulls,
-    repository,
+    repository, repository_admin,
 )
 from pro_github.registry import Command
 
@@ -17,10 +17,10 @@ HELP_ORDER = (
     "list-labels", "add-labels", "remove-label", "set-labels", "add-assignees", "remove-assignees",
     "create-pr", "list-prs", "update-pr", "get-pr", "add-pr-comment", "close-pr", "reopen-pr", "merge-pr",
     "search-issues", "get-output-path", "normalize-title", "create-branch-name", "get-commit-template",
-    "explore", "upload-image", "delete-image", "secrets", "actions", "api",
+    "explore", "create-repo", "update-repo", "delete-repo", "upload-image", "delete-image", "secrets", "actions", "api",
 )
 
-_MODULES = (issues, finish, comments, labels, assignees, pulls, conventions, repository, images,
+_MODULES = (issues, finish, comments, labels, assignees, pulls, conventions, repository, repository_admin, images,
             actions_secrets, actions, api_call)
 
 

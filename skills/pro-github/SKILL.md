@@ -49,6 +49,8 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subco
 | REST call with no dedicated command (**instead of curl or reading the PAT yourself**) | `api GET\|POST\|PUT\|PATCH\|DELETE {owner} {repo} <path> [--out file]` (a relative path such as `actions/runs` gets the repo prefix) | `references/actions.md` |
 | Repo list · details · README · languages · commits | `explore list-repos\|repo-detail\|readme\|languages\|commits` | `references/explore.md` |
 | Create a repository (PAT user or org; `repo_exists` if taken) | `create-repo {owner} {name} [--private] [--description D] [--auto-init] [--dry-run]` | `references/explore.md` |
+| Change repo visibility (**`--confirm` only after the user asked in this conversation**) | `update-repo {owner} {repo} --visibility public\|private [--dry-run] [--confirm]` | `references/explore.md` |
+| Delete a repository (**destructive, irreversible; dry run first, `--confirm` only after the user asked**) | `delete-repo {owner} {repo} [--dry-run] [--confirm {owner}/{repo}]` | `references/explore.md` |
 | List · create/update Actions secrets | `secrets list\|set` | `references/secrets.md` |
 
 ## Calling the CLI
