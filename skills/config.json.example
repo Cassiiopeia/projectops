@@ -69,16 +69,29 @@
     "backup_dir": "~/.projectops/backups/disk-cleanup"
   },
   "project-blueprint": {
-    "_comment": "extras pro-project-blueprint: infra values reused by every new project (no passwords or tokens). Annotated shape: plugins/projectops-extras/skills/pro-project-blueprint/config.sample.json.",
+    "_comment": "extras pro-project-blueprint: shared infra defined once + a registry of projects that reference it by name (references and non-secret metadata only; unknown keys are kept). Annotated shape: plugins/projectops-extras/skills/pro-project-blueprint/config.sample.json.",
+    "schema_version": 2,
     "infra": {
-      "docker_username": "{docker-username}",
-      "ssh_server_name": "{pro-ssh entry name}",
-      "volume_base_path": "{volume-base}",
-      "root_domain": "{root-domain}"
+      "registry": { "provider": "dockerhub", "username": "{docker-username}" },
+      "dns": { "provider": "cloudflare", "root_domain": "{root-domain}" },
+      "servers": {
+        "{server-name}": { "credential": "{launch credential name}", "volume_base_path": "{volume-base}" }
+      },
+      "databases": {
+        "{db-instance}": { "engine": "postgresql", "default_account": "{account}", "accounts": { "{account}": { "role": "{db-role}" } } }
+      }
     },
     "defaults": {
       "development_branch": "develop",
       "deploy_trigger_branch": "deploy"
+    },
+    "projects": {
+      "{project}": {
+        "status": "active",
+        "repos": [{ "github": "{owner/repo}", "local_path": "{absolute path}" }],
+        "deploy": { "server": "{server-name}", "services": [{ "role": "backend", "container": "{project}-back" }] },
+        "database": { "instance": "{db-instance}", "name": "{project}" }
+      }
     }
   },
   "skill-bug": {

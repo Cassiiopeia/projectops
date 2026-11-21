@@ -11,7 +11,7 @@ an issue, a PR, a report or a log.
 | Kind | Stored as | Examples |
 |---|---|---|
 | Workflow secrets (what CI itself needs) | one value per secret | `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SERVER_HOST`, `SERVER_USER`, `SERVER_PASSWORD`, store signing material |
-| Project runtime secrets (what the app reads) | **one whole file per platform** | Spring: `APPLICATION_PROD_YML` = the entire `application-prod.yml`; Expo / Flutter / Python: one `.env` file (`ENV_FILE`, `AI_ENV_FILE`) |
+| Project runtime secrets (what the app reads) | **one whole file per platform** | Spring: `APPLICATION_PROD_YML` = the entire `application-prod.yml` (including the database URL and the shared account's password); Expo / Flutter / Python: one `.env` file (`ENV_FILE`, `AI_ENV_FILE`) |
 
 - Binary files (keystore, `.p12`, provisioning profile, `.p8` when a tool wants base64) are stored base64-encoded, name
   ending in `_BASE64`.
@@ -19,6 +19,8 @@ an issue, a PR, a report or a log.
   secret once (`SECRET_VALUE` from the file, `pro-github secrets set <owner> <repo> APPLICATION_PROD_YML`).
   Do not add one GitHub Secret per key: the workflow stays unchanged and the file stays the single source.
 - After replacing a secret, re-run the backup workflow by hand (secret changes are not pushes, nothing runs on its own).
+- Record the secret *names* (never values) in the project's registry entry, `workflow` vs `runtime_files` with the
+  local file each one holds (`project-registry.md`).
 
 ## Spring configuration split
 

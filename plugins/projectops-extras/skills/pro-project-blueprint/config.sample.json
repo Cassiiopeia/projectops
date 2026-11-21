@@ -1,32 +1,116 @@
 {
-  "_comment": "Shape of the project-blueprint section in ~/.projectops/config/config.json. Placeholders only: real values go in that private file, never in a repo, issue or report.",
+  "_comment": "Shape of the project-blueprint section in ~/.projectops/config/config.json (schema_version 2). Placeholders only: real values go in that private file, never in a repo, issue or report. References and non-secret metadata only; passwords and tokens live in the launch credential store or GitHub Secrets. Unknown keys are kept as they are.",
   "project-blueprint": {
+    "schema_version": 2,
     "infra": {
-      "docker_username": "<docker-username>",
-      "ssh_server_name": "<pro-ssh entry name for the NAS>",
-      "server_host": "<nas-host>",
-      "ssh_port": "<ssh-port>",
-      "server_user": "<server-user>",
-      "volume_base_path": "<volume-base, e.g. /volume1/projects>",
-      "root_domain": "<root-domain>",
-      "api_host_pattern": "api.{project}.{root_domain}",
-      "dns_provider": "<cloudflare|route53|other>",
+      "registry": {
+        "provider": "dockerhub",
+        "username": "<docker-username>",
+        "credential": "<launch credential name, optional>"
+      },
+      "dns": {
+        "provider": "<cloudflare|route53|other>",
+        "root_domain": "<root-domain>",
+        "api_host_pattern": "api.{project}.{root_domain}"
+      },
       "traefik": {
+        "server": "<server name from infra.servers>",
         "internal_port": "<traefik-port>",
         "network": "<traefik-network>",
         "entrypoint": "web"
       },
-      "postgres": {
-        "host": "<postgres-host>",
-        "port": "<postgres-port>"
+      "servers": {
+        "<server-name>": {
+          "kind": "<synology|linux|windows>",
+          "credential": "<launch credential name used by pro-ssh>",
+          "host": "<server-host>",
+          "ssh_port": "<ssh-port>",
+          "user": "<server-user>",
+          "docker_bin": "<docker path, e.g. /usr/local/bin/docker>",
+          "volume_base_path": "<volume-base, e.g. /volume1/projects>",
+          "timezone": "<timezone, e.g. UTC>"
+        }
       },
-      "timezone": "<timezone, e.g. UTC>"
+      "databases": {
+        "<db-instance-name>": {
+          "engine": "postgresql",
+          "server": "<server name from infra.servers>",
+          "container": "<container name>",
+          "host": "<external db host>",
+          "port": "<external db port>",
+          "default_account": "<account name from accounts>",
+          "accounts": {
+            "<account-name>": {
+              "role": "<database role>",
+              "superuser": true,
+              "credential": "<launch credential name, optional>"
+            }
+          }
+        }
+      }
     },
     "defaults": {
       "default_branch": "main",
       "development_branch": "develop",
       "deploy_trigger_branch": "deploy",
       "secret_backup": true
+    },
+    "projects": {
+      "<project-key>": {
+        "status": "active",
+        "display_name": "<product name>",
+        "repos": [
+          {
+            "github": "<owner>/<repo>",
+            "local_path": "<absolute path of the main clone>",
+            "worktree_path": "<absolute path of the -Worktree folder, optional>",
+            "stacks": [
+              { "type": "spring", "path": "server" },
+              { "type": "react-native-expo", "path": "mobile" }
+            ],
+            "branches": {
+              "default": "main",
+              "development": "develop",
+              "deploy_trigger": "deploy"
+            },
+            "secrets": {
+              "workflow": ["DOCKERHUB_USERNAME", "DOCKERHUB_TOKEN", "SERVER_HOST", "SERVER_USER", "SERVER_PASSWORD"],
+              "runtime_files": {
+                "APPLICATION_PROD_YML": "server/src/main/resources/application-prod.yml",
+                "ENV_FILE": "mobile/.env"
+              }
+            },
+            "store": {
+              "ios_bundle_id": "<bundle id>",
+              "android_package": "<package name>"
+            }
+          }
+        ],
+        "deploy": {
+          "server": "<server name from infra.servers>",
+          "services": [
+            {
+              "role": "backend",
+              "image": "<docker-username>/<project>-back",
+              "container": "<project>-back",
+              "blue_green": true,
+              "volume_path": "<volume-base>/<project>/backend",
+              "runtime_config": "config/application-prod.yml",
+              "health_path": "/actuator/health",
+              "domains": [
+                { "host": "api.<project>.<root-domain>", "backend_port": "<traefik-port>" }
+              ]
+            }
+          ]
+        },
+        "database": {
+          "instance": "<db-instance-name>",
+          "name": "<project>",
+          "account": "<account name; omit to use the instance default_account>"
+        },
+        "gbrain_entity": "<gbrain entity slug, optional>",
+        "notes": "<free-form facts an agent should know>"
+      }
     }
   }
 }

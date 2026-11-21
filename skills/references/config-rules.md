@@ -266,34 +266,50 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 | `idle_hours` | | Anything touched within this many hours is kept. Default `2` |
 | `backup_dir` | | Where worktree backups go before removal (one dated folder per day). Default `~/.projectops/backups/disk-cleanup` |
 
-### `project-blueprint` section (#1249)
+### `project-blueprint` section (#1249, registry #1250)
 
-Read by the extras skill `pro-project-blueprint`. Holds the infra values the owner reuses in every project, so a new
-repo is set up without asking again. Placeholders below; the annotated shape ships as the skill's `config.sample.json`.
-No passwords or tokens here: SSH credentials stay in the `ssh` section, registry tokens go straight into GitHub Secrets.
+Read by the extras skill `pro-project-blueprint`. Holds the infra values the owner reuses in every project and a
+registry of the owner's projects, so a repo is set up or worked on without asking again. One section, not a sibling:
+config keys are owned by skill_id (§8), and the registry's references point into this section's `infra`.
+Placeholders below; the annotated shape ships as the skill's `config.sample.json`, and the lookup and write rules as
+its `project-registry.md` reference.
+**References and non-secret metadata only.** A `credential` field names a `launch` credential (§7 `launch`), never a
+password; `secrets` lists GitHub Secret names, never values. Keep keys you do not recognize when writing.
 
 ```json
 {
   "project-blueprint": {
+    "schema_version": 2,
     "infra": {
-      "docker_username": "<docker-username>",
-      "ssh_server_name": "<pro-ssh entry name>",
-      "server_host": "<nas-host>",
-      "ssh_port": "<ssh-port>",
-      "server_user": "<server-user>",
-      "volume_base_path": "<volume-base>",
-      "root_domain": "<root-domain>",
-      "api_host_pattern": "api.{project}.{root_domain}",
-      "dns_provider": "cloudflare",
-      "traefik": { "internal_port": "<traefik-port>", "network": "<traefik-network>", "entrypoint": "web" },
-      "postgres": { "host": "<postgres-host>", "port": "<postgres-port>" },
-      "timezone": "<timezone>"
+      "registry": { "provider": "dockerhub", "username": "<docker-username>" },
+      "dns": { "provider": "cloudflare", "root_domain": "<root-domain>", "api_host_pattern": "api.{project}.{root_domain}" },
+      "traefik": { "server": "<server-name>", "internal_port": "<traefik-port>", "network": "<traefik-network>", "entrypoint": "web" },
+      "servers": {
+        "<server-name>": { "kind": "synology", "credential": "<launch credential name>", "host": "<server-host>",
+                           "ssh_port": "<ssh-port>", "user": "<server-user>", "volume_base_path": "<volume-base>", "timezone": "<timezone>" }
+      },
+      "databases": {
+        "<db-instance>": { "engine": "postgresql", "server": "<server-name>", "container": "<container>", "host": "<db-host>",
+                           "port": "<db-port>", "default_account": "<account>",
+                           "accounts": { "<account>": { "role": "<db-role>", "superuser": true, "credential": "<launch credential name>" } } }
+      }
     },
-    "defaults": {
-      "default_branch": "main",
-      "development_branch": "develop",
-      "deploy_trigger_branch": "deploy",
-      "secret_backup": true
+    "defaults": { "default_branch": "main", "development_branch": "develop", "deploy_trigger_branch": "deploy", "secret_backup": true },
+    "projects": {
+      "<project>": {
+        "status": "active",
+        "repos": [{ "github": "<owner>/<repo>", "local_path": "<path>", "worktree_path": "<path>",
+                    "stacks": [{ "type": "spring", "path": "server" }],
+                    "branches": { "default": "main", "development": "develop", "deploy_trigger": "deploy" },
+                    "secrets": { "workflow": ["DOCKERHUB_TOKEN"], "runtime_files": { "APPLICATION_PROD_YML": "server/.../application-prod.yml" } },
+                    "store": { "ios_bundle_id": "<id>", "android_package": "<id>" } }],
+        "deploy": { "server": "<server-name>", "services": [{ "role": "backend", "image": "<image>", "container": "<container>",
+                    "blue_green": true, "volume_path": "<path>", "runtime_config": "config/application-prod.yml",
+                    "health_path": "/actuator/health", "domains": [{ "host": "<domain>", "backend_port": "<port>" }] }] },
+        "database": { "instance": "<db-instance>", "name": "<project>" },
+        "gbrain_entity": "<slug>",
+        "notes": "<free-form>"
+      }
     }
   }
 }
@@ -301,9 +317,14 @@ No passwords or tokens here: SSH credentials stay in the `ssh` section, registry
 
 | Field | Required | Description |
 |------|------|------|
-| `infra.*` | | Values filled into workflow `env:` blocks and GitHub Secrets of a new repo. Asked once, one at a time, when missing |
-| `infra.ssh_server_name` | | Name of the `ssh` section entry for the server, so credentials are not duplicated |
+| `schema_version` | | `2`. Missing = version 1 (flat `infra` keys: `docker_username`, `ssh_server_name`, `server_host`, `postgres.*` ...); read it and convert on the next write |
+| `infra.registry` / `infra.dns` / `infra.traefik` | | Shared values filled into workflow `env:` blocks and GitHub Secrets of a new repo. Asked once, one at a time, when missing |
+| `infra.servers.<name>` | | One entry per server; `credential` names the launch credential `pro-ssh` uses, so connection secrets are not duplicated |
+| `infra.databases.<instance>` | | One entry per database instance. `default_account` is the account projects use when they name none (default practice: one shared owner account, one database per project) |
 | `defaults.*` | | Branch names and options the user picked once; used as the answers to the projectops install questions |
+| `projects.<key>` | | Registry entry per project. Agents match the current repo by git remote (`repos[].github`) or path (`local_path`, `worktree_path`) before asking anything, and write the entry when a project is set up. Every field is optional; absent = unknown |
+| `projects.<key>.deploy.server`, `.database.instance`, `.database.account` | | Names of `infra.servers` / `infra.databases` / `accounts` entries, never copies of their values |
+| `projects.<key>.status` | | `active` or `archived` |
 
 ### `image` section
 

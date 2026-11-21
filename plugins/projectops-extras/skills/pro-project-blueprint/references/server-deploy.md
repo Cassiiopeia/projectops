@@ -4,6 +4,8 @@
 > debugging a deploy or rollback.
 
 Placeholders come from the `project-blueprint` section of the private config (`../config.sample.json` shows the shape).
+An existing project's real values (container, volume, domains, database) are in its registry entry
+(`project-registry.md`); read them there before asking.
 
 ## Topology
 
@@ -12,14 +14,17 @@ client --HTTPS--> DNS (<dns-provider>)  api.<project>.<root-domain>
        --> NAS reverse proxy (DSM, 443 and 80, certificate)
        --> Traefik  localhost:<traefik-port>  (routes by Host header)
        --> <project>-back-blue | <project>-back-green  (container port 8080, network <traefik-network>)
-       --> shared PostgreSQL <postgres-host>:<postgres-port>  database <project>, user <project>
+       --> shared PostgreSQL <postgres-host>:<postgres-port>  database <project>, shared account
 ```
 
 - Self-hosted Synology NAS running Docker. One Traefik container serves every project on one fixed internal port.
 - `pro-synology-expose` adds the DNS record, the two DSM reverse proxy rules (443 to Traefik, 80 forwarded with
   `X-Forwarded-Proto: http` so Traefik redirects it) and the Let's Encrypt certificate.
-- One shared PostgreSQL instance; each project gets its own database and its own user with rights on that database
-  only. Its password goes into `application-prod.yml`, nowhere else.
+- One shared PostgreSQL instance; each project gets its own database, and by default every project connects with the
+  instance's one shared owner account (`infra.databases.<instance>.default_account`). Simpler for a single owner:
+  one account to rotate, back up and administer. A per-project account with rights on its database only is an
+  option when a project needs isolation (`project-registry.md`). The password goes into `application-prod.yml`
+  (and the launch credential store), nowhere else.
 
 ## Image
 
@@ -54,13 +59,15 @@ The workflow triggers on push to the deploy trigger branch, filtered to the stac
 
 ## New project on the NAS
 
-1. Create the database and user on the shared PostgreSQL (`pro-ssh`).
+1. Create the database on the shared PostgreSQL, owned by the shared account (`pro-ssh`); create a per-project
+   account only if the project needs one.
 2. Create `{volume-base}/<project>/backend` (the deploy creates `config/` and `logs/` inside).
 3. Register workflow secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `SERVER_HOST`, `SERVER_USER`,
    `SERVER_PASSWORD`, plus `APPLICATION_PROD_YML`. Put the SSH port and volume path in the workflow `env:`
    from the private config at install time.
 4. `pro-synology-expose` for `api.<project>.<root-domain>` pointing at `localhost:<traefik-port>`.
 5. First deploy, then check `https://api.<project>.<root-domain>/actuator/health` and the container logs.
+6. Write the project's registry entry (`project-registry.md`).
 
 ## Apps
 
