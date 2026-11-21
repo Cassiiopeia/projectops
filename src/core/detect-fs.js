@@ -24,6 +24,8 @@ const SCAN_PRUNE = new Set([
   "android", "ios", ".gradle", "venv", ".venv", "__pycache__",
   // Keeps the template's own .github/scripts/*.py from being misdetected as python (#671)
   ".github",
+  // Template download folder of this installer (holds the template's own scripts)
+  ".template_download_temp",
 ]);
 export function listScanFiles(root, maxDepth = 3) {
   const files = [];
@@ -44,8 +46,34 @@ export function listScanFiles(root, maxDepth = 3) {
   return files;
 }
 
+// Monorepo marker scan: folders up to 2 levels down, a folder with markers is a project (not descended into) (#1243)
+const MONOREPO_MARKER_DEPTH = 2;
+// detectTypesFromMarkers push order
+const MARKER_TYPE_ORDER = ["flutter", "spring", "python", "react", "react-native", "react-native-expo", "node"];
+export function detectTypesInSubfolders(root, maxDepth = MONOREPO_MARKER_DEPTH) {
+  const found = [];
+  const walk = (rel, depth) => {
+    if (depth > maxDepth) return;
+    let entries;
+    try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      if (!e.isDirectory() || e.name.startsWith(".") || SCAN_PRUNE.has(e.name)) continue;
+      const childRel = rel ? `${rel}/${e.name}` : e.name;
+      const dir = join(root, childRel);
+      const types = detectTypesFromMarkers({ has: hasFile(dir), read: readFile(dir) });
+      if (types.length === 1 && types[0] === "basic") walk(childRel, depth + 1);
+      else found.push(...types);
+    }
+  };
+  walk("", 1);
+  // Same order as the root scan (first = primary type), not folder name order
+  const unique = [...new Set(found)].sort((left, right) => MARKER_TYPE_ORDER.indexOf(left) - MARKER_TYPE_ORDER.indexOf(right));
+  // Same rule as the root scan: a plain node folder (tooling scripts) does not count next to a real project
+  return unique.length > 1 ? unique.filter((type) => type !== "node") : unique;
+}
+
 // Type detection — version.yml project_types first (source of truth), else a marker scan.
-// With no markers at all (basic fallback), a secondary recommendation from extension frequency (#458).
+// No root markers: markers in subfolders (monorepo, #1243), then a recommendation from extension frequency (#458).
 export function detectTypes(root) {
   const vy = join(root, "version.yml");
   if (existsSync(vy)) {
@@ -58,6 +86,8 @@ export function detectTypes(root) {
   }
   const byMarkers = detectTypesFromMarkers({ has: hasFile(root), read: readFile(root) });
   if (byMarkers.length === 1 && byMarkers[0] === "basic") {
+    const inSubfolders = detectTypesInSubfolders(root);
+    if (inSubfolders.length) return inSubfolders; // Folders are settled by resolveProjectPaths (single candidate > automatic)
     const scanned = suggestTypesByExtScan(listScanFiles(root));
     if (scanned.length) return scanned; // Recommendation — the user confirms it in the wizard's confirm/edit loop
   }
