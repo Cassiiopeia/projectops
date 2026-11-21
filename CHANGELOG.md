@@ -1,7 +1,25 @@
 # Changelog
 
-**Current version:** 4.110.0  
-**Last updated:** 2026-11-21T15:12:35Z  
+**Current version:** 4.110.1  
+**Last updated:** 2026-11-21T15:46:02Z  
+
+---
+
+## [4.110.1] - 2026-11-21
+
+**PR:** #1256  
+
+**Bug fixes**
+- A bare React Native project is no longer detected as Expo when a script mentions "export"
+
+**Improvements**
+- Project types are defined in one registry, so adding a type takes one entry and a workflow folder
+- Version sync reads each type's version file format from the registry
+- The --type help list and menus follow the detection order
+
+**Documentation**
+- Type tables in the READMEs, CLAUDE.md, version-control and detection docs are generated from the registry
+- The "add a project type" guide describes the registry steps
 
 ---
 

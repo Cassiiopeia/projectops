@@ -1,14 +1,48 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-21T15:12:35Z",
-    "currentVersion": "4.110.0",
+    "lastUpdated": "2026-11-21T15:46:02Z",
+    "currentVersion": "4.110.1",
     "projectType": "basic",
-    "totalReleases": 425,
+    "totalReleases": 426,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.110.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-21",
+      "pr_number": 1256,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * A bare React Native project is no longer detected as Expo when a script mentions \"export\"\n\n* **Improvements**\n  * Project types are defined in one registry, so adding a type takes one entry and a workflow folder\n  * Version sync reads each type's version file format from the registry\n  * The --type help list and menus follow the detection order\n\n* **Documentation**\n  * Type tables in the READMEs, CLAUDE.md, version-control and detection docs are generated from the registry\n  * The \"add a project type\" guide describes the registry steps",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "A bare React Native project is no longer detected as Expo when a script mentions \"export\""
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Project types are defined in one registry, so adding a type takes one entry and a workflow folder",
+            "Version sync reads each type's version file format from the registry",
+            "The --type help list and menus follow the detection order"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Type tables in the READMEs, CLAUDE.md, version-control and detection docs are generated from the registry",
+            "The \"add a project type\" guide describes the registry steps"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.110.0",
       "project_type": "basic",
