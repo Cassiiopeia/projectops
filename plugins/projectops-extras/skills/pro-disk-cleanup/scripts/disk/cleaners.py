@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import re
 import time
 from pathlib import Path
 
@@ -77,6 +78,72 @@ def _profile_root(cache: Path) -> Path | None:
             return ancestor
     return None
 
+def _numeric_version(name: str) -> tuple[int, ...] | None:
+    """Parse numeric versions; leave unrecognized names untouched."""
+    if not re.fullmatch(r"\d+(?:\.\d+)*", name):
+        return None
+
+    parts = [int(part) for part in name.split(".")]
+    while len(parts) > 1 and parts[-1] == 0:
+        parts.pop()
+    return tuple(parts)
+
+
+def _real_subfolders(parent: Path) -> list[Path]:
+    """List directories without following symbolic links."""
+    if parent.is_symlink() or not parent.is_dir():
+        return []
+
+    return [
+        child
+        for child in parent.iterdir()
+        if not child.is_symlink() and child.is_dir()
+    ]
+
+
+def plugin_version_candidates(location: Location) -> list[dict]:
+    """List cached versions, keeping the newest two per plugin."""
+    candidates = []
+
+    for marketplace in _real_subfolders(location.path):
+        for plugin in _real_subfolders(marketplace):
+            versions = _real_subfolders(plugin)
+            parsed = {
+                folder: _numeric_version(folder.name)
+                for folder in versions
+            }
+
+            recognized = [
+                folder for folder in versions
+                if parsed[folder] is not None
+            ]
+            recognized.sort(
+                key=lambda folder: (parsed[folder], folder.name),
+                reverse=True,
+            )
+            kept = set(recognized[:2])
+
+            for folder in versions:
+                if parsed[folder] is None:
+                    skip_reason = "unknown_version"
+                elif folder in kept:
+                    skip_reason = "newest_two"
+                else:
+                    skip_reason = None
+
+                byte_count, is_partial = sizes.folder_bytes(folder)
+                candidates.append({
+                    "path": str(folder),
+                    "marketplace": marketplace.name,
+                    "plugin": plugin.name,
+                    "version": folder.name,
+                    "size_bytes": byte_count or 0,
+                    "size_gb": sizes.to_gigabytes(byte_count),
+                    "is_partial_size": is_partial,
+                    "skip_reason": skip_reason,
+                })
+
+    return sorted(candidates, key=lambda item: -item["size_bytes"])
 
 def delete_candidates(candidates: list[dict], allowed_base: Path, is_confirmed: bool) -> dict:
     """Delete only candidates without skip_reason, through the gate > result summary"""
