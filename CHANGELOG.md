@@ -1,7 +1,30 @@
 # Changelog
 
-**Current version:** 4.107.0  
-**Last updated:** 2026-11-18T18:47:27Z  
+**Current version:** 4.108.0  
+**Last updated:** 2026-11-21T03:52:46Z  
+
+---
+
+## [4.108.0] - 2026-11-21
+
+**PR:** #1247  
+
+**New features**
+- React Native Expo projects get app workflows on install: CI, test APK and TestFlight builds from an issue comment, Play Store and TestFlight deploys, all without EAS
+- Expo build number follows version.yml version_code automatically
+- pro-github can change repo visibility and delete a repo, with a dry run and an explicit confirmation
+
+**Bug fixes**
+- Monorepos with projects in subfolders (for example server/ and mobile/) are detected correctly without --type
+- The install summary links to docs pages that exist instead of missing README files
+- A Play Store upload to an app that is still a draft retries as a draft release
+
+**Improvements**
+- Build helper scripts share one step output writer
+
+**Documentation**
+- New React Native Expo CI/CD guide (English and Korean)
+- The "add a project type" guide lists every place a new type must be registered
 
 ---
 

@@ -1,14 +1,56 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-18T18:47:27Z",
-    "currentVersion": "4.107.0",
+    "lastUpdated": "2026-11-21T03:52:46Z",
+    "currentVersion": "4.108.0",
     "projectType": "basic",
-    "totalReleases": 422,
+    "totalReleases": 423,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.108.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-21",
+      "pr_number": 1247,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * React Native Expo projects get app workflows on install: CI, test APK and TestFlight builds from an issue comment, Play Store and TestFlight deploys, all without EAS\n  * Expo build number follows version.yml version_code automatically\n  * pro-github can change repo visibility and delete a repo, with a dry run and an explicit confirmation\n\n* **Bug fixes**\n  * Monorepos with projects in subfolders (for example server/ and mobile/) are detected correctly without --type\n  * The install summary links to docs pages that exist instead of missing README files\n  * A Play Store upload to an app that is still a draft retries as a draft release\n\n* **Improvements**\n  * Build helper scripts share one step output writer\n\n* **Documentation**\n  * New React Native Expo CI/CD guide (English and Korean)\n  * The \"add a project type\" guide lists every place a new type must be registered",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "React Native Expo projects get app workflows on install: CI, test APK and TestFlight builds from an issue comment, Play Store and TestFlight deploys, all without EAS",
+            "Expo build number follows version.yml version_code automatically",
+            "pro-github can change repo visibility and delete a repo, with a dry run and an explicit confirmation"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Monorepos with projects in subfolders (for example server/ and mobile/) are detected correctly without --type",
+            "The install summary links to docs pages that exist instead of missing README files",
+            "A Play Store upload to an app that is still a draft retries as a draft release"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Build helper scripts share one step output writer"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "New React Native Expo CI/CD guide (English and Korean)",
+            "The \"add a project type\" guide lists every place a new type must be registered"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.107.0",
       "project_type": "basic",
