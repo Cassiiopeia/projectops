@@ -168,3 +168,44 @@ test("CodeRabbit can be toggled by flag; if omitted, saved value → off", async
   assert.equal(parseArgs(["--mode", "full", "--no-coderabbit"]).codeReviewCoderabbit, false);
   assert.equal(parseArgs(["--mode", "full"]).codeReviewCoderabbit, null);   // null = nothing said → saved value, else default (off)
 });
+
+// ── project type registry (#1244) ────────────────────────────────────────
+// src/core/project-types.json is the only source of type facts; these checks keep it valid and in step with the repo.
+import { PROJECT_TYPES, VALID_TYPES as REGISTRY_TYPES, validateRegistry, deployTriggerWorkflows } from "../src/core/project-types.js";
+import { DEPLOY_TARGETS, PUBLISH_TARGETS } from "../src/core/constants.js";
+
+const PROJECT_TYPES_DIR = ".github/workflows/project-types";
+
+// Every file name under a folder, recursively
+function listFileNames(directory) {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
+    entry.isDirectory() ? listFileNames(join(directory, entry.name)) : [entry.name]);
+}
+
+test("registry validates", () => {
+  assert.deepEqual(validateRegistry(PROJECT_TYPES), []);
+});
+
+test("registry rejects unknown fields", () => {
+  const problems = validateRegistry([{ ...PROJECT_TYPES[0], markes: [] }]);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /markes/);
+});
+
+test("every workflow folder is a registry type", () => {
+  const folders = readdirSync(PROJECT_TYPES_DIR, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== "common").map((entry) => entry.name);
+  assert.deepEqual(folders.filter((name) => !REGISTRY_TYPES.includes(name)), []);
+});
+
+test("deploy trigger workflows exist", () => {
+  const existing = new Set(listFileNames(PROJECT_TYPES_DIR));
+  assert.deepEqual(deployTriggerWorkflows().filter((name) => !existing.has(name)), []);
+});
+
+test("axes use known targets", () => {
+  for (const type of PROJECT_TYPES) {
+    for (const target of type.axes.deploy) assert.ok(DEPLOY_TARGETS.includes(target), `${type.id}: deploy ${target}`);
+    for (const target of type.axes.publish) assert.ok(PUBLISH_TARGETS.includes(target), `${type.id}: publish ${target}`);
+  }
+});
