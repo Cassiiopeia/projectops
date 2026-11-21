@@ -209,13 +209,13 @@ Asking the two axes one by one burdened users with "does this even apply to me?"
 
 ##### 🧩 Axis applicability per type (#498 — agent must read)
 
-The deploy/publish axes **may not apply at all, depending on the type.** The `TYPE_DEPLOY_TARGETS`/`TYPE_PUBLISH_TARGETS` declarations in `src/core/options-ask.js` define the applicable targets per type, and `applicableTargets(types)` computes the union over the chosen types.
+The deploy/publish axes **may not apply at all, depending on the type.** The `axes` of each entry in the type registry (`src/core/project-types.json`, read as `TYPE_DEPLOY_TARGETS`/`TYPE_PUBLISH_TARGETS` in `src/core/options-ask.js`) define the applicable targets per type, and `applicableTargets(types)` computes the union over the chosen types.
 
 - **Mobile app types (flutter/react-native/react-native-expo) have empty arrays on both axes** — store deployment (Play Store/TestFlight/Firebase, etc.) is always included in the type workflows, so it has nothing to do with the server deploy axis, and there is no registry publish concept. Like basic, **the intent question is skipped entirely** and settled silently as `none`/`[]` (no notice either — there is no reason to show one).
 - **Inapplicable saved/CLI values are cleaned up without a warning** — a repo where an old version saved `deploy: docker-ssh` for flutter alone is quietly cleaned up to `none`/the intersection on update (same copy result — SSOT). Non-interactive (`src/index.js`) follows the same rule.
 - The edit menu (`editMenu`) also hides inapplicable axis items ("project nature", "deploy method", "publish target"). After changing the type, they show again on the next entry.
 - Server types (spring/react/node/python) keep all current choices (behavior unchanged — finer per-type division is follow-up work). Question choices are filtered through `applicable.*`, so narrowing the declarations later updates the choices automatically.
-- **When you add a new type, you must add entries to both declarations** — keep them in line with the `project-types` folders (`server-deploy/`, `publish/<target>/`). Undeclared types conservatively allow everything (questions kept).
+- **When you add a new type, set its `axes` in the registry** — keep them in line with the `project-types` folders (`server-deploy/`, `publish/<target>/`). See "How to add a new project type" in `ARCHITECTURE.md`.
 
 - **`basic` alone skips the deploy/publish questions** — it is a general type with no server or library concept, so asking confuses users. It is settled silently as `deploy=none` / `publish=[]` and shown only on the analysis card. If the type changes (edit menu → project type), the questions appear then. (The old js `isBasicOnly` special case was absorbed into #498's general empty-axes check `noAxes` — `.sh`/`.ps1` hit EOF in #458)
 - Real-type questions get a one-line "**why we ask**" context in front (pick if you plan to deploy a server, otherwise skip).
@@ -233,7 +233,7 @@ The deploy/publish axes **may not apply at all, depending on the type.** The `TY
 | `PROJECT-SPRING-NEXUS-CI` / `-NEXUS-PUBLISH` | Nexus library publish | spring/publish/nexus/ |
 | `PROJECT-SPRING-GITHUB-PACKAGES-PUBLISH` | GitHub Packages library publish | spring/publish/github-packages/ |
 
-> **When you add a new deploy workflow, add its file name to `DEPLOY_TRIGGER_WORKFLOWS` in `src/core/branch-sub.js` (#1114).** This covers only workflows that deploy on push (store, server, package publish, Vercel).
+> **When you add a new deploy workflow, add its file name to the type's `deploy_trigger_workflows` in `src/core/project-types.json` (#1114, #1244; `DEPLOY_TRIGGER_WORKFLOWS` in `src/core/branch-sub.js` is built from it, plus the type-independent Vercel workflow). The options schema test fails if a listed file does not exist.** This covers only workflows that deploy on push (store, server, package publish, Vercel).
 > In repos using `deploy_trigger_branch`, a file missing from this table deploys from the default branch, so deployment runs in the wrong place even though the deploy branch was split off. Do not add common workflows such as version bump, README version, release notes or issue closing (they follow the default branch).
 >
 > **The CI minutes saver option (`ci_minutes_saver`, #1114) rewrites workflows through the file-name table in `src/core/ci-minutes-sub.js`.** When you add a new CI workflow, decide whether it goes in the table. A rewrite applies only when the pattern matches exactly, so if you change the shape of the `on:` block or the `ENABLE_IOS` line of a workflow in the table, update the table's rewrite too (otherwise the option silently does nothing).

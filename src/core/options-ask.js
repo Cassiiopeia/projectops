@@ -77,7 +77,7 @@ export const TYPE_DEPLOY_TARGETS = Object.fromEntries(PROJECT_TYPES.map((type) =
 export const TYPE_PUBLISH_TARGETS = Object.fromEntries(PROJECT_TYPES.map((type) => [type.id, [...type.axes.publish]]));
 
 // Applicable targets = union over the selected types (#498). 'none' is always allowed, so it is left out of the list.
-// Undeclared types allow everything conservatively (question kept) — when adding a new type, add its declaration above too.
+// Undeclared types allow everything conservatively (question kept); registered types always declare their axes.
 export function applicableTargets(types = []) {
   const deployAll = DEPLOY_TARGETS.filter((t) => t !== "none");
   return {

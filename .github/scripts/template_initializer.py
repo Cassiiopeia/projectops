@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import project_types  # noqa: E402
+from version_manager import load_project_types  # noqa: E402  registry reader shared with version_manager (#1244)
 
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 
@@ -62,7 +62,7 @@ def validate_version(v: str):
 
 
 def validate_project_type(t: str):
-    valid_types = project_types.valid_type_ids()
+    valid_types = [entry["id"] for entry in load_project_types()]
     if t not in valid_types:
         print_error(f"Unsupported project type: {t}")
         print_error(f"Supported types: {' '.join(valid_types)}")
@@ -71,7 +71,7 @@ def validate_project_type(t: str):
 
 def type_sync_comment_lines() -> str:
     """version.yml "Files synced per project type" lines from the registry (same text as the installer)"""
-    return "\n".join(f"# - {entry['id']}: {entry['version']['comment']}" for entry in project_types.load_project_types())
+    return "\n".join(f"# - {entry['id']}: {entry['version']['comment']}" for entry in load_project_types())
 
 
 def detect_default_branch() -> str:

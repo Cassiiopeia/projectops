@@ -34,8 +34,8 @@ function subDeploy(s, dev) {
 
 // Workflows that deploy when pushed (exact file name match). Used only in repos that split the default and deploy branches.
 // Common workflows (version bump · README version · release notes · issue close) are not here: they follow the default branch.
-// Add new deploy workflows to this table too (otherwise that file deploys from the default branch)
-// Type-owned files come from the registry (deploy_trigger_workflows); Vercel is the only type-independent one
+// Type-owned files come from the registry (deploy_trigger_workflows); a missing file deploys from the default branch.
+// Vercel is the only type-independent one
 const TYPE_INDEPENDENT_DEPLOY_WORKFLOWS = ["PROJECT-COMMON-VERCEL-DEPLOY.yaml"];
 export const DEPLOY_TRIGGER_WORKFLOWS = new Set([...deployTriggerWorkflows(), ...TYPE_INDEPENDENT_DEPLOY_WORKFLOWS]);
 

@@ -23,8 +23,6 @@ import re
 import sys
 from pathlib import Path
 
-import project_types
-
 # \Z: `$` allows a trailing newline ("1.2.3\n"), so it is not used. Leading zeros (01.02.03) are rejected too (#685)
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
 VERSION_YML = Path("version.yml")
@@ -32,6 +30,35 @@ VERSION_YML = Path("version.yml")
 
 class VersionError(Exception):
     """Update/read failure. Used to end with an error message and exit 1 instead of a success log (#678)."""
+
+
+# ── Project type registry (#1244) ────────────────────────────────────────────
+# .github/config/project-types.json: generated copy of projectops src/core/project-types.json, copied with .github/config.
+# Read here (not in a separate module) so an older installer that copies only the scripts it knows still works.
+REGISTRY_PATH = Path(__file__).resolve().parent.parent / "config" / "project-types.json"
+
+
+class RegistryMissingError(VersionError):
+    """The registry copy is missing or unreadable (config folder deleted or edited)"""
+
+
+_registry_cache = None
+
+
+def load_project_types() -> list:
+    """Registry entries in detection order (read once per process)"""
+    global _registry_cache
+    if _registry_cache is None:
+        try:
+            _registry_cache = json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise RegistryMissingError(f"[version] registry missing: .github/config/project-types.json "
+                                       f"({error.__class__.__name__}) — run npx projectops to restore it") from error
+    return _registry_cache
+
+
+def project_type_by_id(type_id: str):
+    return next((entry for entry in load_project_types() if entry.get("id") == type_id), None)
 
 
 # ── Logs (stderr — same emoji as .sh) ─────────────────────────────────
@@ -246,14 +273,27 @@ class Config:
                 sys.exit(1)
             current = "0.0.0"  # placeholder unused by version_code-only commands
         self.current_version = current
-        self.version_file = self._resolve_version_file()
+        # Commands that only read version.yml (get-option, get-types, validate, get-code) work without the registry
+        try:
+            self._version_file = self._resolve_version_file()
+            self._registry_error = None
+        except RegistryMissingError as error:
+            self._version_file = None
+            self._registry_error = error
 
         log_info("Project settings:")
         if self.types:
             log_info(f"  Types (array): {','.join(self.types)}")
         log_info(f"  Type (primary): {self.primary}")
-        log_info(f"  Version file (primary): {self.version_file}")
+        log_info(f"  Version file (primary): {self._version_file or 'unknown (registry missing)'}")
         log_info(f"  Current version: {self.current_version}")
+
+    @property
+    def version_file(self) -> str:
+        """Primary version file; raises the registry error when it could not be resolved"""
+        if self._registry_error:
+            raise self._registry_error
+        return self._version_file
 
     def _resolve_version_file(self) -> str:
         handler = version_format_handler(self.primary)
@@ -578,7 +618,7 @@ def sync_build_number(cfg: Config, code: int):
     Warns only when the target pattern is missing.
     """
     for type_id in (cfg.types or [cfg.primary]):
-        handler_name = ((project_types.type_by_id(type_id) or {}).get("version") or {}).get("build_number")
+        handler_name = ((project_type_by_id(type_id) or {}).get("version") or {}).get("build_number")
         if not handler_name:
             continue
         handler = BUILD_NUMBER_HANDLERS.get(handler_name)
@@ -858,7 +898,7 @@ VERSION_FORMAT_HANDLERS = {
 
 def version_format_handler(type_id: str):
     """Type id > VersionFormat, or None for types without a version file (basic) and unknown ids"""
-    entry = project_types.type_by_id(type_id)
+    entry = project_type_by_id(type_id)
     format_name = (entry or {}).get("version", {}).get("format")
     if not format_name:
         return None
@@ -871,7 +911,7 @@ def version_format_handler(type_id: str):
 def sync_for_type(t: str, new_version: str):
     p = get_type_path(t)
     log_info(f"Sync by type: {t} → {new_version} (path: {p})")
-    if project_types.type_by_id(t) is None:
+    if project_type_by_id(t) is None:
         log_warning(f"Unknown type: {t} — skipping")
         return
     handler = version_format_handler(t)
@@ -1044,7 +1084,7 @@ def parse_bump_flag(argv) -> str | None:
 def main(argv):
     try:
         return _main(argv)
-    except (VersionError, project_types.RegistryMissingError) as e:
+    except VersionError as e:
         log_error(str(e))
         return 1
 

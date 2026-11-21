@@ -227,3 +227,18 @@ test("generated project type copies and doc blocks are current", () => {
   // Throws (exit 1) when a copy or a <!-- generated: project-types:* --> block is stale
   execFileSync("node", ["scripts/build_project_types.mjs", "--check"], { encoding: "utf8", stdio: "pipe" });
 });
+
+test("every registry version handler exists in version_manager.py", () => {
+  // Handler table keys, read as text so the check stays in Node: "name": VersionFormat(... / "name": sync_...
+  const versionManagerText = readFileSync(".github/scripts/version_manager.py", "utf8");
+  const tableKeys = (tableName) => {
+    const tableText = versionManagerText.slice(versionManagerText.indexOf(`${tableName} = {`));
+    return new Set([...tableText.slice(0, tableText.indexOf("\n}")).matchAll(/^\s+"([a-z_]+)":/gm)].map((match) => match[1]));
+  };
+  const formats = tableKeys("VERSION_FORMAT_HANDLERS");
+  const buildNumbers = tableKeys("BUILD_NUMBER_HANDLERS");
+  for (const type of PROJECT_TYPES) {
+    if (type.version.format) assert.ok(formats.has(type.version.format), `${type.id}: no version format handler "${type.version.format}"`);
+    if (type.version.build_number) assert.ok(buildNumbers.has(type.version.build_number), `${type.id}: no build number handler "${type.version.build_number}"`);
+  }
+});
