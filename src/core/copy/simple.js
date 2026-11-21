@@ -12,6 +12,8 @@ import { exists, copyFileSync, copyDirSync } from "../fsutil.js";
 export function copyScripts(tempDir, targetRoot = ".") {
   const scripts = [
     "version_manager.sh", "version_manager.py",
+    // Project type registry reader (#1244): version_manager and template_initializer import it; reads .github/config/project-types.json
+    "project_types.py",
     "changelog_manager.py",
     "truncate_release_notes.sh", "truncate_release_notes.py",
     "issue_helper.py",

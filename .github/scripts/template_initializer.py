@@ -22,7 +22,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-VALID_TYPES = ["spring", "flutter", "react", "react-native", "react-native-expo", "node", "python", "basic"]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import project_types  # noqa: E402
+
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 
 
@@ -60,10 +62,16 @@ def validate_version(v: str):
 
 
 def validate_project_type(t: str):
-    if t not in VALID_TYPES:
+    valid_types = project_types.valid_type_ids()
+    if t not in valid_types:
         print_error(f"Unsupported project type: {t}")
-        print_error(f"Supported types: {' '.join(VALID_TYPES)}")
+        print_error(f"Supported types: {' '.join(valid_types)}")
         sys.exit(1)
+
+
+def type_sync_comment_lines() -> str:
+    """version.yml "Files synced per project type" lines from the registry (same text as the installer)"""
+    return "\n".join(f"# - {entry['id']}: {entry['version']['comment']}" for entry in project_types.load_project_types())
 
 
 def detect_default_branch() -> str:
@@ -98,6 +106,7 @@ def create_version_yml(version, ptype, branch, user, template_version):
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    type_sync_lines = type_sync_comment_lines()
     content = f"""# ===================================================================
 # Project version management file
 # ===================================================================
@@ -121,13 +130,7 @@ def create_version_yml(version, ptype, branch, user, template_version):
 # - You may also edit the version value directly, regardless of the rule above
 #
 # Files synced per project type:
-# - spring: build.gradle (version = "x.y.z")
-# - flutter: pubspec.yaml (version: x.y.z+i, includes buildNumber)
-# - react/node: package.json ("version": "x.y.z")
-# - react-native: iOS Info.plist or Android build.gradle
-# - react-native-expo: app.json (expo.version)
-# - python: pyproject.toml (version = "x.y.z")
-# - basic/other: only version.yml
+{type_sync_lines}
 #
 # Notes:
 # - Do not change project_types after the initial setup

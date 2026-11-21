@@ -20,14 +20,8 @@
 # - More robust scripts
 # - [v2.1] pull-rebase + retry logic to prevent race conditions
 #
-# Supported project types:
-# - spring: build.gradle
-# - flutter: pubspec.yaml
-# - react/node: package.json
-# - react-native: Info.plist + build.gradle
-# - react-native-expo: app.json
-# - python: pyproject.toml
-# - basic: manages version.yml only
+# Version files per project type: .github/config/project-types.json (version_manager reads it)
+# Table: https://cassiiopeia.github.io/projectops/version-control
 # ===================================================================
 
 name: PROJECT-VERSION-CONTROL

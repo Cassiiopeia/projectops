@@ -23,6 +23,8 @@ import re
 import sys
 from pathlib import Path
 
+import project_types
+
 # \Z: `$` allows a trailing newline ("1.2.3\n"), so it is not used. Leading zeros (01.02.03) are rejected too (#685)
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)\Z")
 VERSION_YML = Path("version.yml")
@@ -254,29 +256,8 @@ class Config:
         log_info(f"  Current version: {self.current_version}")
 
     def _resolve_version_file(self) -> str:
-        p = get_type_path(self.primary)
-        t = self.primary
-        if t == "spring":
-            # Also read projects that only have Kotlin DSL (build.gradle.kts) (#680)
-            if not Path(f"{p}/build.gradle").is_file() and Path(f"{p}/build.gradle.kts").is_file():
-                return f"{p}/build.gradle.kts"
-            return f"{p}/build.gradle"
-        if t == "flutter":
-            return f"{p}/pubspec.yaml"
-        if t in ("react", "node"):
-            return f"{p}/package.json"
-        if t == "react-native":
-            ios_dir = Path(p) / "ios"
-            if ios_dir.is_dir():
-                plists = find_info_plists(ios_dir)
-                if plists:
-                    return str(plists[0])
-            return f"{p}/android/app/build.gradle"
-        if t == "react-native-expo":
-            return f"{p}/app.json"
-        if t == "python":
-            return f"{p}/pyproject.toml"
-        return "version.yml"  # basic and anything else
+        handler = version_format_handler(self.primary)
+        return handler.resolve_file(get_type_path(self.primary)) if handler else "version.yml"  # basic and unknown types
 
 
 # ── Version utilities ────────────────────────────────────────────────────────
@@ -559,12 +540,12 @@ _GRADLE_BUILD_RE = re.compile(r"^([ \t]*versionCode[ \t]*=?[ \t]*)\d+(?=[ \t]*(?
 _EXPO_VERSION_CODE_RE = re.compile(r'("versionCode"[ \t]*:[ \t]*)\d+')
 
 
-def sync_expo_build_number(code: int):
+def sync_expo_build_number(code: int, type_id: str = "react-native-expo"):
     """version.yml version_code > app.json expo.android.versionCode (#1240)
 
     iOS is out of scope: iOS builds take their number from build_number.py, not version_code.
     """
-    app_json = Path(get_type_path("react-native-expo")) / "app.json"
+    app_json = Path(get_type_path(type_id)) / "app.json"
     if not app_json.is_file():
         log_warning(f"react-native-expo: no {app_json.as_posix()} — build number not synced")
         return
@@ -591,16 +572,24 @@ def sync_expo_build_number(code: int):
 
 
 def sync_build_number(cfg: Config, code: int):
-    """Apply version.yml version_code to the react-native build numbers (versionCode, CFBundleVersion) (#721).
+    """Apply version.yml version_code to app build numbers (#721): registry version.build_number names the handler per type.
 
     Stores need the build number to grow every time; if it drifts from version.yml it must be managed by hand.
-    react-native: native files; react-native-expo: app.json (sync_expo_build_number). Warns only when the target pattern is missing.
+    Warns only when the target pattern is missing.
     """
-    if "react-native-expo" in cfg.types or cfg.primary == "react-native-expo":
-        sync_expo_build_number(code)
-    if "react-native" not in cfg.types and cfg.primary != "react-native":
-        return
-    p = get_type_path("react-native")
+    for type_id in (cfg.types or [cfg.primary]):
+        handler_name = ((project_types.type_by_id(type_id) or {}).get("version") or {}).get("build_number")
+        if not handler_name:
+            continue
+        handler = BUILD_NUMBER_HANDLERS.get(handler_name)
+        if handler is None:
+            raise VersionError(f"[version] unknown build number handler '{handler_name}' for type '{type_id}'")
+        handler(code, type_id)
+
+
+def sync_rn_native_build_number(code: int, type_id: str = "react-native"):
+    """version_code > native build numbers (Info.plist CFBundleVersion, android/app/build.gradle versionCode)"""
+    p = get_type_path(type_id)
     base = Path(p)
     ios_dir = base / "ios"
     if ios_dir.is_dir():
@@ -626,6 +615,13 @@ def sync_build_number(cfg: Config, code: int):
             log_warning(f"No numeric literal versionCode found in {gradle.as_posix()} — build number not synced")
     else:
         log_warning(f"react-native: no {p}/android/app/build.gradle — skipping build number")
+
+
+# Build number handlers named by the registry (version.build_number)
+BUILD_NUMBER_HANDLERS = {
+    "rn_native": sync_rn_native_build_number,
+    "expo_android_version_code": sync_expo_build_number,
+}
 
 
 # pyproject.toml: only the version key inside the [project] (PEP 621) or [tool.poetry] table is the project version.
@@ -681,33 +677,9 @@ def get_project_file_version(cfg: Config) -> str:
     if cfg.primary == "basic" or not vf.is_file():
         return cfg.current_version
 
-    v = ""
-    t = cfg.primary
+    handler = version_format_handler(cfg.primary)
     try:
-        if t == "spring":
-            m = re.search(r"^\s*version\s*=\s*['\"](\d+\.\d+\.\d+)['\"]", read_text(vf), re.MULTILINE)
-            v = m.group(1) if m else ""
-        elif t == "flutter":
-            m = re.search(r"^version:\s*(\S+)", read_text(vf), re.MULTILINE)
-            v = (m.group(1) if m else "").split("+")[0].strip('"').strip("'")
-        elif t in ("react", "node"):
-            v = str(read_json(vf).get("version", "") or "")
-        elif t == "react-native":
-            if cfg.version_file.endswith("Info.plist"):
-                m = re.search(r"CFBundleShortVersionString</key>\s*<string>([^<]*)</string>", read_text(vf))
-                v = m.group(1) if m else ""
-                if v.startswith("$("):  # an Xcode variable (MARKETING_VERSION) is not a readable version
-                    log_warning(f"The version in {vf.as_posix()} is an Xcode variable ({v}) and cannot be read — using the version.yml value")
-                    v = ""
-            else:
-                m = re.search(r'versionName\s*"([^"]+)"', read_text(vf))
-                v = m.group(1) if m else ""
-        elif t == "react-native-expo":
-            v = str((read_json(vf).get("expo") or {}).get("version", "") or "")
-        elif t == "python":
-            v = toml_get_version(read_text(vf))
-        else:
-            v = cfg.current_version
+        v = handler.read_version(vf) if handler else cfg.current_version
     except (OSError, ValueError, VersionError) as e:
         log_warning(f"Failed to read project file ({vf}): {e}")
         v = ""
@@ -810,23 +782,102 @@ def _sync_expo(type_name: str, base_dir: Path, type_path: str, new_version: str)
         log_success(f"Updated: {app_json.as_posix()}")
 
 
-# type > function that updates that type's version file (basic has only version.yml, so none). Adding a type = one function + one row here
-TYPE_SYNCERS = {
-    "spring": _sync_spring, "flutter": _sync_flutter, "react": _sync_package_json, "node": _sync_package_json,
-    "python": _sync_python, "react-native": _sync_react_native, "react-native-expo": _sync_expo,
+# ── Version formats (#1244) ──────────────────────────────────────────────────
+# The registry names a format per type (version.format); each format knows its file, how to read it and how to write it.
+# Adding a type with an existing format needs no change here; a new format = one handler below.
+def _resolve_gradle(p: str) -> str:
+    # Also read projects that only have Kotlin DSL (build.gradle.kts) (#680)
+    if not Path(f"{p}/build.gradle").is_file() and Path(f"{p}/build.gradle.kts").is_file():
+        return f"{p}/build.gradle.kts"
+    return f"{p}/build.gradle"
+
+
+def _resolve_rn_native(p: str) -> str:
+    ios_dir = Path(p) / "ios"
+    if ios_dir.is_dir():
+        plists = find_info_plists(ios_dir)
+        if plists:
+            return str(plists[0])
+    return f"{p}/android/app/build.gradle"
+
+
+def _read_gradle(vf: Path) -> str:
+    m = re.search(r"^\s*version\s*=\s*['\"](\d+\.\d+\.\d+)['\"]", read_text(vf), re.MULTILINE)
+    return m.group(1) if m else ""
+
+
+def _read_pubspec(vf: Path) -> str:
+    m = re.search(r"^version:\s*(\S+)", read_text(vf), re.MULTILINE)
+    return (m.group(1) if m else "").split("+")[0].strip('"').strip("'")
+
+
+def _read_package_json(vf: Path) -> str:
+    return str(read_json(vf).get("version", "") or "")
+
+
+def _read_rn_native(vf: Path) -> str:
+    if vf.name.endswith("Info.plist"):
+        m = re.search(r"CFBundleShortVersionString</key>\s*<string>([^<]*)</string>", read_text(vf))
+        v = m.group(1) if m else ""
+        if v.startswith("$("):  # an Xcode variable (MARKETING_VERSION) is not a readable version
+            log_warning(f"The version in {vf.as_posix()} is an Xcode variable ({v}) and cannot be read — using the version.yml value")
+            return ""
+        return v
+    m = re.search(r'versionName\s*"([^"]+)"', read_text(vf))
+    return m.group(1) if m else ""
+
+
+def _read_expo_app_json(vf: Path) -> str:
+    return str((read_json(vf).get("expo") or {}).get("version", "") or "")
+
+
+def _read_pyproject(vf: Path) -> str:
+    return toml_get_version(read_text(vf))
+
+
+class VersionFormat:
+    """One version file format: resolve_file(type path) > file, read_version(file) > version, sync(...) writes it"""
+
+    def __init__(self, resolve_file, read_version, sync, is_json=False):
+        self.resolve_file = resolve_file
+        self.read_version = read_version
+        self.sync = sync
+        # JSON files are parsed before any write (#683)
+        self.is_json = is_json
+
+
+VERSION_FORMAT_HANDLERS = {
+    "gradle": VersionFormat(_resolve_gradle, _read_gradle, _sync_spring),
+    "pubspec": VersionFormat(lambda p: f"{p}/pubspec.yaml", _read_pubspec, _sync_flutter),
+    "package_json": VersionFormat(lambda p: f"{p}/package.json", _read_package_json, _sync_package_json, is_json=True),
+    "pyproject": VersionFormat(lambda p: f"{p}/pyproject.toml", _read_pyproject, _sync_python),
+    "rn_native": VersionFormat(_resolve_rn_native, _read_rn_native, _sync_react_native),
+    "expo_app_json": VersionFormat(lambda p: f"{p}/app.json", _read_expo_app_json, _sync_expo, is_json=True),
 }
+
+
+def version_format_handler(type_id: str):
+    """Type id > VersionFormat, or None for types without a version file (basic) and unknown ids"""
+    entry = project_types.type_by_id(type_id)
+    format_name = (entry or {}).get("version", {}).get("format")
+    if not format_name:
+        return None
+    handler = VERSION_FORMAT_HANDLERS.get(format_name)
+    if handler is None:
+        raise VersionError(f"[version] unknown version format '{format_name}' for type '{type_id}'")
+    return handler
 
 
 def sync_for_type(t: str, new_version: str):
     p = get_type_path(t)
     log_info(f"Sync by type: {t} → {new_version} (path: {p})")
-    if t == "basic":
-        return
-    syncer = TYPE_SYNCERS.get(t)
-    if syncer is None:
+    if project_types.type_by_id(t) is None:
         log_warning(f"Unknown type: {t} — skipping")
         return
-    syncer(t, Path(p), p, new_version)
+    handler = version_format_handler(t)
+    if handler is None:
+        return  # basic: version.yml only
+    handler.sync(t, Path(p), p, new_version)
 
 def sync_all_project_files(cfg: Config, new_version: str):
     if cfg.types:
@@ -899,10 +950,10 @@ def sync_versions(cfg: Config) -> str:
 def preflight_json_files(cfg: Config):
     """Read JSON version files before writing. Prevents stopping with only some files updated (#683)."""
     for t in (cfg.types or [cfg.primary]):
-        name = {"react": "package.json", "node": "package.json", "react-native-expo": "app.json"}.get(t)
-        if not name:
+        handler = version_format_handler(t)
+        if not handler or not handler.is_json:
             continue
-        f = Path(get_type_path(t)) / name
+        f = Path(handler.resolve_file(get_type_path(t)))
         if f.is_file():
             read_json(f)
 
@@ -993,7 +1044,7 @@ def parse_bump_flag(argv) -> str | None:
 def main(argv):
     try:
         return _main(argv)
-    except VersionError as e:
+    except (VersionError, project_types.RegistryMissingError) as e:
         log_error(str(e))
         return 1
 
