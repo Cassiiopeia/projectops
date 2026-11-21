@@ -66,7 +66,7 @@ npx projectops --intent library
 | 옵션 | 설명 |
 |------|------|
 | `-m, --mode MODE` | 위 모드 중 하나. 기본은 대화형 |
-| `-t, --type CSV` | 프로젝트 타입. 예: `spring,react,python`. 지원: `spring` `flutter` `react` `react-native` `react-native-expo` `node` `python` `basic` (`next`는 `react`로 흡수됨 — Next.js는 `react`) |
+| `-t, --type CSV` | 프로젝트 타입. 예: `spring,react,python`. 지원 값은 아래 생성된 표에 있습니다 (`next`는 `react`로 흡수됨 — Next.js는 `react`) |
 | `--project-version V` | 통합 대상의 초기 버전(예: `1.0.0`). 생략하면 자동 감지 |
 | `--paths "t=p,..."` | 타입별 프로젝트 경로(모노레포). 예: `flutter=app,react=client` |
 | `--intent KIND` | 프로젝트 성격: `app` `library` `both` `none` `manual`. 생략하면 `--deploy`/`--publish`에서 추정. `library`/`none`은 배포 질문을, `app`/`none`은 publish 질문을 건너뜁니다 |
@@ -91,7 +91,7 @@ npx projectops --intent library
 
 `--nexus`, `--npm-publish`(와 `--no-nexus`, `--no-npm-publish`)는 더 이상 쓰지 않는 옵션입니다. 각각 `--publish nexus`, `--publish npm`을 쓰세요.
 
-> 모바일 앱 타입(`flutter`, `react-native`, `react-native-expo`)은 스토어 배포 워크플로우가 타입에 이미 포함돼 있어서 배포·publish 질문 자체를 건너뜁니다. 자세한 규칙은 [NPX 마법사 가이드](./NPX-WIZARD.md)를 보세요.
+> 모바일 앱 타입(`flutter`, `react-native`, `react-native-expo`)은 배포·publish 질문 자체를 건너뜁니다. `flutter`와 `react-native-expo`는 스토어 배포 워크플로우가 타입에 포함돼 있고, `react-native`(bare)는 앱 워크플로우가 없습니다. 자세한 규칙은 [NPX 마법사 가이드](./NPX-WIZARD.md)를 보세요.
 
 ## 전체 옵션 레퍼런스
 

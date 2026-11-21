@@ -67,7 +67,7 @@ The `--mode` value decides what to install. Without it, the CLI runs interactive
 | Option | Description |
 |------|------|
 | `-m, --mode MODE` | One of the modes above. Default is interactive |
-| `-t, --type CSV` | Project types, e.g. `spring,react,python`. Supported: `spring` `flutter` `react` `react-native` `react-native-expo` `node` `python` `basic` (`next` was merged into `react`; use `react` for Next.js) |
+| `-t, --type CSV` | Project types, e.g. `spring,react,python`. The supported values are in the generated table below (`next` was merged into `react`; use `react` for Next.js) |
 | `--project-version V` | Initial version of the target (e.g. `1.0.0`). Auto-detected if omitted |
 | `--paths "t=p,..."` | Per-type project paths (monorepo), e.g. `flutter=app,react=client` |
 | `--intent KIND` | Project kind: `app` `library` `both` `none` `manual`. If omitted, inferred from `--deploy`/`--publish`. `library`/`none` skip the deploy question, and `app`/`none` skip the publish question |
@@ -92,7 +92,7 @@ The `--mode` value decides what to install. Without it, the CLI runs interactive
 
 `--nexus` and `--npm-publish` (and `--no-nexus`, `--no-npm-publish`) are no longer used. Use `--publish nexus` and `--publish npm` instead.
 
-> Mobile app types (`flutter`, `react-native`, `react-native-expo`) already include the store deployment workflows, so the deploy and publish questions are skipped entirely. For the detailed rules, see the [NPX wizard guide](./npx-wizard.md).
+> Mobile app types (`flutter`, `react-native`, `react-native-expo`) skip the deploy and publish questions entirely: `flutter` and `react-native-expo` bring their store deployment workflows with the type, and `react-native` (bare) has no app workflows. For the detailed rules, see the [NPX wizard guide](./npx-wizard.md).
 
 ## Full option reference
 
