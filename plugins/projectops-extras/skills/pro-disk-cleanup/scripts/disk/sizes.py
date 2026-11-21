@@ -71,7 +71,13 @@ def _walk_bytes(path: Path, max_seconds: int) -> tuple[int, bool]:
                             continue
                         info = entry.stat(follow_symlinks=False)
                         if entry.is_dir(follow_symlinks=False):
-                            if info.st_dev == root_device:
+                            # Windows DirEntry.stat() reports st_dev as zero.
+                            device = (
+                                os.stat(entry.path, follow_symlinks=False).st_dev
+                                if shell.IS_WINDOWS
+                                else info.st_dev
+                            )
+                            if device == root_device:
                                 pending.append(entry.path)
                         else:
                             total += info.st_size

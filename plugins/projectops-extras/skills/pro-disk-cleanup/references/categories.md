@@ -28,6 +28,7 @@ OS cache folder below means `~/Library/Caches` (macOS), `%LOCALAPPDATA%` (Window
 | Rust | `cargo-registry` | decide | aged |
 | Dart / Flutter | `pub-cache` | decide | info |
 | IDEs | `jetbrains-caches`, `vscode-cached-data`, `vscode-extension-downloads` | safe | aged |
+| Claude Code | `claude-plugin-cache` | decide | plugin-versions |
 | Android | `android-system-images`, `android-avd` | decide | info |
 | Xcode (macOS) | `derived-data`, `ios-device-support`, `xcode-archives` (decide, aged); `xcode-previews`, `simulator-caches` (safe, aged); `simulators-unavailable` (safe, tool) | | |
 | macOS | `cocoapods`, `homebrew` (safe, tool); `trash` (decide); `core-device-fs`, `docker-desktop-disk` (keep) | | |
@@ -42,6 +43,11 @@ To add a tool for everyone, add a `Location` to `scripts/disk/catalog.py` with p
 Kinds: `tool` runs the tool's own clean-up command, `aged` removes sub-folders whose newest change or access is older
 than `--older-than-days`, `browser` removes only cache folders inside profiles whose browser is not running, `info` is
 reported only (clear `info` items by the tool named in `note`, after the user names them).
+
+`plugin-versions` lists cached Claude Code plugin versions per marketplace and plugin, keeping the newest two numeric
+versions. Unrecognized version names are kept. The cache lives under `${CLAUDE_CONFIG_DIR}/plugins/cache` when set,
+otherwise `~/.claude/plugins/cache`. Running sessions may still read the previous version. Clear only when the user
+names this location; without `--yes`, the command only prints its plan.
 
 A location whose `is_whole_folder_reclaimable` is false (unavailable simulators, browser caches, temp) is left out of
 `totals_gb`; its dry run gives the real number.

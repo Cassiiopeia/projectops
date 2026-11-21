@@ -127,6 +127,8 @@ def _editor_and_device_caches() -> list[Location]:
                  note="Emulators need the image they were made from; remove with the SDK Manager"),
         Location("android-avd", "Android emulator devices", _home(".android", "avd"), TIER_DECIDE, "info",
                  note="App data and logins live inside; temporary devices go with pro-launch `device gc`"),
+        Location("claude-plugin-cache", "Claude Code plugin cache (old versions)", (_env_path("CLAUDE_CONFIG_DIR") or _home(".claude")) / "plugins" / "cache", TIER_DECIDE,"plugin-versions",
+                note="Keeps the newest two versions per plugin; running sessions may still read the previous version", is_whole_folder_reclaimable=False,),
         Location("projectops-browser", "pro-launch browser caches (logins kept)", _home(".projectops", "launch"),
                  TIER_SAFE, "browser", note="Size includes login profiles; `browser` shows the cache part",
                  is_whole_folder_reclaimable=False),
