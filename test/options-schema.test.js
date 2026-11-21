@@ -209,3 +209,16 @@ test("axes use known targets", () => {
     for (const target of type.axes.publish) assert.ok(PUBLISH_TARGETS.includes(target), `${type.id}: publish ${target}`);
   }
 });
+
+test("package.json classification follows the registry dependency rules", async () => {
+  const { classifyPackageText } = await import("../src/core/detect.js");
+  const classify = (packageJson) => classifyPackageText(typeof packageJson === "string" ? packageJson : JSON.stringify(packageJson));
+  // "export" in a script must not read as an expo dependency
+  assert.equal(classify({ dependencies: { "react-native": "1" }, scripts: { build: "next export" } }), "react-native");
+  assert.equal(classify({ dependencies: { expo: "1", "react-native": "1" } }), "react-native-expo");
+  assert.equal(classify({ devDependencies: { "@react-native/babel-preset": "1" } }), "react-native");
+  assert.equal(classify({ dependencies: { next: "1" } }), "react");
+  assert.equal(classify({ name: "tool" }), "node");
+  // Broken JSON keeps the old text rule instead of failing
+  assert.equal(classify('{"react-native" expo'), "react-native-expo");
+});

@@ -1,9 +1,7 @@
 // Wizard global state made explicit as one object (replaces the bash global variables)
 // The next type was merged into react in v4.1.0 (breaking)
-export const VALID_TYPES = [
-  "spring", "flutter", "react",
-  "react-native", "react-native-expo", "node", "python", "basic",
-];
+// Project types come from the registry (src/core/project-types.json, #1244)
+export { VALID_TYPES } from "./core/project-types.js";
 
 export const DEFAULT_VERSION = "1.3.14"; // When the template version is unknown (banner fallback — not used for breaking comparison)
 

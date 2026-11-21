@@ -42,8 +42,10 @@ export function validateRegistry(entries) {
     for (const key of ["label", "description"]) {
       if (typeof entry[key] !== "string" || !entry[key]) problems.push(`${where}: ${key} is required`);
     }
-    for (const key of ["is_app", "root_resolver"]) {
-      if (typeof entry[key] !== "boolean") problems.push(`${where}: ${key} must be true or false`);
+    if (typeof entry.is_app !== "boolean") problems.push(`${where}: is_app must be true or false`);
+    // @wizard auto:<name> resolver for the type folder (APP_ROOT), or null
+    if (entry.root_resolver !== null && !/^[a-z]+-root$/.test(entry.root_resolver ?? "")) {
+      problems.push(`${where}: root_resolver must be null or a name like "flutter-root"`);
     }
     for (const key of ["launch_kinds", "deploy_trigger_workflows"]) {
       if (!isStringList(entry[key])) problems.push(`${where}: ${key} must be a list of strings`);

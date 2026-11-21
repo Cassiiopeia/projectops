@@ -5,6 +5,23 @@
 // Value lists and per-flag details live in src/core/options-schema.js (source of truth); `--mode options --json` prints them as is.
 // Every flag in args.js must appear in both the English and Korean help texts — add new flags to both.
 import { getLang } from "../i18n/index.js";
+import { VALID_TYPES } from "../core/project-types.js";
+
+// Help column where option descriptions start
+const HELP_DESCRIPTION_INDENT = " ".repeat(27);
+// Type ids per help line (keeps lines under 80 columns)
+const TYPES_PER_HELP_LINE = 4;
+
+// "supported:" list from the registry, wrapped and aligned under the first id
+function typeListLines(prefix) {
+  const lines = [];
+  for (let index = 0; index < VALID_TYPES.length; index += TYPES_PER_HELP_LINE) {
+    // Hangul and other wide characters take two terminal columns
+    const lead = index === 0 ? prefix : " ".repeat(prefix.length + (prefix.match(/[^\x00-\x7f]/g) || []).length);
+    lines.push(HELP_DESCRIPTION_INDENT + lead + VALID_TYPES.slice(index, index + TYPES_PER_HELP_LINE).join(" "));
+  }
+  return lines.join("\n");
+}
 
 const HELP_EN = `projectops — installs and updates GitHub automation (versioning, release notes, CI/CD, issue templates, agent skills)
 
@@ -34,8 +51,7 @@ Modes  (-m, --mode MODE)
 
 Options
   -t, --type CSV           project types, comma separated, first = primary (e.g. spring,react,python)
-                           supported: spring flutter react react-native
-                                      react-native-expo node python basic
+${typeListLines("supported: ")}
                            omitted: auto-detected from files in the repo root (nothing found = basic)
                            (next was merged into react: use react for Next.js)
       --project-version V  initial version, only when version.yml does not exist yet (an existing value is always kept)
@@ -120,8 +136,7 @@ AI agent 나 CI 는 항상 이렇게 실행한다:      npx projectops --mode <�
 
 옵션
   -t, --type CSV           프로젝트 타입 csv, 첫 항목이 primary (예: spring,react,python)
-                           지원: spring flutter react react-native
-                                 react-native-expo node python basic
+${typeListLines("지원: ")}
                            생략: 레포 루트의 파일로 자동 감지 (못 찾으면 basic)
                            (next는 react로 흡수됨 — Next.js 프로젝트는 react 사용)
       --project-version V  초기 버전. version.yml 이 아직 없을 때만 쓰인다 (기존 값은 항상 유지)

@@ -13,6 +13,7 @@ import { t as msg } from "../i18n/index.js";
 import { parseTemplateOptions, inferIntent } from "./version-yml.js";
 import { branchStatus, createBranch, pushBranch } from "./git-branch.js";
 import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS, DEFAULT_CODE_REVIEW_CODERABBIT } from "./constants.js";
+import { PROJECT_TYPES } from "./project-types.js";
 
 // Check the development (release) branch exists + offer to create it (#477) — interactive only.
 // If missing locally and missing (or unknown) on the remote, offer to create it from the default branch, then ask whether to push.
@@ -71,26 +72,9 @@ export { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS };
 // (Play Store/TestFlight/Firebase, etc.) workflows in the type itself, so the server deploy axis does not
 // apply and there is no registry publish either. If only types with both axes empty are selected, the questions are skipped.
 // Server types keep all current choices (behavior unchanged — per-type refinement is follow-up work).
-export const TYPE_DEPLOY_TARGETS = {
-  spring: ["docker-ssh", "vercel"],
-  react: ["docker-ssh", "vercel"],
-  node: ["docker-ssh", "vercel"],
-  python: ["docker-ssh", "vercel"],
-  flutter: [],
-  "react-native": [],
-  "react-native-expo": [],
-  basic: [],
-};
-export const TYPE_PUBLISH_TARGETS = {
-  spring: ["nexus", "npm", "github-packages"],
-  react: ["nexus", "npm", "github-packages"],
-  node: ["nexus", "npm", "github-packages"],
-  python: ["nexus", "npm", "github-packages"],
-  flutter: [],
-  "react-native": [],
-  "react-native-expo": [],
-  basic: [],
-};
+// Values come from the registry axes (src/core/project-types.json).
+export const TYPE_DEPLOY_TARGETS = Object.fromEntries(PROJECT_TYPES.map((type) => [type.id, [...type.axes.deploy]]));
+export const TYPE_PUBLISH_TARGETS = Object.fromEntries(PROJECT_TYPES.map((type) => [type.id, [...type.axes.publish]]));
 
 // Applicable targets = union over the selected types (#498). 'none' is always allowed, so it is left out of the list.
 // Undeclared types allow everything conservatively (question kept) — when adding a new type, add its declaration above too.

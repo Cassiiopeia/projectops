@@ -6,6 +6,7 @@ import { execFileSync } from "node:child_process";
 import { detectTypesFromMarkers, detectVersionFromFiles, suggestTypesByExtScan } from "./detect.js";
 import { parseExisting, convertLegacySingularType } from "./version-yml.js";
 import { VALID_TYPES } from "../context.js";
+import { PROJECT_TYPES } from "./project-types.js";
 
 const hasFile = (root) => (rel) => existsSync(join(root, rel));
 const readFile = (root) => (rel) => {
@@ -48,8 +49,8 @@ export function listScanFiles(root, maxDepth = 3) {
 
 // Monorepo marker scan: folders up to 2 levels down, a folder with markers is a project (not descended into) (#1243)
 const MONOREPO_MARKER_DEPTH = 2;
-// detectTypesFromMarkers push order
-const MARKER_TYPE_ORDER = ["flutter", "spring", "python", "react", "react-native", "react-native-expo", "node"];
+// Registry order = root scan order (first = primary type)
+const MARKER_TYPE_ORDER = VALID_TYPES;
 export function detectTypesInSubfolders(root, maxDepth = MONOREPO_MARKER_DEPTH) {
   const found = [];
   const walk = (rel, depth) => {
@@ -171,8 +172,8 @@ export function makeResolvers(root, repoName, paths) {
       return f ? f.split("/").slice(0, -1).join("/") : "";
     },
     "spring-app-yml-path": (t) => findSpringAppYml(root, springBase(t)) || "",
-    "flutter-root": () => paths.get("flutter") || ".",
-    // Expo app folder (#1240) — APP_ROOT of the react-native-expo workflows
-    "expo-root": () => paths.get("react-native-expo") || ".",
+    // Type folder resolvers (APP_ROOT of app workflows): registry root_resolver names, e.g. flutter-root, expo-root
+    ...Object.fromEntries(PROJECT_TYPES.filter((type) => type.root_resolver)
+      .map((type) => [type.root_resolver, () => paths.get(type.id) || "."])),
   };
 }

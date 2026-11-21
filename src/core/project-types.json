@@ -19,7 +19,7 @@
     "axes": { "deploy": [], "publish": [] },
     "is_app": true,
     "launch_kinds": ["app"],
-    "root_resolver": true,
+    "root_resolver": "flutter-root",
     "deploy_trigger_workflows": [
       "PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml",
       "PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml",
@@ -51,7 +51,7 @@
     "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
     "is_app": false,
     "launch_kinds": ["server"],
-    "root_resolver": false,
+    "root_resolver": null,
     "deploy_trigger_workflows": [
       "PROJECT-SPRING-SIMPLE-CICD.yaml",
       "PROJECT-SPRING-NEXUS-PUBLISH.yml",
@@ -78,7 +78,7 @@
     "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
     "is_app": false,
     "launch_kinds": ["server"],
-    "root_resolver": false,
+    "root_resolver": null,
     "deploy_trigger_workflows": ["PROJECT-PYTHON-SIMPLE-CICD.yaml"]
   },
   {
@@ -106,7 +106,7 @@
     "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
     "is_app": false,
     "launch_kinds": ["web"],
-    "root_resolver": false,
+    "root_resolver": null,
     "deploy_trigger_workflows": ["PROJECT-REACT-CICD.yaml"]
   },
   {
@@ -133,7 +133,7 @@
     "axes": { "deploy": [], "publish": [] },
     "is_app": true,
     "launch_kinds": ["app"],
-    "root_resolver": false,
+    "root_resolver": null,
     "deploy_trigger_workflows": []
   },
   {
@@ -160,7 +160,7 @@
     "axes": { "deploy": [], "publish": [] },
     "is_app": true,
     "launch_kinds": ["app"],
-    "root_resolver": true,
+    "root_resolver": "expo-root",
     "deploy_trigger_workflows": [
       "PROJECT-REACT-NATIVE-EXPO-ANDROID-PLAYSTORE-CICD.yaml",
       "PROJECT-REACT-NATIVE-EXPO-IOS-TESTFLIGHT.yaml"
@@ -187,7 +187,7 @@
     "axes": { "deploy": ["docker-ssh", "vercel"], "publish": ["nexus", "npm", "github-packages"] },
     "is_app": false,
     "launch_kinds": ["web", "server"],
-    "root_resolver": false,
+    "root_resolver": null,
     "deploy_trigger_workflows": ["PROJECT-NODE-NPM-PUBLISH.yaml"]
   },
   {
@@ -209,7 +209,7 @@
     "axes": { "deploy": [], "publish": [] },
     "is_app": false,
     "launch_kinds": [],
-    "root_resolver": false,
+    "root_resolver": null,
     "deploy_trigger_workflows": []
   }
 ]

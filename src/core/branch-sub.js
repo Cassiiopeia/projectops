@@ -13,6 +13,7 @@
 //   7) CI minutes saver (#1114): with ciMinutesSaver, ci-minutes-sub.js (before branch substitution, on the raw template)
 
 import { substituteCiMinutesSaver } from "./ci-minutes-sub.js";
+import { deployTriggerWorkflows } from "./project-types.js";
 
 // main (default branch) substitutions
 function subDefault(s, db) {
@@ -34,14 +35,9 @@ function subDeploy(s, dev) {
 // Workflows that deploy when pushed (exact file name match). Used only in repos that split the default and deploy branches.
 // Common workflows (version bump · README version · release notes · issue close) are not here: they follow the default branch.
 // Add new deploy workflows to this table too (otherwise that file deploys from the default branch)
-export const DEPLOY_TRIGGER_WORKFLOWS = new Set([
-  "PROJECT-FLUTTER-ANDROID-FIREBASE-CICD.yaml", "PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD.yaml",
-  "PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD.yaml", "PROJECT-FLUTTER-IOS-TESTFLIGHT.yaml",
-  "PROJECT-REACT-NATIVE-EXPO-ANDROID-PLAYSTORE-CICD.yaml", "PROJECT-REACT-NATIVE-EXPO-IOS-TESTFLIGHT.yaml",
-  "PROJECT-SPRING-SIMPLE-CICD.yaml", "PROJECT-PYTHON-SIMPLE-CICD.yaml", "PROJECT-REACT-CICD.yaml",
-  "PROJECT-COMMON-VERCEL-DEPLOY.yaml", "PROJECT-NODE-NPM-PUBLISH.yaml",
-  "PROJECT-SPRING-NEXUS-PUBLISH.yml", "PROJECT-SPRING-GITHUB-PACKAGES-PUBLISH.yml",
-]);
+// Type-owned files come from the registry (deploy_trigger_workflows); Vercel is the only type-independent one
+const TYPE_INDEPENDENT_DEPLOY_WORKFLOWS = ["PROJECT-COMMON-VERCEL-DEPLOY.yaml"];
+export const DEPLOY_TRIGGER_WORKFLOWS = new Set([...deployTriggerWorkflows(), ...TYPE_INDEPENDENT_DEPLOY_WORKFLOWS]);
 
 // Deploy trigger branch substitution: main in triggers · checkout ref · pull · run conditions
 function subDeployTrigger(s, trigger) {

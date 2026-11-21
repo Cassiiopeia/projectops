@@ -3,6 +3,7 @@
 // Cancel (ESC/Ctrl+C) makes each function return the CANCEL symbol → the caller exits normally (exit 0).
 import * as engine from "./readline-engine.js";
 import { t } from "../i18n/index.js";
+import { VALID_TYPES } from "../core/project-types.js";
 
 export const CANCEL = engine.CANCEL;
 
@@ -65,7 +66,7 @@ export async function editMenu({ showOptional = false, axes = null } = {}) {
 
 // Type multiselect.
 export async function selectTypes(current = []) {
-  const all = ["spring", "flutter", "react", "react-native", "react-native-expo", "node", "python", "basic"];
+  const all = VALID_TYPES;
   return engine.multiselect({
     message: t("types.prompt"),
     options: all.map((t) => ({ value: t, label: t })),

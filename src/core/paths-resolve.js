@@ -10,6 +10,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { t as msg } from "../i18n/index.js";
 import { markerForType as baseMarkerForType, extraMarkers } from "./detect.js";
+import { PROJECT_TYPES, typeById } from "./project-types.js";
 import { normalizePath } from "../cli/args.js";
 
 // Cancel (ESC/Ctrl+C) is the CANCEL symbol — judged only by symbol identity, without importing ui (avoids a core→ui back reference)
@@ -17,9 +18,7 @@ const isCancel = (v) => typeof v === "symbol";
 
 // Main marker file name of a type.
 // detect.js returns package.json for unknown types by default — wrapped here so it becomes an empty string.
-const KNOWN_MARKER_TYPES = new Set([
-  "flutter", "react", "node", "react-native", "react-native-expo", "python", "spring",
-]);
+const KNOWN_MARKER_TYPES = new Set(PROJECT_TYPES.filter((type) => type.path_search.files.length).map((type) => type.id));
 export function markerForType(type) {
   return KNOWN_MARKER_TYPES.has(type) ? baseMarkerForType(type) : "";
 }
@@ -64,10 +63,13 @@ function walkFindDirs(root, { prune, match, maxDepth = 3 }) {
 // Search marker file candidates per type.
 // Returns an array of candidate directory relative paths (root is ".").
 export function findTypePathCandidates(root, type) {
+  const search = typeById(type)?.path_search;
+  if (!search || !search.files.length) return [];
+
   // ── Spring multi-module: collapse to the settings.gradle(.kts) folder = module root ──
   // version_manager updates every build.gradle under that folder, so submodules are not expanded.
   // settings.gradle under android/ (Flutter/RN) is not spring, so prune it.
-  if (type === "spring") {
+  if (search.gradle_settings_root) {
     const mm = walkFindDirs(root, {
       prune: new Set(["node_modules", ".git", "build", "dist", ".gradle", "android", "ios"]),
       match: (n) => n === "settings.gradle" || n === "settings.gradle.kts",
@@ -76,39 +78,22 @@ export function findTypePathCandidates(root, type) {
     // No settings.gradle → single module, fall back to build.gradle below
   }
 
-  const namesByType = {
-    flutter: ["pubspec.yaml"],
-    react: ["package.json"], node: ["package.json"],
-    "react-native": ["package.json"],
-    "react-native-expo": ["app.json"],
-    python: ["pyproject.toml", "setup.py", "requirements.txt"],
-    spring: ["build.gradle", "build.gradle.kts", "pom.xml"],
-  };
-  const names = namesByType[type];
-  if (!names) return [];
-
   const prune = new Set([
     "node_modules", ".git", "build", "dist", ".dart_tool", "android", "ios",
     ".gradle", "venv", ".venv", "__pycache__",
   ]);
   // If found by a higher-priority marker, use only that
   let found = [];
-  for (const n of names) {
+  for (const n of search.files) {
     found = walkFindDirs(root, { prune, match: (name) => name === n });
     if (found.length) break;
   }
 
   return found.filter((d) => {
-    if (type === "flutter") {
-      // Exclude example/ + require lib/ alongside — avoids false hits
-      if (d.includes("example")) return false;
-      const libDir = d === "." ? join(root, "lib") : join(root, d, "lib");
-      if (!existsSync(libDir)) return false;
-    }
-    if (type === "spring") {
-      // Exclude false hits on android/build.gradle from Flutter/RN
-      if (d.includes("android")) return false;
-    }
+    // Exclude false hits: example apps (flutter), android/build.gradle of app projects (spring)
+    if ((search.exclude_parts || []).some((part) => d.includes(part))) return false;
+    // Required sibling folder (flutter lib/) — avoids false hits
+    if (search.require_dir && !existsSync(d === "." ? join(root, search.require_dir) : join(root, d, search.require_dir))) return false;
     return true;
   });
 }

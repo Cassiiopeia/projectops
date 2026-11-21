@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { DEPLOY_TARGETS, LABEL_STYLES } from "./constants.js";
 import { REPO_LANGUAGES } from "./repo-language.js";
+import { PROJECT_TYPES } from "./project-types.js";
 
 // Match patterns built from the value lists — adding a language or style to a list makes the parser read it automatically.
 // (Hardcoding languages in the pattern means a newly saved language is unreadable on the next update and reverts to ko.)
@@ -12,6 +13,9 @@ const LANGUAGE_RE = new RegExp(`^\\s+language:\\s*["']?(${alt(REPO_LANGUAGES)})[
 const DEPLOY_TRIGGER_BRANCH_RE = /^\s+deploy_trigger_branch:\s*["']?([A-Za-z0-9._\/-]+)["']?/;
 const CI_MINUTES_SAVER_RE = /^\s+ci_minutes_saver:\s*["']?(true|false)["']?/;
 const LABEL_STYLE_RE = new RegExp(`^\\s+label_style:\\s*["']?(${alt(LABEL_STYLES)})["']?`);
+
+// "Files synced per project type" lines, one per registry type (language-neutral, both headers)
+const TYPE_SYNC_LINES = PROJECT_TYPES.map((type) => `# - ${type.id}: ${type.version.comment}`).join("\n");
 
 const HEADER_EN = `# ===================================================================
 # Project version management file
@@ -37,13 +41,7 @@ const HEADER_EN = `# ===========================================================
 # - You may edit the version value by hand regardless of the rules above
 #
 # Files synced per project type:
-# - spring: build.gradle (version = "x.y.z")
-# - flutter: pubspec.yaml (version: x.y.z+i, includes buildNumber)
-# - react/node: package.json ("version": "x.y.z")
-# - react-native: iOS Info.plist or Android build.gradle
-# - react-native-expo: app.json (expo.version)
-# - python: pyproject.toml (version = "x.y.z")
-# - basic/other: only this version.yml file is used
+${TYPE_SYNC_LINES}
 #
 # Related workflows:
 # - .github/workflows/PROJECT-VERSION-CONTROL.yaml
@@ -82,13 +80,7 @@ const HEADER_KO = `# ===========================================================
 # - 위 판정과 무관하게 version 값을 직접 수정해도 됩니다
 #
 # 프로젝트 타입별 동기화 파일:
-# - spring: build.gradle (version = "x.y.z")
-# - flutter: pubspec.yaml (version: x.y.z+i, buildNumber 포함)
-# - react/node: package.json ("version": "x.y.z")
-# - react-native: iOS Info.plist 또는 Android build.gradle
-# - react-native-expo: app.json (expo.version)
-# - python: pyproject.toml (version = "x.y.z")
-# - basic/기타: version.yml 파일만 사용
+${TYPE_SYNC_LINES}
 #
 # 연관된 워크플로우:
 # - .github/workflows/PROJECT-VERSION-CONTROL.yaml
