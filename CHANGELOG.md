@@ -1,7 +1,20 @@
 # Changelog
 
-**Current version:** 4.109.0  
-**Last updated:** 2026-11-21T11:44:32Z  
+**Current version:** 4.110.0  
+**Last updated:** 2026-11-21T15:12:35Z  
+
+---
+
+## [4.110.0] - 2026-11-21
+
+**PR:** #1253  
+
+**New features**
+- The wizard now asks for the deploy branch right after the development branch
+- Branch flags are saved to version.yml in workflows mode too
+- The run summary lists typed branch values it could not apply, with the reason
+- Workflows you edited that differ only in branch names now get the new branch
+- Disk cleanup finds old Claude Code plugin versions you can remove
 
 ---
 

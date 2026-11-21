@@ -1,14 +1,37 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-21T11:44:32Z",
-    "currentVersion": "4.109.0",
+    "lastUpdated": "2026-11-21T15:12:35Z",
+    "currentVersion": "4.110.0",
     "projectType": "basic",
-    "totalReleases": 424,
+    "totalReleases": 425,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.110.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-21",
+      "pr_number": 1253,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * The wizard now asks for the deploy branch right after the development branch\n  * Branch flags are saved to version.yml in workflows mode too\n  * The run summary lists typed branch values it could not apply, with the reason\n  * Workflows you edited that differ only in branch names now get the new branch\n  * Disk cleanup finds old Claude Code plugin versions you can remove",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "The wizard now asks for the deploy branch right after the development branch",
+            "Branch flags are saved to version.yml in workflows mode too",
+            "The run summary lists typed branch values it could not apply, with the reason",
+            "Workflows you edited that differ only in branch names now get the new branch",
+            "Disk cleanup finds old Claude Code plugin versions you can remove"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.109.0",
       "project_type": "basic",
