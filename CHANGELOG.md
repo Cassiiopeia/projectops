@@ -1,7 +1,17 @@
 # Changelog
 
-**Current version:** 4.108.0  
-**Last updated:** 2026-11-21T03:52:46Z  
+**Current version:** 4.109.0  
+**Last updated:** 2026-11-21T11:44:32Z  
+
+---
+
+## [4.109.0] - 2026-11-21
+
+**PR:** #1251  
+
+**New features**
+- New extras skill pro-project-blueprint: start a new project the owner's way without re-asking (repo layout, branches, public-repo secrets, server deploy)
+- Project registry in the blueprint config: per-project repos, deploy, domains and database, with shared infra defined once
 
 ---
 
