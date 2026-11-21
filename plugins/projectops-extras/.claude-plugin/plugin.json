@@ -1,7 +1,7 @@
 {
   "name": "projectops-extras",
   "description": "Optional projectops skills outside the core dev cycle (Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up on macOS, Windows and Linux, a link to open Orca or Paseo from outside on request, the owner's blueprint for starting a project).",
-  "version": "4.110.0",
+  "version": "4.110.1",
   "author": {
     "name": "Cassiiopeia",
     "url": "https://github.com/Cassiiopeia"
