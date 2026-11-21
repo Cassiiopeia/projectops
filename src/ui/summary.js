@@ -208,7 +208,7 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
   }
 
   err(`  📖 TEMPLATE REPO: ${TEMPLATE_REPO_WEB_URL}`);
-  err(`  📚 ${t("done.workflowGuide")}: .github/workflows/project-types/README.md`);
+  err(`  📚 ${t("done.workflowGuide")}`);
 
   // Post-install verification: expand only when something is wrong, one line otherwise.
   const verification = ctx?.verification;
