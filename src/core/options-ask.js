@@ -24,7 +24,12 @@ import { DEPLOY_TARGETS, PUBLISH_TARGETS, CHANGELOG_PROVIDERS, DEFAULT_CODE_REVI
 // Returns state (#715 — for recording non-interactive results): not-checked · not-a-repo · exists-local · exists-remote ·
 //   declined · create-failed · push-declined · pushed · push-failed
 // isNonInteractive: blocks credential prompts in remote lookup and push (#988 — interactive unchanged)
-export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", defaultBranch = "", io = {}, say = () => {}, isNonInteractive = false }) {
+// missingMessageKey · createInitialValue · pushInitialValue: the deploy branch (#1248) reuses this flow with its own
+//   notice and both answers defaulting to no (its first push runs the deploy workflows)
+export async function ensureDeployBranch({
+  targetRoot = ".", deployBranch = "", defaultBranch = "", io = {}, say = () => {}, isNonInteractive = false,
+  missingMessageKey = "options.branch.missing", createInitialValue = true, pushInitialValue = true,
+}) {
   if (!deployBranch || typeof io.confirm !== "function") return { created: false, pushed: false, ready: null, state: "not-checked" };
   const st = branchStatus(targetRoot, deployBranch, { isNonInteractive });
   if (!st.isRepo) return { created: false, pushed: false, ready: null, state: "not-a-repo" };
@@ -33,8 +38,8 @@ export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", 
     say(msg("options.branch.remoteOnly", { branch: deployBranch }));
     return { created: false, pushed: false, ready: true, state: "exists-remote" };
   }
-  say(msg("options.branch.missing", { branch: deployBranch, base: defaultBranch || msg("options.branch.baseFallback") }));
-  const mk = await io.confirm({ message: msg("options.branch.createPrompt", { base: defaultBranch || msg("options.branch.currentFallback"), branch: deployBranch }), initialValue: true });
+  say(msg(missingMessageKey, { branch: deployBranch, base: defaultBranch || msg("options.branch.baseFallback") }));
+  const mk = await io.confirm({ message: msg("options.branch.createPrompt", { base: defaultBranch || msg("options.branch.currentFallback"), branch: deployBranch }), initialValue: createInitialValue });
   if (mk !== true) {
     say(msg("options.branch.skipped", { branch: deployBranch }));
     return { created: false, pushed: false, ready: false, state: "declined" };
@@ -45,7 +50,7 @@ export async function ensureDeployBranch({ targetRoot = ".", deployBranch = "", 
   }
   say(msg("options.branch.created", { branch: deployBranch }));
   // #481 — name the branch in the push question (avoids "which branch is being pushed" confusion)
-  const up = await io.confirm({ message: msg("options.branch.pushPrompt", { branch: deployBranch }), initialValue: true });
+  const up = await io.confirm({ message: msg("options.branch.pushPrompt", { branch: deployBranch }), initialValue: pushInitialValue });
   if (up !== true) return { created: true, pushed: false, ready: true, state: "push-declined" };
   if (pushBranch(targetRoot, deployBranch, { isNonInteractive })) {
     say(msg("options.branch.pushed", { branch: deployBranch }));
@@ -142,6 +147,30 @@ async function askOptionalWorkflow({ dir, icon, short, desc, current, force, tty
   return include;
 }
 
+/**
+ * Deploy (trigger) branch question (#1248): explain the 3 branches > typed value > existence check (create only if asked)
+ * Default = current value, else the default branch. Answering the default branch means no separate deploy branch ("").
+ * Returns { deployTriggerBranch, deployTriggerBranchReady }
+ */
+async function askDeployTriggerBranch({ targetRoot, defaultBranch, current, io, say }) {
+  say("");
+  say(msg("options.deployBranch.intro"));
+  say(msg("options.deployBranch.roles", { base: defaultBranch }));
+  say(msg("options.deployBranch.why", { base: defaultBranch }));
+  const ans = await io.text({ message: msg("options.deployBranch.prompt"), initialValue: current || defaultBranch });
+  const typed = (typeof ans === "string" && !isCancel(ans) && ans.trim()) ? ans.trim() : (current || defaultBranch);
+  if (typed === defaultBranch) {
+    say(msg("options.deployBranch.chosenDefault", { base: defaultBranch }));
+    return { deployTriggerBranch: "", deployTriggerBranchReady: null };
+  }
+  say(msg("options.deployBranch.chosen", { value: typed }));
+  const br = await ensureDeployBranch({
+    targetRoot, deployBranch: typed, defaultBranch, io, say,
+    missingMessageKey: "options.deployBranch.missing", createInitialValue: false, pushInitialValue: false,
+  });
+  return { deployTriggerBranch: typed, deployTriggerBranchReady: br.ready };
+}
+
 // Axis keys of the option questions (#483 edit scope unit) — the edit menu re-asks one axis at a time.
 // intent (#485) is the project nature — re-asking it re-derives the deploy/publish axes.
 export const OPTION_AXES = ["intent", "deploy", "publish", "code-review", "changelog", "release-branch", "secret"];
@@ -155,7 +184,7 @@ const INTENT_ASKS_PUBLISH = { library: true, both: true, manual: true, app: fals
 // current: { deploy: string|null, publish: string[]|null, secretBackup: bool|null } — explicit CLI values
 // scope: null means all axes (initial integration, re-ask all). A Set/array limits forceAsk to those axes (#483 edit menu isolation).
 //        Axes outside the scope keep current/saved values even with forceAsk and are not asked again.
-// Returns { deploy, publish, secretBackup, codeReviewCoderabbit, aiPrSummary, changelogProvider, changelogBaseUrl, deployBranch }
+// Returns { deploy, publish, secretBackup, codeReviewCoderabbit, aiPrSummary, changelogProvider, changelogBaseUrl, deployBranch, deployTriggerBranch }
 export async function askAllOptionalWorkflows({
   tempDir, types = [], current = {}, targetRoot = ".",
   force = false, tty = true, io = {}, forceAsk = false, defaultBranch = "", scope = null,
@@ -174,6 +203,8 @@ export async function askAllOptionalWorkflows({
   let deployBranch = current.deployBranch ?? null; // #456 release PR head branch
   let deployBranchReady = null; // #490 — whether the branch was confirmed/created in this run (null = not checked)
   let deployBranchCreated = null; // #493 — whether the wizard created it in this run (for the guide record)
+  let deployTriggerBranch = current.deployTriggerBranch ?? null; // #1248 deploy branch ("" = the default branch)
+  let deployTriggerBranchReady = null; // #1248 — same meaning as deployBranchReady
   let intent = current.intent ?? null; // #485 project nature (app/library/both/none/manual)
 
   // Type combinations with both axes empty (#498 — basic alone, or a mobile app like flutter alone) have neither server deploy
@@ -208,6 +239,7 @@ export async function askAllOptionalWorkflows({
       if (changelogBaseUrl === null && saved.changelogBaseUrl !== null) changelogBaseUrl = saved.changelogBaseUrl;
       // #456 reuse the saved development branch
       if (deployBranch === null && saved.deployBranch != null) deployBranch = saved.deployBranch;
+      if (deployTriggerBranch === null && saved.deployTriggerBranch != null) deployTriggerBranch = saved.deployTriggerBranch;
       // #485 reuse the saved intent — if missing, infer it from saved deploy/publish (compat with old version.yml)
       if (intent === null) intent = saved.intent ?? inferIntent(saved.deploy, saved.publish);
     }
@@ -414,6 +446,9 @@ export async function askAllOptionalWorkflows({
       const br = await ensureDeployBranch({ targetRoot, deployBranch, defaultBranch, io, say });
       deployBranchReady = br.ready;
       deployBranchCreated = br.created;
+      // Deploy branch right after the development branch (#1248) — typed by the user, never created without asking
+      ({ deployTriggerBranch, deployTriggerBranchReady } = await askDeployTriggerBranch({
+        targetRoot, defaultBranch: base, current: deployTriggerBranch, io, say }));
     }
   }
 
@@ -439,6 +474,8 @@ export async function askAllOptionalWorkflows({
     deployBranch: deployBranch ?? "",
     deployBranchReady, // #490 — true = confirmed/created, false = declined/failed, null = not checked
     deployBranchCreated, // #493 — true = created by the wizard in this run, null = not checked
+    deployTriggerBranch: deployTriggerBranch ?? "", // #1248 — "" = deploys run on the default branch
+    deployTriggerBranchReady, // #1248 — null = not asked or not checked
 
     // #485 intent — settled value first, else inferred from the final deploy/publish (fixes basic and non-interactive paths)
     intent: intent ?? inferIntent(finalDeploy, finalPublish) ?? "manual",

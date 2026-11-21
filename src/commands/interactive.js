@@ -33,6 +33,7 @@ import { t, getLang, withLang } from "../i18n/index.js";
 import { resolveLabelStyle } from "../core/label-style.js";
 import { resolveRepoLanguage } from "../core/repo-language.js";
 import { printSummary } from "../ui/summary.js";
+import { listUnappliedBranchValues } from "../core/branch-report.js";
 
 const CANCEL = prompts.CANCEL;
 const isCancel = (v) => v === CANCEL || typeof v === "symbol";
@@ -141,9 +142,10 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     let deployBranch = init.deployBranch; // #456 — not recorded when empty. Only a value picked in the question is kept
     let deployBranchReady = null; // #490 — whether the development branch was confirmed/created in this run
     let deployBranchCreated = null; // #493 — whether the wizard created it (for the guide record)
+    let deployTriggerBranch = init.deployTriggerBranch; // #1248 — asked right after the development branch ("" = the default branch)
     let intent = init.intent; // #485 project nature
     // Values not asked — the saved-value rule lives in resolve-options.js
-    const { semverAuto, appRelease, closeOnRelease, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay, projectsSync, deployTriggerBranch, ciMinutesSaver } = init;
+    const { semverAuto, appRelease, closeOnRelease, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay, projectsSync, ciMinutesSaver } = init;
     const semverAutoNewlyOn = initSources.semverAutoNewlyOn;
     // Repo text language (#769) and label style (#776): existing repos get the English switch offered only once (below).
     let language = init.language;
@@ -174,6 +176,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           changelogProvider: existing?.options?.changelogProvider ?? null,
           changelogBaseUrl: existing?.options?.changelogBaseUrl ?? null,
           deployBranch: existing?.options?.deployBranch ?? null,
+          deployTriggerBranch: existing?.options?.deployTriggerBranch ?? null,
           intent: existing?.options?.intent ?? null,
         },
         force: false, tty: realTty,
@@ -194,6 +197,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       deployBranch = r.deployBranch;
       deployBranchReady = r.deployBranchReady ?? deployBranchReady; // #490
       deployBranchCreated = r.deployBranchCreated ?? deployBranchCreated; // #493
+      deployTriggerBranch = r.deployTriggerBranch; // #1248
       intent = r.intent;
     }
 
@@ -251,7 +255,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
             tempDir, types, targetRoot: cwd, defaultBranch: branch,
             current: {
               deploy: deployTarget, publish: publishTargets, secretBackup: includeSecretBackup,
-              codeReviewCoderabbit, aiPrSummary, changelogProvider, changelogBaseUrl, deployBranch, intent,
+              codeReviewCoderabbit, aiPrSummary, changelogProvider, changelogBaseUrl, deployBranch, deployTriggerBranch, intent,
             },
             force: false, tty: realTty, forceAsk: true, scope: [what],
             io: {
@@ -271,6 +275,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
           deployBranch = r.deployBranch;
           deployBranchReady = r.deployBranchReady ?? deployBranchReady; // #490
           deployBranchCreated = r.deployBranchCreated ?? deployBranchCreated; // #493
+          deployTriggerBranch = r.deployTriggerBranch; // #1248
           intent = r.intent;
         }
       }
@@ -308,7 +313,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // the key to keeping values the user filled in (FIREBASE_APP_ID, etc.) from being reset by default re-substitution.
     let updateDecisions = null;
     if (showOptional && updateRun) {
-      const liteCtx = { types, paths, deployTarget, publishTargets, repoName, resolvers, branch, deployBranch };
+      const liteCtx = { types, paths, deployTarget, publishTargets, repoName, resolvers, branch, deployBranch, deployTriggerBranch, ciMinutesSaver };
       const conflicts = listWorkflowConflicts(liteCtx, tempDir, cwd);
       if (conflicts.length) {
         io.note?.(conflicts.map((c) => `• ${c.filename}`).join("\n"), t("flow.conflictsTitle", { count: conflicts.length }));
@@ -408,6 +413,12 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     else if (mode === "version") result = trace.step("install-version", () => runVersion(ctx, tempDir, cwd));
     else if (mode === "workflows") result = trace.step("install-workflows", () => runWorkflows(ctx, tempDir, cwd, { ...hooks, trace }));
 
+    // Typed branch values not applied (#1248) — listed in the finish summary with the reason
+    const unappliedBranches = (mode === "full" || mode === "workflows") ? listUnappliedBranchValues({
+      targetRoot: cwd, defaultBranch: branch, deployBranch, deployTriggerBranch,
+      workflowsResult: result?.workflows, isBranchRecorded: result?.isBranchRecorded !== false, trace,
+    }) : [];
+
     // IDE skills offer after integration (gate question first, default N)
     // Update mode (#502): update only already-installed IDE skills without asking (IDEs not installed are left alone)
     if (updateRun) {
@@ -445,6 +456,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 notice for files replaced without a reference point
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 notice for old and new generations running together
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 notice for workflows not installed
+      branchSynced: result?.workflows?.branchSynced ?? [],            // #1248 kept files applied (branch-only diff)
+      unappliedBranches, defaultBranch: branch,                       // #1248 typed branch values not applied
       semverAutoNewlyOn,
       storeLocalesHint,                        // #843 multi-language store notice
       verification: result?.verification,      // #549 install verification result

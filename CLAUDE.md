@@ -51,7 +51,7 @@ Watch out for confusion: a project has **three branch concepts**, and the versio
 |------|-----|-----------------|--------|
 | **Default (deploy) branch** | Repo default, production. Deployment runs when it is pushed | `default_branch` | `main` |
 | **Development (release source) branch** | Collects development; the head of the release PR into the default branch | `development_branch` (formerly `deploy_branch`) | `develop` |
-| Deploy trigger branch (optional) | Where a push runs the **deploy workflows**. Set only when splitting it from the default branch (develop > main > deploy) | `metadata.template.options.deploy_trigger_branch` | none = default branch |
+| Deploy trigger branch (optional) | Where a push runs the **deploy workflows**. Set only when splitting it from the default branch (develop > main > deploy). The wizard asks it right after the development branch (#1248) | `metadata.template.options.deploy_trigger_branch` | none = default branch |
 | Issue branch | Unit of work (`YYYYMMDD_#number_title`) | — | — |
 
 > ⚠️ **The canonical key name is `development_branch` (#915).** The old name `deploy_branch` was easily misread as "deploy branch", so it was demoted from canonical and remains only for backward compatibility.

@@ -9,6 +9,7 @@ import { exists, copyFileSync, listYamlFiles } from "../fsutil.js";
 import { isUnchanged, substituteEnv, resolveGlobalTokens, extractEnvValues } from "../wizard-env.js";
 import { isUserModified, readBaseline, writeBaseline, sha256 } from "../baseline.js";
 import { substituteBranches } from "../branch-sub.js";
+import { collectBranchNames, compareBranchLines } from "../branch-diff.js";
 import { saveIncoming, lineDiffCounts } from "../incoming.js";
 import { branchStatus } from "../git-branch.js";
 import { PUBLISH_TARGETS } from "../constants.js";
@@ -56,6 +57,30 @@ const UTIL_VERSION_SYNC = "PROJECT-COMMON-TEMPLATE-UTIL-VERSION-SYNC.yml";
 function utilSyncApplies(tempDir, targetRoot, types) {
   if (exists(join(targetRoot, ".github", "util"))) return true;
   return types.some((t) => exists(join(tempDir, ".github", "util", t)));
+}
+
+// version.yml before this run — holds the branch names the installed workflows were rendered with
+function readPreviousVersionYml(targetRoot) {
+  const vy = join(targetRoot, PATHS.versionFile);
+  try { return existsSync(vy) ? readFileSync(vy, "utf8") : ""; } catch { return ""; }
+}
+
+// Incoming render against the installed copy, same pipeline as install: template > env (installed values kept) > branches
+// envOpts null = common files (copied raw, no env substitution)
+function renderAgainstInstalled(srcDir, filename, envOpts, branches, installed) {
+  let content = readFileSync(join(srcDir, filename), "utf8");
+  if (envOpts) content = substituteEnv(content, { ...envOpts, values: extractEnvValues(installed), useDefaults: false });
+  return substituteBranches(content, branches, filename);
+}
+
+// Kept user-modified workflow whose only difference from the incoming render is branch names (#1248)
+function isBranchOnlyConflict({ srcDir, filename, workflowsDir, envOpts, branches, branchNames }) {
+  const dst = join(workflowsDir, filename);
+  if (!existsSync(dst)) return false;
+  try {
+    const installed = readFileSync(dst, "utf8");
+    return compareBranchLines(installed, renderAgainstInstalled(srcDir, filename, envOpts, branches, installed), branchNames).isBranchOnly;
+  } catch { return false; }
 }
 
 // 4 classes (new/unchanged/upstream/changed) — relative to the target workflow directory.
@@ -111,6 +136,15 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop", deployTriggerBranch: deployTriggerBranch || "", ciMinutesSaver: !!ciMinutesSaver };
   // values/useDefaults matter only on the substitution path (isUnchanged forces useDefaults:true internally — virtual comparison intact)
   const envOptsFor = (type) => ({ type, projectPath: paths.get(type) || ".", repoName, resolvers, values: envValues, useDefaults: envUseDefaults, branches });
+  // Branch names old and new (#1248) — basis for spotting kept workflows that differ only in branch names
+  const branchNames = collectBranchNames(branches, readPreviousVersionYml(targetRoot));
+  const branchSynced = []; // Files applied because only branch names differed (original kept as .bak)
+  Object.defineProperty(counters, "branchSynced", { value: branchSynced, enumerable: false });
+  Object.defineProperty(counters, "isBranchOnly", {
+    value: (srcDir, filename, type) => isBranchOnlyConflict({
+      srcDir, filename, workflowsDir, envOpts: type === "common" ? null : envOptsFor(type), branches, branchNames }),
+    enumerable: false,
+  });
 
   // New files not to install (#810) — the ones that came back on every install.
   //   excluded        : files the user listed in version.yml options.excluded_workflows
@@ -152,14 +186,18 @@ export function copyWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
   // When keeping a user-edited file, leave a copy of the new template in incoming (#654).
   // Failures shrink to one warning line — the merge notice must not kill the whole copy.
   const onSkip = (srcDir, filename, type) => {
-    const info = { filename, incoming: "", added: null, removed: null };
+    const info = { filename, incoming: "", added: null, removed: null, branchLineCount: 0 };
     try {
       // Must go through the same render as install (default substitution + branch substitution) so the diff shows only "real differences"
       const rendered = substituteBranches(
         substituteEnv(readFileSync(join(srcDir, filename), "utf8"), { ...envOptsFor(type), useDefaults: true }), branches, filename);
       info.incoming = saveIncoming(targetRoot, filename, rendered);
-      const d = lineDiffCounts(readFileSync(join(workflowsDir, filename), "utf8"), rendered);
+      const installed = readFileSync(join(workflowsDir, filename), "utf8");
+      const d = lineDiffCounts(installed, rendered);
       info.added = d.added; info.removed = d.removed;
+      // Lines still naming the old branch (#1248) — the run summary lists the typed branch as not applied in this file
+      const againstInstalled = renderAgainstInstalled(srcDir, filename, type === "common" ? null : envOptsFor(type), branches, installed);
+      info.branchLineCount = compareBranchLines(installed, againstInstalled, branchNames).branchLineCount;
     } catch (e) {
       trace?.event("copy", "incoming-failed", filename, { message: e?.message || String(e) });
       console.error(t("copy.incomingSaveFailed", { file: filename, error: e?.message || e }));
@@ -317,9 +355,23 @@ function recordBaseline(workflowsDir, targetRoot, counters, previous, templateVe
 
 // Handle one changed file (exists and content changed) by decision (3 choices: backup and replace, template copy, keep).
 // 'skip' (default): keep existing. 'backup': existing → .bak then replace. 'template': keep existing + new version as .template.yaml.
-function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace = null, type = "") {
+// carry(filename, installedContent): keeps the installed env values for re-substitution (per-type files only)
+function applyDecision(decision, srcDir, workflowsDir, filename, counters, trace = null, type = "", carry = null) {
   const src = join(srcDir, filename);
   const dst = join(workflowsDir, filename);
+  // Only branch names differ (#1248): apply the configured branches instead of keeping the old ones (.bak kept)
+  if (decision !== "backup" && decision !== "template" && counters.isBranchOnly?.(srcDir, filename, type)) {
+    carry?.(filename, readFileSync(dst, "utf8"));
+    renameSync(dst, dst + ".bak");
+    copyFileSync(src, dst);
+    counters.copied++;
+    counters.copiedFiles?.push(filename);
+    counters.branchSynced?.push(filename);
+    trace?.event("copy", "branch-synced", filename, {
+      decision: decision ?? "skip", note: "only branch names differed — applied the configured branches, original kept as .bak",
+    });
+    return;
+  }
   if (decision === "backup") {
     // Backup and replace: back up the existing file as .bak, then replace with the new version
     renameSync(dst, dst + ".bak");
@@ -356,6 +408,9 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
   const projectTypesDir = join(tempDir, PATHS.workflowsDir, PATHS.projectTypesDir);
   const conflicts = []; // [{ filename, type }] — same order as the engine (common → type loop → server-deploy)
   const branches = { defaultBranch: branch || "main", deployBranch: deployBranch || "develop", deployTriggerBranch: deployTriggerBranch || "", ciMinutesSaver: !!ciMinutesSaver }; // #477 — same rules as the engine
+  // Branch-only differences are applied by the engine without asking (#1248), so they are not listed
+  const branchNames = collectBranchNames(branches, readPreviousVersionYml(targetRoot));
+  const isAsked = (srcDir, filename, envOpts) => !isBranchOnlyConflict({ srcDir, filename, workflowsDir, envOpts, branches, branchNames });
 
   // common (#560) — only files "confirmed" as touched by the user are asked about.
   // Files that cannot be decided (no reference point) are not asked; the engine leaves a .bak and overwrites them.
@@ -366,6 +421,7 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
       const dst = join(workflowsDir, f);
       if (!existsSync(dst)) continue;
       if (isUserModified(baseline, f, readFileSync(dst, "utf8")) !== true) continue;
+      if (!isAsked(commonDir, f, null)) continue;
       conflicts.push({ filename: f, type: "common" });
     }
   }
@@ -374,11 +430,11 @@ export function listWorkflowConflicts(context, tempDir, targetRoot = ".") {
     const envOpts = { type, projectPath: paths.get(type) || ".", repoName, resolvers, branches };
     const typeDir = join(projectTypesDir, type);
     if (exists(typeDir)) {
-      for (const f of classify(typeDir, workflowsDir, envOpts, baseline).changed) conflicts.push({ filename: f, type });
+      for (const f of classify(typeDir, workflowsDir, envOpts, baseline).changed) if (isAsked(typeDir, f, envOpts)) conflicts.push({ filename: f, type });
     }
     const serverDeployDir = join(typeDir, SERVER_DEPLOY_DIR);
     if (exists(serverDeployDir) && serverDeployEnabled(deployTarget)) {
-      for (const f of classify(serverDeployDir, workflowsDir, envOpts, baseline).changed) conflicts.push({ filename: f, type });
+      for (const f of classify(serverDeployDir, workflowsDir, envOpts, baseline).changed) if (isAsked(serverDeployDir, f, envOpts)) conflicts.push({ filename: f, type });
     }
   }
   return conflicts;
@@ -398,6 +454,8 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     counters.copied++; counters.copiedFiles.push(f);
     trace?.event("copy", "upstream-updated", f, { group, reason: "baseline-match", carried: carried.get(f)?.size ?? 0 });
   };
+  // Branch-only sync (#1248) keeps the installed env values the same way
+  const carryEnv = (f, installed) => { try { carried.set(f, extractEnvValues(installed)); } catch { /* Use defaults */ } };
 
   // Per-type workflows (direct children)
   if (exists(typeDir)) {
@@ -408,7 +466,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     // upstream (#557): not touched by the user, only the template changed — bring it up to date without asking.
     for (const f of upstream) upstreamCopy(typeDir, f, type);
     // changed: handled by the decision Map (unset = skip → same as the current force behavior)
-    for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace, type);
+    for (const f of changed) applyDecision(decisions.get(f), typeDir, workflowsDir, f, counters, trace, type, carryEnv);
   }
 
   // server-deploy — included only with deploy=docker-ssh (#439)
@@ -418,7 +476,7 @@ function copyWorkflowsForType(type, projectTypesDir, workflowsDir, ctx, counters
     for (const f of unchanged) { counters.skipped++; trace?.event("copy", "skipped-unchanged", f, { group: `${type}/server-deploy` }); }
     for (const f of newFiles) { if (counters.skipNew(serverDeployDir, f, `${type}/server-deploy`)) continue; copyFileSync(join(serverDeployDir, f), join(workflowsDir, f)); counters.copied++; counters.copiedFiles.push(f); trace?.event("copy", "copied", f, { group: `${type}/server-deploy` }); }
     for (const f of upstream) upstreamCopy(serverDeployDir, f, `${type}/server-deploy`);
-    for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace, type);
+    for (const f of changed) applyDecision(decisions.get(f), serverDeployDir, workflowsDir, f, counters, trace, type, carryEnv);
   }
 
   // publish/<target> (opt-in — #439 publish axis. The type is only the file location, not a gate)

@@ -28,9 +28,10 @@
 | 4 | 실행물 배포 방식 | Docker + SSH 서버 배포(기본), Vercel, 배포 안 함 |
 | 5 | PR 댓글 방식 | 변경 요약, 코드 리뷰(CodeRabbit), 둘 다, 사용 안 함 |
 | 6 | 개발(릴리스 소스) 브랜치 | 개발을 모아 기본 브랜치로 올리는 브랜치(기본 `develop`). 없으면 만들고 원격 push까지 제안합니다 |
-| 7 | Secret 서버 백업 워크플로우 | 포함 여부 |
-| 8 | 배포 환경 값 | 서비스 이름, 도메인, JDK 버전 등. "기본값 그대로 전부 설치"를 고를 수 있습니다 |
-| 9 | AI 에이전트 스킬 | Claude Code, Cursor, Gemini CLI, Codex CLI, GitHub Copilot, PI에 함께 설치할지 |
+| 7 | 배포 브랜치 | push되면 배포 워크플로(스토어 업로드, 서버 배포)가 도는 브랜치. 기본값은 기본 브랜치이고, `deploy`처럼 따로 둘 수 있습니다. 없으면 알려 주고 만들지 물어봅니다(기본 아니요). 처음 push하면 배포가 돈다고 경고합니다 |
+| 8 | Secret 서버 백업 워크플로우 | 포함 여부 |
+| 9 | 배포 환경 값 | 서비스 이름, 도메인, JDK 버전 등. "기본값 그대로 전부 설치"를 고를 수 있습니다 |
+| 10 | AI 에이전트 스킬 | Claude Code, Cursor, Gemini CLI, Codex CLI, GitHub Copilot, PI에 함께 설치할지 |
 
 선택한 값은 전부 `version.yml`의 `metadata.template.options.*`에 저장되어, 다음 실행(업데이트) 때 다시 묻지 않습니다.
 

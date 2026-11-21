@@ -8,7 +8,7 @@ import { copyWorkflows } from "../core/copy/workflows.js";
 import { applyLabelStyle } from "../core/label-style.js";
 import { copyScripts, copyConfigFolder, copySetupGuide } from "../core/copy/simple.js";
 import { copyUtilModules } from "../core/copy/util.js";
-import { convertLegacySingularType, mergeDeployValues, commentsFor } from "../core/version-yml.js";
+import { convertLegacySingularType, mergeDeployValues, commentsFor, upsertBranchKeys } from "../core/version-yml.js";
 import { installAgentGuide } from "../core/agent-guide.js";
 import { verifyInstall } from "../core/verify.js";
 
@@ -30,6 +30,10 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
     const cur = readFileSync(vy, "utf8");
     writeFileSync(vy, upsertDeployBlock(cur, mergeDeployValues(cur, wf.deployValues), context.language));   // Existing values first (#670)
   }
+
+  // Branch keys (#1248) — workflows mode does not regenerate version.yml, so the typed branches are written here
+  // (same result as full mode). Without a version.yml there is nowhere to record them: the run summary says so.
+  const isBranchRecorded = writeBranchKeys(vy, context, hooks.trace);
 
   copyScripts(tempDir, targetRoot);
   copyConfigFolder(tempDir, targetRoot);
@@ -55,7 +59,28 @@ export function runWorkflows(context, tempDir, targetRoot = ".", hooks = {}) {
     hooks.trace?.event("verify", "required-key", name, { workflows: users });
   }
 
-  return { workflows: wf, verification };
+  return { workflows: wf, verification, isBranchRecorded };
+}
+
+/**
+ * Typed branches > existing version.yml (development_branch, deploy_trigger_branch)
+ * Returns true = written or nothing to write, false = values given but no version.yml
+ */
+function writeBranchKeys(versionYmlPath, context, trace = null) {
+  const deployBranch = context.deployBranch || "";
+  const deployTriggerBranch = context.deployTriggerBranch || "";
+  if (!existsSync(versionYmlPath)) {
+    const hasBranchValues = !!(deployBranch || deployTriggerBranch);
+    if (hasBranchValues) trace?.event("branch", "not-recorded", "version.yml", { deployBranch, deployTriggerBranch, reason: "version-yml-missing" });
+    return !hasBranchValues;
+  }
+  const current = readFileSync(versionYmlPath, "utf8");
+  const updated = upsertBranchKeys(current, { deployBranch, deployTriggerBranch, language: context.language });
+  if (updated !== current) {
+    writeFileSync(versionYmlPath, updated);
+    trace?.event("branch", "recorded", "version.yml", { deployBranch: deployBranch || null, deployTriggerBranch: deployTriggerBranch || null });
+  }
+  return true;
 }
 
 // Remove the deploy: block from the existing version.yml and append a new one (idempotent).

@@ -174,13 +174,26 @@ projectops에서 "브랜치"는 여러 뜻으로 쓰인다. `version.yml` 키 �
 기본은 기본 브랜치(`main`)에 푸시되면 배포가 돈다. develop → main → deploy 로 나눠서 배포 워크플로(앱스토어·서버·패키지 publish·Vercel)를
 `deploy` 브랜치에서만 돌리고 싶으면 한 번만 정한다.
 
+왜 나누나: 기본 브랜치가 곧 배포 브랜치면 CI/CD 가 돌 때마다 `version.yml`·`CHANGELOG.*`·README 버전 줄 커밋이 기본 브랜치에 쌓인다.
+배포를 별도 브랜치로 빼면 기본 브랜치는 기본 브랜치로 두고 배포 시점만 따로 고를 수 있다.
+
+대화형 마법사는 개발 브랜치 질문 바로 다음에 배포 브랜치를 묻는다 (기본값 = 기본 브랜치, 직접 입력). 비대화형은 플래그로 준다.
+
 ```bash
 npx projectops --mode workflows --force --deploy-trigger-branch deploy
 ```
 
 `version.yml` 에 `metadata.template.options.deploy_trigger_branch` 가 기록되고, 배포 워크플로의 `main` 만 `deploy` 로 바뀐다
 (푸시 트리거, 체크아웃, `git pull`, 브랜치 조건). 버전 올림·README 버전·릴리스 노트·이슈 닫기는 기본 브랜치를 그대로 따른다.
-이후 업데이트도 이 설정을 유지한다. `deploy` 브랜치는 먼저 만들어 둔다. 플래그를 안 주면 아무것도 바뀌지 않는다.
+이후 업데이트도 이 설정을 유지한다. 플래그를 안 주면 아무것도 바뀌지 않는다.
+
+- projectops 는 브랜치를 마음대로 만들지 않는다. 마법사는 입력한 브랜치가 없으면 알려 주고 만들지 묻는다(배포 브랜치는 기본 아니요).
+  배포 브랜치에 처음 push하면 배포 워크플로가 돈다.
+- `--deploy-branch`·`--deploy-trigger-branch` 는 `full`·`workflows`·비대화형 어느 모드든 `version.yml` 에 기록된다 (#1248).
+- 입력한 브랜치 값을 반영하지 못한 곳은 실행 요약에 이유와 함께 나온다: `version.yml` 없음, origin 에 브랜치 없음, 로컬에만 있음,
+  직접 수정해 보존한 워크플로.
+- 직접 수정한 워크플로라도 새 템플릿과 **브랜치 이름만** 다르면 새 브랜치 값을 반영하고 원본은 `.bak` 으로 남긴다
+  (릴리스 PR 의 `head.ref` 가드가 옛 브랜치에 남아 파이프라인이 멈추는 일을 막는다).
 
 - 릴리스 PR(develop → main)은 지금처럼 버전 확정·릴리스 노트만 하고 배포하지 않는다. 배포는 main 을 `deploy` 로 올릴 때 돈다.
   `pro-changelog-deploy` 의 `detect-release-context` 가 이 구조를 `release_shape: three_tier` 로 알려 준다.

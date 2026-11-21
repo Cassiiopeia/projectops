@@ -394,6 +394,52 @@ export function readDevelopmentBranch(content) {
   return null;
 }
 
+/**
+ * Branch keys in an existing version.yml: development_branch + deploy_branch, deploy_trigger_branch (#1248)
+ * For modes that do not regenerate version.yml (workflows), so flags and the wizard give the same file as full mode
+ * deployBranch     : "" = leave as is
+ * deployTriggerBranch : "" = remove the key (deploys follow the default branch), otherwise set
+ * Returns the new content (unchanged when nothing applies)
+ */
+export function upsertBranchKeys(content, { deployBranch = "", deployTriggerBranch = "", language = null } = {}) {
+  const C = commentsFor(language === "ko" ? "ko" : "en");
+  const eol = String(content).includes("\r\n") ? "\r\n" : "\n";
+  const lines = String(content).split(/\r?\n/);
+  const findLine = (re) => lines.findIndex((l) => !l.startsWith("#") && re.test(l));
+
+  // metadata.development_branch / deploy_branch (both keys, same value — #915)
+  if (deployBranch) {
+    const developmentLine = `  development_branch: "${deployBranch}"`;
+    const legacyLine = `  deploy_branch: "${deployBranch}"   # ${C.legacyDeployBranch}`;
+    const developmentIndex = findLine(/^ {2}development_branch:/);
+    const legacyIndex = findLine(/^ {2}deploy_branch:/);
+    if (developmentIndex >= 0) lines[developmentIndex] = developmentLine;
+    if (legacyIndex >= 0) lines[legacyIndex] = legacyLine;
+    if (developmentIndex < 0 || legacyIndex < 0) {
+      // Missing keys go right after default_branch (else right after metadata:), same order as buildVersionYml
+      const anchorIndex = findLine(/^ {2}default_branch:/) >= 0 ? findLine(/^ {2}default_branch:/) : findLine(/^metadata:/);
+      const missing = [];
+      if (developmentIndex < 0) missing.push(developmentLine);
+      if (legacyIndex < 0) missing.push(legacyLine);
+      if (anchorIndex >= 0) lines.splice(anchorIndex + 1, 0, ...missing);
+    }
+  }
+
+  // metadata.template.options.deploy_trigger_branch
+  const triggerIndex = findLine(/^ {6}deploy_trigger_branch:/);
+  if (deployTriggerBranch) {
+    const triggerLine = `      deploy_trigger_branch: "${deployTriggerBranch}"   # ${C.deployTriggerBranch}`;
+    if (triggerIndex >= 0) lines[triggerIndex] = triggerLine;
+    else {
+      const optionsIndex = findLine(/^ {4}options:\s*$/);
+      if (optionsIndex >= 0) lines.splice(optionsIndex + 1, 0, triggerLine);
+    }
+  } else if (triggerIndex >= 0) {
+    lines.splice(triggerIndex, 1);
+  }
+  return lines.join(eol);
+}
+
 // Extract values from the existing version.yml (line regexes, avoiding false hits on comment lines).
 export function parseExisting(content) {
   const text = String(content || "");

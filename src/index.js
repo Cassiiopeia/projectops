@@ -23,6 +23,7 @@ import { resolveProjectPaths, markerForType } from "./core/paths-resolve.js";
 import { resolveOptions } from "./core/resolve-options.js";
 import { detectStoreLocalesHint } from "./core/store-locales-hint.js";
 import { runDevelopmentBranchStep } from "./core/development-branch.js";
+import { listUnappliedBranchValues } from "./core/branch-report.js";
 import { printBannerCompact } from "./ui/banner.js";
 import { printSummary } from "./ui/summary.js";
 import { runFull } from "./commands/full.js";
@@ -240,6 +241,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     changelogProvider: context.changelogProvider,
     coderabbit: context.codeReviewCoderabbit,
     deployBranch: context.deployBranch || "(not given, falls back to develop)",
+    deployTriggerBranch: context.deployTriggerBranch || "(not given, the default branch)",
     recordMode: context.recordMode,
   });
   trace.event("resolve", "semver-auto", String(context.semverAuto), {
@@ -317,6 +319,11 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       say: (line) => console.error(line),
     });
     const isDevelopmentBranchReady = developmentBranchResult ? developmentBranchResult.status !== "failed" : null;
+    // Typed branch values not applied (#1248) — after branch creation, so a branch created just now is not reported
+    const unappliedBranches = recordArtifacts ? listUnappliedBranchValues({
+      targetRoot: cwd, defaultBranch: branch, deployBranch: context.deployBranch, deployTriggerBranch: context.deployTriggerBranch,
+      workflowsResult: result?.workflows, isBranchRecorded: result?.isBranchRecorded !== false, isNonInteractive: true, trace,
+    }) : [];
 
     // Migration record (#493/#494) — Layer 2/3 trace files + Layer 1 guide entry
     let migrationGuidePath = null;
@@ -349,6 +356,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
       replacedBak: result?.workflows?.replacedBak ?? [],             // #673 notice for files replaced without a reference point
       legacyLeftover: migrationsResult?.confirmPending ?? [],         // #809 notice for old and new generations running together
       notInstalled: result?.workflows?.notInstalled ?? [],            // #810 notice for workflows not installed
+      branchSynced: result?.workflows?.branchSynced ?? [],            // #1248 kept files applied (branch-only diff)
+      unappliedBranches, defaultBranch: branch,                       // #1248 typed branch values not applied
       semverAutoNewlyOn: sources.semverAutoNewlyOn && context.semverAuto === true, // Notice that the update turned it on
       storeLocalesHint,                                               // #843 multi-language store notice
       verification: result?.verification,   // #549 post-install verification result (only in full/workflows modes)

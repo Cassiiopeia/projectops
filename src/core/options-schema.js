@@ -194,13 +194,13 @@ export const FLAG_DETAILS = {
   },
   "--deploy-trigger-branch": {
     when: "Only if deploys must run from a branch other than the default branch (for example develop > main > deploy).",
-    effect: "Writes metadata.template.options.deploy_trigger_branch and rewrites main to that branch in the deploy workflows only: push trigger, checkout ref, git pull, branch check. Version bump, README version, release notes and issue closing keep following the default branch. Create the branch yourself first.",
+    effect: "Writes metadata.template.options.deploy_trigger_branch and rewrites main to that branch in the deploy workflows only: push trigger, checkout ref, git pull, branch check. Version bump, README version, release notes and issue closing keep following the default branch. Written in every mode, including workflows. The branch is NOT created by this flag; if it is missing on origin, the run summary says so. The interactive wizard asks this right after the development branch.",
     omitted: "The deploy workflows follow the default branch, unchanged.",
     example: "npx projectops --mode workflows --force --deploy-trigger-branch deploy",
   },
   "--deploy-branch": {
     when: "Only if your development branch is not named develop.",
-    effect: "Writes metadata.development_branch (and the old deploy_branch with the same value) and rewrites the branch name inside the installed workflows (release PR head, CI triggers, PR summary base). The branch is NOT created by this flag (use --create-development-branch).",
+    effect: "Writes metadata.development_branch (and the old deploy_branch with the same value) in every mode, including workflows, and rewrites the branch name inside the installed workflows (release PR head, CI triggers, PR summary base). Workflows you modified whose only difference is the branch name are updated too (original kept as .bak). The branch is NOT created by this flag (use --create-development-branch).",
     omitted: "develop.",
     example: "npx projectops --mode full --force --deploy-branch dev",
     caution: "Despite the name this is the development branch (head of the release PR), not the branch that deploys. The deploying branch is the repository default branch.",

@@ -28,9 +28,10 @@ The wizard asks in this order. Most defaults are the recommended values, so pres
 | 4 | Choose how to deploy the runnable | Docker + SSH server deployment (default), Vercel, or no deployment |
 | 5 | Choose the PR comment mode | Change summary, code review (CodeRabbit), both, or none |
 | 6 | Development (release source) branch | The branch that collects development and is raised to the default branch (default `develop`). If it does not exist, the wizard offers to create it and push it to the remote |
-| 7 | Secret server backup | Whether to include the Secret server backup workflow |
-| 8 | Deployment environment values | Service name, domain, JDK version, etc. You can choose "Install everything with the defaults above" |
-| 9 | AI agent skills | Whether to also install them for Claude Code, Cursor, Gemini CLI, Codex CLI and PI |
+| 7 | Deploy branch | The branch whose push runs the deploy workflows (store upload, server deploy). Defaults to the default branch; you can name a separate one such as `deploy`. If it does not exist, the wizard says so and asks whether to create it (default no), and warns that the first push to it runs the deploys |
+| 8 | Secret server backup | Whether to include the Secret server backup workflow |
+| 9 | Deployment environment values | Service name, domain, JDK version, etc. You can choose "Install everything with the defaults above" |
+| 10 | AI agent skills | Whether to also install them for Claude Code, Cursor, Gemini CLI, Codex CLI and PI |
 
 Every selected value is stored in `metadata.template.options.*` of `version.yml`, so the next run (update) does not ask again.
 

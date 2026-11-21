@@ -172,7 +172,13 @@ VERSION-CONTROL workflow
 ## Separate deploy branch (optional)
 
 By default a push to the default branch (`main`) deploys. If you want develop → main → deploy, with the deploy workflows
-(app store, server, package publish, Vercel) running only from a `deploy` branch, set it once:
+(app store, server, package publish, Vercel) running only from a `deploy` branch, set it once.
+
+Why split it: when the default branch is also the deploy branch, every CI/CD run commits `version.yml`, `CHANGELOG.*` and the
+README version line onto it. A separate deploy branch leaves the default branch as it is and lets you pick when to deploy.
+
+The interactive wizard asks for the deploy branch right after the development branch (default = the default branch, typed in).
+Non-interactive runs use the flag:
 
 ```bash
 npx projectops --mode workflows --force --deploy-trigger-branch deploy
@@ -180,8 +186,16 @@ npx projectops --mode workflows --force --deploy-trigger-branch deploy
 
 This writes `metadata.template.options.deploy_trigger_branch` into `version.yml` and rewrites `main` to `deploy` in the deploy
 workflows only (push trigger, checkout, `git pull`, branch check). Version bump, README version, release notes and issue
-closing keep following the default branch. Later updates keep the setting. Create the `deploy` branch first. Omit the flag
-and nothing changes.
+closing keep following the default branch. Later updates keep the setting. Omit the flag and nothing changes.
+
+- projectops never creates branches on its own. When a typed branch is missing, the wizard says so and asks whether to create
+  it (default no for the deploy branch). The first push to the deploy branch runs the deploy workflows.
+- `--deploy-branch` and `--deploy-trigger-branch` are written to `version.yml` in every mode: `full`, `workflows` and
+  non-interactive (#1248).
+- The run summary lists every typed branch value it could not apply, with the reason: no `version.yml`, branch missing on
+  origin, branch only local, or kept user-modified workflows.
+- A workflow you modified that differs from the new template **only in branch names** gets the new branch values, and the
+  original is kept as `.bak` (so the release PR `head.ref` guard is not left on the old branch).
 
 - The release PR (develop → main) still finalizes the version and release notes and does not deploy. Deploys run when main
   is carried to `deploy`. `detect-release-context` in `pro-changelog-deploy` reports this as `release_shape: three_tier`.

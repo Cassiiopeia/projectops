@@ -147,6 +147,22 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`     ${t("done.notInstalledHint")}`);
   }
 
+  // Kept user-modified workflows that differed only in branch names were applied (#1248).
+  const branchSynced = ctx?.branchSynced ?? [];
+  if (branchSynced.length > 0) {
+    err("");
+    err(`  ${CYAN}ℹ️  ${t("done.branchSyncedTitle", { count: branchSynced.length })}${NC}`);
+    for (const f of branchSynced) err(`     🔀 .github/workflows/${f}  (.bak)`);
+  }
+
+  // Typed branch values this run could not apply, with the reason (#1248) — never keep the old branch silently.
+  const unappliedBranches = ctx?.unappliedBranches ?? [];
+  if (unappliedBranches.length > 0) {
+    err("");
+    err(`  ${YELLOW}⚠️  ${t("done.branchNotAppliedTitle", { count: unappliedBranches.length })}${NC}`);
+    for (const entry of unappliedBranches) printUnappliedBranch(entry, ctx?.defaultBranch || "main", err);
+  }
+
   // Retired old-generation workflows still installed: they run next to their replacements (#809).
   const legacy = ctx?.legacyLeftover ?? [];
   if (legacy.length > 0) {
@@ -325,5 +341,19 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`   ${t("done.log.note")}`);
     err(`   💡 ${t("done.log.ask")}`);
     err("");
+  }
+}
+
+/**
+ * One unapplied branch entry: kind + reason > files > next step (create command, deploy warning)
+ */
+function printUnappliedBranch(entry, defaultBranch, err) {
+  const { kind, branch, reason, files = [] } = entry;
+  err(`     ⏭️  ${t(`done.branchKind.${kind}`, { branch })}: ${t(`done.branchReason.${reason}`, { branch })}`);
+  if (reason === "missing-on-remote" && files.length) err(`        ${t("done.branchFilesSkipped")}`);
+  for (const f of files) err(`        • ${f}`);
+  if (reason === "missing-on-remote") {
+    err(`        ${t("done.branchCreateHint", { branch, base: defaultBranch })}`);
+    if (kind === "deploy-trigger") err(`        ${t("done.branchDeployWarn")}`);
   }
 }
