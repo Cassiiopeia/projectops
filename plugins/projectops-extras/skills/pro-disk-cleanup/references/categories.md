@@ -45,9 +45,10 @@ than `--older-than-days`, `browser` removes only cache folders inside profiles w
 reported only (clear `info` items by the tool named in `note`, after the user names them).
 
 `plugin-versions` lists cached Claude Code plugin versions per marketplace and plugin, keeping the newest two numeric
-versions. Unrecognized version names are kept. The cache lives under `${CLAUDE_CONFIG_DIR}/plugins/cache` when set,
-otherwise `~/.claude/plugins/cache`. Running sessions may still read the previous version. Clear only when the user
-names this location; without `--yes`, the command only prints its plan.
+versions. Versions named in `${CLAUDE_CONFIG_DIR}/plugins/installed_plugins.json` (or `~/.claude/plugins/installed_plugins.json`)
+are also kept, since a project can pin an older install. Unrecognized version names are kept. The cache lives under
+`${CLAUDE_CONFIG_DIR}/plugins/cache` when set, otherwise `~/.claude/plugins/cache`. Running sessions may still read the
+previous version. Clear only when the user names this location; without `--yes`, the command only prints its plan.
 
 A location whose `is_whole_folder_reclaimable` is false (unavailable simulators, browser caches, temp) is left out of
 `totals_gb`; its dry run gives the real number.

@@ -79,7 +79,8 @@ Anything touched within `--idle-hours` (default 2, `disk-cleanup.idle_hours`) is
    A worktree with `real_change_count > 0` and no issue: show `real_change_sample` and ask before removing; the backup
    keeps it, but the user must know it existed.
    For Claude Code plugin caches, run `plugin-versions claude-plugin-cache` to show the plan. Keep the newest two
-   versions per plugin because running sessions may still read the previous version. Unrecognized version names
+   versions per plugin because running sessions may still read the previous version. Versions named as installPath
+   in `installed_plugins.json` are kept too, since a project can pin an older install. Unrecognized version names
    are kept. Add `--yes` only after the user names this location. `CLAUDE_CONFIG_DIR` overrides `~/.claude`.
 5. **Docker.** Run `docker` first and show stopped containers and unused volumes. Remove containers only by name the
    user agreed to. `docker --volumes` lists unused volumes **before** anything else is removed and deletes only that list;
