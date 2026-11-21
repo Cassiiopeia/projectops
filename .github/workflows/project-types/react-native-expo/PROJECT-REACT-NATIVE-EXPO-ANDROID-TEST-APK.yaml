@@ -1,0 +1,262 @@
+# ==========================================================================================
+# React Native Expo Android test APK: chosen branch > expo prebuild > signed APK artifact
+# ==========================================================================================
+#
+# Triggers 2:
+#   - Manual run (workflow_dispatch, branch input)
+#   - `@projectops app build` / `@projectops apk build` comment on an issue or PR
+#     (PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER > repository_dispatch build-android-app)
+# Not uploaded to a store. The APK is kept as a run artifact for 7 days.
+#
+# No EAS: `expo prebuild` generates android/ on the runner, Gradle builds it. Only Actions minutes are used.
+# Signing: release keystore if the secrets exist, else the debug key of the generated project.
+#   Injected with -Pandroid.injected.signing.* because android/ is regenerated (gitignored) on every run.
+# Build number: .github/scripts/build_number.py (time-based, always increasing; version_code is for releases only)
+#
+# ⚠️ repository_dispatch runs with the workflow definition on the default branch (#595).
+#    Edits made on develop take effect for comment builds only after they land on the default branch.
+#
+# ==========================================================================================
+# 🔑 GitHub Secrets (all optional)
+# ==========================================================================================
+# RELEASE_KEYSTORE_BASE64   : upload keystore (.jks/.keystore, base64). Missing = debug-signed APK
+# RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+# ENV_FILE                  : contents of the app .env file
+# GOOGLE_SERVICES_JSON      : contents of google-services.json (Firebase), written to the app folder
+# ==========================================================================================
+# 🔧 Per-project settings
+# ==========================================================================================
+# APP_ROOT              : Expo app folder relative to the repo root
+# NODE_VERSION / JAVA_VERSION : repo variables NODE_VERSION / JAVA_VERSION win
+# ANDROID_ARCHITECTURES : ABIs to build (comma separated). One ABI keeps test builds fast; empty = all four
+# ==========================================================================================
+
+name: PROJECT-REACT-NATIVE-EXPO-ANDROID-TEST-APK
+run-name: >-
+  ${{ github.event_name == 'repository_dispatch'
+      && format('TEST APK {0} (#{1})', github.event.client_payload.branch_name, github.event.client_payload.pr_number)
+      || format('TEST APK {0}', inputs.branch || github.ref_name) }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build (empty = the branch this run starts from)"
+        required: false
+        default: ""
+        type: string
+  repository_dispatch:
+    types: [build-android-app]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'repository_dispatch' && github.event.client_payload.branch_name || inputs.branch || github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ROOT: "."  # @wizard auto:expo-root
+  NODE_VERSION: "22"
+  JAVA_VERSION: "17"
+  ANDROID_ARCHITECTURES: "arm64-v8a"
+  ENV_FILE_PATH: ".env"
+
+jobs:
+  build-apk:
+    name: Android test APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Resolve the build target
+        id: target
+        env:
+          DISPATCH_BRANCH: ${{ github.event.client_payload.branch_name }}
+          DISPATCH_NUMBER: ${{ github.event.client_payload.pr_number }}
+          INPUT_BRANCH: ${{ inputs.branch }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "repository_dispatch" ]; then
+            echo "branch=$DISPATCH_BRANCH" >> "$GITHUB_OUTPUT"
+            echo "comment_number=$DISPATCH_NUMBER" >> "$GITHUB_OUTPUT"
+          else
+            echo "branch=${INPUT_BRANCH:-$GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "comment_number=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "started_at=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ steps.target.outputs.branch }}
+
+      # Comment text follows version.yml options.language (#769)
+      - name: Load comment messages
+        if: steps.target.outputs.comment_number != ''
+        run: |
+          python3 .github/scripts/i18n/messages.py js test_apk. --version-yml version.yml > "$RUNNER_TEMP/projectops-messages.cjs" \
+            || echo 'module.exports = { t: (k) => k, elapsed: (m, s) => (m > 0 ? `${m}m ${s}s` : `${s}s`), lang: "en" };' > "$RUNNER_TEMP/projectops-messages.cjs"
+
+      - name: Post the progress comment
+        id: progress
+        if: steps.target.outputs.comment_number != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          COMMENT_NUMBER: ${{ steps.target.outputs.comment_number }}
+          BRANCH_NAME: ${{ steps.target.outputs.branch }}
+        with:
+          script: |
+            const { t } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [t('test_apk.heading.in_progress'), '', `- \`${process.env.BRANCH_NAME}\``, '', t('test_apk.live_log', { url: runUrl })].join('\n');
+            const { data } = await github.rest.issues.createComment({
+              owner: context.repo.owner, repo: context.repo.repo,
+              issue_number: Number(process.env.COMMENT_NUMBER), body,
+            });
+            core.setOutput('comment_id', String(data.id));
+
+      - name: Detect package manager
+        id: project
+        run: python3 .github/scripts/expo_app.py detect --app-root "$APP_ROOT" --repo-root .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || env.NODE_VERSION }}
+          cache: ${{ steps.project.outputs.setup_node_cache }}
+          cache-dependency-path: ${{ steps.project.outputs.lockfile }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION || env.JAVA_VERSION }}
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP_ROOT }}
+        run: ${{ steps.project.outputs.install_command }}
+
+      - name: Write .env and Firebase files (when set)
+        working-directory: ${{ env.APP_ROOT }}
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s\n' "$ENV_FILE" > "$ENV_FILE_PATH"; fi
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json; fi
+
+      # Version name from version.yml, build number from the shared rule (test builds never use version_code)
+      - name: Decide version and build number
+        id: version
+        run: |
+          VERSION=$(python3 .github/scripts/version_manager.py get 2>/dev/null | tail -n 1)
+          BUILD_NUMBER=$(python3 -c 'import json,subprocess,sys; print(json.loads(subprocess.run([sys.executable, ".github/scripts/build_number.py", "next"], capture_output=True, encoding="utf-8").stdout)["build_number"])')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          python3 .github/scripts/expo_app.py set-version --app-root "$APP_ROOT" --version "$VERSION" --android-version-code "$BUILD_NUMBER"
+          echo "version $VERSION ($BUILD_NUMBER)"
+
+      # Committed android/ (prebuild not used) is built as is
+      - name: Generate the native Android project
+        working-directory: ${{ env.APP_ROOT }}
+        run: |
+          if [ -n "$(git ls-files android/build.gradle android/build.gradle.kts)" ]; then
+            echo "android/ is committed, skipping expo prebuild"
+          else
+            npx expo prebuild --platform android --no-install
+          fi
+
+      - name: Build the APK
+        working-directory: ${{ env.APP_ROOT }}/android
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          # Gradle properties: signing (release key only when set) + ABI filter
+          GRADLE_ARGUMENTS=()
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+            GRADLE_ARGUMENTS+=(
+              "-Pandroid.injected.signing.store.file=$KEYSTORE_PATH"
+              "-Pandroid.injected.signing.store.password=$RELEASE_KEYSTORE_PASSWORD"
+              "-Pandroid.injected.signing.key.alias=$RELEASE_KEY_ALIAS"
+              "-Pandroid.injected.signing.key.password=$RELEASE_KEY_PASSWORD"
+            )
+          else
+            echo "::warning::RELEASE_KEYSTORE_BASE64 is not set, so the APK is signed with the debug key (it cannot update a store-installed app)."
+          fi
+          if [ -n "$ANDROID_ARCHITECTURES" ]; then
+            GRADLE_ARGUMENTS+=("-PreactNativeArchitectures=$ANDROID_ARCHITECTURES")
+          fi
+          ./gradlew assembleRelease --no-daemon "${GRADLE_ARGUMENTS[@]}"
+
+      - name: Remove the keystore (success or failure)
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Upload the APK artifact
+        id: artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-apk-${{ steps.version.outputs.version }}-${{ steps.version.outputs.build_number }}
+          path: ${{ env.APP_ROOT }}/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Update the progress comment
+        if: always() && steps.progress.outputs.comment_id != ''
+        continue-on-error: true
+        uses: actions/github-script@v7
+        env:
+          COMMENT_ID: ${{ steps.progress.outputs.comment_id }}
+          JOB_STATUS: ${{ job.status }}
+          BRANCH_NAME: ${{ steps.target.outputs.branch }}
+          STARTED_AT: ${{ steps.target.outputs.started_at }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+          ARTIFACT_URL: ${{ steps.artifact.outputs.artifact-url }}
+        with:
+          script: |
+            const { t, elapsed } = require(`${process.env.RUNNER_TEMP}/projectops-messages.cjs`);
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const seconds = Math.max(0, Math.floor(Date.now() / 1000) - Number(process.env.STARTED_AT || 0));
+            const total = elapsed(Math.floor(seconds / 60), seconds % 60);
+            const values = {
+              version: process.env.VERSION || '-', build_number: process.env.BUILD_NUMBER || '-',
+              branch: process.env.BRANCH_NAME, commit: context.sha.substring(0, 7), total, duration: total, url: runUrl,
+            };
+            let body;
+            if (process.env.JOB_STATUS === 'success') {
+              body = [t('test_apk.heading.success'), '', t('test_apk.success.result', values), '',
+                t('test_apk.artifact_download', { url: process.env.ARTIFACT_URL || runUrl }), t('test_apk.run_log', { url: runUrl })].join('\n');
+            } else if (process.env.JOB_STATUS === 'cancelled') {
+              body = [t('test_apk.heading.cancelled'), '', t('test_apk.cancelled.details', values)].join('\n');
+            } else {
+              body = [t('test_apk.heading.failure'), '', t('test_apk.failure.details', values)].join('\n');
+            }
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner, repo: context.repo.repo, comment_id: Number(process.env.COMMENT_ID), body,
+            });
+
+      - name: Summary
+        if: always()
+        env:
+          BRANCH_NAME: ${{ steps.target.outputs.branch }}
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Expo Android test APK: $JOB_STATUS"
+            echo "- Branch: \`$BRANCH_NAME\`"
+            echo "- Version: $VERSION ($BUILD_NUMBER)"
+            echo "- ABIs: ${ANDROID_ARCHITECTURES:-all}"
+          } >> "$GITHUB_STEP_SUMMARY"

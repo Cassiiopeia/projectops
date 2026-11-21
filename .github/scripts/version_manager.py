@@ -555,12 +555,49 @@ def plist_set_build(path: Path, build: int) -> str:
 _GRADLE_BUILD_RE = re.compile(r"^([ \t]*versionCode[ \t]*=?[ \t]*)\d+(?=[ \t]*(?://.*)?\r?$)", re.MULTILINE)
 
 
+# app.json expo.android.versionCode numeric literal (first match only)
+_EXPO_VERSION_CODE_RE = re.compile(r'("versionCode"[ \t]*:[ \t]*)\d+')
+
+
+def sync_expo_build_number(code: int):
+    """version.yml version_code > app.json expo.android.versionCode (#1240)
+
+    iOS is out of scope: iOS builds take their number from build_number.py, not version_code.
+    """
+    app_json = Path(get_type_path("react-native-expo")) / "app.json"
+    if not app_json.is_file():
+        log_warning(f"react-native-expo: no {app_json.as_posix()} — build number not synced")
+        return
+    obj = read_json(app_json)
+    android = (obj.get("expo") or {}).get("android") if isinstance(obj.get("expo"), dict) else None
+    text = read_text(app_json)
+    # Existing numeric value: replace in place to keep the file's formatting
+    if isinstance(android, dict) and isinstance(android.get("versionCode"), int):
+        new_text = _EXPO_VERSION_CODE_RE.sub(lambda m: f"{m.group(1)}{code}", text, count=1)
+    # Missing key: insert it (rebuilds the JSON with the file's indent)
+    else:
+        expo = obj.setdefault("expo", {})
+        if not isinstance(expo, dict):
+            log_warning(f"react-native-expo: 'expo' in {app_json.as_posix()} is not an object — build number not synced")
+            return
+        expo_android = expo.setdefault("android", {})
+        if not isinstance(expo_android, dict):
+            log_warning(f"react-native-expo: 'expo.android' in {app_json.as_posix()} is not an object — build number not synced")
+            return
+        expo_android["versionCode"] = code
+        new_text = json_rebuild(text, obj)
+    if write_text(app_json, new_text):
+        log_success(f"Build number updated: {app_json.as_posix()} (expo.android.versionCode {code})")
+
+
 def sync_build_number(cfg: Config, code: int):
     """Apply version.yml version_code to the react-native build numbers (versionCode, CFBundleVersion) (#721).
 
     Stores need the build number to grow every time; if it drifts from version.yml it must be managed by hand.
-    Applies to the react-native type only (expo is out of scope); warns only when the target pattern is missing.
+    react-native: native files; react-native-expo: app.json (sync_expo_build_number). Warns only when the target pattern is missing.
     """
+    if "react-native-expo" in cfg.types or cfg.primary == "react-native-expo":
+        sync_expo_build_number(code)
     if "react-native" not in cfg.types and cfg.primary != "react-native":
         return
     p = get_type_path("react-native")

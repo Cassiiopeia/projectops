@@ -1,0 +1,294 @@
+# ==========================================================================================
+# React Native Expo Play Store deploy: signed AAB > internal testing > (optional) closed testing
+# ==========================================================================================
+#
+# Runs on a push to main (the deploy trigger branch when version.yml sets one) and on manual runs.
+# No EAS: `expo prebuild` generates android/ on the runner, Gradle builds the AAB, `fastlane supply` uploads it.
+# Committed android/ (prebuild not used) is built as is.
+#
+# Version: version.yml is the source (version > expo.version, version_code > expo.android.versionCode),
+#          written into app.json right before prebuild.
+# Signing: -Pandroid.injected.signing.* (android/ is regenerated, so nothing is written into it).
+# Secret and variable names match PROJECT-FLUTTER-ANDROID-PLAYSTORE-CICD, so switching app stacks keeps the setup.
+#
+# ⚠️ The Play Console app must exist and have one AAB uploaded by hand first
+#    (the API cannot create an app or upload to an app with no package bound).
+#
+# ==========================================================================================
+# 🔑 Required GitHub Secrets
+# ==========================================================================================
+# RELEASE_KEYSTORE_BASE64                 : upload keystore (base64)
+# RELEASE_KEYSTORE_PASSWORD, RELEASE_KEY_ALIAS, RELEASE_KEY_PASSWORD
+# GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 : Play Console service account JSON (base64)
+# ENV_FILE (optional)                     : contents of the app .env file
+# GOOGLE_SERVICES_JSON (optional)         : contents of google-services.json (Firebase)
+# ==========================================================================================
+# 🔧 Optional repository variables
+# ==========================================================================================
+# ANDROID_PROMOTE_TO_CLOSED_TESTING : true (default) also promotes to closed testing
+#                                     (personal Play accounts need 12 testers for 14 days before production)
+# ANDROID_CLOSED_TESTING_TRACK      : closed testing track name (default alpha)
+# ANDROID_RELEASE_STATUS            : completed (default) | draft. A draft Play Console app gets a draft release automatically (with a warning)
+# ANDROID_PACKAGE_NAME              : overrides the package read from the app config (expo.android.package)
+# NODE_VERSION / JAVA_VERSION       : override the values below
+# ==========================================================================================
+
+name: PROJECT-REACT-NATIVE-EXPO-ANDROID-PLAYSTORE-CICD
+run-name: >-
+  ${{ github.event_name == 'workflow_dispatch'
+      && format('PLAYSTORE closed_testing={0}', inputs.promote_to_closed_testing)
+      || github.event.head_commit.message }}
+
+on:
+  push:
+    branches: ["main"]
+    # @wizard paths-anchor (for monorepos the integrator injects the paths filter here)
+  workflow_dispatch:
+    inputs:
+      promote_to_closed_testing:
+        description: "Also promote to closed testing (default = repo variable, else true)"
+        required: false
+        default: "default"
+        type: choice
+        options: ["default", "true", "false"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  APP_ROOT: "."  # @wizard auto:expo-root
+  NODE_VERSION: "22"
+  JAVA_VERSION: "17"
+  ENV_FILE_PATH: ".env"
+  PROMOTE_TO_CLOSED_TESTING: ${{ (inputs.promote_to_closed_testing != 'default' && inputs.promote_to_closed_testing) || vars.ANDROID_PROMOTE_TO_CLOSED_TESTING || 'true' }}
+  CLOSED_TESTING_TRACK: ${{ vars.ANDROID_CLOSED_TESTING_TRACK || 'alpha' }}
+  RELEASE_STATUS: ${{ vars.ANDROID_RELEASE_STATUS || 'completed' }}
+
+jobs:
+  build-aab:
+    name: Signed AAB
+    runs-on: ubuntu-latest
+    # Four ABIs of native modules take long on hosted runners (45 minutes was not enough, #1240)
+    timeout-minutes: 90
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_code: ${{ steps.version.outputs.version_code }}
+      android_package: ${{ steps.package.outputs.android_package }}
+    steps:
+      # Missing secrets are reported before a long build (values are never printed)
+      - name: Check deploy secrets
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: |
+          MISSING_NAMES=""
+          for NAME in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64; do
+            if [ -z "${!NAME}" ]; then MISSING_NAMES="$MISSING_NAMES $NAME"; fi
+          done
+          if [ -n "$MISSING_NAMES" ]; then
+            echo "::error title=Missing deploy secrets::[playstore deploy] rejected : missing secrets :$MISSING_NAMES"
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Read version.yml
+        id: version
+        run: |
+          VERSION=$(python3 .github/scripts/version_manager.py get 2>/dev/null | tail -n 1)
+          VERSION_CODE=$(python3 .github/scripts/version_manager.py get-code 2>/dev/null | tail -n 1)
+          if [ -z "$VERSION" ] || ! printf '%s' "$VERSION_CODE" | grep -Eq '^[0-9]+$'; then
+            echo "::error::[playstore deploy] rejected : version or version_code not found in version.yml"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "version_code=$VERSION_CODE" >> "$GITHUB_OUTPUT"
+          echo "version $VERSION ($VERSION_CODE)"
+
+      - name: Detect package manager
+        id: project
+        run: python3 .github/scripts/expo_app.py detect --app-root "$APP_ROOT" --repo-root .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || env.NODE_VERSION }}
+          cache: ${{ steps.project.outputs.setup_node_cache }}
+          cache-dependency-path: ${{ steps.project.outputs.lockfile }}
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ vars.JAVA_VERSION || env.JAVA_VERSION }}
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP_ROOT }}
+        run: ${{ steps.project.outputs.install_command }}
+
+      - name: Write .env and Firebase files (when set)
+        working-directory: ${{ env.APP_ROOT }}
+        env:
+          ENV_FILE: ${{ secrets.ENV_FILE }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$ENV_FILE" ]; then printf '%s\n' "$ENV_FILE" > "$ENV_FILE_PATH"; fi
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json; fi
+
+      # Package: repo variable > app config (app.config.js included)
+      - name: Read the Android package
+        id: package
+        env:
+          PACKAGE_OVERRIDE: ${{ vars.ANDROID_PACKAGE_NAME }}
+        run: |
+          PACKAGE_NAME="$PACKAGE_OVERRIDE"
+          if [ -z "$PACKAGE_NAME" ]; then
+            PACKAGE_NAME=$(python3 .github/scripts/expo_app.py read-config --app-root "$APP_ROOT" | tail -n 1 \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("android_package", ""))')
+          fi
+          if [ -z "$PACKAGE_NAME" ]; then
+            echo "::error title=No Android package::Set expo.android.package in app.json (or the repo variable ANDROID_PACKAGE_NAME)."
+            exit 1
+          fi
+          echo "android_package=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "package $PACKAGE_NAME"
+
+      # prebuild takes the native version from app.json, so write it first
+      - name: Write the version into app.json
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+        run: python3 .github/scripts/expo_app.py set-version --app-root "$APP_ROOT" --version "$VERSION" --android-version-code "$VERSION_CODE"
+
+      - name: Generate the native Android project
+        working-directory: ${{ env.APP_ROOT }}
+        run: |
+          if [ -n "$(git ls-files android/build.gradle android/build.gradle.kts)" ]; then
+            echo "android/ is committed, skipping expo prebuild"
+          else
+            npx expo prebuild --platform android --no-install
+          fi
+
+      - name: Build the signed AAB
+        working-directory: ${{ env.APP_ROOT }}/android
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/release.keystore"
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          ./gradlew bundleRelease --no-daemon \
+            "-Pandroid.injected.signing.store.file=$KEYSTORE_PATH" \
+            "-Pandroid.injected.signing.store.password=$RELEASE_KEYSTORE_PASSWORD" \
+            "-Pandroid.injected.signing.key.alias=$RELEASE_KEY_ALIAS" \
+            "-Pandroid.injected.signing.key.password=$RELEASE_KEY_PASSWORD"
+
+      - name: Remove the keystore (success or failure)
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.keystore"
+
+      - name: Upload the AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-aab
+          path: ${{ env.APP_ROOT }}/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy-playstore:
+    name: Play Store upload
+    needs: build-aab
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ANDROID_PACKAGE_NAME: ${{ needs.build-aab.outputs.android_package }}
+    steps:
+      - name: Download the AAB
+        uses: actions/download-artifact@v4
+        with:
+          name: release-aab
+          path: aab
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
+        with:
+          ruby-version: "3.3"
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      - name: Write the service account file
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64 }}
+        run: printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_BASE64" | base64 --decode > "$RUNNER_TEMP/play-service-account.json"
+
+      # A Play Console app that is still a draft accepts only draft releases: retry once as draft and keep it for promotion
+      - name: Upload to the internal testing track
+        run: |
+          AAB_PATH=$(find aab -name "*.aab" | head -n 1)
+          upload_aab() {
+            fastlane supply \
+              --aab "$AAB_PATH" \
+              --track internal \
+              --release_status "$1" \
+              --package_name "$ANDROID_PACKAGE_NAME" \
+              --json_key "$RUNNER_TEMP/play-service-account.json" \
+              --skip_upload_metadata true --skip_upload_images true \
+              --skip_upload_screenshots true --skip_upload_changelogs true 2>&1 | tee "$RUNNER_TEMP/supply.log"
+            return "${PIPESTATUS[0]}"
+          }
+          if upload_aab "$RELEASE_STATUS"; then exit 0; fi
+          if [ "$RELEASE_STATUS" != "draft" ] && grep -q "Only releases with status draft may be created on draft app" "$RUNNER_TEMP/supply.log"; then
+            echo "::warning title=Play Console app is a draft::Uploaded as a draft release instead. Roll it out in Play Console, or set the repository variable ANDROID_RELEASE_STATUS=draft until the app is published."
+            echo "RELEASE_STATUS=draft" >> "$GITHUB_ENV"
+            upload_aab draft
+          else
+            exit 1
+          fi
+
+      - name: Promote to closed testing
+        if: env.PROMOTE_TO_CLOSED_TESTING == 'true'
+        env:
+          VERSION_CODE: ${{ needs.build-aab.outputs.version_code }}
+        run: |
+          fastlane supply \
+            --track internal \
+            --track_promote_to "$CLOSED_TESTING_TRACK" \
+            --track_promote_release_status "$RELEASE_STATUS" \
+            --version_code "$VERSION_CODE" \
+            --package_name "$ANDROID_PACKAGE_NAME" \
+            --json_key "$RUNNER_TEMP/play-service-account.json" \
+            --skip_upload_aab true --skip_upload_apk true \
+            --skip_upload_metadata true --skip_upload_images true \
+            --skip_upload_screenshots true --skip_upload_changelogs true
+
+      - name: Remove the service account file (success or failure)
+        if: always()
+        run: rm -f "$RUNNER_TEMP/play-service-account.json"
+
+      - name: Summary
+        if: always()
+        env:
+          VERSION: ${{ needs.build-aab.outputs.version }}
+          VERSION_CODE: ${{ needs.build-aab.outputs.version_code }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Expo Play Store deploy: $JOB_STATUS"
+            echo "- Version: $VERSION ($VERSION_CODE)"
+            echo "- Package: $ANDROID_PACKAGE_NAME"
+            echo "- Closed testing promotion: $PROMOTE_TO_CLOSED_TESTING ($CLOSED_TESTING_TRACK)"
+          } >> "$GITHUB_STEP_SUMMARY"

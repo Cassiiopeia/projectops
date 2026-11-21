@@ -195,6 +195,17 @@ export function printSummary(ctx, targetRoot = ".", write = null) {
     err(`     • ${t("done.flutter.open")}`);
     err("");
   }
+  if (types.includes("react-native-expo")) {
+    err(`  💡 ${t("done.expo.title")}`);
+    err(`     • ${t("done.expo.1")}`);
+    err(`     • ${t("done.expo.2")}`);
+    err(`     • ${t("done.expo.3")}`);
+    err("");
+  }
+  if (types.includes("react-native")) {
+    err(`  ⚠️  ${t("done.reactNativeBare")}`);
+    err("");
+  }
 
   err(`  📖 TEMPLATE REPO: ${TEMPLATE_REPO_WEB_URL}`);
   err(`  📚 ${t("done.workflowGuide")}: .github/workflows/project-types/README.md`);

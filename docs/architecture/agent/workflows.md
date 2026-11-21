@@ -9,7 +9,7 @@
 ```
 PROJECT-[TYPE]-[FEATURE]-[DETAIL].yaml
 
-TYPE: TEMPLATE | COMMON | FLUTTER | SPRING | REACT
+TYPE: TEMPLATE | COMMON | FLUTTER | SPRING | REACT | PYTHON | NODE | REACT-NATIVE-EXPO
 ```
 
 ### Script files
@@ -160,6 +160,26 @@ Regression guard: `.github/scripts/test/test_workflow_permissions.py` checks **e
 | `PROJECT-FLUTTER-IOS-ASC-STATUS` | App Store Connect version status and latest build number lookup (manual run, read-only, #651) | Base |
 | `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER` | Comment-triggered build | Base |
 | `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD` | APK deploy to a self-hosted server (SMB) | Base |
+
+#### React Native Expo (#1240)
+| File | Purpose | Location |
+|--------|------|------|
+| `PROJECT-REACT-NATIVE-EXPO-CI` | Type check, lint, tests (each only when present) | Base |
+| `PROJECT-REACT-NATIVE-EXPO-ANDROID-TEST-APK` | Test APK (manual, `build-android-app` dispatch) | Base |
+| `PROJECT-REACT-NATIVE-EXPO-IOS-TESTFLIGHT` | TestFlight: release on push, test on `build-ios-app` dispatch or manual | Base |
+| `PROJECT-REACT-NATIVE-EXPO-ANDROID-PLAYSTORE-CICD` | Play Store internal > closed testing | Base |
+| `PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER` | Comment-triggered build | Base |
+
+- **No EAS and no committed native files.** `expo prebuild` regenerates `android/` and `ios/` on every run, so nothing the
+  workflows need may live there: Android signing goes through `-Pandroid.injected.signing.*`, and the iOS ExportOptions,
+  Fastfile (`deploy` lane) and Gemfile are written on the runner by `.github/scripts/expo_app.py ios-signing`.
+  Committed native folders (no prebuild) are built as they are.
+- **Shared logic lives in `expo_app.py`** (package manager, resolved app config, version into app.json, iOS workspace and
+  Info.plist build variables). Do not re-implement these steps in YAML. The iOS archive, number and upload rules stay in
+  `ios_release.py`, shared with Flutter.
+- **The trigger has the same body as the Flutter trigger** (it only reads the comment and dispatches `build-android-app` /
+  `build-ios-app`). Change both files together; only the header, `name:` and the triggered workflow list differ.
+- The test builds comment on the payload's `pr_number` (issue or PR) with the existing `test_apk.*` / `test_testflight.*` messages.
 
 #### ⚠️ Deploy/publish target axes (#439, v4.2.0 — agent must read)
 
@@ -313,7 +333,7 @@ EOF
 | Keyword | Workflow | Function |
 |--------|-----------|------|
 | `@projectops create qa` | QA-ISSUE-CREATION-BOT | Automatic QA issue creation |
-| `@projectops build app` | PROJECTOPS-APP-BUILD-TRIGGER | Android + iOS build |
+| `@projectops build app` | PROJECTOPS-APP-BUILD-TRIGGER (Flutter, React Native Expo) | Android + iOS build |
 | `@projectops apk build` | PROJECTOPS-APP-BUILD-TRIGGER | Android-only build |
 | `@projectops ios build` | PROJECTOPS-APP-BUILD-TRIGGER | iOS-only build |
 

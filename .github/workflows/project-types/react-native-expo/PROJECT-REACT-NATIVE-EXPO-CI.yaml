@@ -1,0 +1,104 @@
+# ==========================================================================================
+# React Native Expo CI: install > type check > lint > tests
+# ==========================================================================================
+#
+# Runs on PRs to develop and pushes to develop. No secrets needed.
+# Each check runs only when the project has it:
+#   - Type check : tsconfig.json present > tsc --noEmit
+#   - Lint       : ESLint config present > eslint . ; else a "lint" script > npm run lint
+#                  (`expo lint` is not called directly: it rejects ESLint 9 on some SDKs, #1240)
+#   - Tests      : jest or jest-expo installed > jest --ci
+# Native builds are checked by the test APK / TestFlight workflows, not here (they need minutes and signing).
+#
+# Monorepo: APP_ROOT is the Expo app folder (filled from version.yml project_paths at install).
+# Shared helper: .github/scripts/expo_app.py detect (package manager and available checks)
+#
+# ==========================================================================================
+# 🔧 Per-project settings
+# ==========================================================================================
+# APP_ROOT     : Expo app folder relative to the repo root
+# NODE_VERSION : Node.js version (repo variable NODE_VERSION wins, kept across template updates)
+# ==========================================================================================
+
+name: PROJECT-REACT-NATIVE-EXPO-CI
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, synchronize, reopened]
+    # @wizard paths-anchor (for monorepos the integrator injects the paths filter here)
+  push:
+    branches: [develop]
+    # @wizard paths-anchor (for monorepos the integrator injects the paths filter here)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_ROOT: "."  # @wizard auto:expo-root
+  NODE_VERSION: "22"
+
+jobs:
+  verify:
+    name: Type check, lint and tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ env.APP_ROOT }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Detect package manager and checks
+        id: project
+        working-directory: ${{ github.workspace }}
+        run: python3 .github/scripts/expo_app.py detect --app-root "$APP_ROOT" --repo-root .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || env.NODE_VERSION }}
+          cache: ${{ steps.project.outputs.setup_node_cache }}
+          cache-dependency-path: ${{ steps.project.outputs.lockfile }}
+
+      - name: Install dependencies
+        run: ${{ steps.project.outputs.install_command }}
+
+      - name: Type check
+        if: steps.project.outputs.has_typescript == 'true'
+        run: npx tsc --noEmit
+
+      - name: Lint
+        if: steps.project.outputs.has_eslint_config == 'true' || steps.project.outputs.has_lint_script == 'true'
+        env:
+          HAS_ESLINT_CONFIG: ${{ steps.project.outputs.has_eslint_config }}
+        run: |
+          if [ "$HAS_ESLINT_CONFIG" = "true" ]; then
+            npx eslint .
+          else
+            npm run lint
+          fi
+
+      - name: Tests
+        if: steps.project.outputs.has_jest == 'true'
+        run: npx jest --ci --passWithNoTests
+
+      - name: Summary
+        if: always()
+        env:
+          PACKAGE_MANAGER: ${{ steps.project.outputs.package_manager }}
+          HAS_TYPESCRIPT: ${{ steps.project.outputs.has_typescript }}
+          HAS_JEST: ${{ steps.project.outputs.has_jest }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Expo CI: $JOB_STATUS"
+            echo "- App folder: \`$APP_ROOT\` ($PACKAGE_MANAGER)"
+            echo "- Type check: $HAS_TYPESCRIPT · Tests: $HAS_JEST"
+          } >> "$GITHUB_STEP_SUMMARY"

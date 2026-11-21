@@ -8,9 +8,10 @@ Replaces the old external action (Cassiiopeia/github-issue-helper@deploy). stdli
      - PROJECT-FLUTTER-ANDROID-TEST-APK.yaml      : sed 's/.*#\\([0-9]*\\).*/\\1/p'
      - PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml   : same
      - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml : /#(\\d+)/
+     - PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER.yaml : same (same body as the Flutter trigger)
      - scripts/common/issue_number.py             : \\d{8}_(\\d+)_ (worktree)
   2. The `### 브랜치` heading + code block in the comment body, and the signature line
-     - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml
+     - PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml, PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER.yaml
        : /### 브랜치\\s*```\\s*([\\s\\S]*?)\\s*```/ (old versions keep running in user repos)
      - The signature comes from config (guide_signature, default `Guide by ProjectOps`).
        Old consumers look for the old text `Guide by SUH-LAB` with includes, so
@@ -221,6 +222,7 @@ GUIDE_LINES = [
     ("PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER.yaml", "issue_helper.guide.app_build"),
     ("PROJECT-FLUTTER-ANDROID-TEST-APK.yaml", "issue_helper.guide.test_apk"),
     ("PROJECT-FLUTTER-IOS-TEST-TESTFLIGHT.yaml", "issue_helper.guide.test_testflight"),
+    ("PROJECT-REACT-NATIVE-EXPO-PROJECTOPS-APP-BUILD-TRIGGER.yaml", "issue_helper.guide.app_build"),
 ]
 
 _GUIDE_ALWAYS = ["issue_helper.guide.skills"]
@@ -241,7 +243,8 @@ def effective_commit_template(cfg: dict, lang: str) -> str:
 def build_guide(workflows_dir: Path, lang: str | None = None) -> str:
     """Collapsible (details) guide body. Lists dependent features if the repo has them, else one recommended line."""
     lang = lang or resolve_language()
-    active = [key for fname, key in GUIDE_LINES if (workflows_dir / fname).exists()]
+    # One line per key even when several workflows share it (Flutter and Expo triggers)
+    active = list(dict.fromkeys(key for fname, key in GUIDE_LINES if (workflows_dir / fname).exists()))
     items = "\n".join(f"- {t(key, lang)}" for key in active + _GUIDE_ALWAYS)
     return (
         "<details>\n"

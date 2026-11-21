@@ -181,7 +181,7 @@ export const FLAG_DETAILS = {
   },
   "--deploy": {
     when: "Set it when the app is deployed by this repo. Library repos use --publish instead.",
-    effect: "docker-ssh installs the SSH + Docker server deploy workflows (SIMPLE-CICD, NONSTOP-*, PR-PREVIEW for spring/python; CICD for react). vercel installs the Vercel deploy workflow. none installs no deploy workflow. Mobile types (flutter, react-native*) ignore it — their store deploy workflows are part of the type.",
+    effect: "docker-ssh installs the SSH + Docker server deploy workflows (SIMPLE-CICD, NONSTOP-*, PR-PREVIEW for spring/python; CICD for react). vercel installs the Vercel deploy workflow. none installs no deploy workflow. Mobile types (flutter, react-native-expo) ignore it — their store deploy workflows are part of the type. react-native (bare) has no workflows yet.",
     omitted: "docker-ssh for server stacks, none for mobile apps and library repos.",
     example: "npx projectops --mode full --force --type spring --deploy vercel",
     caution: "docker-ssh workflows need server secrets (SERVER_HOST, SERVER_USER, SERVER_PASSWORD or SSH_KEY, DOCKERHUB_*). Until they are registered the workflows fail — the completion summary lists the missing secrets.",

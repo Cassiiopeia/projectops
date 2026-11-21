@@ -118,6 +118,7 @@ const SECTIONS = [
       { slug: 'flutter-firebase-wizard', en: 'Firebase wizard', ko: 'Firebase 마법사' },
       { slug: 'flutter-oauth-wizard', en: 'OAuth login wizard', ko: 'OAuth 로그인 마법사' },
       { slug: 'flutter-test-build-trigger', en: 'Test build trigger', ko: '테스트 빌드 트리거' },
+      { slug: 'react-native-expo-cicd', en: 'React Native Expo CI/CD', ko: 'React Native Expo CI/CD', inNav: true },
       { slug: 'projects-sync', en: 'Projects sync', ko: 'Projects 동기화', inNav: true },
       { slug: 'github-projects-sync-wizard', en: 'Projects sync wizard', ko: 'Projects 동기화 마법사' },
     ],

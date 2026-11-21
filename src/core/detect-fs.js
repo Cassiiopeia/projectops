@@ -130,7 +130,7 @@ export function findSpringAppYml(root, base = ".") {
   return hit;
 }
 
-// Builds the real set of 4 resolvers — shared by index and interactive.
+// Builds the real set of resolvers — shared by index and interactive.
 // paths: Map<type, path> (monorepo paths).
 export function makeResolvers(root, repoName, paths) {
   const springBase = (t) => paths.get(t || "spring") || paths.get("spring") || ".";
@@ -142,5 +142,7 @@ export function makeResolvers(root, repoName, paths) {
     },
     "spring-app-yml-path": (t) => findSpringAppYml(root, springBase(t)) || "",
     "flutter-root": () => paths.get("flutter") || ".",
+    // Expo app folder (#1240) — APP_ROOT of the react-native-expo workflows
+    "expo-root": () => paths.get("react-native-expo") || ".",
   };
 }

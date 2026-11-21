@@ -39,6 +39,8 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "ios_release_rules.py",
     // Xcode selection for Flutter iOS builds (empty = latest on the runner) and missing SDK diagnosis (#758). The only home of the selection rules.
     "select_xcode.py",
+    // React Native Expo build helpers: package manager, app config, version into app.json, iOS signing files (#1240)
+    "expo_app.py",
     // Closes issues labelled done when a release is merged (#771). Works only in repos with the close_on_release option on.
     "close_issues_on_release.py",
     // Reads the Play Store/TestFlight deploy mode from the code config (.github/config/store-deploy.json) (#767).

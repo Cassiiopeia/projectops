@@ -54,7 +54,7 @@ export function isPlaceholderDefault(value) {
 }
 
 // resolver — value computation is delegated to injected resolvers (keeps it pure).
-// resolvers: { repo, "spring-app-yml-dir"(type), "spring-app-yml-path"(type), "flutter-root" }
+// resolvers: { repo, "spring-app-yml-dir"(type), "spring-app-yml-path"(type), "flutter-root", "expo-root" }
 export function resolveToken(name, type, resolvers = {}) {
   const fn = resolvers[name];
   return typeof fn === "function" ? (fn(type) ?? "") : "";
