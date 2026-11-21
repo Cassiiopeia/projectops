@@ -1,6 +1,7 @@
 """Per-location cleanup: tool (tool command) · aged (subfolders older than N days) · browser (cache folders only). Plan only without --yes"""
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import re
@@ -101,6 +102,30 @@ def _real_subfolders(parent: Path) -> list[Path]:
     ]
 
 
+def _installed_plugin_paths(location: Location) -> set[Path]:
+    """Resolve installPath values from Claude Code's installed_plugins.json.
+
+    A missing, malformed or unreadable file is not fatal: the newest-two
+    rule still applies on its own. Only resolved paths are returned, so a
+    version pinned with a different spelling still compares equal.
+    """
+    config = Path(os.environ.get("CLAUDE_CONFIG_DIR", Path.home() / ".claude"))
+    manifest = config / "plugins" / "installed_plugins.json"
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return set()
+    paths = set()
+    for entries in (data.get("plugins") or {}).values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            raw = (entry or {}).get("installPath") if isinstance(entry, dict) else None
+            if raw:
+                paths.add(Path(raw).resolve())
+    return paths
+
+
 def plugin_version_candidates(location: Location) -> list[dict]:
     """List cached versions, keeping the newest two per plugin."""
     candidates = []
@@ -122,12 +147,17 @@ def plugin_version_candidates(location: Location) -> list[dict]:
                 reverse=True,
             )
             kept = set(recognized[:2])
+            # An install pinned in installed_plugins.json stays even when it
+            # is older than the newest two: a project can depend on it.
+            installed = _installed_plugin_paths(location)
 
             for folder in versions:
                 if parsed[folder] is None:
                     skip_reason = "unknown_version"
                 elif folder in kept:
                     skip_reason = "newest_two"
+                elif any(folder.resolve() == installed_path for installed_path in installed):
+                    skip_reason = "installed"
                 else:
                     skip_reason = None
 
