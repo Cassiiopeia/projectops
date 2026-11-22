@@ -1,7 +1,21 @@
 # Changelog
 
-**Current version:** 4.110.2  
-**Last updated:** 2026-11-21T20:50:28Z  
+**Current version:** 4.111.0  
+**Last updated:** 2026-11-22T22:41:49Z  
+
+---
+
+## [4.111.0] - 2026-11-22
+
+**PR:** #1260  
+
+**New features**
+- New optional skill pro-brain keeps an issue's decisions, reasons and cautions as a knowledge note in the repo for a team brain
+- A repo can turn knowledge capture on in version.yml, and updates keep that setting
+- The implementation report now points to the knowledge note step when the repo turns it on
+
+**Documentation**
+- The project registry guide covers which brain syncs a project's knowledge folder
 
 ---
 

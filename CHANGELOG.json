@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-21T20:50:28Z",
-    "currentVersion": "4.110.2",
+    "lastUpdated": "2026-11-22T22:41:49Z",
+    "currentVersion": "4.111.0",
     "projectType": "basic",
-    "totalReleases": 427,
+    "totalReleases": 428,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.111.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-22",
+      "pr_number": 1260,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New optional skill pro-brain keeps an issue's decisions, reasons and cautions as a knowledge note in the repo for a team brain\n  * A repo can turn knowledge capture on in version.yml, and updates keep that setting\n  * The implementation report now points to the knowledge note step when the repo turns it on\n\n* **Documentation**\n  * The project registry guide covers which brain syncs a project's knowledge folder",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New optional skill pro-brain keeps an issue's decisions, reasons and cautions as a knowledge note in the repo for a team brain",
+            "A repo can turn knowledge capture on in version.yml, and updates keep that setting",
+            "The implementation report now points to the knowledge note step when the repo turns it on"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The project registry guide covers which brain syncs a project's knowledge folder"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.110.2",
       "project_type": "basic",
