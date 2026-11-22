@@ -16,7 +16,7 @@
         "url": "https://github.com/Cassiiopeia/projectops.git"
       },
       "description": "Agent skills that drive the projectops automation cycle: issues, worktrees, commits in your own style, reports, reviews, QA and release PRs, image assets, AI-written code consulting (18 skills)",
-      "version": "4.110.2",
+      "version": "4.111.0",
       "category": "DevOps",
       "keywords": [
         "devops",
@@ -28,7 +28,7 @@
       "name": "projectops-extras",
       "source": "./plugins/projectops-extras",
       "description": "Optional skills outside the core dev cycle: Synology NAS service exposure, reporting projectops skill bugs from any session, safe disk-space clean-up, a link to open Orca or Paseo from outside on request, the owner's blueprint for starting a project, a knowledge note per issue for a team brain (6 skills)",
-      "version": "4.110.2",
+      "version": "4.111.0",
       "category": "DevOps"
     }
   ]
