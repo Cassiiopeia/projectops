@@ -134,6 +134,10 @@ export const VERSION_YML = [
     values: [...CHANGELOG_PROVIDERS], default: "commit",
     description: "Release note generator. 'commit' is free and always works; AI keys are picked up automatically when registered as secrets.", edit: "by hand" },
   { path: "metadata.template.options.changelog.base_url", parserKey: "changelogBaseUrl", type: "string", description: "Only for provider ollama.", edit: "by hand" },
+  // Read by the extras skill pro-brain, not by the wizard: kept verbatim on updates like issue_helper (#835, #1259)
+  { path: "metadata.template.options.knowledge", type: "map",
+    description: "Knowledge capture switch for the pro-brain skill: enabled, path (default knowledge/), optional note_dir, template, rules, check. Shared with everyone who clones the repo.",
+    edit: "by hand" },
 ];
 
 // ── Detailed notes so an agent can read and decide on its own ───────────────────────────────────────────────
@@ -313,6 +317,7 @@ export const KEY_DETAILS = {
   "metadata.template.options.code_review.coderabbit": { when: "Edit via --coderabbit / --no-coderabbit.", effect: "Whether .coderabbit.yaml is installed by --mode full. PR review bot only; unrelated to release notes.", omitted: "false" },
   "metadata.template.options.code_review.ai_summary": { when: "Edit via --ai-summary.", effect: "Whether the AI PR summary workflow is installed.", omitted: "true" },
   "metadata.template.options.changelog.provider": { when: "Leave the default. Set only to force one generator.", effect: "Release notes: the PR body is used as is when it already has notes; otherwise a registered AI key (GEMINI_API_KEY, GROQ_API_KEY, MISTRAL_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY) is used; otherwise the commit analysis, which always works and costs nothing. 'copilot' consumes Copilot premium requests, so it is only used when set here.", omitted: "commit (an AI key is still picked up automatically)." },
+  "metadata.template.options.knowledge": { when: "Set it when the team keeps a knowledge folder that a brain (team or personal) syncs, and wants a durable note per issue.", effect: "With enabled: true, the pro-brain skill (projectops-extras) writes one note per issue with decisions, reasons and cautions into path, committed with the issue's work, and pro-report points to it. The wizard never writes or changes this block; updates copy it back verbatim.", omitted: "Off: pro-brain stops with one line, pro-report does not point to it.", example: 'knowledge: { enabled: true, path: "knowledge/" }' },
   "metadata.template.options.changelog.base_url": { when: "Only with provider ollama.", effect: "Base URL of the Ollama server (OpenAI-compatible, ending in /v1).", omitted: "" },
 };
 

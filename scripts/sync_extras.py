@@ -9,6 +9,7 @@ EXTRAS = ROOT / "plugins" / "projectops-extras"
 COPIES = [
     ("skills/references/config-rules.md", "skills/references/config-rules.md"),
     ("skills/references/preferences.md", "skills/references/preferences.md"),
+    ("skills/references/sensitive-info.md", "skills/references/sensitive-info.md"),   # pro-brain self-review before saving a note
     ("hooks/run_python.sh", "hooks/run_python.sh"),
     ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # redaction rules original (extras cannot use common)
     ("scripts/common/proc.py", "skills/pro-remote-link/scripts/tunnel/proc.py"),  # original of the per-OS process liveness check

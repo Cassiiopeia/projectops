@@ -480,7 +480,7 @@ Skill이 내 스타일로 씁니다. 선호는 `~/.projectops/config/config.json
 
 ## Extras (선택 플러그인)
 
-`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-remote-link`(Orca·Paseo를 밖에서 여는 링크), `/pro-project-blueprint`(평소 방식으로 새 프로젝트 시작)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
+`/pro-synology-expose`(시놀로지 NAS 서비스를 외부 도메인으로 노출하는 가이드), `/pro-skill-bug`(스킬 버그 보고), `/pro-disk-cleanup`(디스크 용량 정리), `/pro-remote-link`(Orca·Paseo를 밖에서 여는 링크), `/pro-project-blueprint`(평소 방식으로 새 프로젝트 시작), `/pro-brain`(이슈마다 팀 브레인용 지식 노트)은 코어 플러그인에 없고 선택 플러그인 `projectops-extras`에 있습니다. (`/pro-code-consult`는 코어로 옮겨졌습니다.)
 
 ```bash
 # Claude Code
@@ -563,6 +563,20 @@ macOS·Windows·Linux에서 스택과 상관없이 **되찾을 수 있는 디스
 
 ---
 
+### `/pro-brain`
+
+**무엇을 하나요?**
+이슈가 끝날 때 **이후에도 유효한 프로젝트 지식**(무엇을 정했고 왜 그랬는지, 다음 사람이 걸려 넘어질 곳)을 레포 지식 폴더에 노트 한 건으로 남기고, 이슈 작업과 같이 커밋합니다. 그 폴더를 동기화하는 브레인(팀·개인)이 알아서 가져갑니다. 레포의 `version.yml`(`metadata.template.options.knowledge`)이 켜져 있을 때만 동작하므로, 레포를 받은 팀원 누구나 같은 동작을 봅니다. 사소한 이슈는 한 줄 이유와 함께 건너뜁니다. 메타데이터(프로젝트, 건드린 스택, 버전과 빌드 번호, 커밋 범위, 이슈, PR, 배포, 바뀐 모듈, 기록 시각)는 읽기 전용 CLI가 모읍니다. 어떤 브레인에도 쓰거나 설정을 바꾸지 않습니다.
+
+**수정되는 것**: 지식 폴더의 노트 한 건(레포 자체 볼트 규칙이 요구하는 파일 포함), `pro-commit`으로 커밋
+**돌려주는 것**: 노트 경로와 이 컴퓨터에서 알려진 동기화 대상, 또는 건너뛴 이유
+
+**언제 쓰나요?**
+- `pro-report` 직후, 이슈를 닫기 전 (레포가 켜 두면 `pro-report`가 안내함)
+- "이 결정 팀 브레인에 남겨줘", "지식 노트 써줘"
+
+---
+
 ### `/pro-synology-expose`
 
 **무엇을 하나요?**
@@ -599,7 +613,8 @@ flowchart TD
     G1 --> H["/pro-review<br/>셀프 리뷰"]
     H --> I["/pro-commit<br/>이슈 연동 커밋"]
     I --> J["/pro-report<br/>구현 보고서 + GitHub 댓글"]
-    J --> K(["PR 등록"])
+    J --> J2["/pro-brain<br/>지식 노트 (레포가 켜 둔 경우)"]
+    J2 --> K(["PR 등록"])
     K --> L["/pro-changelog-deploy<br/>릴리스 PR + automerge"]
 ```
 
@@ -608,8 +623,8 @@ flowchart TD
 
 | 상황 | 추천 흐름 |
 |------|----------|
-| **새 기능 개발 (표준)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
-| **버그 수정** | `pro-github` → `pro-init-worktree` → `systematic-debugging`(원인 조사) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
+| **새 기능 개발 (표준)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-brain`(켜진 경우) → `pro-changelog-deploy` |
+| **버그 수정** | `pro-github` → `pro-init-worktree` → `systematic-debugging`(원인 조사) → `executing-plans` → `pro-commit` → `pro-report` → `pro-brain`(켜진 경우) → `pro-changelog-deploy` |
 | **리팩토링·설계 변경** | 새 기능 개발과 동일 (`brainstorming`에서 범위를 좁혀 시작) |
 | **QA 테스트케이스** | `pro-github` → `pro-testcase` |
 | **실제 실행 검증(앱·웹·서버)** | `pro-agent-test` → (문제 발견 시) `pro-github` → `pro-commit` |

@@ -266,9 +266,9 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 | `idle_hours` | | Anything touched within this many hours is kept. Default `2` |
 | `backup_dir` | | Where worktree backups go before removal (one dated folder per day). Default `~/.projectops/backups/disk-cleanup` |
 
-### `project-blueprint` section (#1249, registry #1250)
+### `project-blueprint` section (#1249, registry #1250, knowledge #1259)
 
-Read by the extras skill `pro-project-blueprint`. Holds the infra values the owner reuses in every project and a
+Read by the extras skills `pro-project-blueprint` and `pro-brain`. Holds the infra values the owner reuses in every project and a
 registry of the owner's projects, so a repo is set up or worked on without asking again. One section, not a sibling:
 config keys are owned by skill_id (§8), and the registry's references point into this section's `infra`.
 Placeholders below; the annotated shape ships as the skill's `config.sample.json`, and the lookup and write rules as
@@ -279,7 +279,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
 ```json
 {
   "project-blueprint": {
-    "schema_version": 2,
+    "schema_version": 3,
     "infra": {
       "registry": { "provider": "dockerhub", "username": "<docker-username>" },
       "dns": { "provider": "cloudflare", "root_domain": "<root-domain>", "api_host_pattern": "api.{project}.{root_domain}" },
@@ -292,6 +292,10 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
         "<db-instance>": { "engine": "postgresql", "server": "<server-name>", "container": "<container>", "host": "<db-host>",
                            "port": "<db-port>", "default_account": "<account>",
                            "accounts": { "<account>": { "role": "<db-role>", "superuser": true, "credential": "<launch credential name>" } } }
+      },
+      "brains": {
+        "<brain-name>": { "engine": "gbrain", "kind": "team", "mcp_url": "<mcp endpoint, optional>", "server": "<server-name>",
+                          "database": "<database>", "sync_script": "<path>", "notes": "<free-form>" }
       }
     },
     "defaults": { "default_branch": "main", "development_branch": "develop", "deploy_trigger_branch": "deploy", "secret_backup": true },
@@ -307,6 +311,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
                     "blue_green": true, "volume_path": "<path>", "runtime_config": "config/application-prod.yml",
                     "health_path": "/actuator/health", "domains": [{ "host": "<domain>", "backend_port": "<port>" }] }] },
         "database": { "instance": "<db-instance>", "name": "<project>" },
+        "knowledge": { "brain": "<brain-name>", "source_id": "<project>-knowledge", "sync": "repo-commit", "enabled": true, "path": "knowledge/" },
         "gbrain_entity": "<slug>",
         "notes": "<free-form>"
       }
@@ -317,7 +322,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
 
 | Field | Required | Description |
 |------|------|------|
-| `schema_version` | | `2`. Missing = version 1 (flat `infra` keys: `docker_username`, `ssh_server_name`, `server_host`, `postgres.*` ...); read it and convert on the next write |
+| `schema_version` | | `3` (version 2 = the same without the optional knowledge keys, read as is). Missing = version 1 (flat `infra` keys: `docker_username`, `ssh_server_name`, `server_host`, `postgres.*` ...); read it and convert on the next write |
 | `infra.registry` / `infra.dns` / `infra.traefik` | | Shared values filled into workflow `env:` blocks and GitHub Secrets of a new repo. Asked once, one at a time, when missing |
 | `infra.servers.<name>` | | One entry per server; `credential` names the launch credential `pro-ssh` uses, so connection secrets are not duplicated |
 | `infra.databases.<instance>` | | One entry per database instance. `default_account` is the account projects use when they name none (default practice: one shared owner account, one database per project) |
@@ -325,6 +330,8 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
 | `projects.<key>` | | Registry entry per project. Agents match the current repo by git remote (`repos[].github`) or path (`local_path`, `worktree_path`) before asking anything, and write the entry when a project is set up. Every field is optional; absent = unknown |
 | `projects.<key>.deploy.server`, `.database.instance`, `.database.account` | | Names of `infra.servers` / `infra.databases` / `accounts` entries, never copies of their values |
 | `projects.<key>.status` | | `active` or `archived` |
+| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `server`, `database_instance`, `database`, `sync_script`, `notes`. References only |
+| `projects.<key>.knowledge` | | `brain` (an `infra.brains` name), `source_id` (default `<key>-knowledge`), `sync` (`repo-commit`), `enabled`/`path` (owner intent only). The on/off switch itself is the repo's `version.yml` `metadata.template.options.knowledge`; `pro-brain` never connects to a brain |
 
 ### `image` section
 

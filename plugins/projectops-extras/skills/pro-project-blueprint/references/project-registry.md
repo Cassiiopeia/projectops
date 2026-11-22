@@ -11,20 +11,22 @@ the owner's projects next to the shared infra. Shape: `../config.sample.json`; s
 
 ```
 project-blueprint
-├── schema_version            2
+├── schema_version            3
 ├── infra                     defined once, referenced by name
 │   ├── registry              provider, username, credential?
 │   ├── dns                   provider, root_domain, api_host_pattern
 │   ├── traefik               server, internal_port, network, entrypoint
 │   ├── servers.<name>        kind, credential, host, ssh_port, user, docker_bin, volume_base_path, timezone
-│   └── databases.<instance>  engine, server, container, host, port, default_account, accounts.<name>
+│   ├── databases.<instance>  engine, server, container, host, port, default_account, accounts.<name>
+│   └── brains.<name>         engine, kind, mcp_url?, server?, database_instance?, database?, sync_script?, notes
 ├── defaults                  branch names and install options picked once
 └── projects.<key>
     ├── status, display_name, gbrain_entity, notes
     ├── repos[]               github, local_path, worktree_path, stacks[], branches, secrets, store
     ├── deploy                server, services[] (role, image, container, blue_green, volume_path,
     │                         runtime_config, health_path, domains[] host + backend_port)
-    └── database              instance, name, account?
+    ├── database              instance, name, account?
+    └── knowledge             brain, source_id?, sync?, enabled?, path? (which brain syncs the repo's notes)
 ```
 
 - A project never repeats a server host, a database port or an account: it names `infra.servers.<name>` and
@@ -32,6 +34,8 @@ project-blueprint
 - `repos` is a list because one product can span several repositories (backend and app repos); a monorepo has one.
   Branches, stacks, secret names and store ids belong to the repo, deploy and database to the project.
 - `database.account` may be omitted: the instance's `default_account` applies.
+- `knowledge` and `infra.brains` are read by `pro-brain` (extras) only to say where the repo's knowledge folder is
+  synced; see §Knowledge capture below.
 
 ## Rules
 
@@ -42,7 +46,8 @@ project-blueprint
    list). Leave a field out instead of guessing; absent means unknown.
 3. **Keep unknown keys.** When writing, read the whole file, change only the keys you mean to change, and write every
    other key back unchanged, including keys this document does not describe. The schema grows by adding keys.
-4. **`schema_version`** is `2`. A section without it is version 1 (flat `infra` keys); see migration below.
+4. **`schema_version`** is `3`. Version 2 is read as is (it only lacks the optional knowledge keys); a section without
+   `schema_version` is version 1 (flat `infra` keys). See migration below.
 5. The registry stays in the private config only. Never copy its values into a repo, an issue, a PR or a report.
 
 ## Look up the current repo before asking
@@ -74,6 +79,32 @@ account for backups and admin tools. A per-project account is an option, not a r
 `accounts` and set `database.account` on that project. Accounts kept restricted on purpose (a sandbox role, a
 read-only role) are listed with a `notes` field so nobody grants them more.
 
+## Knowledge capture (version 3)
+
+The switch that turns capture on is **in the repo**, not here: `version.yml` `metadata.template.options.knowledge`
+(`../../pro-brain/references/note-format.md`), because teammates clone the repo but never see this file. The registry
+only adds what is private to the owner: which brain syncs the folder and how.
+
+| Key | Meaning |
+|---|---|
+| `infra.brains.<name>.engine` | `gbrain` (the only engine so far) |
+| `infra.brains.<name>.kind` | `team` (shared, fed from repos) or `personal` (the owner's own memory) |
+| `infra.brains.<name>.mcp_url` | Public MCP endpoint, if any. Leave it out when there is none; never a token |
+| `infra.brains.<name>.server` | Name of the `infra.servers` entry that hosts it |
+| `infra.brains.<name>.database_instance`, `.database` | `infra.databases` instance name and database name, when it has its own |
+| `infra.brains.<name>.sync_script` | Path of the job that pulls the repo folder into the brain (on the owner's machine) |
+| `projects.<key>.knowledge.brain` | Name of the `infra.brains` entry that syncs this project's knowledge folder |
+| `projects.<key>.knowledge.source_id` | Brain source the folder is registered as; default `<key>-knowledge` |
+| `projects.<key>.knowledge.sync` | How notes reach the brain; `repo-commit` (default): committed with the issue, synced from the default branch |
+| `projects.<key>.knowledge.enabled`, `.path` | The owner's intent only. When the repo block is missing but these say on, `pro-brain` proposes the repo block; the repo block always wins |
+
+`pro-brain` echoes only names, kinds, script paths and whether an endpoint exists; it never connects to a brain.
+
+## Migration from version 2
+
+Nothing is renamed. Version 3 adds the optional `infra.brains` and `projects.<key>.knowledge` keys. When you next write
+the section, set `schema_version: 3`; a version 2 section without those keys is valid as is.
+
 ## Migration from version 1
 
 | Version 1 (`infra.*`) | Version 2 |
@@ -84,5 +115,5 @@ read-only role) are listed with a `notes` field so nobody grants them more.
 | `traefik.*` | `infra.traefik.*` plus `server` |
 | `postgres.host`, `postgres.port` | `infra.databases.<instance>`: `host`, `port` |
 
-Read either shape. When you next write the section, convert it to version 2, set `schema_version: 2` and keep any
+Read either shape. When you next write the section, convert it to version 3, set `schema_version: 3` and keep any
 key that has no row here.

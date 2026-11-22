@@ -69,8 +69,8 @@
     "backup_dir": "~/.projectops/backups/disk-cleanup"
   },
   "project-blueprint": {
-    "_comment": "extras pro-project-blueprint: shared infra defined once + a registry of projects that reference it by name (references and non-secret metadata only; unknown keys are kept). Annotated shape: plugins/projectops-extras/skills/pro-project-blueprint/config.sample.json.",
-    "schema_version": 2,
+    "_comment": "extras pro-project-blueprint: shared infra defined once + a registry of projects that reference it by name (references and non-secret metadata only; unknown keys are kept). pro-brain reads infra.brains and projects.{project}.knowledge to name the brain that syncs a repo's knowledge folder; the on/off switch is in the repo's version.yml. Annotated shape: plugins/projectops-extras/skills/pro-project-blueprint/config.sample.json.",
+    "schema_version": 3,
     "infra": {
       "registry": { "provider": "dockerhub", "username": "{docker-username}" },
       "dns": { "provider": "cloudflare", "root_domain": "{root-domain}" },
@@ -79,6 +79,9 @@
       },
       "databases": {
         "{db-instance}": { "engine": "postgresql", "default_account": "{account}", "accounts": { "{account}": { "role": "{db-role}" } } }
+      },
+      "brains": {
+        "{brain-name}": { "engine": "gbrain", "kind": "team", "sync_script": "{path of the sync job}" }
       }
     },
     "defaults": {
@@ -90,7 +93,8 @@
         "status": "active",
         "repos": [{ "github": "{owner/repo}", "local_path": "{absolute path}" }],
         "deploy": { "server": "{server-name}", "services": [{ "role": "backend", "container": "{project}-back" }] },
-        "database": { "instance": "{db-instance}", "name": "{project}" }
+        "database": { "instance": "{db-instance}", "name": "{project}" },
+        "knowledge": { "brain": "{brain-name}", "source_id": "{project}-knowledge" }
       }
     }
   },

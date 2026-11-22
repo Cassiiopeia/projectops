@@ -74,7 +74,7 @@ Work through it in order. Each step names the skill that does the work.
 ```
 design > issue (pro-github) > worktree (pro-init-worktree) > implement > verify > commit (pro-commit)
 > push (only when asked) > release PR develop > main (pro-changelog-deploy) > promote main > deploy (PR merge)
-> report (pro-report) > label done and close (pro-github finish-issue)
+> report (pro-report) > knowledge note when the repo turns it on (pro-brain) > label done and close (pro-github finish-issue)
 ```
 
 - Stage only the paths you touched; other agent sessions may be working in the same tree.

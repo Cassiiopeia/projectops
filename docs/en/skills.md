@@ -477,7 +477,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside) and `/pro-project-blueprint` (start a project the owner's way) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a project the owner's way) and `/pro-brain` (a knowledge note per issue for a team brain) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
 
 ```bash
 # Claude Code
@@ -560,6 +560,20 @@ It **holds the owner's house standard for starting and running a project**, so a
 
 ---
 
+### `/pro-brain`
+
+**What does it do?**
+At the end of an issue it **keeps what stays true about the project** (the decision, why, and what the next person must not trip over) as one note in the repo's knowledge folder, committed with the issue's work, so a brain that syncs the folder (team or personal) learns it. It is on only when the repo's `version.yml` says so (`metadata.template.options.knowledge`), so every teammate who clones the repo gets the same behavior. Trivial issues are skipped with one line. A small read-only CLI collects the metadata (project, stacks touched, version and build number, commit range, issue, PR, deploy, changed modules, capture time). It never writes to or configures any brain.
+
+**Modifies**: one note in the knowledge folder (plus files the repo's own vault rules require), committed with `pro-commit`
+**Returns**: the note path and the sync target known on this machine, or the reason it was skipped
+
+**When to use it**
+- Right after `pro-report`, before closing the issue (`pro-report` points to it when the repo turns it on)
+- "Save this decision to the team brain", "write the knowledge note"
+
+---
+
 ### `/pro-synology-expose`
 
 **What does it do?**
@@ -596,7 +610,8 @@ flowchart TD
     G1 --> H["/pro-review<br/>Self-review"]
     H --> I["/pro-commit<br/>Issue-linked commit"]
     I --> J["/pro-report<br/>Implementation report + GitHub comment"]
-    J --> K(["Open PR"])
+    J --> J2["/pro-brain<br/>Knowledge note (when the repo turns it on)"]
+    J2 --> K(["Open PR"])
     K --> L["/pro-changelog-deploy<br/>Release PR + automerge"]
 ```
 
@@ -605,8 +620,8 @@ flowchart TD
 
 | Situation | Recommended flow |
 |------|----------|
-| **New feature development (standard)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
-| **Bug fix** | `pro-github` → `pro-init-worktree` → `systematic-debugging`(root cause) → `executing-plans` → `pro-commit` → `pro-report` → `pro-changelog-deploy` |
+| **New feature development (standard)** | `pro-github` → `pro-init-worktree` → `brainstorming` → `writing-plans` → `executing-plans` → `pro-review` → `pro-commit` → `pro-report` → `pro-brain` (when on) → `pro-changelog-deploy` |
+| **Bug fix** | `pro-github` → `pro-init-worktree` → `systematic-debugging`(root cause) → `executing-plans` → `pro-commit` → `pro-report` → `pro-brain` (when on) → `pro-changelog-deploy` |
 | **Refactor, design change** | Same as new feature development (start by narrowing the scope in `brainstorming`) |
 | **QA test cases** | `pro-github` → `pro-testcase` |
 | **Real-run verification (app, web, server)** | `pro-agent-test` → (if a problem is found) `pro-github` → `pro-commit` |

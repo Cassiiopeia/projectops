@@ -1,7 +1,7 @@
 {
-  "_comment": "Shape of the project-blueprint section in ~/.projectops/config/config.json (schema_version 2). Placeholders only: real values go in that private file, never in a repo, issue or report. References and non-secret metadata only; passwords and tokens live in the launch credential store or GitHub Secrets. Unknown keys are kept as they are.",
+  "_comment": "Shape of the project-blueprint section in ~/.projectops/config/config.json (schema_version 3). Placeholders only: real values go in that private file, never in a repo, issue or report. References and non-secret metadata only; passwords and tokens live in the launch credential store or GitHub Secrets. Unknown keys are kept as they are. The knowledge on/off switch lives in each repo's version.yml (metadata.template.options.knowledge); projects.<key>.knowledge only names the brain that syncs it.",
   "project-blueprint": {
-    "schema_version": 2,
+    "schema_version": 3,
     "infra": {
       "registry": {
         "provider": "dockerhub",
@@ -46,6 +46,18 @@
               "credential": "<launch credential name, optional>"
             }
           }
+        }
+      },
+      "brains": {
+        "<brain-name>": {
+          "engine": "gbrain",
+          "kind": "<team|personal>",
+          "mcp_url": "<public MCP endpoint; omit when there is none, never a token>",
+          "server": "<server name from infra.servers, optional>",
+          "database_instance": "<db instance name from infra.databases, optional>",
+          "database": "<database name, optional>",
+          "sync_script": "<path of the job that pulls repo knowledge folders into this brain, optional>",
+          "notes": "<free-form>"
         }
       }
     },
@@ -107,6 +119,13 @@
           "instance": "<db-instance-name>",
           "name": "<project>",
           "account": "<account name; omit to use the instance default_account>"
+        },
+        "knowledge": {
+          "brain": "<brain name from infra.brains>",
+          "source_id": "<brain source id; default <project-key>-knowledge>",
+          "sync": "repo-commit",
+          "enabled": true,
+          "path": "knowledge/"
         },
         "gbrain_entity": "<gbrain entity slug, optional>",
         "notes": "<free-form facts an agent should know>"

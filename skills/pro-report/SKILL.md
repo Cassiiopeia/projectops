@@ -123,6 +123,8 @@ report_cli loads the PAT from config.json automatically (an environment variable
 
 ### Step 7: Finish the issue (after posting the report)
 
+Before finishing: if `version.yml` has `metadata.template.options.knowledge.enabled: true` and `/pro-brain` (projectops-extras) is installed, run `/pro-brain` first.
+
 Once the report comment is posted, finish the issue. Follow the "Finish an issue" recipe in the `pro-github` SKILL.md exactly; do not define a separate procedure here.
 
 - **If the work is done**: pro-github `finish-issue {owner} {repo} {number}`. It changes only the status label to `status: done` (`작업완료`) and closes the issue (other labels such as `type:` and `area:` stay).
