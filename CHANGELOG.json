@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-22T22:41:49Z",
-    "currentVersion": "4.111.0",
+    "lastUpdated": "2026-11-23T01:44:41Z",
+    "currentVersion": "4.112.0",
     "projectType": "basic",
-    "totalReleases": 428,
+    "totalReleases": 429,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.112.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-23",
+      "pr_number": 1262,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-brain sets itself up with two questions\n  * Knowledge notes per issue, change set or merge\n  * Agent rule block in CLAUDE.md, gitignore aware\n  * List merged work that still has no note\n  * Notes record endpoints, migrations, setting names\n\n* **Documentation**\n  * Plain-language guide to how pro-brain works",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-brain sets itself up with two questions",
+            "Knowledge notes per issue, change set or merge",
+            "Agent rule block in CLAUDE.md, gitignore aware",
+            "List merged work that still has no note",
+            "Notes record endpoints, migrations, setting names"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Plain-language guide to how pro-brain works"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.111.0",
       "project_type": "basic",

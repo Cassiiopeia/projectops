@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.111.0  
-**Last updated:** 2026-11-22T22:41:49Z  
+**Current version:** 4.112.0  
+**Last updated:** 2026-11-23T01:44:41Z  
+
+---
+
+## [4.112.0] - 2026-11-23
+
+**PR:** #1262  
+
+**New features**
+- pro-brain sets itself up with two questions
+- Knowledge notes per issue, change set or merge
+- Agent rule block in CLAUDE.md, gitignore aware
+- List merged work that still has no note
+- Notes record endpoints, migrations, setting names
+
+**Documentation**
+- Plain-language guide to how pro-brain works
 
 ---
 
