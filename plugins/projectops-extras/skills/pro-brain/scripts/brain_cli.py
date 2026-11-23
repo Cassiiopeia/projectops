@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """brain_cli: pro-brain fact collection, onboarding and personal GBrain connection; the agent decides and writes the note.
-Output is always JSON (ok, code, summary, next). Read-only except `setup --apply --yes` (repo switch + rule block) and
-`connect --apply --yes` (one source in the user's own GBrain), both only after the user agreed.
+Output is always JSON (ok, code, summary, next). Read-only except `setup --apply --yes` (repo switch + rule block),
+`connect --apply --yes` (one source in the user's own GBrain) and `connect --team --apply --yes` (one user-scope MCP
+entry with the token from the credential store, optional .mcp.json), all only after the user agreed.
 extras installs only its own folder, so standard library only.
 """
 from __future__ import annotations
@@ -13,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from brain import collect, commands, repo_facts  # noqa: E402
+from brain import collect, commands, install_guide, repo_facts  # noqa: E402
 
 
 class _BadArgumentsExit(Exception):
@@ -75,6 +76,7 @@ def build_parser() -> JsonArgumentParser:
     setup.add_argument("--team-brain-url", help="team brain MCP URL, e.g. https://brain.example.com/mcp (no token)")
     setup.add_argument("--team-brain-contact", help="who issues read-only tokens, e.g. a name or a team channel")
     setup.add_argument("--team-brain-off", action="store_true", help="remove the team brain from the switch")
+    setup.add_argument("--no-probe", action="store_true", help="do not probe a new --team-brain-url (offline)")
     setup.add_argument("--enable", action="store_true", help="turn capture on (creates the knowledge block if missing)")
     setup.add_argument("--apply", action="store_true", help="write the changes (needs --yes)")
     setup.add_argument("--yes", action="store_true", help="the user agreed in this conversation")
@@ -85,8 +87,17 @@ def build_parser() -> JsonArgumentParser:
     link.add_argument("--source-root", help="checkout to read from, e.g. a dedicated clone of the default branch")
     link.add_argument("--no-sync", action="store_true", help="add the source without the first sync")
     link.add_argument("--remote", action="store_true", help="your own brain runs elsewhere (HTTP): print the commands for its host")
-    link.add_argument("--apply", action="store_true", help="run gbrain sources add and sync (needs --yes)")
+    link.add_argument("--team", action="store_true", help="team brain: register the user-scope MCP entry with the stored token")
+    link.add_argument("--rotate", action="store_true", help="--team: re-register with the stored token (after a token change)")
+    link.add_argument("--token-cred", help="--team: credential store entry holding the token (default: the MCP name)")
+    link.add_argument("--project-mcp-json", action="store_true",
+                      help="--team: also write .mcp.json with ${GBRAIN_<PROJECT>_TOKEN} (no secret in the file)")
+    link.add_argument("--no-probe", action="store_true", help="--team: skip the URL probe (offline)")
+    link.add_argument("--apply", action="store_true", help="run gbrain sources add and sync, or claude mcp add with --team (needs --yes)")
     link.add_argument("--yes", action="store_true", help="the user agreed in this conversation")
+
+    guide = sub.add_parser("install", help="guided GBrain install and init: one question, exact commands, verification (read only)")
+    guide.add_argument("--choice", choices=install_guide.INSTALL_CHOICES, help="answer to the question (omit to ask it)")
 
     gap = sub.add_parser("gaps", help="merged work since the last captured note that has no note (git only, no LLM)")
     gap.add_argument("--repo", help="repository folder (default: current folder)")
@@ -98,8 +109,8 @@ def build_parser() -> JsonArgumentParser:
 
 
 COMMANDS = {"status": commands.cmd_status, "collect": commands.cmd_collect, "setup": commands.cmd_setup,
-            "connect": commands.cmd_connect, "gaps": commands.cmd_gaps}
-USAGE = "brain_cli.py status | collect | setup | connect | gaps [options]"
+            "connect": commands.cmd_connect, "install": commands.cmd_install, "gaps": commands.cmd_gaps}
+USAGE = "brain_cli.py status | collect | setup | connect | install | gaps [options]"
 
 
 def main(argv: list[str] | None = None) -> int:

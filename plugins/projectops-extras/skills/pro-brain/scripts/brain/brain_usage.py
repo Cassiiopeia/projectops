@@ -122,17 +122,21 @@ def validate_team_brain(team: dict) -> str | None:
     return None
 
 
-def team_brain_instructions(team: dict, registered_names: list[str] | None) -> dict:
-    """What a teammate runs to read the team brain: get a read-only token, add one user-scope MCP entry"""
+def team_brain_instructions(team: dict, registered_names: list[str] | None, cred_name: str | None = None) -> dict:
+    """What a teammate runs to read the team brain: get a read-only token, store it once, register one user-scope MCP entry"""
     name, url = team["mcp_name"], team["mcp_url"]
     contact = team.get("contact") or "the team brain admin"
+    cred_name = cred_name or name
     return {
-        "mcp_name": name, "mcp_url": url, "contact": contact,
+        "mcp_name": name, "mcp_url": url, "contact": contact, "cred_name": cred_name,
         "registered": (name in registered_names) if registered_names is not None else None,
         "steps": [f"ask {contact} for a personal read-only token for {name}",
-                  f'claude mcp add --scope user --transport http {name} {url} --header "Authorization: Bearer <token>"',
+                  f"store it once in a terminal (hidden input): python3 ~/.projectops/bin/projectops_cli.py launch cred set "
+                  f"--name {cred_name} --secret-field token --prompt",
+                  "brain_cli.py connect --team (plan), then connect --team --apply --yes: registers the user-scope MCP entry",
                   "restart the agent session, then search the team brain first for design and decision questions"],
-        "never": "store the token in the repo, a note or version.yml; replace or rename the personal 'gbrain' entry",
+        "manual_fallback": f'claude mcp add --scope user --transport http {name} {url} --header "Authorization: Bearer <token>"',
+        "never": "put the token in the repo, a note, version.yml or the chat; replace or rename the personal 'gbrain' entry",
     }
 
 

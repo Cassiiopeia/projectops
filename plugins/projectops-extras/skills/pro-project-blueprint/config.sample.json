@@ -53,6 +53,7 @@
           "engine": "gbrain",
           "kind": "<team|personal>",
           "mcp_url": "<public MCP endpoint; omit when there is none, never a token>",
+          "token_cred": "<credential store entry name holding the token, optional; default the MCP server name>",
           "server": "<server name from infra.servers, optional>",
           "database_instance": "<db instance name from infra.databases, optional>",
           "database": "<database name, optional>",

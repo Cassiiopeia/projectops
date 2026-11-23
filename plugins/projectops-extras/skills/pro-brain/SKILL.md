@@ -24,9 +24,11 @@ The brain stores **why and where**; git stores **what**. Reply in the user's lan
 It writes **notes in the repo** (plus the files the repo's own vault rules require), and during onboarding, after the user
 agreed, the repo switch in `version.yml` and one marked rule block. The only brain change it ever makes is `connect`: after
 the user agreed, it adds **one new source** (`<project>-knowledge`) to the user's **own local** GBrain and syncs it. It never
-overwrites or removes a source, never passes `--force`, and never changes hooks, mounts, other sources or MCP settings
-(a team brain entry is a command the user runs). It never stores a token and never puts secrets, personal data or chat
-content in a note or in `version.yml`.
+overwrites or removes a source, never passes `--force`, and never changes hooks, mounts or other sources. Its only MCP
+change is `connect --team --apply --yes`: one user-scope entry for the repo's team brain (and `--rotate` replaces that same
+entry). A team brain token lives only in the user's credential store (`~/.projectops/config/config.json`, mode 600,
+`../references/config-rules.md` §9), typed by the user in a terminal and referenced by name; it never goes into the chat, a
+note, `version.yml`, `.mcp.json` or any output. Secrets, personal data and chat content never go into a note.
 
 ## Find the scripts
 
@@ -45,8 +47,8 @@ echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS"
 
 The Bash tool resets its state on every call. Put the printed paths into `{PYTHON}` and `{SCRIPTS}` in later commands.
 Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py <command> ...` (Windows: `python {SCRIPTS}\brain_cli.py`).
-Output is always JSON (`ok`, `code`, `summary`, `next`). Only `setup --apply --yes` and `connect --apply --yes` write;
-everything else is read-only.
+Output is always JSON (`ok`, `code`, `summary`, `next`). Only `setup --apply --yes`, `connect --apply --yes` and
+`connect --team --apply --yes` write; everything else is read-only.
 
 ## Capture modes
 
@@ -95,8 +97,8 @@ enough (AskUserQuestion when available, all questions in one dialog):
 | 1 `repo-only` (default, most repos) | Notes live in the repo; no brain | Nothing else to set up |
 | 2 `local-gbrain` | Your own GBrain on this machine (PGLite or local Postgres) | `connect` (plan), show it, `connect --apply --yes` after a yes |
 | 3 `remote-gbrain` | Your own GBrain on another machine, reached over HTTP | `connect` (`--remote` when gbrain is not installed here): give the host commands; change nothing here |
-| 4 `team-brain` | A gbrain HTTP server your team runs | Ask name, URL, token contact (prefill from `usage.team_brain` or `usage.registry_mcp_hint`), apply with `--team-brain-*`, show `usage.team_brain_setup.steps` |
-| 5 `install-guide` | No GBrain yet | Show `usage.install_url` once, then behave like 1 |
+| 4 `team-brain` | A gbrain HTTP server your team runs | Ask name, URL, token contact (prefill from `usage.team_brain` or `usage.registry_mcp_hint`), apply with `--team-brain-*` (the URL is probed, see `team_brain_probe`), then §Team brain connection |
+| 5 `install-guide` | No GBrain yet | §Guided install, then behave like 1 until a brain exists |
 
 Choosing no team brain when one is recorded (or hinted by the private registry) is `--team-brain-off`: it stores
 `team_brain: "none"`, so nobody is asked again and the block drops the team brain line.
@@ -118,10 +120,10 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup --apply --yes [--en
   `AGENTS.md` (Codex) when `files.agents_md_needs_block` is true and the user agreed to it in the same answer.
 - Run what `next` says (the worktree copy-set command for the local option), and commit `version.yml` and a tracked rule
   file together with the work via `pro-commit`.
-- Team brain: the name must not be `gbrain` (that is the personal entry) and the URL must not carry a token. Tell the user to
-  get a personal **read-only** token from the contact and show the exact `claude mcp add --scope user --transport http ...`
-  line from `usage.team_brain_setup.steps` with `<token>` left as a placeholder. Never run it with a real token for them,
-  never write the token anywhere. The rule block gains "search the team brain first" only in this mode.
+- Team brain: the name must not be `gbrain` (that is the personal entry) and the URL must not carry a token. A new
+  `--team-brain-url` is probed (`team_brain_probe`; `--no-probe` offline): `brain_answers` is good; `unknown_brain` (404)
+  usually means a mistyped brain key, so show it before applying. Then each member follows §Team brain connection. The
+  rule block gains "search the team brain first" only in this mode.
 
 #### Personal GBrain (answers 2 and 3)
 
@@ -139,6 +141,43 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py connect --apply --yes [--
 | `no_notes_yet` | Run `connect` again right after the first note is committed (gbrain imports committed files only) |
 | `remote_brain` | Give `commands` to run on the brain's host (where its database is reachable); no MCP change |
 | `brain_not_initialized` / `gbrain_missing` | The user creates a brain (`gbrain init`) or installs it (`usage.install_url`); keep repo-only meanwhile |
+
+#### Team brain connection (answer 4, every member, every machine)
+
+```bash
+# 1. once, by the user in a terminal (Claude Code: ! prefix); hidden input, never through the chat
+python3 ~/.projectops/bin/projectops_cli.py launch cred set --name gbrain-<project> --secret-field token --prompt
+# 2. plan, then apply after a yes
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py connect --team [--token-cred NAME] [--project-mcp-json] [--no-probe]
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py connect --team --apply --yes [--rotate] [--project-mcp-json]
+```
+
+It reads `team_brain` from `version.yml` and the token from the credential entry (`--token-cred` > the registry's
+`infra.brains.<name>.token_cred` > the MCP name), then runs `claude mcp add --scope user --transport http <name> <url>
+--header "Authorization: Bearer ..."` with the token passed to that process only. Output shows `<token>` instead.
+
+| `code` | Do |
+|---|---|
+| `token_missing` | Show `store_token_command`; the user runs it in a terminal, then `connect --team` again |
+| `ready` | Show `command` (placeholder) and `team_brain_probe.verdict`; apply after a yes; tell the user to restart the session |
+| `already_registered` | Nothing to do. After a new token: store it under the same name, then `connect --team --rotate --apply --yes` |
+| `claude_cli_missing` | Give `command`; the user types it with their token in their own terminal |
+| `no_team_brain` / `bad_team_brain` | Back to step 2 (setup with `--team-brain-*`) |
+
+`--project-mcp-json` also writes (merges) a committed `.mcp.json` entry whose header is `Bearer ${GBRAIN_<PROJECT>_TOKEN}`,
+so teammates get the server just by opening the repo once they set that variable. Say in one line that a project entry
+overrides a user entry of the same name, so offer it only when the team wants env-var setup; commit it with `pro-commit`.
+
+#### Guided install (answer 5)
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py install                  # detects gbrain, returns one question
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py install --choice CHOICE  # local | postgres | supabase | thin-client | team-server
+```
+
+Ask the one question (recommended first), then show `requires`, `commands` and `verify`. It never runs them: commands that
+carry a password or key are typed by the user in a terminal (`secret_note`). `postgres` needs the database and role to
+exist first. After the user ran them, run `install` again (`brain_ready`) and continue with `connect` or `connect --team`.
 
 Notes enter the brain from **whatever branch is checked out** at the source path. Say so in one line and offer
 `default_branch_recipe`: a dedicated clone of the default branch (`connect --source-root <clone>`) plus its hourly
