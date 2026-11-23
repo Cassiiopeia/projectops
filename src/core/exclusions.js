@@ -29,6 +29,8 @@ export const PLUGIN_ITEMS_TO_REMOVE = [
   "scripts",
   "package.json",
   "harness",
+  // this repository's pro-brain knowledge notes
+  "knowledge",
   "plugins",
   // Claude Code plugin hooks (#953) — kept apart from the user repo's hooks/
   "hooks",
