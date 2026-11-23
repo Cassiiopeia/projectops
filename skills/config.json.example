@@ -81,7 +81,7 @@
         "{db-instance}": { "engine": "postgresql", "default_account": "{account}", "accounts": { "{account}": { "role": "{db-role}" } } }
       },
       "brains": {
-        "{brain-name}": { "engine": "gbrain", "kind": "team", "sync_script": "{path of the sync job}" }
+        "{brain-name}": { "engine": "gbrain", "kind": "team", "token_cred": "gbrain-{project}", "sync_script": "{path of the sync job}" }
       }
     },
     "defaults": {
@@ -134,6 +134,7 @@
     ]
   },
   "launch": {
+    "_comment": "launch.credentials is the credential store for every skill's secrets (config-rules.md §9): other sections reference an entry by name.",
     "login_policy": {
       "trust_device": "always",
       "keep_signed_in": "ask",
@@ -156,6 +157,13 @@
         "token": "{access token}",
         "scope": "test-only",
         "use_when": "{e.g. when registering it as a Secret while testing a deploy workflow}"
+      },
+      "gbrain-{project}": {
+        "_comment": "credential store entry referenced by name elsewhere (token_cred); save the value with cred set --secret-field token --prompt",
+        "kind": "token",
+        "provider": "gbrain",
+        "token": "{token — typed in a terminal, never pasted into chat}",
+        "use_when": "{registering the team brain MCP server for this project}"
       },
       "my-google": {
         "kind": "login",

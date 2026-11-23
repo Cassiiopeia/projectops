@@ -65,6 +65,7 @@ def get_github_pat(owner: Optional[str] = None, repo: Optional[str] = None) -> O
     Priority (config-rules.md §3):
       1. If owner/repo are given, the pat (non-null) of the matching entry in the repos array
       2. Otherwise global_pat
+      3. Otherwise the credential store entry named by global_pat_cred (config-rules.md §9)
     None if no PAT is found.
     """
     section = get_section("github")
@@ -78,7 +79,22 @@ def get_github_pat(owner: Optional[str] = None, repo: Optional[str] = None) -> O
                 return r["pat"]
 
     # 2. Fall back to the shared global_pat
-    return section.get("global_pat") or None
+    if section.get("global_pat"):
+        return section["global_pat"]
+
+    # 3. Migrated PAT: reference by name into the credential store
+    return _read_referenced_pat(section.get("global_pat_cred"))
+
+
+def _read_referenced_pat(cred_name: Optional[str]) -> Optional[str]:
+    """github.global_pat_cred > credential store token (None when unset, missing or unreadable)"""
+    if not cred_name:
+        return None
+    from common.credentials import CredentialError, read_secret
+    try:
+        return read_secret(cred_name, "token")
+    except CredentialError:
+        return None
 
 
 def save(data: dict) -> Path:

@@ -12,6 +12,7 @@ Every skill reads and writes its config file by the rules in this file.
 - [6. Agent judgment principles](#6-agent-judgment-principles)
 - [7. Config schema per skill](#7-config-schema-per-skill)
 - [8. Adding config for a new skill](#8-adding-config-for-a-new-skill)
+- [9. Secrets: the credential store](#9-secrets-the-credential-store)
 
 ---
 
@@ -55,6 +56,7 @@ github skill    → config["github"]
 synology-expose → config["synology-expose"]
 ssh skill       → config["launch"]["credentials"]  (servers also live in the one pro-launch credential store — §7 `launch` section)
 launch skill    → config["launch"]  (named credentials — §7 `launch` section)
+any secret      → config["launch"]["credentials"][name], read only through scripts/common/credentials.py (§9)
 ```
 
 **Automatic repo matching for the github skill (do right after reading):**
@@ -74,7 +76,7 @@ Extract `owner/repo` from the result and compare it with the `repos` array:
 
 If the repo is not in the config → ask the user whether to add it, and add it with the §4 procedure.
 
-**PAT priority**: the repo entry's `pat` (non-null) → otherwise `global_pat` (§7 PAT resolution logic).
+**PAT priority**: the repo entry's `pat` (non-null) → otherwise `global_pat` → otherwise the credential named by `global_pat_cred` (§7 PAT resolution logic, §9).
 
 **Do not extract the PAT yourself (important).** In the past, agents pulled the PAT out with inline Python, left out the
 `["github"]` namespace, and hit `KeyError`/`missing_pat` again and again. Use only one of the two paths below.
@@ -182,6 +184,7 @@ Shared by the `issue`, `commit`, `changelog-deploy`, `github`, and `report` skil
 |------|------|------|
 | `default_assignee` | ✅ | Default issue assignee GitHub username (global). `pro-github` applies it automatically when creating issues. An empty string creates issues without an assignee. If missing, ask once on the first issue and save it |
 | `global_pat` | ✅ | Shared GitHub PAT for everything (repo + workflow scopes) |
+| `global_pat_cred` | — | Name of a credential store entry (field `token`) holding the shared PAT, written by `launch_cli.py cred migrate-github-pat --yes` instead of `global_pat` (§9). Read only when `global_pat` is empty |
 | `commit.auto_approve` | — | Whether the commit skill auto-passes the commit message approval gate (global default). If `true`, show the proposed message and commit immediately. Missing → `false` (manual approval) |
 | `issue.auto_approve` | — | Whether `pro-github` issue creation auto-passes the filing approval gate (global default). If `true`, show the title, labels, and local file path, then file on GitHub immediately. **Duplicate checks (steps 2-1 and 4-1) always run** — even in automatic mode, stop if a matching open issue is found. Missing → `false`. (The key name stays `issue.*` for backward compatibility — same key after the pro-issue merge) |
 | `changelog_deploy.auto_approve` | — | Whether the changelog-deploy skill auto-passes the release notes approval gate (global default). If `true`, only show the body and create the PR immediately. Missing → `false` |
@@ -201,6 +204,7 @@ Shared by the `issue`, `commit`, `changelog-deploy`, `github`, and `report` skil
 **PAT resolution logic:**
 ```
 effective_pat = repo.pat if repo.pat else config["github"].global_pat
+                or credential_store[config["github"].global_pat_cred].token
 ```
 
 **Auto-approval resolution logic (shared by the 3 skills, in priority order):**
@@ -330,7 +334,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
 | `projects.<key>` | | Registry entry per project. Agents match the current repo by git remote (`repos[].github`) or path (`local_path`, `worktree_path`) before asking anything, and write the entry when a project is set up. Every field is optional; absent = unknown |
 | `projects.<key>.deploy.server`, `.database.instance`, `.database.account` | | Names of `infra.servers` / `infra.databases` / `accounts` entries, never copies of their values |
 | `projects.<key>.status` | | `active` or `archived` |
-| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `mcp_server_name` (hint for pro-brain's team-brain answer, e.g. `gbrain-<project>`; the repo switch `team_brain` is the shared truth), `server`, `database_instance`, `database`, `sync_script`, `notes`. References only |
+| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `mcp_server_name` (hint for pro-brain's team-brain answer, e.g. `gbrain-<project>`; the repo switch `team_brain` is the shared truth), `token_cred` (name of the credential store entry holding the brain token, §9), `server`, `database_instance`, `database`, `sync_script`, `notes`. References only |
 | `projects.<key>.knowledge` | | `brain` (an `infra.brains` name), `source_id` (default `<key>-knowledge`), `sync` (`repo-commit`), `enabled`/`path` (owner intent only). The on/off switch itself is the repo's `version.yml` `metadata.template.options.knowledge`; `pro-brain` never connects to a brain |
 
 ### `image` section
@@ -387,8 +391,9 @@ Server connection details live in **one place: `launch.credentials` (`kind: "ssh
 (`--dry-run` to preview, `--prune` to remove imported servers from the old section). The code only reads the old section's
 `ssh_server` references and never writes new ones.
 
-### `launch` section (pro-launch credentials)
+### `launch` section (pro-launch credentials = the credential store)
 
+This is the **credential store** every skill uses for secrets (§9); the key stays `launch.credentials` for compatibility.
 Named credentials that let `pro-launch` connect to servers, registries, and organizations **without asking again**.
 Servers (SSH) live here too — write host, port, user, and password (or `key_path`) directly; the password exists only in this one file.
 `launch_cli.py cred set` saves them (it does not touch other sections; file mode 600), and lookups mask secret values.
@@ -415,7 +420,7 @@ Servers (SSH) live here too — write host, port, user, and password (or `key_pa
 
 | Field | Description |
 |------|------|
-| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `other` |
+| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `token` (an API or MCP token for one service: `provider` + `token`) · `login` · `local` · `other` |
 | `ssh_server` | (retired, compatibility) Reference to a server `name` in the old `ssh` section. Do not write new ones — move the values with `import-ssh` |
 | `use_when` · `scope` · `notes` | What the agent uses to decide **when it may use the credential**: rationale, allowed scope, cautions |
 | `login_policy` | (`kind: login`) Policy for this account's intermediate login screens — table below. Takes precedence over the global default |
@@ -515,3 +520,24 @@ When a new skill needs config:
 4. In SKILL.md, point to `../references/config-rules.md` §2~3
 
 **Never create a separate config file (such as `skill-name.config.json`).**
+
+---
+
+## 9. Secrets: the credential store
+
+Every secret (password, token, API key, PAT) has **one home**: a named entry in the credential store,
+`config["launch"]["credentials"][<name>]` in this same file (mode 600). Skills do not invent new secret fields or files.
+
+| Rule | How |
+|---|---|
+| Store | One named entry per secret: `kind`, the value field (`token`, `password`, `api_key` ...) and non-secret `provider`, `use_when`, `scope`, `notes`. Names: letters, digits, `._-`, e.g. `gbrain-<project>` |
+| Reference | Another section names the entry, never holds the value: `"credential": "<name>"`, or a key ending `_cred` / `_credential` (`"token_cred": "gbrain-secbrief"`, `github.global_pat_cred`). Non-secret facts (URLs, server names) stay in the skill's own section |
+| Read | Code reads only through `scripts/common/credentials.py` (`read_secret(name, field)`); extras skills use the copy generated by `scripts/sync_extras.py`. The value goes to the next program through an environment variable or stdin, never into argv, stdout, logs, notes, commits, `version.yml` or the repo |
+| Save | The user types the value, not the chat: `launch_cli.py cred set --name <name> --secret-field token --prompt` (hidden input in a terminal) or `--from-env <VAR>`. `--json` is for non-secret fields |
+| Rotate | Save the new value under the same name (`cred set ... --secret-field token --prompt`); every reference follows. Re-run whatever registers the value elsewhere (e.g. `brain_cli.py connect --team --rotate`) |
+| New machine | Copy `config.json` (mode 600) or re-enter each name the check reports missing |
+| Check | `launch_cli.py cred check` (read only): references whose entry is missing, entries nothing references (names and paths only). Unreferenced is not unused: pro-launch commands take names directly (`--cred`) |
+| Migrate the GitHub PAT | Optional, only after the user says yes: `launch_cli.py cred migrate-github-pat` plans, `--yes` moves `github.global_pat` into the entry `github-global-pat` and writes `github.global_pat_cred`. The read path is unchanged (`get_github_pat` still reads `global_pat` first); releases before this one read only `global_pat` |
+
+Existing fields stay readable: `github.global_pat`, `github.repos[].pat` and the Figma `provider: figma` entry keep working as they are.
+A new skill that needs a secret follows this section instead of adding a field (ARCHITECTURE.md "How to add a skill" #9).

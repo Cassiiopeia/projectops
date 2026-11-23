@@ -1,10 +1,10 @@
-"""Named credential store (pro-launch).
+"""Named credential store (pro-launch). Other skills read it through common/credentials.py (config-rules.md §9).
 
 Same approach pro-ssh · pro-github use with servers and PATs in `~/.projectops/config/config.json`.
 pro-launch keeps them in the `launch` section of the same file **so the next run does not ask again**.
 
     config["launch"]["credentials"][name] = {
-        "kind": "ssh | dockerhub | db | http | github-org | other",
+        "kind": "ssh | dockerhub | db | http | github-org | token | other",
         "use_when": "grounds for the agent to decide whether it may use this credential",
         "scope": "test-only | readonly | ...   (what is allowed)",
         "notes": "things to know (port range, naming rules to keep, production services on the server, etc.)",
@@ -18,18 +18,14 @@ access.json holds only the name, like `{"cred": "name"}`.
 """
 from __future__ import annotations
 
-import json
-import os
-import re
-import tempfile
 from pathlib import Path
 
 from common import config as cfg
+from common import credentials as credential_store
 
-NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-
-# Keys never shown in output. Values are masked when the name contains one of these.
-SECRET_KEYS = ("password", "passwd", "token", "secret", "passphrase", "api_key", "apikey", "private_key")
+# Name rule and secret field markers: one source in common/credentials.py (config-rules.md §9)
+NAME_RE = credential_store.NAME_PATTERN
+SECRET_KEYS = credential_store.SECRET_KEY_MARKERS
 
 
 class CredError(Exception):
@@ -43,8 +39,7 @@ class CredError(Exception):
 
 
 def _is_secret_key(key: str) -> bool:
-    k = key.lower()
-    return any(s in k for s in SECRET_KEYS)
+    return credential_store.is_secret_key(key)
 
 
 def _section(data: dict | None, create: bool = False) -> dict:
@@ -143,22 +138,8 @@ def validate_name(name: str | None) -> str:
 
 
 def _write_config(data: dict) -> Path:
-    """Write config.json. New files are owner-readable only (600) — the file holds secrets."""
-    path = cfg.config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".config.", suffix=".tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(json.dumps(data, ensure_ascii=False, indent=2))
-        os.chmod(tmp, 0o600)
-        os.replace(tmp, path)                  # an interrupted write does not break the existing file
-    except BaseException:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
-    return path
+    """Write config.json (mode 600, atomic) through the shared accessor"""
+    return credential_store.write_config_atomic(data)
 
 
 def save_credential(name: str, fields: dict, replace: bool = False) -> Path:

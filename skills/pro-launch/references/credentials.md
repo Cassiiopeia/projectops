@@ -5,6 +5,7 @@
 Once saved, the next run does not ask again.
 This works the same way `pro-ssh` and `pro-github` keep servers and PATs in `~/.projectops/config/config.json`.
 Values are saved **under a name** in `launch.credentials` (the file is mode 600). In list and show output, values are masked as `<saved>`.
+This is the credential store for every skill (`../../references/config-rules.md` §9): other skills reference an entry by name and read it through `scripts/common/credentials.py`.
 
 ```bash
 {PYTHON} {SCRIPTS}/launch_cli.py cred list                     # once at the start of a task — what can you use
@@ -13,6 +14,10 @@ Values are saved **under a name** in `launch.credentials` (the file is mode 600)
 {PYTHON} {SCRIPTS}/launch_cli.py cred set --name synology --json '{"kind":"ssh","host":"h","port":22,"user":"u",
   "use_when":"server deploy QA","scope":"test-only","notes":"production containers run here, so use only the pops-qa- prefix"}'
 {PYTHON} {SCRIPTS}/launch_cli.py cred unset --name synology
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --secret-field token --prompt --json '{"kind":"token","provider":"gbrain"}'  # user, in a terminal: hidden input
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --secret-field token --from-env MY_TOKEN   # or from an env var, never argv
+{PYTHON} {SCRIPTS}/launch_cli.py cred check                    # read only: references to missing entries, unreferenced entries (names only)
+{PYTHON} {SCRIPTS}/launch_cli.py cred migrate-github-pat        # plan; --yes (after the user agrees) moves github.global_pat into the store
 {PYTHON} {SCRIPTS}/launch_cli.py cred policy get --name google-dev                 # interstitial login screen policy (account > global > ask)
 {PYTHON} {SCRIPTS}/launch_cli.py cred policy set --name google-dev --key trust_device --value always
 {PYTHON} {SCRIPTS}/launch_cli.py cred policy set --key skip_nags --value always    # without --name, the default for all sites
@@ -26,7 +31,7 @@ Values are saved **under a name** in `launch.credentials` (the file is mode 600)
 
 | Field | Meaning |
 |---|---|
-| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `login` · `local` · `other` |
+| `kind` | `ssh` · `dockerhub` · `db` · `http` · `github-org` · `token` (one service token: `provider` + `token`) · `login` · `local` · `other` |
 | `ssh_server` | (deprecated, for compatibility) A server name from the old `ssh` section. Do not use it for new entries; move the values into cred with `cred import-ssh`. Keep server details and passwords **in cred only** |
 | `use_when` | **When this credential may be used** (the justification). Write the scope the user allowed, word for word |
 | Login account | `kind: login` + `provider` (google · apple · naver · kakao · github · custom) · `surface` · `app` · `account` · `password` · `two_factor` — social and app logins and developer console logins. Enter them on screen with `web type --cred` · `app type --cred`. Field details: "Saving login details" in `web.md` |
@@ -94,6 +99,9 @@ When a task on the local Mac needs admin rights (for example `sudo installer -pk
 | `cred_field_missing` | That credential lacks the field. Check the existing fields with `cred show` |
 | `cred_not_local` | Only `kind: local` credentials work with `local sudo` |
 | `no_tty` | The user types `cred set --prompt` themselves, with the `!` prefix or in a separate terminal |
+| `env_empty` · `secret_field_required` | `--from-env` names an empty variable, or lacks `--secret-field <field>` |
+| `missing_credentials` (`cred check`) | A config section names an entry that is not stored. Ask the user to save it with `cred set --secret-field ... --prompt` |
+| `name_taken` (`migrate-github-pat`) | Pick another entry name with `--name` |
 | `sudo_failed` · `auth_failed` | Do not retry; ask the user whether the value changed |
 | `sshpass_missing` | Plugin older than #987 — update it; password ssh now works without sshpass |
 | `remote_exit_nonzero` | Connection and authentication succeeded, and the remote command ended non-zero. That can be normal, such as grep finding nothing. Judge by the output and do not suspect the connection details |
