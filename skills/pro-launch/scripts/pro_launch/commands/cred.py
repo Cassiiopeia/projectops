@@ -90,6 +90,63 @@ def _cred_import_ssh(args) -> int:
                          else "Fill use_when · scope with cred set. The old ssh section was not removed")})
 
 
+def _cred_check(_args) -> int:
+    """Read-only: config references to missing credentials, credentials no section references (names only)"""
+    try:
+        report = credentials.credential_store.check_credential_references()
+    except credentials.credential_store.CredentialError as error:
+        return out({"ok": False, "code": error.code, "error": error.message})
+    missing_count = len(report["missing"])
+    return out({"ok": missing_count == 0, "code": "ok" if missing_count == 0 else "missing_credentials",
+                **report,
+                "summary": (f"{len(report['references'])} reference(s), {missing_count} missing, "
+                            f"{len(report['unreferenced'])} stored but unreferenced"),
+                "next": (f"cred set --name {report['missing'][0]['name']} --secret-field token --prompt  "
+                         "# the user types it in a terminal" if missing_count
+                         else "Unreferenced is not unused: commands also take names directly (--cred)")})
+
+
+def _cred_migrate_github_pat(args) -> int:
+    """Move github.global_pat into the store (plan without --yes; values never in the response)"""
+    cred_name = args.name or credentials.credential_store.GITHUB_PAT_DEFAULT_CRED_NAME
+    try:
+        credentials.validate_name(cred_name)
+        store = credentials.credential_store
+        result = store.apply_github_pat_migration(cred_name) if args.yes else store.plan_github_pat_migration(cred_name)
+    except (credentials.CredError, credentials.credential_store.CredentialError) as error:
+        return out({"ok": False, "code": error.code, "error": error.message})
+    state = result["state"]
+    summaries = {
+        "ready": "github.global_pat can move into the credential store (nothing written)",
+        "migrated": f"Moved github.global_pat into credential '{cred_name}'",
+        "already_migrated": "Already migrated: github.global_pat_cred names the stored PAT",
+        "no_global_pat": "No github.global_pat to migrate",
+        "name_taken": f"A credential named '{cred_name}' already exists; pick another with --name",
+    }
+    return out({"ok": state != "name_taken", "code": state, **result, "summary": summaries[state],
+                "next": ("Ask the user once; with a yes: cred migrate-github-pat --yes. "
+                         "projectops older than this release reads only github.global_pat" if state == "ready"
+                         else "cred check")})
+
+
+def _secret_from_input(args, field: str) -> tuple[str | None, dict | None]:
+    """Secret value for --secret-field: hidden terminal input (--prompt) or a named env var (--from-env)"""
+    if args.from_env:
+        value = os.environ.get(args.from_env, "")
+        if not value:
+            return None, {"ok": False, "code": "env_empty", "error": f"Environment variable {args.from_env} is empty"}
+        return value, None
+    if not sys.stdin.isatty():
+        return None, {"ok": False, "code": "no_tty",
+                      "error": "The value must be typed in a terminal (not accepted via chat or pipe)",
+                      "next": f"User, in a terminal: launch_cli.py cred set --name {args.name} --secret-field {field} --prompt"}
+    import getpass
+    value = getpass.getpass(f"{field} for {args.name} (hidden): ")
+    if not value:
+        return None, {"ok": False, "code": "empty_password", "error": "Value is empty"}
+    return value, None
+
+
 # 3 sub-actions of cred policy / 3 actions that take the name as a positional argument
 POLICY_ACTIONS = ("get", "set", "unset")
 NAME_POSITIONAL_ACTIONS = ("show", "set", "unset")
@@ -171,6 +228,12 @@ def cmd_cred(args) -> int:
     if args.action == "policy":
         return _cred_policy(args)
 
+    if args.action == "check":
+        return _cred_check(args)
+
+    if args.action == "migrate-github-pat":
+        return _cred_migrate_github_pat(args)
+
     try:
         if args.action == "show":
             entry = credentials.resolve(args.name) if args.name else None
@@ -186,7 +249,17 @@ def cmd_cred(args) -> int:
                 fields = json.loads(args.json_value) if args.json_value else None
             except json.JSONDecodeError as e:
                 return out({"ok": False, "code": "bad_json", "error": f"Invalid --json: {e}"})
-            if args.prompt:
+            if args.secret_field and (args.prompt or args.from_env):
+                # Any secret field (token, api_key ...) without the value passing through chat or argv
+                secret_value, error_payload = _secret_from_input(args, args.secret_field)
+                if error_payload:
+                    return out(error_payload)
+                fields = {**(fields or {}), args.secret_field: secret_value}
+            elif args.from_env:
+                return out({"ok": False, "code": "secret_field_required",
+                            "error": "--from-env needs --secret-field <field>",
+                            "next": f"cred set --name {name} --secret-field token --from-env {args.from_env}"})
+            elif args.prompt:
                 # This Mac's sudo password (#784). Never taken via chat or pipe — the session log would keep it in plain text.
                 # The user types it in the terminal (input is hidden) and only that value is saved.
                 if not sys.stdin.isatty():
@@ -222,7 +295,8 @@ def cmd_cred(args) -> int:
 
 
 def configure_cred(p) -> None:
-    p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh", "policy"])
+    p.add_argument("action", choices=["list", "show", "set", "unset", "import-ssh", "policy", "check",
+                                      "migrate-github-pat"])
     # policy only: get · set · unset (login interstitial policy, #905). show·set·unset read it as the name (#931)
     p.add_argument("policy_action", nargs="?", default=None, metavar="policy_action|name")
     p.add_argument("--name", default=None)
@@ -240,6 +314,11 @@ def configure_cred(p) -> None:
     # --key · --value have no choices — so invalid values still come back as a JSON code
     p.add_argument("--key", default=None, help="policy: trust_device · keep_signed_in · skip_nags")
     p.add_argument("--value", default=None, help="policy set: ask · always · never")
+    p.add_argument("--secret-field", dest="secret_field", default=None,
+                   help="set: field that receives the secret from --prompt (hidden) or --from-env (e.g. token)")
+    p.add_argument("--from-env", dest="from_env", default=None,
+                   help="set: read the --secret-field value from this environment variable (never from argv)")
+    p.add_argument("--yes", action="store_true", help="migrate-github-pat: apply (without it, plan only)")
     p.add_argument("--reveal", action="store_true", help="show: reveal secret values too (only when really needed)")
     p.add_argument("--prompt", action="store_true",
                    help="set: read the password typed in the terminal and save it (hidden, needs a TTY). Server password if --json kind is ssh, otherwise the sudo password for this Mac")

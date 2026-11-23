@@ -129,7 +129,7 @@ Use the `pro-skill-creator` skill to write the skill itself. Then register it ev
 | 6 | `docs/SKILLS.md` + `docs/en/skills.md`, `docs/README.md` + `docs/en/readme.md` | A `### /pro-<name>` section in both skill guides, and the skill count in both docs READMEs | `test/rename-consistency.test.js` (`docs/SKILLS.md` sections and the counts) |
 | 7 | `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json` | The skill count in the description | `test/rename-consistency.test.js` |
 | 8 | `scripts/common/paths.py` `DOCUMENT_SKILLS` | Only if the skill saves documents under the output folder | — |
-| 9 | `skills/config.json.example` + `skills/references/config-rules.md` | Only if the skill has settings | — |
+| 9 | `skills/config.json.example` + `skills/references/config-rules.md` | Only if the skill has settings. A secret goes in the credential store and the section holds only its name (`config-rules.md` §9, `scripts/common/credentials.py`) | — |
 | 10 | `scripts/tests/korean_line_budget.json` | Only to lower counts. English skill text must not add Korean lines | `scripts/tests/test_korean_line_budget.py` |
 
 New files are counted by the guard checks only once git tracks them: run `git add -N <new files>` before `npm test` and `python3 -m pytest scripts/tests/`.

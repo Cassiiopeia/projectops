@@ -607,7 +607,7 @@
 - Codes: `bad_args`
 - Keywords: 인자가 올바르지 않습니다
 - Symptom: The command ends with bad_args ("Invalid arguments: unrecognized arguments …")
-- Cause: You passed an option or positional argument that does not exist. Common mistakes: web shot takes --full (not --full-page), the credential field is --cred-field (not --field), cred show takes --name <name> (not positional), cred actions are only list · show · set · unset · import-ssh (no add)
+- Cause: You passed an option or positional argument that does not exist. Common mistakes: web shot takes --full (not --full-page), the credential field is --cred-field (not --field), cred show takes --name <name> (not positional), cred actions are only list · show · set · unset · import-ssh · policy · check · migrate-github-pat (no add)
 - Fix:
   1. Read the unrecognized arguments · invalid choice part of error first
   2. launch_cli.py web --help
