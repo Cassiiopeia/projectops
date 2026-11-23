@@ -1,14 +1,41 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-23T01:44:41Z",
-    "currentVersion": "4.112.0",
+    "lastUpdated": "2026-11-23T02:47:05Z",
+    "currentVersion": "4.113.0",
     "projectType": "basic",
-    "totalReleases": 429,
+    "totalReleases": 430,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.113.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-23",
+      "pr_number": 1264,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-brain setup now asks how you use the repo's knowledge: repo only, your own GBrain, a team brain or an install guide\n  * pro-brain can add the repo's notes to your own local GBrain with your yes, and stops if that name is already taken\n  * Teams can record their shared brain server in the repo so every member sees the same connection steps\n\n* **Documentation**\n  * The pro-brain guide explains each choice in a simple table and how a team sets up its brain server",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-brain setup now asks how you use the repo's knowledge: repo only, your own GBrain, a team brain or an install guide",
+            "pro-brain can add the repo's notes to your own local GBrain with your yes, and stops if that name is already taken",
+            "Teams can record their shared brain server in the repo so every member sees the same connection steps"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "The pro-brain guide explains each choice in a simple table and how a team sets up its brain server"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.112.0",
       "project_type": "basic",

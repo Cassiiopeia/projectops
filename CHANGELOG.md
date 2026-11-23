@@ -1,7 +1,21 @@
 # Changelog
 
-**Current version:** 4.112.0  
-**Last updated:** 2026-11-23T01:44:41Z  
+**Current version:** 4.113.0  
+**Last updated:** 2026-11-23T02:47:05Z  
+
+---
+
+## [4.113.0] - 2026-11-23
+
+**PR:** #1264  
+
+**New features**
+- pro-brain setup now asks how you use the repo's knowledge: repo only, your own GBrain, a team brain or an install guide
+- pro-brain can add the repo's notes to your own local GBrain with your yes, and stops if that name is already taken
+- Teams can record their shared brain server in the repo so every member sees the same connection steps
+
+**Documentation**
+- The pro-brain guide explains each choice in a simple table and how a team sets up its brain server
 
 ---
 
