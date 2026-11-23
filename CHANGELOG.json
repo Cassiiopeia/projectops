@@ -1,14 +1,53 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-23T02:47:05Z",
-    "currentVersion": "4.113.0",
+    "lastUpdated": "2026-11-23T05:53:45Z",
+    "currentVersion": "4.114.0",
     "projectType": "basic",
-    "totalReleases": 430,
+    "totalReleases": 431,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.114.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-23",
+      "pr_number": 1270,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Every skill keeps its secrets in one credential store and refers to them by name\n  * Check which saved credentials are missing or unreferenced, names only\n  * Save a token by typing it in a terminal or from an environment variable, never through the chat\n  * Optionally move the shared GitHub token into the credential store after you agree\n  * pro-brain connects you to your team brain with one yes, using the token you saved once\n  * Replace a team brain token everywhere with one rotate command\n  * Optionally share the team brain connection in the repo without any token in the file\n  * A team brain address is checked when saved, so a mistyped brain name is caught early\n  * Guided GBrain install: one question, then the exact commands and how to check them\n\n* **Documentation**\n  * One page explains where shared settings, personal secrets and agent connections live\n\n* **Other**\n  * This repository now keeps its own knowledge notes",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Every skill keeps its secrets in one credential store and refers to them by name",
+            "Check which saved credentials are missing or unreferenced, names only",
+            "Save a token by typing it in a terminal or from an environment variable, never through the chat",
+            "Optionally move the shared GitHub token into the credential store after you agree",
+            "pro-brain connects you to your team brain with one yes, using the token you saved once",
+            "Replace a team brain token everywhere with one rotate command",
+            "Optionally share the team brain connection in the repo without any token in the file",
+            "A team brain address is checked when saved, so a mistyped brain name is caught early",
+            "Guided GBrain install: one question, then the exact commands and how to check them"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "One page explains where shared settings, personal secrets and agent connections live"
+          ]
+        },
+        "other": {
+          "title": "Other",
+          "items": [
+            "This repository now keeps its own knowledge notes"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.113.0",
       "project_type": "basic",

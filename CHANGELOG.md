@@ -1,7 +1,30 @@
 # Changelog
 
-**Current version:** 4.113.0  
-**Last updated:** 2026-11-23T02:47:05Z  
+**Current version:** 4.114.0  
+**Last updated:** 2026-11-23T05:53:45Z  
+
+---
+
+## [4.114.0] - 2026-11-23
+
+**PR:** #1270  
+
+**New features**
+- Every skill keeps its secrets in one credential store and refers to them by name
+- Check which saved credentials are missing or unreferenced, names only
+- Save a token by typing it in a terminal or from an environment variable, never through the chat
+- Optionally move the shared GitHub token into the credential store after you agree
+- pro-brain connects you to your team brain with one yes, using the token you saved once
+- Replace a team brain token everywhere with one rotate command
+- Optionally share the team brain connection in the repo without any token in the file
+- A team brain address is checked when saved, so a mistyped brain name is caught early
+- Guided GBrain install: one question, then the exact commands and how to check them
+
+**Documentation**
+- One page explains where shared settings, personal secrets and agent connections live
+
+**Other**
+- This repository now keeps its own knowledge notes
 
 ---
 
