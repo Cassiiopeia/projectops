@@ -302,3 +302,14 @@ Order for implementing a new feature:
 2. `superpowers:writing-plans` — detailed implementation plan
 3. `superpowers:executing-plans` — the actual implementation
 4. `superpowers:requesting-code-review` — request a code review
+
+<!-- pro-brain:begin (managed by /pro-brain; settings live in version.yml) -->
+## Project knowledge (pro-brain)
+
+Durable project knowledge (decisions, reasons, cautions) is kept as notes in `knowledge/`.
+
+- **When to capture**: after `/pro-report` posts the issue report and before the issue is closed, run `/pro-brain` (one note per issue).
+- **Before answering why or what-did-we-decide questions**: read `knowledge/` first (search it by topic, file or issue number).
+- Skip trivial changes with a one-line reason. Never put secrets, personal data or chat content in a note.
+- Settings: `version.yml` > `metadata.template.options.knowledge`.
+<!-- pro-brain:end -->
