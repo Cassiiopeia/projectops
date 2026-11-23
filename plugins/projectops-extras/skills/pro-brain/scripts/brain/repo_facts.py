@@ -10,7 +10,10 @@ from pathlib import Path
 # version.yml location of the repo switch: metadata > template > options > knowledge
 KNOWLEDGE_BLOCK_PATH = ("metadata", "template", "options", "knowledge")
 # Keys pro-brain reads from the switch; anything else in the block is kept by the installer and ignored here
-KNOWLEDGE_KEYS = ("enabled", "path", "note_dir", "template", "rules", "check")
+# capture: issue-end | session-end | merge | manual, claude_md: file holding the rule block or "declined",
+# brain_mcp: team brain MCP server name for the rule block, skip: commit types or words never worth a note
+KNOWLEDGE_KEYS = ("enabled", "path", "note_dir", "template", "rules", "check", "capture", "claude_md", "brain_mcp", "skip")
+CAPTURE_MODES = ("issue-end", "session-end", "merge", "manual")
 
 
 class GitError(Exception):
@@ -153,8 +156,18 @@ def read_nested_block(text: str, path: tuple[str, ...]) -> dict | None:
     return children
 
 
+def parse_flow_list(value) -> list[str]:
+    """'[a, "b"]' or 'a, b' > ["a", "b"] (already-parsed lists pass through)"""
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    text = str(value or "").strip()
+    if text.startswith("[") and text.endswith("]"):
+        text = text[1:-1]
+    return [item.strip().strip("\"'") for item in text.split(",") if item.strip().strip("\"'")]
+
+
 def read_knowledge_switch(text: str) -> dict:
-    """Repo switch > {present, enabled, path, note_dir, template, rules, check}; absent block = off"""
+    """Repo switch > {present, enabled, path, note_dir, template, rules, check, capture, ...}; absent block = off"""
     block = read_nested_block(text, KNOWLEDGE_BLOCK_PATH)
     if block is None:
         return {"present": False, "enabled": False}
@@ -162,7 +175,30 @@ def read_knowledge_switch(text: str) -> dict:
     switch["present"] = True
     switch["enabled"] = block.get("enabled") is True
     switch.setdefault("path", "knowledge/")
+    if "skip" in switch:
+        switch["skip"] = parse_flow_list(switch["skip"])
     return switch
+
+
+def read_repo_language(text: str) -> str:
+    """metadata.template.options.language (en | ko), default en"""
+    options = read_nested_block(text, ("metadata", "template", "options")) or {}
+    return "ko" if str(options.get("language") or "").lower() == "ko" else "en"
+
+
+def path_tracking_state(repo_root: Path, relative_path: str) -> str:
+    """tracked | ignored | untracked | missing (git ls-files, git check-ignore)"""
+    exists = (repo_root / relative_path).exists()
+    try:
+        if run_git(repo_root, "ls-files", "--", relative_path).strip():
+            return "tracked"
+    except GitError:
+        pass
+    ignored = subprocess.run(["git", "-C", str(repo_root), "check-ignore", "-q", "--no-index", relative_path],
+                             capture_output=True).returncode == 0
+    if ignored:
+        return "ignored"
+    return "untracked" if exists else "missing"
 
 
 def read_version_facts(text: str) -> dict:

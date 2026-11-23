@@ -294,7 +294,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
                            "accounts": { "<account>": { "role": "<db-role>", "superuser": true, "credential": "<launch credential name>" } } }
       },
       "brains": {
-        "<brain-name>": { "engine": "gbrain", "kind": "team", "mcp_url": "<mcp endpoint, optional>", "server": "<server-name>",
+        "<brain-name>": { "engine": "gbrain", "kind": "team", "mcp_url": "<mcp endpoint, optional>", "mcp_server_name": "gbrain-<project>", "server": "<server-name>",
                           "database": "<database>", "sync_script": "<path>", "notes": "<free-form>" }
       }
     },
@@ -330,7 +330,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
 | `projects.<key>` | | Registry entry per project. Agents match the current repo by git remote (`repos[].github`) or path (`local_path`, `worktree_path`) before asking anything, and write the entry when a project is set up. Every field is optional; absent = unknown |
 | `projects.<key>.deploy.server`, `.database.instance`, `.database.account` | | Names of `infra.servers` / `infra.databases` / `accounts` entries, never copies of their values |
 | `projects.<key>.status` | | `active` or `archived` |
-| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `server`, `database_instance`, `database`, `sync_script`, `notes`. References only |
+| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `mcp_server_name` (MCP server name for the repo's agent rule block, e.g. `gbrain-<project>`), `server`, `database_instance`, `database`, `sync_script`, `notes`. References only |
 | `projects.<key>.knowledge` | | `brain` (an `infra.brains` name), `source_id` (default `<key>-knowledge`), `sync` (`repo-commit`), `enabled`/`path` (owner intent only). The on/off switch itself is the repo's `version.yml` `metadata.template.options.knowledge`; `pro-brain` never connects to a brain |
 
 ### `image` section

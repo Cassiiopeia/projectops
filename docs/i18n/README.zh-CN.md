@@ -115,7 +115,7 @@ npx projectops
 | 设计与维护 | `/pro-oss-consult` | 以开源项目标准为仓库打分，只修改你批准的内容 |
 | 设计与维护 | `/pro-skill-creator` | 创建、审查、改进技能 |
 
-**Extras**（可选插件）：`/pro-synology-expose`、`/pro-skill-bug`（在任意会话中报告疑似技能缺陷）、`/pro-disk-cleanup`（安全清理磁盘空间）、`/pro-remote-link`（按需提供从外部打开 Orca・Paseo 的链接）、`/pro-project-blueprint`（按惯用的结构、分支、公开仓库密钥和部署方式启动新项目）、`/pro-brain`（仓库开启时，每个 Issue 为团队知识库写一条知识笔记）。安装：`claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras**（可选插件）：`/pro-synology-expose`、`/pro-skill-bug`（在任意会话中报告疑似技能缺陷）、`/pro-disk-cleanup`（安全清理磁盘空间）、`/pro-remote-link`（按需提供从外部打开 Orca・Paseo 的链接）、`/pro-project-blueprint`（按惯用的结构、分支、公开仓库密钥和部署方式启动新项目）、`/pro-brain`（按 Issue、变更集或合并为团队知识库写知识笔记，两个问题即可设置）。安装：`claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code

@@ -115,7 +115,7 @@ Node.js 20.12 이상과 Git이 필요합니다 (Agent Skills는 Python 3도 필�
 | 디자인·관리 | `/pro-oss-consult` | 오픈소스 관점으로 레포 채점, 승인한 것만 수정 |
 | 디자인·관리 | `/pro-skill-creator` | 스킬 생성·리뷰·개선 |
 
-**Extras** (선택 플러그인): `/pro-synology-expose`, `/pro-skill-bug` (어느 세션에서든 스킬 버그 의심 보고), `/pro-disk-cleanup` (디스크 용량 안전 정리), `/pro-remote-link` (밖에서 Orca·Paseo를 여는 링크), `/pro-project-blueprint` (평소 구조·브랜치·공개 레포 시크릿·배포 방식으로 새 프로젝트 시작), `/pro-brain` (레포가 켜 두면 이슈마다 팀 브레인용 지식 노트). 설치: `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (선택 플러그인): `/pro-synology-expose`, `/pro-skill-bug` (어느 세션에서든 스킬 버그 의심 보고), `/pro-disk-cleanup` (디스크 용량 안전 정리), `/pro-remote-link` (밖에서 Orca·Paseo를 여는 링크), `/pro-project-blueprint` (평소 구조·브랜치·공개 레포 시크릿·배포 방식으로 새 프로젝트 시작), `/pro-brain` (이슈, 변경 묶음, 머지마다 팀 브레인용 지식 노트, 질문 두 개로 설정). 설치: `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code

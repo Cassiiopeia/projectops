@@ -563,14 +563,21 @@ It **holds the owner's house standard for starting and running a project**, so a
 ### `/pro-brain`
 
 **What does it do?**
-At the end of an issue it **keeps what stays true about the project** (the decision, why, and what the next person must not trip over) as one note in the repo's knowledge folder, committed with the issue's work, so a brain that syncs the folder (team or personal) learns it. It is on only when the repo's `version.yml` says so (`metadata.template.options.knowledge`), so every teammate who clones the repo gets the same behavior. Trivial issues are skipped with one line. A small read-only CLI collects the metadata (project, stacks touched, version and build number, commit range, issue, PR, deploy, changed modules, capture time). It never writes to or configures any brain.
+It **keeps what stays true about the project** (the decision, why, and what the next person must not trip over) as short notes in the repo's knowledge folder, committed with the work, so a brain that syncs the folder (team or personal) learns it. Code shows what; the note keeps why and where. It is on only when the repo's `version.yml` says so (`metadata.template.options.knowledge`), so every teammate who clones the repo gets the same behavior. It never writes to or configures any brain.
 
-**Modifies**: one note in the knowledge folder (plus files the repo's own vault rules require), committed with `pro-commit`
+**How it works (for owners)**
+- The first run asks at most two questions, each with a recommended answer: **when** to write notes (after each finished issue, at the end of a work session, on each merge, or only when asked; recommended from the repo's history), and **may it add the knowledge rule to the project CLAUDE.md** (tells every agent when to capture and to search the team brain first for "why" questions). A no is remembered. If CLAUDE.md is gitignored, it offers a small committed `.claude/rules/pro-brain.md` instead, or copies CLAUDE.md into new worktrees on this machine.
+- After that the agent writes notes at the right moment and skips trivial work with one line. Notes reach the team brain once merged into the main branch: no extra service, no AI cost in CI.
+- A note has a searchable title, stable id, tags, links to related notes, facts collected automatically (version, commit range, files, API endpoints, migrations, setting and secret **names**, never values) and 30 to 80 lines of prose: background, decision with reasons and rejected alternatives, behavior change, code pointers, cautions, verification. No code dumps or logs.
+- `gaps` lists work merged into the main branch that has no note yet, from git history only, so a brain's sync job can log it for free.
+
+**Modifies**: notes in the knowledge folder (plus files the repo's own vault rules require); once, after you agree, the `version.yml` switch and one marked rule block
 **Returns**: the note path and the sync target known on this machine, or the reason it was skipped
 
 **When to use it**
-- Right after `pro-report`, before closing the issue (`pro-report` points to it when the repo turns it on)
-- "Save this decision to the team brain", "write the knowledge note"
+- Right after `pro-report` (issue repos), after a feature commit or at the end of a session, or after a merge, as the repo's mode says
+- "Save this decision to the team brain", "write the knowledge note", "set up pro-brain", "which merged work has no note?"
+
 
 ---
 

@@ -169,6 +169,8 @@ To push, run it yourself:
 git push origin {current branch}
 ```
 
+If `version.yml` has `metadata.template.options.knowledge.enabled: true` with `capture: "session-end"` and this commit finishes a feature or fix (not a chore), or `capture: "merge"` and it merges into the default branch, run `/pro-brain` (projectops-extras) next.
+
 ## Shared references
 
 | Document | Read when |

@@ -9,7 +9,7 @@ from pathlib import Path
 CONFIG_PATH = Path.home() / ".projectops" / "config" / "config.json"
 SECTION = "project-blueprint"
 # Brain fields safe to echo: references and non-secret metadata (mcp_url is reported only as present or not)
-BRAIN_FIELDS_SHOWN = ("engine", "kind", "server", "database_instance", "database", "sync_script", "notes")
+BRAIN_FIELDS_SHOWN = ("engine", "kind", "server", "database_instance", "database", "sync_script", "mcp_server_name", "notes")
 
 
 def load_section(config_path: Path = CONFIG_PATH) -> dict | None:

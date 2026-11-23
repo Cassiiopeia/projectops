@@ -18,7 +18,7 @@ project-blueprint
 │   ├── traefik               server, internal_port, network, entrypoint
 │   ├── servers.<name>        kind, credential, host, ssh_port, user, docker_bin, volume_base_path, timezone
 │   ├── databases.<instance>  engine, server, container, host, port, default_account, accounts.<name>
-│   └── brains.<name>         engine, kind, mcp_url?, server?, database_instance?, database?, sync_script?, notes
+│   └── brains.<name>         engine, kind, mcp_url?, mcp_server_name?, server?, database_instance?, database?, sync_script?, notes
 ├── defaults                  branch names and install options picked once
 └── projects.<key>
     ├── status, display_name, gbrain_entity, notes
@@ -90,6 +90,7 @@ only adds what is private to the owner: which brain syncs the folder and how.
 | `infra.brains.<name>.engine` | `gbrain` (the only engine so far) |
 | `infra.brains.<name>.kind` | `team` (shared, fed from repos) or `personal` (the owner's own memory) |
 | `infra.brains.<name>.mcp_url` | Public MCP endpoint, if any. Leave it out when there is none; never a token |
+| `infra.brains.<name>.mcp_server_name` | MCP server name teammates register (`gbrain-<project>`); `pro-brain` puts it in the repo's agent rule block unless the repo switch sets `brain_mcp` |
 | `infra.brains.<name>.server` | Name of the `infra.servers` entry that hosts it |
 | `infra.brains.<name>.database_instance`, `.database` | `infra.databases` instance name and database name, when it has its own |
 | `infra.brains.<name>.sync_script` | Path of the job that pulls the repo folder into the brain (on the owner's machine) |

@@ -1,0 +1,16 @@
+{
+  "heading": "## 프로젝트 지식 (pro-brain)",
+  "intro": "나중에도 유효한 프로젝트 지식(결정, 이유, 주의점)은 `{path}` 폴더에 노트로 남긴다{sync}.",
+  "sync_suffix": ". 팀 브레인은 `{default_branch}` 브랜치에서 이 폴더를 가져간다",
+  "when_label": "언제 남기나",
+  "lookup_label": "왜 이렇게 됐는지, 무엇을 정했는지 답하기 전에",
+  "mode_issue-end": "`/pro-report`로 이슈 보고서를 올린 뒤, 이슈를 닫기 전에 `/pro-brain`을 실행한다 (이슈마다 노트 1건).",
+  "mode_session-end": "의미 있는 변경이 있었던 작업을 마칠 때나 `/pro-commit`으로 기능 커밋을 한 직후 `/pro-brain`을 실행한다 (변경 묶음의 주제마다 노트 1건).",
+  "mode_merge": "브랜치나 PR을 `{default_branch}`에 머지했을 때 그 변경 묶음으로 `/pro-brain`을 실행한다.",
+  "mode_manual": "누가 지식 저장을 요청할 때만 `/pro-brain`을 실행한다.",
+  "lookup_with_brain": "팀 브레인 MCP(`{brain_mcp}`)에서 먼저 찾는다. 연결돼 있지 않으면 `{path}` 폴더를 읽는다 (주제, 파일, 이슈 번호로 검색).",
+  "lookup_without_brain": "`{path}` 폴더를 먼저 읽는다 (주제, 파일, 이슈 번호로 검색).",
+  "rules": "사소한 변경은 이유 한 줄로 건너뛴다. 비밀값, 개인정보, 대화 내용은 노트에 넣지 않는다.",
+  "settings": "설정: `version.yml` > `metadata.template.options.knowledge`.",
+  "rules_ref": " 노트 형식과 절차는 `{rules}`를 따른다."
+}

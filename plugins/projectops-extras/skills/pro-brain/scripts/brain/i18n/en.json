@@ -1,0 +1,16 @@
+{
+  "heading": "## Project knowledge (pro-brain)",
+  "intro": "Durable project knowledge (decisions, reasons, cautions) is kept as notes in `{path}`{sync}.",
+  "sync_suffix": " and synced to the team brain from `{default_branch}`",
+  "when_label": "When to capture",
+  "lookup_label": "Before answering why or what-did-we-decide questions",
+  "mode_issue-end": "after `/pro-report` posts the issue report and before the issue is closed, run `/pro-brain` (one note per issue).",
+  "mode_session-end": "at the end of a work session with meaningful changes, or right after a feature commit with `/pro-commit`, run `/pro-brain` (one note per topic of the change set).",
+  "mode_merge": "when a branch or PR is merged into `{default_branch}`, run `/pro-brain` for that change set.",
+  "mode_manual": "run `/pro-brain` only when someone asks to save knowledge.",
+  "lookup_with_brain": "search the team brain MCP `{brain_mcp}` first; if it is not connected, read `{path}` (search it by topic, file or issue number).",
+  "lookup_without_brain": "read `{path}` first (search it by topic, file or issue number).",
+  "rules": "Skip trivial changes with a one-line reason. Never put secrets, personal data or chat content in a note.",
+  "settings": "Settings: `version.yml` > `metadata.template.options.knowledge`.",
+  "rules_ref": " Note format and workflow: follow `{rules}`."
+}

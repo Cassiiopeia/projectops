@@ -123,7 +123,7 @@ report_cli loads the PAT from config.json automatically (an environment variable
 
 ### Step 7: Finish the issue (after posting the report)
 
-Before finishing: if `version.yml` has `metadata.template.options.knowledge.enabled: true` and `/pro-brain` (projectops-extras) is installed, run `/pro-brain` first.
+Before finishing: if `version.yml` has `metadata.template.options.knowledge.enabled: true` with `capture` `issue-end` (or no `capture`) and `/pro-brain` (projectops-extras) is installed, run `/pro-brain` first.
 
 Once the report comment is posted, finish the issue. Follow the "Finish an issue" recipe in the `pro-github` SKILL.md exactly; do not define a separate procedure here.
 
