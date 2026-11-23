@@ -223,8 +223,12 @@ git -C ~/gbrain-sources/<project> pull --ff-only --quiet && gbrain sync --source
 3. One read-only credential per member (GBrain: a client with the `memory-reader` profile, see its MCP admin guide),
    handed over privately and revoked when they leave. Never a shared token, never one in the repo.
 4. `setup --apply --yes --team-brain-name gbrain-{project} --team-brain-url https://<host>/mcp --team-brain-contact <who>`
-   once in the repo, committed, so every member's setup prints the same `claude mcp add --scope user --transport http`
-   line with a `<token>` placeholder.
+   once in the repo, committed. The URL is probed first (no token > 401, a dummy token > 401 invalid token; a 404 means
+   an unknown brain, usually a typo in the brain key).
+5. Each member stores their token once in the credential store (`launch cred set --name gbrain-{project}
+   --secret-field token --prompt`, `../../references/config-rules.md` §9) and runs `connect --team --apply --yes`, which
+   registers the user-scope MCP entry (`--rotate` after a new token). Optional `--project-mcp-json` commits a `.mcp.json`
+   entry that reads `${GBRAIN_{PROJECT}_TOKEN}`.
 
 Page slugs come from paths inside the folder, so two notes never share a slug, and nothing in a note depends on a
 particular brain (no brain ids, no MCP calls, no embeddings in the file). One source per repo folder keeps brains

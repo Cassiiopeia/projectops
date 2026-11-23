@@ -6,7 +6,8 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
-from . import brain_usage, collect, contracts, gaps, gbrain_connect, notes, onboarding, registry, repo_facts, switch_edit
+from . import (brain_usage, collect, contracts, gaps, gbrain_connect, install_guide, mcp_probe, notes, onboarding, registry,
+               repo_facts, switch_edit, team_connect)
 
 DEFAULT_CAPTURE = "issue-end"   # repos switched on before capture modes existed keep the issue flow
 TEAM_BRAIN_DECLINED = "none"    # team_brain value when the user chose no team brain
@@ -35,6 +36,7 @@ def repo_context(repo_argument: str | None) -> dict:
             # Only the shared repo switch feeds the rule block; the owner's registry is a hint for the setup question
             "brain_mcp": repo_facts.team_brain_mcp_name(switch),
             "registry_mcp_hint": sync_target.get("mcp_server_name") if sync_target.get("known") else None,
+            "registry_token_cred": sync_target.get("token_cred") if sync_target.get("known") else None,
             "project": project_key or (remote or root.name).split("/")[-1].lower()}
 
 
@@ -188,7 +190,8 @@ def _usage_facts(context: dict) -> dict:
              "personal_sources": connected, "source_id": source_id, "team_brain": team,
              "registry_mcp_hint": context["registry_mcp_hint"], "install_url": brain_usage.GBRAIN_INSTALL_URL}
     if team and team.get("mcp_url"):
-        facts["team_brain_setup"] = brain_usage.team_brain_instructions(team, brain_usage.claude_mcp_server_names())
+        facts["team_brain_setup"] = brain_usage.team_brain_instructions(team, brain_usage.claude_mcp_server_names(),
+                                                                        context.get("registry_token_cred"))
     return facts
 
 
@@ -280,7 +283,12 @@ def cmd_setup(args) -> dict:
         new_version_text, switch_error = context["text"], str(error)
     usage = _usage_facts({**context, "switch": {key: value for key, value in {**switch, **team_updates}.items()
                                                  if key not in team_removals}})
+    # A new team brain URL is probed before it is shared, so a mistyped brain key shows up now (warning only)
+    new_team = team_updates.get("team_brain") if isinstance(team_updates.get("team_brain"), dict) else None
+    probe = (mcp_probe.probe_team_brain(new_team["mcp_url"], new_team.get("mcp_name"), context["project"])
+             if new_team and args.team_brain_url and not args.no_probe else None)
     plan = {"recommended_capture": recommendation, "capture": capture, "brain_mcp": brain_mcp, "usage": usage, "files": files,
+            "team_brain_probe": probe,
             "target_options": options, "target": target, "target_kind": target_kind, "block": block,
             "block_state": onboarding_state["rule_block_state"],
             "questions": _setup_questions(context, recommendation, onboarding_state, options, usage),
@@ -315,6 +323,8 @@ def cmd_setup(args) -> dict:
         if args.agents_md and files["agents_md_needs_block"]:
             written.append(f"AGENTS.md ({onboarding.apply_block(root / 'AGENTS.md', block)})")
     follow_up = ["commit the tracked files above with pro-commit (stage only these paths)"]
+    if probe and not probe["ok"]:
+        follow_up.insert(0, f"warn the user: team brain URL probe said {probe['verdict']} ({probe['summary']})")
     if usage.get("team_brain_setup") and not usage["team_brain_setup"].get("registered"):
         follow_up.append("show usage.team_brain_setup.steps to the user (token from the contact, never stored)")
     if target_kind == "local-claude-md+worktree-copy" and args.claude_md == "add":
@@ -324,8 +334,10 @@ def cmd_setup(args) -> dict:
 
 
 def cmd_connect(args) -> dict:
-    """Personal GBrain: plan (default) or --apply --yes to add the source and sync it"""
+    """Personal GBrain: plan (default) or --apply --yes to add the source and sync it; --team: the team brain MCP entry"""
     context = repo_context(args.repo)
+    if args.team:
+        return _connect_team(args, context)
     knowledge_path = context["switch"].get("path", "knowledge/")
     result = gbrain_connect.plan(context["root"], knowledge_path, context["project"], context["default_branch"],
                                  args.source_id, args.source_root, is_remote=args.remote)
@@ -350,6 +362,43 @@ def cmd_connect(args) -> dict:
     return {**result, **outcome,
             "next": ("one line to the user: notes enter the brain from the branch checked out at the source path; "
                      "for merged notes only, follow default_branch_recipe" if outcome["ok"] else "report the failed step")}
+
+
+def _connect_team(args, context: dict) -> dict:
+    """Team brain: plan (default) or --apply --yes to register the user-scope MCP entry with the stored token"""
+    switch = context["switch"]
+    team = switch.get("team_brain") if isinstance(switch.get("team_brain"), dict) else None
+    result = team_connect.plan(team, args.token_cred or context.get("registry_token_cred"), context["project"],
+                               context["root"], args.rotate, args.project_mcp_json)
+    if team and team.get("mcp_url") and not args.no_probe and result["code"] not in ("bad_team_brain",):
+        result["team_brain_probe"] = mcp_probe.probe_team_brain(team["mcp_url"], team.get("mcp_name"), context["project"])
+    code = result["code"]
+    next_by_code = {
+        "ready": "show the command (token placeholder) and the probe verdict, then connect --team --apply --yes after a yes",
+        "already_registered": "nothing to do; after a token change: store the new token, then connect --team --rotate",
+        "token_missing": "the user runs store_token_command in a terminal (! prefix in Claude Code), then connect --team again",
+        "claude_cli_missing": "give the user the command; they put their token in place of <token> in their own terminal",
+        "no_team_brain": "setup --team-brain-name N --team-brain-url URL --team-brain-contact WHO (ask the user first)",
+        "bad_team_brain": "fix team_brain in version.yml with setup --team-brain-* flags",
+        "config_unreadable": "the user repairs ~/.projectops/config/config.json first",
+    }
+    project_note = ""
+    if args.project_mcp_json and result.get("project_mcp_json"):
+        project_note = (f"; .mcp.json reads ${{{result['project_mcp_json'].get('env_var')}}}: each teammate sets that "
+                        "variable, and a project entry overrides a user entry of the same name")
+    if not args.apply:
+        return {**result, "next": next_by_code.get(code, "report the summary") + project_note}
+    if not args.yes:
+        raise NeedsConsent("connect --team --apply registers an MCP entry with the user's token: pass --yes only after the user agreed")
+    outcome = team_connect.apply(result, context["root"], context["project"])
+    return {**result, **outcome,
+            "next": ("restart the agent session so the MCP entry loads; commit .mcp.json with pro-commit if it was written"
+                     if outcome["ok"] else next_by_code.get(code, "report the failed step"))}
+
+
+def cmd_install(args) -> dict:
+    """Guided install and init: one question, then exact commands, prerequisites and verification (read only)"""
+    return install_guide.guide(args.choice)
 
 
 def cmd_gaps(args) -> dict:

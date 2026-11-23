@@ -13,6 +13,7 @@ COPIES = [
     ("hooks/run_python.sh", "hooks/run_python.sh"),
     ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # redaction rules original (extras cannot use common)
     ("scripts/common/proc.py", "skills/pro-remote-link/scripts/tunnel/proc.py"),  # original of the per-OS process liveness check
+    ("scripts/common/credentials.py", "skills/pro-brain/scripts/brain/credentials.py"),  # credential store accessor (team brain token, #1265)
 ]
 
 if __name__ == "__main__":

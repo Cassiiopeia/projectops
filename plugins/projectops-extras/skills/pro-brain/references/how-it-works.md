@@ -31,11 +31,24 @@
 | You just want the knowledge kept with the code (most repos) | **1. Repo only** | Notes stay in the repo. Agents read the folder | Nothing |
 | You run GBrain on your own computer | **2. My local GBrain** | With your yes, it adds this repo's folder to your brain as one entry named `<project>-knowledge` and loads it. Nothing else in your brain changes; if that name is taken it stops and tells you | GBrain installed with a brain created |
 | Your own GBrain runs on another computer or server | **3. My remote GBrain** | It shows the commands to run on that computer, where the brain's data lives. Your settings here stay as they are | Access to that computer |
-| Your team runs a shared brain server | **4. Team brain** | The server's name, address and who hands out access are saved in the repo so every teammate sees them. Each person asks for their own read-only key and adds the brain with one command | A key from the team's brain admin |
+| Your team runs a shared brain server | **4. Team brain** | The server's name, address and who hands out access are saved in the repo so every teammate sees them, after a quick check that the address answers like a brain (a mistyped brain name shows up here). Each person asks for their own read-only key, types it once into their own projectops settings, and says yes to the connection | A key from the team's brain admin |
+| You do not have GBrain yet | **5. Install guide** | One question (only you on this computer, your own Postgres, Supabase, another machine, a team server), then the exact commands and a check that it worked. Commands with passwords are typed by you in a terminal | A few minutes |
 | You do not have a brain yet | **5. Install guide** | It shows where to get GBrain, then works like 1 | Nothing now |
 
 You can combine 2 or 3 with 4: your own brain for yourself, the team brain for shared answers. Keys and passwords are
 never saved in the repo or in a note; the team brain is added under its own name so it never replaces your personal one.
+
+## Where each fact lives
+
+| Place | Shared? | Holds | Never holds |
+|---|---|---|---|
+| `version.yml` (`knowledge` block) | Yes, committed with the repo | Capture mode, folder, team brain name, address and who issues keys | Tokens, personal brains |
+| `~/.projectops/config/config.json` | No, your computer only (mode 600) | Your team brain token under a name (credential store), your private registry | Anything a teammate needs to read |
+| Claude Code MCP settings (`claude mcp add --scope user`) | No, your computer only | The registered brain entry, written by `connect --team` from the two places above | Nothing you edit by hand |
+| `.mcp.json` (optional) | Yes, committed | The team brain entry with `${GBRAIN_<PROJECT>_TOKEN}` instead of a token | The token |
+
+A new token (rotated by the admin, or a new computer) means one command to save it under the same name and one
+`connect --team --rotate`; nothing in the repo changes.
 
 **Which branch reaches the brain?** A brain reads the notes that are committed on the branch checked out in the folder it
 reads. Pointing your personal brain at your working folder means notes appear as soon as you commit them, even before a
@@ -48,10 +61,15 @@ setup prints the exact commands.
 2. On that server, keep a copy of the repo's main branch and add its `knowledge/` folder as one source named
    `<project>-knowledge`; refresh and sync it every hour (`git pull`, then `gbrain sync --source <project>-knowledge`).
    Main only, so unfinished work never reaches the team.
-3. Give each member their own **read-only** access key (in GBrain, a client with the `memory-reader` profile; see GBrain's
-   MCP admin guide). Hand it over privately and revoke it when someone leaves.
+3. Give each member their own **read-only** access key (for example `gbrain auth create <member> --scopes read`, or a
+   client with the `memory-reader` profile; see GBrain's MCP admin guide). Hand it over privately and revoke it when someone
+   leaves.
 4. In the repo, run the setup once and pick 4 with the server's MCP name (for example `gbrain-<project>`), its address and
-   who to ask for a key. That is saved in `version.yml`, so every teammate's setup shows the same instructions.
+   who to ask for a key. The address is checked first; then it is saved in `version.yml`, so every teammate's setup shows
+   the same instructions.
+5. Each member saves their key once (`cred set --name gbrain-<project> --secret-field token --prompt`, typed in their own
+   terminal) and says yes to `connect --team`, which registers the brain for them. `install --choice team-server` prints
+   the server commands.
 
 Optional: the same hourly job can log notes that were never written (`gaps`, see "Did anything slip through?").
 

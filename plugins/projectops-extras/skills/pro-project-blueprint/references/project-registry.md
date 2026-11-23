@@ -91,6 +91,7 @@ only adds what is private to the owner: which brain syncs the folder and how.
 | `infra.brains.<name>.kind` | `team` (shared, fed from repos) or `personal` (the owner's own memory) |
 | `infra.brains.<name>.mcp_url` | Public MCP endpoint, if any. Leave it out when there is none; never a token |
 | `infra.brains.<name>.mcp_server_name` | MCP server name teammates register (`gbrain-<project>`); `pro-brain` setup only uses it as a hint to prefill the team-brain answer. The shared truth is the repo switch `team_brain` |
+| `infra.brains.<name>.token_cred` | Name of the credential store entry (`launch.credentials`, field `token`) holding the owner's token for this brain; `pro-brain connect --team` reads it. Default: the MCP server name. Never the token itself (`config-rules.md` §9) |
 | `infra.brains.<name>.server` | Name of the `infra.servers` entry that hosts it |
 | `infra.brains.<name>.database_instance`, `.database` | `infra.databases` instance name and database name, when it has its own |
 | `infra.brains.<name>.sync_script` | Path of the job that pulls the repo folder into the brain (on the owner's machine) |
