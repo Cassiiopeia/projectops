@@ -563,10 +563,11 @@ It **holds the owner's house standard for starting and running a project**, so a
 ### `/pro-brain`
 
 **What does it do?**
-It **keeps what stays true about the project** (the decision, why, and what the next person must not trip over) as short notes in the repo's knowledge folder, committed with the work, so a brain that syncs the folder (team or personal) learns it. Code shows what; the note keeps why and where. It is on only when the repo's `version.yml` says so (`metadata.template.options.knowledge`), so every teammate who clones the repo gets the same behavior. It never writes to or configures any brain.
+It **keeps what stays true about the project** (the decision, why, and what the next person must not trip over) as short notes in the repo's knowledge folder, committed with the work, so a brain that syncs the folder (team or personal) learns it. Code shows what; the note keeps why and where. It is on only when the repo's `version.yml` says so (`metadata.template.options.knowledge`), so every teammate who clones the repo gets the same behavior. It changes a brain only when you agree: one new source in your own local GBrain. Tokens are never stored.
 
 **How it works (for owners)**
-- The first run asks at most two questions, each with a recommended answer: **when** to write notes (after each finished issue, at the end of a work session, on each merge, or only when asked; recommended from the repo's history), and **may it add the knowledge rule to the project CLAUDE.md** (tells every agent when to capture and to search the team brain first for "why" questions). A no is remembered. If CLAUDE.md is gitignored, it offers a small committed `.claude/rules/pro-brain.md` instead, or copies CLAUDE.md into new worktrees on this machine.
+- The first run asks at most three questions, each with a recommended answer: **when** to write notes (after each finished issue, at the end of a work session, on each merge, or only when asked; recommended from the repo's history), and **may it add the knowledge rule to the project CLAUDE.md** (tells every agent when to capture and to search the team brain first for "why" questions). A no is remembered. If CLAUDE.md is gitignored, it offers a small committed `.claude/rules/pro-brain.md` instead, or copies CLAUDE.md into new worktrees on this machine.
+- The third question is **how you use this repo's knowledge**: repo only (default), your own local GBrain (it adds the folder as one source `<project>-knowledge` and syncs it, and stops if that name is taken), your own remote GBrain (commands to run on its host), a team brain server (name, address and who issues read-only tokens are saved in `version.yml`; each member adds it with one `claude mcp add` line and their own token), or an install guide. Personal and team can be combined; run setup again to see and change what is in effect.
 - After that the agent writes notes at the right moment and skips trivial work with one line. Notes reach the team brain once merged into the main branch: no extra service, no AI cost in CI.
 - A note has a searchable title, stable id, tags, links to related notes, facts collected automatically (version, commit range, files, API endpoints, migrations, setting and secret **names**, never values) and 30 to 80 lines of prose: background, decision with reasons and rejected alternatives, behavior change, code pointers, cautions, verification. No code dumps or logs.
 - `gaps` lists work merged into the main branch that has no note yet, from git history only, so a brain's sync job can log it for free.
@@ -576,7 +577,7 @@ It **keeps what stays true about the project** (the decision, why, and what the 
 
 **When to use it**
 - Right after `pro-report` (issue repos), after a feature commit or at the end of a session, or after a merge, as the repo's mode says
-- "Save this decision to the team brain", "write the knowledge note", "set up pro-brain", "which merged work has no note?"
+- "Save this decision to the team brain", "write the knowledge note", "set up pro-brain", "connect this repo to my GBrain", "which merged work has no note?"
 
 
 ---

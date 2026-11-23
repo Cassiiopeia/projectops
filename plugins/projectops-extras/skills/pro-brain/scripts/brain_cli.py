@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""brain_cli: pro-brain fact collection and onboarding; the agent decides and writes the note. Output is always JSON
-(ok, code, summary, next). Read-only except `setup --apply --yes` (repo switch + rule block, only after the user agreed).
-Never talks to any brain. extras installs only its own folder, so standard library only.
+"""brain_cli: pro-brain fact collection, onboarding and personal GBrain connection; the agent decides and writes the note.
+Output is always JSON (ok, code, summary, next). Read-only except `setup --apply --yes` (repo switch + rule block) and
+`connect --apply --yes` (one source in the user's own GBrain), both only after the user agreed.
+extras installs only its own folder, so standard library only.
 """
 from __future__ import annotations
 
@@ -69,10 +70,23 @@ def build_parser() -> JsonArgumentParser:
     setup.add_argument("--claude-md", choices=("add", "decline"), help="rule block: add it, or remember the no")
     setup.add_argument("--target", help="file for the rule block (default: the recommended one)")
     setup.add_argument("--agents-md", action="store_true", help="also write the block to a tracked AGENTS.md")
-    setup.add_argument("--brain-mcp", help="team brain MCP server name to record in the switch, e.g. gbrain-myproject")
+    setup.add_argument("--brain-mcp", help="legacy: team brain MCP server name only (prefer --team-brain-name)")
+    setup.add_argument("--team-brain-name", help="team brain MCP server name to share, e.g. gbrain-myproject (never 'gbrain')")
+    setup.add_argument("--team-brain-url", help="team brain MCP URL, e.g. https://brain.example.com/mcp (no token)")
+    setup.add_argument("--team-brain-contact", help="who issues read-only tokens, e.g. a name or a team channel")
+    setup.add_argument("--team-brain-off", action="store_true", help="remove the team brain from the switch")
     setup.add_argument("--enable", action="store_true", help="turn capture on (creates the knowledge block if missing)")
     setup.add_argument("--apply", action="store_true", help="write the changes (needs --yes)")
     setup.add_argument("--yes", action="store_true", help="the user agreed in this conversation")
+
+    link = sub.add_parser("connect", help="add this repo's knowledge folder to your own GBrain as one source (plan by default)")
+    link.add_argument("--repo", help="repository folder (default: current folder)")
+    link.add_argument("--source-id", help="source id (default: <project>-knowledge)")
+    link.add_argument("--source-root", help="checkout to read from, e.g. a dedicated clone of the default branch")
+    link.add_argument("--no-sync", action="store_true", help="add the source without the first sync")
+    link.add_argument("--remote", action="store_true", help="your own brain runs elsewhere (HTTP): print the commands for its host")
+    link.add_argument("--apply", action="store_true", help="run gbrain sources add and sync (needs --yes)")
+    link.add_argument("--yes", action="store_true", help="the user agreed in this conversation")
 
     gap = sub.add_parser("gaps", help="merged work since the last captured note that has no note (git only, no LLM)")
     gap.add_argument("--repo", help="repository folder (default: current folder)")
@@ -84,8 +98,8 @@ def build_parser() -> JsonArgumentParser:
 
 
 COMMANDS = {"status": commands.cmd_status, "collect": commands.cmd_collect, "setup": commands.cmd_setup,
-            "gaps": commands.cmd_gaps}
-USAGE = "brain_cli.py status | collect | setup | gaps [options]"
+            "connect": commands.cmd_connect, "gaps": commands.cmd_gaps}
+USAGE = "brain_cli.py status | collect | setup | connect | gaps [options]"
 
 
 def main(argv: list[str] | None = None) -> int:

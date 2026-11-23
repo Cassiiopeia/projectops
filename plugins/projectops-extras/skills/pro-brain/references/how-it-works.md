@@ -1,6 +1,6 @@
 # How pro-brain works (for project owners)
 
-> When to read: the owner asks how it works, what it costs, or what a good note looks like.
+> When to read: the owner asks how it works, what it costs, which brain setup fits, or what a good note looks like.
 
 ## In one minute
 
@@ -8,19 +8,52 @@
   past incident, what must change together. That knowledge usually lives in someone's head or an old chat.
 - `pro-brain` writes it down as short notes in the repo's `knowledge/` folder, at the moment the work finishes, while the
   agent still remembers the reasons.
-- A team brain (for example GBrain) reads that folder from the main branch every hour. Then anyone on the team can ask
-  "why do access tokens expire after 15 minutes?" and get the note back, with links to the issue and the code.
-- No extra service, no AI cost in CI: the notes are plain files committed with the work.
+- The notes alone are already useful: any agent reads the folder. If you also run a "brain" (a search service for notes,
+  for example GBrain), it can read the same folder, and then anyone can ask "why do access tokens expire after 15 minutes?"
+  and get the note back, with links to the issue and the code.
+- No extra service is required, no AI cost in CI: the notes are plain files committed with the work.
 
 ## What you do
 
-1. The first time it runs in a repo, it asks at most two questions, each with a recommended answer. Saying yes is enough:
+1. The first time it runs in a repo, it asks at most three questions, each with a recommended answer. Saying yes is enough:
    - **When should notes be written?** It looks at how the repo works and recommends one:
      after each finished issue, at the end of a work session, when a branch is merged, or only when asked.
    - **May I add the knowledge rule to the project CLAUDE.md?** This tells every agent in the repo when to write notes and
      to look in the team brain first when someone asks "why". If you say no, it never asks again.
+   - **How do you use this repo's knowledge?** It checks this machine and the repo and recommends an answer (table below).
 2. That is all. From then on the agent writes notes at the right moment, skips trivial changes, and commits the notes with
-   the work. Notes reach the team brain after the work is merged into the main branch.
+   the work. Run the setup again any time to see what is in effect and change it.
+
+## Which answer fits you?
+
+| Your situation | Pick | What happens | What you need |
+|---|---|---|---|
+| You just want the knowledge kept with the code (most repos) | **1. Repo only** | Notes stay in the repo. Agents read the folder | Nothing |
+| You run GBrain on your own computer | **2. My local GBrain** | With your yes, it adds this repo's folder to your brain as one entry named `<project>-knowledge` and loads it. Nothing else in your brain changes; if that name is taken it stops and tells you | GBrain installed with a brain created |
+| Your own GBrain runs on another computer or server | **3. My remote GBrain** | It shows the commands to run on that computer, where the brain's data lives. Your settings here stay as they are | Access to that computer |
+| Your team runs a shared brain server | **4. Team brain** | The server's name, address and who hands out access are saved in the repo so every teammate sees them. Each person asks for their own read-only key and adds the brain with one command | A key from the team's brain admin |
+| You do not have a brain yet | **5. Install guide** | It shows where to get GBrain, then works like 1 | Nothing now |
+
+You can combine 2 or 3 with 4: your own brain for yourself, the team brain for shared answers. Keys and passwords are
+never saved in the repo or in a note; the team brain is added under its own name so it never replaces your personal one.
+
+**Which branch reaches the brain?** A brain reads the notes that are committed on the branch checked out in the folder it
+reads. Pointing your personal brain at your working folder means notes appear as soon as you commit them, even before a
+merge. To see only merged notes, keep a separate copy of the main branch for the brain and refresh it every hour; the
+setup prints the exact commands.
+
+## For the team brain admin (option 4)
+
+1. Run a GBrain server that teammates can reach over HTTPS (for example `gbrain serve --http --public-url https://<host>`).
+2. On that server, keep a copy of the repo's main branch and add its `knowledge/` folder as one source named
+   `<project>-knowledge`; refresh and sync it every hour (`git pull`, then `gbrain sync --source <project>-knowledge`).
+   Main only, so unfinished work never reaches the team.
+3. Give each member their own **read-only** access key (in GBrain, a client with the `memory-reader` profile; see GBrain's
+   MCP admin guide). Hand it over privately and revoke it when someone leaves.
+4. In the repo, run the setup once and pick 4 with the server's MCP name (for example `gbrain-<project>`), its address and
+   who to ask for a key. That is saved in `version.yml`, so every teammate's setup shows the same instructions.
+
+Optional: the same hourly job can log notes that were never written (`gaps`, see "Did anything slip through?").
 
 If your CLAUDE.md is not committed (it is in `.gitignore`), the rule would not reach new worktrees or teammates, so it
 offers a small committed rules file instead, or copies your CLAUDE.md into new worktrees on this machine.
@@ -87,9 +120,10 @@ One-day access tokens could not be revoked when a phone was lost (issue 640).
 
 ## Customizing (optional)
 
-Everything lives in the repo's `version.yml`, so the whole team shares it: the moment notes are written (`capture`), the
-folder (`path`, `note_dir`), your own note template or vault rules (`template`, `rules`, `check`), the team brain to search
-(`brain_mcp`) and kinds of work never worth a note (`skip`). Details: `note-format.md`.
+Everything shared lives in the repo's `version.yml`, so the whole team shares it: the moment notes are written
+(`capture`), the folder (`path`, `note_dir`), your own note template or vault rules (`template`, `rules`, `check`), the team
+brain (`team_brain`: name, address, who issues keys) and kinds of work never worth a note (`skip`). A personal brain is
+not written there: it is found on each computer. Without any of these keys the defaults just work. Details: `note-format.md`.
 
 ## Did anything slip through?
 

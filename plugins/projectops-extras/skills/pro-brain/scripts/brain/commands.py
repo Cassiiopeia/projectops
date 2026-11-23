@@ -6,9 +6,10 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
-from . import collect, contracts, gaps, notes, onboarding, registry, repo_facts, switch_edit
+from . import brain_usage, collect, contracts, gaps, gbrain_connect, notes, onboarding, registry, repo_facts, switch_edit
 
 DEFAULT_CAPTURE = "issue-end"   # repos switched on before capture modes existed keep the issue flow
+TEAM_BRAIN_DECLINED = "none"    # team_brain value when the user chose no team brain
 
 
 class NeedsConsent(Exception):
@@ -31,8 +32,9 @@ def repo_context(repo_argument: str | None) -> dict:
     return {"root": root, "remote": remote, "section": section, "project_key": project_key, "entry": entry or {},
             "text": text, "facts": facts, "switch": switch, "sync_target": sync_target,
             "default_branch": default_branch, "language": repo_facts.read_repo_language(text),
-            # Repo switch first (shared with teammates), then the owner's registry
-            "brain_mcp": switch.get("brain_mcp") or (sync_target.get("mcp_server_name") if sync_target.get("known") else None),
+            # Only the shared repo switch feeds the rule block; the owner's registry is a hint for the setup question
+            "brain_mcp": repo_facts.team_brain_mcp_name(switch),
+            "registry_mcp_hint": sync_target.get("mcp_server_name") if sync_target.get("known") else None,
             "project": project_key or (remote or root.name).split("/")[-1].lower()}
 
 
@@ -55,8 +57,12 @@ def _onboarding_facts(context: dict, capture: str) -> dict:
     decision = switch.get("claude_md")
     target = decision if decision and decision != "declined" else onboarding.target_options(files)[0]["target"]
     state = "declined" if decision == "declined" else onboarding.block_state(root / target, block)
+    # The owner's registry names a team brain the shared switch lacks: ask before the block loses or gains a lookup line
+    has_unshared_team_brain = (bool(context.get("registry_mcp_hint")) and not context.get("brain_mcp")
+                               and not switch.get("team_brain_declined"))
     open_questions = [name for name, is_open in (("capture", not switch.get("capture")),
-                                                 ("rule_block", state == "absent")) if is_open]
+                                                 ("rule_block", state == "absent"),
+                                                 ("usage", has_unshared_team_brain)) if is_open]
     return {"open_questions": open_questions, "rule_block_target": target, "rule_block_state": state,
             "claude_md": files["claude_md"], "claude_md_state": files["claude_md_state"]}
 
@@ -166,8 +172,29 @@ def cmd_collect(args) -> dict:
     return result
 
 
-def _setup_questions(context: dict, recommendation: dict, onboarding_state: dict, options: list[dict]) -> list[dict]:
-    """At most two questions, each with a recommended answer so 'yes' is enough"""
+def _usage_facts(context: dict) -> dict:
+    """How the repo's knowledge is read now and what to recommend (question 3 of onboarding)"""
+    detected = brain_usage.detect_gbrain()
+    switch = context["switch"]
+    team = switch.get("team_brain") if isinstance(switch.get("team_brain"), dict) else None
+    team = team or ({"mcp_name": switch["brain_mcp"]} if switch.get("brain_mcp") else None)
+    source_id = gbrain_connect.default_source_id(context["project"])
+    connected = brain_usage.personal_sources_for_repo(detected, context["root"], source_id)
+    registry_hint = None if switch.get("team_brain_declined") or switch.get("team_brain") == TEAM_BRAIN_DECLINED else context["registry_mcp_hint"]
+    recommendation = brain_usage.recommend_usage(detected, team, registry_hint, connected)
+    facts = {"current": brain_usage.current_usage(detected, team, connected), "recommended": recommendation["modes"],
+             "why": recommendation["reason"], "choices": list(brain_usage.USAGE_MODES),
+             "gbrain": {key: detected.get(key) for key in ("installed", "kind", "brain_ready", "engine")},
+             "personal_sources": connected, "source_id": source_id, "team_brain": team,
+             "registry_mcp_hint": context["registry_mcp_hint"], "install_url": brain_usage.GBRAIN_INSTALL_URL}
+    if team and team.get("mcp_url"):
+        facts["team_brain_setup"] = brain_usage.team_brain_instructions(team, brain_usage.claude_mcp_server_names())
+    return facts
+
+
+def _setup_questions(context: dict, recommendation: dict, onboarding_state: dict, options: list[dict],
+                     usage: dict) -> list[dict]:
+    """At most three questions, each with a recommended answer so 'yes' is enough"""
     questions = []
     if "capture" in onboarding_state["open_questions"] or not context["switch"]["enabled"]:
         questions.append({"id": "capture", "recommended": recommendation["mode"], "why": recommendation["reason"],
@@ -179,7 +206,29 @@ def _setup_questions(context: dict, recommendation: dict, onboarding_state: dict
         questions.append({"id": "rule_block", "recommended": "add", "target": target["target"],
                           "question": f"May I add the knowledge rule to {place}? (recommended)",
                           "choices": ["add", "decline"] + [option["target"] for option in options[1:]]})
+    # Always asked in setup: re-running onboarding shows the current state and lets the user change it
+    questions.append({"id": "usage", "recommended": usage["recommended"], "current": usage["current"], "why": usage["why"],
+                      "question": "How do you use this repo's knowledge? (a personal GBrain can be combined with a team brain)",
+                      "choices": usage["choices"], "multi_select": True})
     return questions
+
+
+def _team_brain_updates(args, switch: dict) -> tuple[dict, tuple[str, ...], str | None]:
+    """--team-brain-* flags > (switch updates, keys to remove, error); off records team_brain: "none" (never asked again)"""
+    if args.team_brain_off:
+        return {"team_brain": TEAM_BRAIN_DECLINED}, ("brain_mcp",), None
+    if not (args.team_brain_name or args.team_brain_url or args.team_brain_contact):
+        return {}, (), None
+    current = dict(switch.get("team_brain") or {}) if isinstance(switch.get("team_brain"), dict) else {}
+    if switch.get("brain_mcp") and "mcp_name" not in current:
+        current["mcp_name"] = switch["brain_mcp"]
+    for key, value in (("mcp_name", args.team_brain_name), ("mcp_url", args.team_brain_url),
+                       ("contact", args.team_brain_contact)):
+        if value:
+            current[key] = value.strip()
+    error = brain_usage.validate_team_brain(current)
+    # team_brain.mcp_name replaces the legacy brain_mcp key
+    return {"team_brain": current}, ("brain_mcp",) if switch.get("brain_mcp") else (), error
 
 
 def cmd_setup(args) -> dict:
@@ -187,7 +236,12 @@ def cmd_setup(args) -> dict:
     root, switch = context["root"], context["switch"]
     recommendation = onboarding.recommend_capture(root, default_ref(root, context["default_branch"]), context["remote"])
     capture = args.capture or switch.get("capture") or recommendation["mode"]
-    brain_mcp = args.brain_mcp or context["brain_mcp"]
+    team_updates, team_removals, team_error = _team_brain_updates(args, switch)
+    if team_error:
+        return {"ok": False, "code": "bad_team_brain", "summary": team_error,
+                "next": "fix the --team-brain-* values (name like gbrain-<project>, an https URL without a token)"}
+    brain_mcp = (None if args.team_brain_off else
+                 (team_updates.get("team_brain") or {}).get("mcp_name") or args.brain_mcp or context["brain_mcp"])
     knowledge_path = switch.get("path", "knowledge/")
     block = onboarding.render_block(context["language"], capture, knowledge_path, context["default_branch"], brain_mcp,
                                     switch.get("rules") or onboarding.detect_rules_file(root))
@@ -207,8 +261,9 @@ def cmd_setup(args) -> dict:
         updates["claude_md"] = target
     elif args.claude_md == "decline":
         updates["claude_md"] = "declined"
-    if args.brain_mcp:
+    if args.brain_mcp and not team_updates and not args.team_brain_off:
         updates["brain_mcp"] = args.brain_mcp
+    updates.update(team_updates)
     detected_rules = onboarding.detect_rules_file(root) if not switch.get("rules") else None
     if detected_rules:
         updates["rules"] = detected_rules   # the repo's own vault rules win over the default note format
@@ -217,15 +272,18 @@ def cmd_setup(args) -> dict:
     if args.enable or (needs_enable and not args.apply):
         updates["enabled"] = True
     try:
-        new_version_text = (switch_edit.set_knowledge_keys(context["text"], updates, create_if_missing="enabled" in updates)
-                            if updates else context["text"])
+        new_version_text = (switch_edit.set_knowledge_keys(context["text"], updates, create_if_missing="enabled" in updates,
+                                                           removals=team_removals)
+                            if updates or team_removals else context["text"])
         switch_error = None
     except switch_edit.SwitchEditError as error:
         new_version_text, switch_error = context["text"], str(error)
-    plan = {"recommended_capture": recommendation, "capture": capture, "brain_mcp": brain_mcp, "files": files,
+    usage = _usage_facts({**context, "switch": {key: value for key, value in {**switch, **team_updates}.items()
+                                                 if key not in team_removals}})
+    plan = {"recommended_capture": recommendation, "capture": capture, "brain_mcp": brain_mcp, "usage": usage, "files": files,
             "target_options": options, "target": target, "target_kind": target_kind, "block": block,
             "block_state": onboarding_state["rule_block_state"],
-            "questions": _setup_questions(context, recommendation, onboarding_state, options),
+            "questions": _setup_questions(context, recommendation, onboarding_state, options, usage),
             "switch_updates": updates, "switch_error": switch_error,
             "version_yml_diff": "".join(difflib.unified_diff(
                 context["text"].splitlines(keepends=True), new_version_text.splitlines(keepends=True),
@@ -235,7 +293,9 @@ def cmd_setup(args) -> dict:
         return {**plan, "code": "plan", "summary": f"{len(plan['questions'])} question(s); recommended capture {recommendation['mode']}, "
                 f"rule block target {target} ({target_kind})",
                 "next": "ask the questions (recommended answer first, in the user's language), then "
-                        f"setup --apply --yes{' --enable' if needs_enable else ''} --capture MODE --claude-md add|decline [--target PATH]"}
+                        f"setup --apply --yes{' --enable' if needs_enable else ''} --capture MODE --claude-md add|decline [--target PATH] "
+                        "[--team-brain-name N --team-brain-url URL --team-brain-contact WHO | --team-brain-off]; "
+                        "for local-gbrain or remote-gbrain run connect (plan) next; for install-guide show usage.install_url"}
     if needs_enable and not args.enable:
         raise NeedsConsent("capture is off for this repo: pass --enable together with --apply --yes once the user agreed to turn it on")
     if not args.yes:
@@ -247,16 +307,49 @@ def cmd_setup(args) -> dict:
     if new_version_text != context["text"]:
         (root / "version.yml").write_text(new_version_text, encoding="utf-8")
         written.append("version.yml")
-    if args.claude_md == "add" or (args.claude_md is None and onboarding_state["rule_block_state"] == "outdated"):
+    # A team brain change rewrites the block's lookup line, so a block that is already there follows it
+    block_follows_switch = (team_updates or args.team_brain_off) and onboarding_state["rule_block_state"] not in ("absent", "declined")
+    if args.claude_md == "add" or (args.claude_md is None and (onboarding_state["rule_block_state"] == "outdated" or block_follows_switch)):
         outcome = onboarding.apply_block(root / target, block)
         written.append(f"{target} ({outcome})")
         if args.agents_md and files["agents_md_needs_block"]:
             written.append(f"AGENTS.md ({onboarding.apply_block(root / 'AGENTS.md', block)})")
     follow_up = ["commit the tracked files above with pro-commit (stage only these paths)"]
+    if usage.get("team_brain_setup") and not usage["team_brain_setup"].get("registered"):
+        follow_up.append("show usage.team_brain_setup.steps to the user (token from the contact, never stored)")
     if target_kind == "local-claude-md+worktree-copy" and args.claude_md == "add":
         follow_up.insert(0, f"python3 ~/.projectops/bin/projectops_cli.py init-worktree record --root {root} --copied {target}")
     return {**plan, "code": "applied", "written": written, "summary": f"wrote {', '.join(written) or 'nothing'}",
             "next": "; then ".join(follow_up)}
+
+
+def cmd_connect(args) -> dict:
+    """Personal GBrain: plan (default) or --apply --yes to add the source and sync it"""
+    context = repo_context(args.repo)
+    knowledge_path = context["switch"].get("path", "knowledge/")
+    result = gbrain_connect.plan(context["root"], knowledge_path, context["project"], context["default_branch"],
+                                 args.source_id, args.source_root, is_remote=args.remote)
+    code = result["code"]
+    next_by_code = {
+        "ready": "show the source id, path and branch, then connect --apply --yes after the user agreed",
+        "already_connected": "connect --apply --yes syncs it again (no add)",
+        "source_id_taken": "stop and report; ask for another id (connect --source-id NAME), never overwrite",
+        "folder_already_connected": "stop and report the existing source; nothing to add",
+        "no_notes_yet": "write and commit the first note, then run connect again",
+        "remote_brain": "give the user the commands to run on the brain host; do not change MCP settings",
+        "brain_not_initialized": "the user creates a brain first (gbrain init), or keep repo-only",
+        "gbrain_missing": f"show the install guide ({brain_usage.GBRAIN_INSTALL_URL}) and keep repo-only",
+    }
+    if not args.apply:
+        return {**result, "next": next_by_code.get(code, "report the summary")}
+    if code not in ("ready", "already_connected"):
+        return {**result, "ok": False, "summary": f"nothing applied: {result['summary']}", "next": next_by_code.get(code)}
+    if not args.yes:
+        raise NeedsConsent("connect --apply adds a source to the user's GBrain: pass --yes only after the user agreed")
+    outcome = gbrain_connect.apply(result, should_sync=not args.no_sync)
+    return {**result, **outcome,
+            "next": ("one line to the user: notes enter the brain from the branch checked out at the source path; "
+                     "for merged notes only, follow default_branch_recipe" if outcome["ok"] else "report the failed step")}
 
 
 def cmd_gaps(args) -> dict:

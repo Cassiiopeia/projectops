@@ -21,6 +21,9 @@ def format_value(value) -> str:
         return str(value)
     if isinstance(value, list):
         return "[" + ", ".join(json.dumps(str(item), ensure_ascii=False) for item in value) + "]"
+    if isinstance(value, dict):
+        # One-line flow map (team_brain), so the line-based writer never has to manage a nested block
+        return "{ " + ", ".join(f"{key}: {json.dumps(str(item), ensure_ascii=False)}" for key, item in value.items()) + " }"
     return json.dumps(str(value), ensure_ascii=False)
 
 
@@ -69,7 +72,12 @@ def _locate(lines: list[str], path: tuple[str, ...]) -> tuple[int, int] | None:
     return found, indent
 
 
-def set_knowledge_keys(text: str, updates: dict, create_if_missing: bool) -> str:
+def _child_block_end(lines: list[str], index: int) -> int:
+    """Index after a key line and its deeper lines (an indented map under the key)"""
+    return max(index + 1, _block_end(lines, index, _indent(lines[index])))
+
+
+def set_knowledge_keys(text: str, updates: dict, create_if_missing: bool, removals: tuple[str, ...] = ()) -> str:
     """Set (or add) keys in the knowledge block; creates the block with enabled + path when asked"""
     lines = text.splitlines()
     options = _locate(lines, OPTIONS_PATH)
@@ -93,11 +101,20 @@ def set_knowledge_keys(text: str, updates: dict, create_if_missing: bool) -> str
     knowledge_end = _block_end(lines, knowledge_index, knowledge_indent)
     child_lines = [index for index in range(knowledge_index + 1, knowledge_end) if _is_content(lines[index])]
     child_indent = " " * (_indent(lines[child_lines[0]]) if child_lines else knowledge_indent + 2)
+    for key in removals:
+        existing = _find_child(lines, knowledge_index + 1, knowledge_end, knowledge_indent, key)
+        if existing is not None:
+            end = _child_block_end(lines, existing)
+            del lines[existing:end]
+            knowledge_end -= end - existing
     for key, value in updates.items():
         existing = _find_child(lines, knowledge_index + 1, knowledge_end, knowledge_indent, key)
         if existing is not None:
             comment = re.search(r"\s+#\s.*$", lines[existing])
-            lines[existing] = f"{child_indent}{key}: {format_value(value)}" + (comment.group(0) if comment else "")
+            end = _child_block_end(lines, existing)
+            # Replacing a key that had an indented map (team_brain) drops the old child lines too
+            lines[existing:end] = [f"{child_indent}{key}: {format_value(value)}" + (comment.group(0) if comment else "")]
+            knowledge_end -= end - existing - 1
         else:
             lines.insert(knowledge_end, f"{child_indent}{key}: {format_value(value)}")
             knowledge_end += 1

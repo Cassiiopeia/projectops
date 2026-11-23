@@ -1,6 +1,6 @@
 ---
 name: pro-brain
-description: "Keep what the next person needs (decisions, reasons, cautions) as notes in the repo's knowledge folder a team brain syncs: per issue, change set or merge, set up with two questions. Lists merged work with no note. Never touches any brain. Use after pro-report or for 'save this to the brain'."
+description: "Keep decisions, reasons and cautions as notes in the repo's knowledge folder per issue, change set or merge. Onboarding asks how you use a brain (repo only, own GBrain, team brain) and connects only with consent. Lists merged work with no note. Use after pro-report or 'save this to the brain'."
 ---
 
 # Project Brain Note
@@ -12,8 +12,9 @@ description: "Keep what the next person needs (decisions, reasons, cautions) as 
   `merge` after a branch or PR is merged into the default branch.
 - The user says "save this to the team brain", "write the knowledge note", "remember this decision for the project",
   "set up pro-brain", "what merged work has no note?".
+- "Connect this repo to my GBrain", "we have a team brain", "how do teammates read our knowledge?": step 2 (usage).
 - Not this skill: the report of what changed (`pro-report`); the user's personal memory (their own brain tools);
-  syncing a brain (the brain's own job reads the committed folder).
+  scheduled syncing of a brain (the brain's own job reads the committed folder).
 
 The brain stores **why and where**; git stores **what**. Reply in the user's language. Non-technical summary for owners:
 `references/how-it-works.md`.
@@ -21,8 +22,11 @@ The brain stores **why and where**; git stores **what**. Reply in the user's lan
 ## What it never does
 
 It writes **notes in the repo** (plus the files the repo's own vault rules require), and during onboarding, after the user
-agreed, the repo switch in `version.yml` and one marked rule block. It never writes to, reconfigures or assumes any brain,
-MCP server, hook, mount or source. It never puts secrets, personal data or chat content in a note.
+agreed, the repo switch in `version.yml` and one marked rule block. The only brain change it ever makes is `connect`: after
+the user agreed, it adds **one new source** (`<project>-knowledge`) to the user's **own local** GBrain and syncs it. It never
+overwrites or removes a source, never passes `--force`, and never changes hooks, mounts, other sources or MCP settings
+(a team brain entry is a command the user runs). It never stores a token and never puts secrets, personal data or chat
+content in a note or in `version.yml`.
 
 ## Find the scripts
 
@@ -41,7 +45,8 @@ echo "PYTHON=$PYTHON SCRIPTS=$SCRIPTS"
 
 The Bash tool resets its state on every call. Put the printed paths into `{PYTHON}` and `{SCRIPTS}` in later commands.
 Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py <command> ...` (Windows: `python {SCRIPTS}\brain_cli.py`).
-Output is always JSON (`ok`, `code`, `summary`, `next`). Only `setup --apply --yes` writes; everything else is read-only.
+Output is always JSON (`ok`, `code`, `summary`, `next`). Only `setup --apply --yes` and `connect --apply --yes` write;
+everything else is read-only.
 
 ## Capture modes
 
@@ -68,7 +73,7 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py status
 | `switch_on` + `onboarding.rule_block_state: outdated` | Refresh in place: `setup --apply --yes --claude-md add` (consent was already given), mention it in one line |
 | `switch_on`, nothing open | Step 3. `sync_target.known: false` is normal for teammates: still write the note |
 
-### 2. Onboarding (once per repo, at most two questions)
+### 2. Onboarding (once per repo, at most three questions; re-run any time to change)
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup
@@ -76,12 +81,25 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup
 
 It reads the repo and returns `questions` (each with `recommended`), `target_options`, `block`, `block_diff` and
 `version_yml_diff`. Ask only the questions it returns, in the user's language, recommended answer first, so pressing yes is
-enough (AskUserQuestion when available, both questions in one dialog):
+enough (AskUserQuestion when available, all questions in one dialog):
 
 1. **Capture mode**: show `recommended_capture.reason` in one line.
 2. **Rule block**: "May I add the knowledge rule to the project CLAUDE.md? (recommended)". Show `block_diff`. The block tells
    any agent in the repo when to run `/pro-brain`, and to search the team brain MCP (`brain_mcp`) first for design and
    decision questions, falling back to the knowledge folder.
+3. **Usage** (always asked; `multi_select`): "How do you use this repo's knowledge?" Show `usage.current` and `usage.why`,
+   recommended (`usage.recommended`, auto-detected) first. A personal GBrain (2 or 3) can be combined with a team brain (4).
+
+| Answer | What it means | Then |
+|---|---|---|
+| 1 `repo-only` (default, most repos) | Notes live in the repo; no brain | Nothing else to set up |
+| 2 `local-gbrain` | Your own GBrain on this machine (PGLite or local Postgres) | `connect` (plan), show it, `connect --apply --yes` after a yes |
+| 3 `remote-gbrain` | Your own GBrain on another machine, reached over HTTP | `connect` (`--remote` when gbrain is not installed here): give the host commands; change nothing here |
+| 4 `team-brain` | A gbrain HTTP server your team runs | Ask name, URL, token contact (prefill from `usage.team_brain` or `usage.registry_mcp_hint`), apply with `--team-brain-*`, show `usage.team_brain_setup.steps` |
+| 5 `install-guide` | No GBrain yet | Show `usage.install_url` once, then behave like 1 |
+
+Choosing no team brain when one is recorded (or hinted by the private registry) is `--team-brain-off`: it stores
+`team_brain: "none"`, so nobody is asked again and the block drops the team brain line.
 
 When the project CLAUDE.md is **gitignored** (`files.claude_md_state: ignored`), worktrees and teammates never see it.
 Explain in one line and offer `target_options` in order: a tracked `.claude/rules/pro-brain.md` (recommended: Claude Code
@@ -92,13 +110,39 @@ Then apply what the user chose:
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup --apply --yes [--enable] --capture MODE \
-  --claude-md add|decline [--target PATH] [--agents-md] [--brain-mcp NAME]
+  --claude-md add|decline [--target PATH] [--agents-md] \
+  [--team-brain-name gbrain-<project> --team-brain-url https://<host>/mcp --team-brain-contact WHO | --team-brain-off]
 ```
 
 - `decline` is stored as `claude_md: "declined"`, so nobody is asked again. `--agents-md` also writes a tracked
   `AGENTS.md` (Codex) when `files.agents_md_needs_block` is true and the user agreed to it in the same answer.
 - Run what `next` says (the worktree copy-set command for the local option), and commit `version.yml` and a tracked rule
   file together with the work via `pro-commit`.
+- Team brain: the name must not be `gbrain` (that is the personal entry) and the URL must not carry a token. Tell the user to
+  get a personal **read-only** token from the contact and show the exact `claude mcp add --scope user --transport http ...`
+  line from `usage.team_brain_setup.steps` with `<token>` left as a placeholder. Never run it with a real token for them,
+  never write the token anywhere. The rule block gains "search the team brain first" only in this mode.
+
+#### Personal GBrain (answers 2 and 3)
+
+```bash
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py connect [--source-id ID] [--source-root PATH] [--remote]
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py connect --apply --yes [--source-id ID] [--source-root PATH] [--no-sync]
+```
+
+| `code` | Do |
+|---|---|
+| `ready` | Show source id, path and checked-out branch; apply after a yes |
+| `already_connected` | Nothing to add; apply only re-syncs |
+| `source_id_taken` | Stop and report the existing source. Never overwrite; offer `--source-id <other>` |
+| `folder_already_connected` | Stop and report: another source already reads this folder or the repo around it |
+| `no_notes_yet` | Run `connect` again right after the first note is committed (gbrain imports committed files only) |
+| `remote_brain` | Give `commands` to run on the brain's host (where its database is reachable); no MCP change |
+| `brain_not_initialized` / `gbrain_missing` | The user creates a brain (`gbrain init`) or installs it (`usage.install_url`); keep repo-only meanwhile |
+
+Notes enter the brain from **whatever branch is checked out** at the source path. Say so in one line and offer
+`default_branch_recipe`: a dedicated clone of the default branch (`connect --source-root <clone>`) plus its hourly
+`schedule` line, so only merged notes reach the brain.
 
 ### 3. Is it worth a note?
 
@@ -145,7 +189,8 @@ the files you wrote and fix only your errors. Right before saving, run the self-
 
 ### 7. Report in one line
 
-`Brain note: <path> (<n> keys, sync: <brain and source | none known on this machine>)` or the skip line. Then continue the
+`Brain note: <path> (<n> keys, sync: <brain and source | none known on this machine>)` or the skip line. If `connect` said
+`no_notes_yet` earlier in this conversation, run `connect` again now that a note is committed. Then continue the
 pipeline (in `issue-end`: label done and close with `pro-github finish-issue`).
 
 ## Gap check
@@ -163,13 +208,13 @@ every hour (`references/note-format.md` §Gap check). For each gap, write a note
 | Document | Read when |
 |---|---|
 | `references/note-format.md` | Steps 2, 4, 5: repo switch keys, note content spec, default notes, metadata keys, vault compatibility, gap check in sync scripts |
-| `references/how-it-works.md` | The owner asks how it works, or what a good note looks like |
+| `references/how-it-works.md` | The owner asks how it works, which usage answer fits, or what a good note looks like |
 | `../references/sensitive-info.md` | Right before saving the note: masking table and self-review |
 | `../references/config-rules.md` | Only when reading the owner's private registry by hand (§7 `project-blueprint`) |
 
 ## Customize
 
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-brain`.
-Keys for this skill: the common `language`, `tone`, `rules` only. Repo behavior (mode, folder, template, rules, brain, skip
-list) lives in the repo switch so teammates share it.
+Keys for this skill: the common `language`, `tone`, `rules` only. Repo behavior (mode, folder, template, rules, team brain,
+skip list) lives in the repo switch so teammates share it; a personal GBrain is detected on each machine, never shared.
 Preferences change presentation only; the durability check, secret protection and the never-touch-a-brain rule stay in force.

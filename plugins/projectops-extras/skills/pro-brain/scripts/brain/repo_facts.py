@@ -11,8 +11,10 @@ from pathlib import Path
 KNOWLEDGE_BLOCK_PATH = ("metadata", "template", "options", "knowledge")
 # Keys pro-brain reads from the switch; anything else in the block is kept by the installer and ignored here
 # capture: issue-end | session-end | merge | manual, claude_md: file holding the rule block or "declined",
-# brain_mcp: team brain MCP server name for the rule block, skip: commit types or words never worth a note
+# brain_mcp: legacy team brain MCP server name (team_brain.mcp_name wins), skip: commit types or words never worth a note
 KNOWLEDGE_KEYS = ("enabled", "path", "note_dir", "template", "rules", "check", "capture", "claude_md", "brain_mcp", "skip")
+# team_brain: shared, non-secret facts about a team brain server (never a token)
+TEAM_BRAIN_KEYS = ("mcp_name", "mcp_url", "contact")
 CAPTURE_MODES = ("issue-end", "session-end", "merge", "manual")
 
 
@@ -177,7 +179,19 @@ def read_knowledge_switch(text: str) -> dict:
     switch.setdefault("path", "knowledge/")
     if "skip" in switch:
         switch["skip"] = parse_flow_list(switch["skip"])
+    # Indented block or one-line { } map under knowledge
+    team = read_nested_block(text, KNOWLEDGE_BLOCK_PATH + ("team_brain",)) or {}
+    team = {key: str(team[key]) for key in TEAM_BRAIN_KEYS if team.get(key) not in (None, "")}
+    if team:
+        switch["team_brain"] = team
+    elif str(block.get("team_brain") or "").lower() == "none":
+        switch["team_brain_declined"] = True
     return switch
+
+
+def team_brain_mcp_name(switch: dict) -> str | None:
+    """Team brain MCP server name from the repo switch: team_brain.mcp_name > legacy brain_mcp"""
+    return (switch.get("team_brain") or {}).get("mcp_name") or switch.get("brain_mcp") or None
 
 
 def read_repo_language(text: str) -> str:

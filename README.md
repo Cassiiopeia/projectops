@@ -114,7 +114,7 @@ Every card above is a real record from this repository. You open an issue (or `/
 | Design & upkeep | `/pro-oss-consult` | Score a repo as an open-source project and fix what you approve |
 | Design & upkeep | `/pro-skill-creator` | Create, review and improve a skill |
 
-**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected skill bug from any session), `/pro-disk-cleanup` (reclaim disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a new repo with your usual layout, branches, public-repo secrets and deploy), `/pro-brain` (knowledge notes for a team brain per issue, change set or merge, set up with two questions). Install: `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected skill bug from any session), `/pro-disk-cleanup` (reclaim disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a new repo with your usual layout, branches, public-repo secrets and deploy), `/pro-brain` (knowledge notes in the repo per issue, change set or merge; onboarding asks how you use a brain and connects your own GBrain or a team brain only with consent). Install: `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code

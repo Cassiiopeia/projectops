@@ -1,7 +1,7 @@
 # Note format, repo switch and brain compatibility
 
-> When to read: onboarding (repo switch), writing a note (content spec, default notes, metadata keys), wiring the gap
-> check into a brain sync script.
+> When to read: onboarding (repo switch, brain usage), writing a note (content spec, default notes, metadata keys), wiring
+> the gap check or a team brain sync.
 
 ## Repo switch (shared, in `version.yml`)
 
@@ -17,7 +17,8 @@ metadata:
         path: "knowledge/"                        # repo folder a brain may sync
         capture: "issue-end"                      # issue-end | session-end | merge | manual (default issue-end)
         claude_md: "CLAUDE.md"                    # file holding the rule block, or "declined" (never asked again)
-        brain_mcp: "gbrain-myproject"             # optional: team brain MCP server name the rule block points to
+        team_brain: { mcp_name: "gbrain-myproject", mcp_url: "https://brain.example.com/mcp", contact: "platform team" }
+                                                  # optional: shared team brain facts (never a token), or "none" (never asked again)
         note_dir: "issues/"                       # optional, inside path (default issues/ or changes/)
         template: "_templates/completion-report.md"   # optional, inside path
         rules: "SECOND-BRAIN.md"                  # optional, from the repo root: the repo's own vault rules
@@ -28,8 +29,13 @@ metadata:
 - The projectops installer keeps this block verbatim on every update (like `issue_helper`); it is listed in
   `npx projectops --mode options`.
 - Missing block or `enabled` not `true` means off. `path` defaults to `knowledge/`, `capture` to `issue-end`.
-- `brain_mcp` falls back to the owner's registry (`infra.brains.<name>.mcp_server_name`). Always a separate server name
-  such as `gbrain-<project>`, so it never collides with anyone's personal brain.
+- `team_brain` is the only brain fact in the shared switch: MCP server name (never `gbrain`, which is the usual personal
+  entry), MCP URL (no credentials) and who issues read-only tokens. `setup` writes it as one `{ }` line; an indented map
+  works too. The older `brain_mcp` key (name only) is still read and is replaced by `team_brain` on the next team-brain
+  apply. A personal GBrain is never recorded here: `setup` detects it on each machine.
+- The owner's registry `infra.brains.<name>.mcp_server_name` is only a hint: `setup` recommends the team-brain answer with
+  that name prefilled, and status opens the usage question until the switch records a team brain or `"none"`. The rule
+  block itself uses the switch only.
 - `setup` proposes `rules` when the repo root has `SECOND-BRAIN.md`, `KNOWLEDGE.md` or `VAULT.md`.
 - The owner's private registry (`project-blueprint`, `../../references/config-rules.md` §7) only names the brain that syncs
   the folder. It never turns capture on or off.
@@ -38,8 +44,8 @@ metadata:
 
 `setup` renders one block between `<!-- pro-brain:begin ... -->` and `<!-- pro-brain:end -->` in the repo's language
 (`metadata.template.options.language`), so re-running replaces it in place. It says when to run `/pro-brain` for the
-repo's mode and, when `brain_mcp` is known, to search that MCP first for "why" and "what did we decide" questions before
-reading the folder. Claude Code strips HTML comments before loading, so the markers cost nothing.
+repo's mode and, only when the switch names a team brain, to search that MCP first for "why" and "what did we decide"
+questions before reading the folder. Claude Code strips HTML comments before loading, so the markers cost nothing.
 
 | Project CLAUDE.md | Recommended target | Why |
 |---|---|---|
@@ -178,12 +184,51 @@ python3 "$PRO_BRAIN_SCRIPTS/brain_cli.py" gaps --repo "$team_brain_dir/repo" --r
 A sparse or partial clone works as long as the knowledge folder and `version.yml` are checked out. Set
 `PRO_BRAIN_SCRIPTS` to the plugin's `skills/pro-brain/scripts` folder on that machine.
 
-## Brains that sync the folder (local, remote, team)
+## Brain usage (onboarding question 3)
 
-`pro-brain` only commits files. Whoever runs a brain decides whether to sync the repo folder. To stay collision-free, a brain
-registers **one source per repo folder, named `{project}-knowledge`** (the passQL team brain uses `passql-knowledge`, fed
-hourly from `knowledge/` on `main`). Page slugs come from paths inside the folder, so two notes never share a slug, and
-nothing in a note depends on a particular brain (no brain ids, no MCP calls, no embeddings in the file).
+| Answer | Shared in the repo | On this machine | Command |
+|---|---|---|---|
+| `repo-only` (default) | nothing | nothing | none |
+| `local-gbrain` | nothing | one source `{project}-knowledge` in the user's own GBrain, after consent | `connect`, then `connect --apply --yes` |
+| `remote-gbrain` | nothing | nothing; the commands run on the brain's host | `connect` (`--remote` without a local gbrain) |
+| `team-brain` | `team_brain` facts | the user adds one MCP entry with their own token | `setup --apply --yes --team-brain-*` |
+| `install-guide` | nothing | nothing | none (show the GBrain link) |
+
+Detection (`setup` > `usage`, `connect` > `detected`): `gbrain engine status --json` (engine-free; only `effective_engine`,
+`config_file_engine`, `db_url_source` and `thin_client` are kept, never the database URL) and `gbrain sources list --json`.
+A thin client means the user's brain is remote. Set `PRO_BRAIN_GBRAIN` to a gbrain binary path to override `PATH`.
+
+`connect --apply --yes` runs exactly `gbrain sources add {id} --path {folder} --json` and `gbrain sync --source {id}
+--no-pull --json` (no pull, so the user's working copy is never moved). Before that it refuses: an existing source with the
+same id (`source_id_taken`), any source already reading the folder, a part of it or the repo around it
+(`folder_already_connected`), and a folder without committed notes (`no_notes_yet`). gbrain itself also refuses a taken id.
+
+Branches: gbrain imports the files committed on the branch checked out at the source path. A working-copy source sees
+notes as soon as they are committed on any branch; for merged notes only, use a dedicated clone of the default branch:
+
+```bash
+git clone --branch main --single-branch <repo-url> ~/gbrain-sources/<project>
+brain_cli.py connect --source-root ~/gbrain-sources/<project> --apply --yes      # after the user agreed
+# hourly (cron, launchd, Task Scheduler):
+git -C ~/gbrain-sources/<project> pull --ff-only --quiet && gbrain sync --source <project>-knowledge --no-pull
+```
+
+## Team brain server (what the team runs)
+
+`pro-brain` only commits files and records the server facts; the team runs the server. With GBrain:
+
+1. An HTTP MCP server reachable by members: `gbrain serve --http --public-url https://<host>` (behind your usual TLS).
+2. A clone of the repo's default branch on that server, its `knowledge/` added as one source `{project}-knowledge`, and an
+   hourly `git pull --ff-only` + `gbrain sync --source {project}-knowledge` (plus the gap check below if you like).
+3. One read-only credential per member (GBrain: a client with the `memory-reader` profile, see its MCP admin guide),
+   handed over privately and revoked when they leave. Never a shared token, never one in the repo.
+4. `setup --apply --yes --team-brain-name gbrain-{project} --team-brain-url https://<host>/mcp --team-brain-contact <who>`
+   once in the repo, committed, so every member's setup prints the same `claude mcp add --scope user --transport http`
+   line with a `<token>` placeholder.
+
+Page slugs come from paths inside the folder, so two notes never share a slug, and nothing in a note depends on a
+particular brain (no brain ids, no MCP calls, no embeddings in the file). One source per repo folder keeps brains
+collision-free.
 
 The owner's registry records the brain as `infra.brains.<name>` and `projects.<key>.knowledge.brain` (references only);
 `status` shows it as `sync_target`. Teammates without that registry get `known: false` and write the same note.
