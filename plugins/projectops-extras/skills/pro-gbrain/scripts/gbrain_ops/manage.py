@@ -239,14 +239,19 @@ def schedule(args):
     if not args.repo:
         raise common.StepError("missing_option", "select the brain repository for its maintenance daemon", "pass --repo PATH")
     # PGlite holds a single-writer lock; a daemon would block every other writer, and --force is never passed
-    if (runtime.engine(args).get("effective_engine")) == "pglite":
+    engine_status = runtime.engine(args)
+    if engine_status.get("effective_engine") == "pglite":
         raise common.StepError("pglite_single_writer", "a resident daemon on a PGlite brain locks out other writers",
                                "use Postgres for a scheduled runner, or run manage ingest on demand")
     argv = ["autopilot", "--install", "--repo", str(Path(args.repo).resolve()), "--no-inject"]
     if args.target:
         argv += ["--target", args.target]
-    return runtime.plan_or_run(argv, args, effects=["install a persistent maintenance daemon under the host supervisor",
-                                                    "undo with manage schedule --schedule-action uninstall"])
+    effects = ["install a persistent maintenance daemon under the host supervisor",
+               "undo with manage schedule --schedule-action uninstall"]
+    if engine_status.get("effective_engine") == "postgres":
+        # A loopback Postgres is often an SSH tunnel to a server brain whose own scheduler this host cannot see
+        effects.append("postgres brain: if the database is shared with a server, run maintenance there, not here")
+    return runtime.plan_or_run(argv, args, effects=effects)
 
 
 def note(args):
