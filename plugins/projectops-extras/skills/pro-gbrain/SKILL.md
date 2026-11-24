@@ -7,7 +7,7 @@ description: "Attach a repo to GBrain in one command: detects the situation, ask
 
 ## When to use
 
-- "Attach gbrain to this project", "connect this repo to a brain", "make a team brain for this repo" (이 프로젝트 gbrain 붙여줘): **add**.
+- "Attach gbrain to this project", "connect this repo to a brain", "make a team brain for this repo": **add**.
 - "How are our brains doing?", "is the team brain syncing?": **status**. "The team brain is broken": **repair**.
 - "Give <name> access to the team brain": **share**. "Detach this project from the brain": **remove**.
 - Not this skill: writing a knowledge note (`pro-brain`), the user's personal memory, installing GBrain itself
