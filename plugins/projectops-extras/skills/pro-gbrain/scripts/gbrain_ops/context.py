@@ -58,12 +58,14 @@ def detect_own_brain() -> dict:
     exit_code, version = common.run(["gbrain", "--version"], env=common.gbrain_environment())
     if exit_code != 0:
         return {"installed": False}
-    config = common.read_json(common.home() / ".gbrain" / "config.json") or {}
-    engine = config.get("engine")
-    kind = "thin-client" if config.get("mcp_only") or engine in (None, "mcp") else ("local" if engine == "pglite" else "postgres")
+    from . import runtime
+    status = runtime.engine()
+    engine = status.get("effective_engine")
+    kind = "thin-client" if status.get("thin_client") else ("local" if engine == "pglite" else "postgres" if engine == "postgres" else "uninitialized")
     return {"installed": True, "version": version.strip().split()[-1] if version.strip() else None,
-            "engine": engine, "kind": kind,
-            "embedding_model": config.get("embedding_model"), "embedding_dimensions": config.get("embedding_dimensions")}
+            "engine": engine, "kind": kind, "engine_status": status,
+            "connection": "not_probed"}
+
 
 
 def detect(repo_path: Path, project_override: str | None = None) -> dict:

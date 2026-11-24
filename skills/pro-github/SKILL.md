@@ -178,3 +178,11 @@ The action name always comes right after `actions` (`actions show-run {owner} {r
 Your own language, tone and rules apply: see `../references/preferences.md`. Read them once at the start: run the snippet in `../references/preferences.md` with `SKILL_ID=pro-github`.
 Keys for this skill: `template` (extra issue-body sections), `examples` (applied in `../references/issue-creation.md` step 3) plus the common `language`, `tone`, `rules`.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.
+
+## Project knowledge on issue completion
+
+When finishing an issue in a repository with `knowledge.capture_events`, route the `issue-done` event through
+`/pro-gbrain` after confirming the completion transition. Use `event issue-done --issue N`; if it requests a note,
+update the same issue record from verified facts and deliver with `--note FILE --apply --yes` under the configured
+capture authorization. Disabled events return `skipped`. Knowledge delivery failures remain explicit follow-up work;
+do not reopen or close an issue merely to retry capture. The event never closes an issue itself.

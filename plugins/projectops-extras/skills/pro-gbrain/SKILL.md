@@ -1,17 +1,19 @@
 ---
 name: pro-gbrain
-description: "Attach a repo to GBrain in one command: detects the situation, asks one question (solo or team, recommended first), then sets up the repo, server brain, sync script, registry and an end-to-end check. Also status, repair, remove, share. Use for 'attach gbrain to this project', 'team brain status'."
+version: 2.0
+description: "Manage GBrain installation, harness connections, credentials, capture triggers, ingestion, search, embeddings and publication through one entry point. Attach repos, diagnose and repair connections, share access and detach safely."
 ---
 
-# Attach a Repo to GBrain
+# Manage GBrain
 
 ## When to use
+
+- Install or configure GBrain, connect Claude Code or Codex, save or summarize project knowledge, configure ingestion triggers, search, embeddings, or publish a document: follow `references/unified-management.md`. Stay in this skill and invoke the appropriate executor internally.
 
 - "Attach gbrain to this project", "connect this repo to a brain", "make a team brain for this repo": **add**.
 - "How are our brains doing?", "is the team brain syncing?": **status**. "The team brain is broken": **repair**.
 - "Give <name> access to the team brain": **share**. "Detach this project from the brain": **remove**.
-- Not this skill: writing a knowledge note (`pro-brain`), the user's personal memory, installing GBrain itself
-  (`pro-brain` §Guided install covers that).
+- Knowledge note writing delegates to `pro-brain`; installation starts with its guided recipe and executes authorized steps. Preserve unrelated personal memory.
 
 Reply in the user's language. The user needs to know nothing about GBrain: ask at most two questions (the mode, then one
 "go ahead?" over the plan), each with the recommended answer first. Non-technical explanation: `references/how-it-works.md`.
@@ -22,7 +24,7 @@ Reply in the user's language. The user needs to know nothing about GBrain: ask a
   script and flags the registry entry, after the user typed the project key.
 - Prints no secret: the admin key, writer password and tokens stay in memory, the credential store or 600 files. `share`
   writes the teammate message to a private file (and the clipboard), never to the chat.
-- Never touches the user's personal brain entries (the `gbrain` MCP entry, hooks, mounts, other sources), never pushes to
+- Changes personal MCP entries or hooks only for an explicitly selected harness through the unified management flow; preserves unrelated entries, mounts and sources. Never pushes to
   a protected branch, never puts owner hosts or accounts in a repo. Owner-specific values live only in the private
   registry (`~/.projectops/config/config.json`, `project-blueprint` section).
 
@@ -45,6 +47,10 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/gbrain_cli.py <comma
 always JSON (`ok`, `code`, `summary`, `next`). Decide by `code`, follow `next`.
 
 ## Commands
+
+For installation, harness wiring, ingestion, search, embeddings, publication and event policy, use the executable
+`manage`, `triggers` and `event` commands in `references/management-cli.md`. Start an unspecified management request with
+`manage doctor`, then `triggers`; do not make users choose a second skill.
 
 | Intent | Command | Writes |
 |---|---|---|
@@ -119,6 +125,8 @@ steps. The registry shape, the HTTP contract a brain server must speak and how a
 
 | Document | Read when |
 |---|---|
+| `references/management-cli.md` | Exact management command signatures, expected results and recovery |
+| `references/unified-management.md` | Installation, harness wiring, credentials, triggers, ingestion, search, embeddings, summaries or publication |
 | `references/how-it-works.md` | The owner asks how it works or which mode fits |
 | `references/provisioner-contract.md` | Setting up a brain server, the registry entry, or debugging server codes |
 | `../pro-brain/SKILL.md` | The repo side (switch, rule block, notes) and a member's team brain connection |

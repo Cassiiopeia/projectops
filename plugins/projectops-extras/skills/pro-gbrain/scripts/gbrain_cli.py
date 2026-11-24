@@ -13,9 +13,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gbrain_ops import commands, common, context  # noqa: E402
+from gbrain_ops import commands, common, context, credentials, management_parser  # noqa: E402
 
-USAGE = "gbrain_cli.py detect | plan | add | repair | status | verify | share | remove [options]"
+USAGE = "gbrain_cli.py manage | triggers | event | detect | plan | add | repair | status | verify | share | remove [options]"
 
 
 class _BadArgumentsExit(Exception):
@@ -91,6 +91,7 @@ def build_parser() -> JsonArgumentParser:
     remove.add_argument("--project", required=True)
     remove.add_argument("--apply", action="store_true")
     remove.add_argument("--confirm", help="the project key, typed by the user")
+    COMMANDS.update(management_parser.register(sub))
     return parser
 
 
@@ -110,6 +111,10 @@ def main(argv: list[str] | None = None) -> int:
         return emit(COMMANDS[args.command](args))
     except commands.NeedsConsent as error:
         return emit({"ok": False, "code": "needs_consent", "summary": str(error), "next": "ask the user, then add --apply --yes"})
+    except credentials.CredentialError as error:
+        return emit({"ok": False, "code": error.code, "summary": error.message, "next": error.next_hint})
+    except OSError as error:
+        return emit({"ok": False, "code": "io_error", "summary": str(error), "next": "check file paths and permissions"})
     except common.StepError as error:
         return emit({"ok": False, "code": error.code, "summary": error.message, "next": error.next_step, **error.details})
 

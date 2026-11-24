@@ -64,7 +64,8 @@ def validate_project_key(key: str | None) -> str:
 def run(command: list[str], cwd: Path | None = None, env: dict | None = None, timeout: int = COMMAND_TIMEOUT_SECONDS,
         secrets: list[str] | None = None) -> tuple[int, str]:
     """Run a command > (exit code, combined output with every secret masked); 127 when the program is missing"""
-    if shutil.which(command[0]) is None and not Path(command[0]).exists():
+    # Resolve against the caller's PATH (scheduled runs lack the user's Bun bin)
+    if shutil.which(command[0], path=env.get("PATH") if env is not None else None) is None and not Path(command[0]).exists():
         return 127, f"{command[0]} not found"
     try:
         completed = subprocess.run(command, cwd=str(cwd) if cwd else None, env=env, capture_output=True,
