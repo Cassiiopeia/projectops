@@ -86,6 +86,9 @@ def plan(team: dict | None, cred_name: str | None, project: str, repo_root: Path
     error = brain_usage.validate_team_brain(team)
     if error:
         return {"code": "bad_team_brain", "summary": error}
+    if not team.get("mcp_url"):
+        return {"code": "no_team_brain_url", "summary": f"{team['mcp_name']} has no URL in the repo or your registry: "
+                "ask the brain admin for it, then record it in your registry (infra.brains.<name>.mcp_url) or the switch"}
     cred_name = cred_name or team["mcp_name"]
     if not credentials.is_valid_credential_name(cred_name):
         return {"code": "bad_cred_name", "summary": f"credential name '{cred_name}' must use letters, digits and ._-"}

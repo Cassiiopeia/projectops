@@ -1,13 +1,13 @@
 # How pro-brain works (for project owners)
 
-> When to read: the owner asks how it works, what it costs, which brain setup fits, or what a good note looks like.
+> When to read: the owner asks how it works, what it costs, where notes should go, or what a good note looks like.
 
 ## In one minute
 
 - Code shows **what** the project does. It rarely shows **why**: why this library and not that one, which rule came from a
   past incident, what must change together. That knowledge usually lives in someone's head or an old chat.
-- `pro-brain` writes it down as short notes in the repo's `knowledge/` folder, at the moment the work finishes, while the
-  agent still remembers the reasons.
+- `pro-brain` writes it down as notes at the moment the work finishes, while the agent still remembers the reasons, to
+  the places you chose: the repo's `knowledge/` folder, your own gbrain, a remote gbrain (yours or the team's), or several.
 - The notes alone are already useful: any agent reads the folder. If you also run a "brain" (a search service for notes,
   for example GBrain), it can read the same folder, and then anyone can ask "why do access tokens expire after 15 minutes?"
   and get the note back, with links to the issue and the code.
@@ -20,30 +20,31 @@
      after each finished issue, at the end of a work session, when a branch is merged, or only when asked.
    - **May I add the knowledge rule to the project CLAUDE.md?** This tells every agent in the repo when to write notes and
      to look in the team brain first when someone asks "why". If you say no, it never asks again.
-   - **How do you use this repo's knowledge?** It checks this machine and the repo and recommends an answer (table below).
+   - **Where should notes be written?** It checks this machine and the repo and recommends an answer (table below); pick
+     one or more.
 2. That is all. From then on the agent writes notes at the right moment, skips trivial changes, and commits the notes with
    the work. Run the setup again any time to see what is in effect and change it.
 
-## Which answer fits you?
+## Where should notes go?
 
 | Your situation | Pick | What happens | What you need |
 |---|---|---|---|
-| You just want the knowledge kept with the code (most repos) | **1. Repo only** | Notes stay in the repo. Agents read the folder | Nothing |
-| You run GBrain on your own computer | **2. My local GBrain** | With your yes, it adds this repo's folder to your brain as one entry named `<project>-knowledge` and loads it. Nothing else in your brain changes; if that name is taken it stops and tells you | GBrain installed with a brain created |
-| Your own GBrain runs on another computer or server | **3. My remote GBrain** | It shows the commands to run on that computer, where the brain's data lives. Your settings here stay as they are | Access to that computer |
-| Your team runs a shared brain server | **4. Team brain** | The server's name, address and who hands out access are saved in the repo so every teammate sees them, after a quick check that the address answers like a brain (a mistyped brain name shows up here). Each person asks for their own read-only key, types it once into their own projectops settings, and says yes to the connection | A key from the team's brain admin |
-| You do not have GBrain yet | **5. Install guide** | One question (only you on this computer, your own Postgres, Supabase, another machine, a team server), then the exact commands and a check that it worked. Commands with passwords are typed by you in a terminal | A few minutes |
-| You do not have a brain yet | **5. Install guide** | It shows where to get GBrain, then works like 1 | Nothing now |
+| You want the knowledge kept with the code (most repos) | **Repo** | Notes are files in the repo, reviewed and committed with the work | Nothing |
+| You run gbrain on this computer | **Local gbrain** | Each note is also saved straight into your brain as a page, so search finds it at once. Saving again updates the same page | gbrain installed with a brain created |
+| Your gbrain runs on another computer or server | **Remote gbrain** | Each note is sent to that brain over its web address. Add as many as you like | Its address and a write key you type once in your terminal |
+| Your team shares a brain server | **Team** | Notes go straight into the shared brain (each member uses their own write key), or the server copies the repo folder every hour and members only read | A key from the team's brain admin |
+| You do not have gbrain yet | **Install guide** | One question, then exact commands; works like Repo meanwhile | A few minutes |
 
-You can combine 2 or 3 with 4: your own brain for yourself, the team brain for shared answers. Keys and passwords are
-never saved in the repo or in a note; the team brain is added under its own name so it never replaces your personal one.
+Mix freely: repo + your brain, or only brains. When notes do not go to the repo, nothing about notes is committed and the
+setup suggests a daily export of your notes as a backup. Something not working? `doctor` checks every place one by one
+(is gbrain installed, is the database up, is the tunnel open, does the key work, can it write) and says how to fix each.
 
 ## Where each fact lives
 
 | Place | Shared? | Holds | Never holds |
 |---|---|---|---|
-| `version.yml` (`knowledge` block) | Yes, committed with the repo | Capture mode, folder, team brain name, address and who issues keys | Tokens, personal brains |
-| `~/.projectops/config/config.json` | No, your computer only (mode 600) | Your team brain token under a name (credential store), your private registry | Anything a teammate needs to read |
+| `version.yml` (`knowledge` block) | Yes, committed with the repo | Capture mode, folder, whether notes go to the repo, sync branch, team brain name, address (optional) and who issues keys | Tokens, personal brains |
+| `~/.projectops/config/config.json` | No, your computer only (mode 600) | Your personal destinations (local brain on or off, your remote brains), tokens under a name (credential store), your private registry | Anything a teammate needs to read |
 | Claude Code MCP settings (`claude mcp add --scope user`) | No, your computer only | The registered brain entry, written by `connect --team` from the two places above | Nothing you edit by hand |
 | `.mcp.json` (optional) | Yes, committed | The team brain entry with `${GBRAIN_<PROJECT>_TOKEN}` instead of a token | The token |
 
@@ -55,7 +56,7 @@ reads. Pointing your personal brain at your working folder means notes appear as
 merge. To see only merged notes, keep a separate copy of the main branch for the brain and refresh it every hour; the
 setup prints the exact commands.
 
-## For the team brain admin (option 4)
+## For the team brain admin (Team)
 
 1. Run a GBrain server that teammates can reach over HTTPS (for example `gbrain serve --http --public-url https://<host>`).
 2. On that server, keep a copy of the repo's main branch and add its `knowledge/` folder as one source named
@@ -63,8 +64,9 @@ setup prints the exact commands.
    Main only, so unfinished work never reaches the team.
 3. Give each member their own **read-only** access key (for example `gbrain auth create <member> --scopes read`, or a
    client with the `memory-reader` profile; see GBrain's MCP admin guide). Hand it over privately and revoke it when someone
-   leaves.
-4. In the repo, run the setup once and pick 4 with the server's MCP name (for example `gbrain-<project>`), its address and
+   leaves. If members should write notes straight into the team brain instead (no repo folder sync), give them
+   write-scoped keys and choose Team as a destination (`write: direct`).
+4. In the repo, run the setup once and pick Team with the server's MCP name (for example `gbrain-<project>`), its address and
    who to ask for a key. The address is checked first; then it is saved in `version.yml`, so every teammate's setup shows
    the same instructions.
 5. Each member saves their key once (`cred set --name gbrain-<project> --secret-field token --prompt`, typed in their own
@@ -78,7 +80,9 @@ offers a small committed rules file instead, or copies your CLAUDE.md into new w
 
 ## What a note contains
 
-The brain keeps the **why and where**; git keeps the **what**. A note has a searchable title, a few tags, links to related
+In a brain, a note can be a fuller **issue record** (problem, cause, the solution and the options turned down, how it was
+built, how it was checked, cautions), because nothing there is limited by the size of a git change. In the repo folder the
+note stays compact. Either way: the brain keeps the **why and where**; git keeps the **what**. A note has a searchable title, a few tags, links to related
 notes, facts collected automatically (version, files, endpoints, migrations, setting names, never secret values), and 30 to
 80 lines of plain prose. No code dumps, no logs, no chat.
 

@@ -12,9 +12,14 @@ KNOWLEDGE_BLOCK_PATH = ("metadata", "template", "options", "knowledge")
 # Keys pro-brain reads from the switch; anything else in the block is kept by the installer and ignored here
 # capture: issue-end | session-end | merge | manual, claude_md: file holding the rule block or "declined",
 # brain_mcp: legacy team brain MCP server name (team_brain.mcp_name wins), skip: commit types or words never worth a note
-KNOWLEDGE_KEYS = ("enabled", "path", "note_dir", "template", "rules", "check", "capture", "claude_md", "brain_mcp", "skip")
+# schema: switch version (absent = 1), repo_notes: notes committed in the repo folder (absent = true),
+# sync_branch: branch a brain sync job reads the folder from (absent = default_branch)
+KNOWLEDGE_KEYS = ("enabled", "path", "note_dir", "template", "rules", "check", "capture", "claude_md", "brain_mcp", "skip",
+                  "schema", "repo_notes", "sync_branch")
 # team_brain: shared, non-secret facts about a team brain server (never a token)
-TEAM_BRAIN_KEYS = ("mcp_name", "mcp_url", "contact")
+# write: sync (a job on the brain host syncs the folder, default) | direct (members write notes with their own token)
+TEAM_BRAIN_KEYS = ("mcp_name", "mcp_url", "contact", "write")
+TEAM_BRAIN_WRITE_MODES = ("sync", "direct")
 CAPTURE_MODES = ("issue-end", "session-end", "merge", "manual")
 
 

@@ -12,5 +12,11 @@
   "lookup_without_brain": "read `{path}` first (search it by topic, file or issue number).",
   "rules": "Skip trivial changes with a one-line reason. Never put secrets, personal data or chat content in a note.",
   "settings": "Settings: `version.yml` > `metadata.template.options.knowledge`.",
-  "rules_ref": " Note format and workflow: follow `{rules}`."
+  "rules_ref": " Note format and workflow: follow `{rules}`.",
+  "direct_suffix": " and also written directly to the team brain",
+  "intro_brain_only": "Durable project knowledge (decisions, reasons, cautions) is kept as notes in each member's gbrain, not in the repo.",
+  "intro_brain_only_team": "Durable project knowledge (decisions, reasons, cautions) is kept as notes in the team brain `{brain_mcp}`, not in the repo.",
+  "lookup_brain_only": "search your gbrain MCP first (`/pro-brain status` shows where notes go).",
+  "lookup_brain_only_team": "search the team brain MCP `{brain_mcp}` first (`/pro-brain doctor` checks the connection).",
+  "rules_brain_only": "`/pro-brain` writes notes straight to the brain (`brain_cli.py write`); never commit notes to the repo. Skip trivial changes with a one-line reason. Never put secrets, personal data or chat content in a note."
 }

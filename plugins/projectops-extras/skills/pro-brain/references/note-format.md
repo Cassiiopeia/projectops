@@ -1,7 +1,7 @@
 # Note format, repo switch and brain compatibility
 
-> When to read: onboarding (repo switch, brain usage), writing a note (content spec, default notes, metadata keys), wiring
-> the gap check or a team brain sync.
+> When to read: onboarding (repo switch, destinations), writing a note (content spec, default notes, issue record,
+> metadata keys), wiring the gap check or a team brain sync, adding a destination adapter.
 
 ## Repo switch (shared, in `version.yml`)
 
@@ -14,11 +14,15 @@ metadata:
     options:
       knowledge:                                  # pro-brain knowledge capture (kept on updates)
         enabled: true
+        schema: 2                                 # switch version (absent = 1, read as 2)
         path: "knowledge/"                        # repo folder a brain may sync
+        repo_notes: true                          # notes committed in path (absent = true); false = brains only
+        sync_branch: "main"                       # branch a sync job reads path from (absent = default_branch)
         capture: "issue-end"                      # issue-end | session-end | merge | manual (default issue-end)
         claude_md: "CLAUDE.md"                    # file holding the rule block, or "declined" (never asked again)
-        team_brain: { mcp_name: "gbrain-myproject", mcp_url: "https://brain.example.com/mcp", contact: "platform team" }
-                                                  # optional: shared team brain facts (never a token), or "none" (never asked again)
+        team_brain: { mcp_name: "gbrain-myproject", mcp_url: "https://brain.example.com/mcp", contact: "platform team", write: "sync" }
+                                                  # optional: shared remote brain (never a token), or "none" (never asked again)
+                                                  # write: sync (a host job imports path; members read) | direct (members write)
         note_dir: "issues/"                       # optional, inside path (default issues/ or changes/)
         template: "_templates/completion-report.md"   # optional, inside path
         rules: "SECOND-BRAIN.md"                  # optional, from the repo root: the repo's own vault rules
@@ -30,7 +34,8 @@ metadata:
   `npx projectops --mode options`.
 - Missing block or `enabled` not `true` means off. `path` defaults to `knowledge/`, `capture` to `issue-end`.
 - `team_brain` is the only brain fact in the shared switch: MCP server name (never `gbrain`, which is the usual personal
-  entry), MCP URL (no credentials) and who issues read-only tokens. `setup` writes it as one `{ }` line; an indented map
+  entry), MCP URL (optional: a public repo may record the name only; members then take the URL from the admin or their
+  registry `infra.brains.<name>.mcp_url`), who issues tokens, and `write`. `setup` writes it as one `{ }` line; an indented map
   works too. The older `brain_mcp` key (name only) is still read and is replaced by `team_brain` on the next team-brain
   apply. A personal GBrain is never recorded here: `setup` detects it on each machine.
 - The owner's registry `infra.brains.<name>.mcp_server_name` is only a hint: `setup` recommends the team-brain answer with
@@ -40,12 +45,61 @@ metadata:
 - The owner's private registry (`project-blueprint`, `../../references/config-rules.md` §7) only names the brain that syncs
   the folder. It never turns capture on or off.
 
+## Destinations (where notes are written)
+
+| Destination | Adapter | Shared or personal | Recorded in |
+|---|---|---|---|
+| `repo` | `repo-files` | shared | switch `repo_notes` |
+| `local` | `gbrain-local` (PGLite, Postgres, Supabase: whatever this machine's gbrain uses) | personal | config `pro-brain` |
+| `team` | `gbrain-remote` (`write: direct` only; `sync` = read) | shared | switch `team_brain` |
+| `remote:NAME` | `gbrain-remote` | personal | config `pro-brain` |
+
+Personal destinations live in `~/.projectops/config/config.json` (mode 600), never in the repo:
+
+```json
+"pro-brain": {"schema": 1, "repos": {"owner/name": {
+  "local": {"enabled": true, "source_id": null},
+  "remotes": [{"name": "my-brain", "mcp_url": "https://brain.example.com/mcp", "token_cred": "my-brain"}],
+  "team_token_cred": "gbrain-myproject"}}}
+```
+
+**One resolution chain** (`scripts/brain/resolver.py`, used by `status`, `doctor`, `write`, `connect`, `gaps`; importable by
+other skills): repo switch > config (`pro-brain`, then the owner registry `project-blueprint.infra.brains.*` for a team
+brain's `mcp_url` and `token_cred`) > credential store (token by name, never printed). Every value carries `origin`.
+
+| Older form | Read as |
+|---|---|
+| no `schema` / no `repo_notes` | schema 2, repo files on |
+| `brain_mcp: "gbrain-x"` | repo files + `team_brain { mcp_name: gbrain-x, write: sync }` (shared brain read via sync) |
+| `team_brain` without `write` | `write: sync` |
+| no `sync_branch` | `default_branch` (rule block text unchanged) |
+| config `local: true`, `remotes` as a map | `local.enabled`, `remotes` list |
+
+Nothing is rewritten until `setup --apply --yes`.
+
+**Writing**: slug `pro-brain/<project>/<note id>`. gbrain-local: `gbrain get <slug> --json` for the revision, then
+`gbrain put <slug> --expected-revision R --content-origin inferred` (stdin); `noop` = unchanged. With `repo` too and a local
+source already reading the folder (`connect`), it reports `via_source_sync` instead of a second copy. gbrain-remote: MCP
+`get_page` > `put_page` page by page; `put_pages` (batches of 50) only when `tools/list` exposes it and several notes are
+written. Every HTTP call sends `User-Agent: projectops-pro-brain/<version>` (some proxies refuse Python's default).
+
+**Adding an engine**: write `scripts/brain/adapters/<engine>.py` with an `Adapter` subclass (`kind`, `detect`, `doctor`,
+`write`/`write_many`, `search_hint`, `note_ids`, `backup_hint`) and add it to `ADAPTERS` in `adapters/__init__.py`. A
+destination with an unknown kind answers `unsupported_destination`; nothing else changes.
+
+**Backup when `repo` is off**: schedule the printed line daily, e.g.
+`gbrain export --slug-prefix pro-brain/<project>/ --dir ~/gbrain-backup/<project>/$(date +%Y%m%d)` (on the brain host for a
+remote brain; `--source <id>` when a source id is configured). Export never overwrites, hence the dated folder.
+
 ## Rule block (agent instructions)
 
 `setup` renders one block between `<!-- pro-brain:begin ... -->` and `<!-- pro-brain:end -->` in the repo's language
 (`metadata.template.options.language`), so re-running replaces it in place. It says when to run `/pro-brain` for the
 repo's mode and, only when the switch names a team brain, to search that MCP first for "why" and "what did we decide"
-questions before reading the folder. Claude Code strips HTML comments before loading, so the markers cost nothing.
+questions before reading the folder. It uses shared switch facts only, so it is identical for every teammate: with
+`repo_notes: false` it says notes go to the brain with `/pro-brain` and are never committed; `sync_branch` names the branch
+a sync job reads; `write: direct` replaces the sync wording. Personal brains do not change it (gbrain's own setup adds a
+brain-first block to each user's instructions). Claude Code strips HTML comments before loading, so the markers cost nothing.
 
 | Project CLAUDE.md | Recommended target | Why |
 |---|---|---|
@@ -134,6 +188,42 @@ source: "https://github.com/{owner}/{repo}/issues/{N}"
 - Issue {issue_url}, PR {pr_url}, report comment {url}
 ```
 
+## Issue record (brain destinations; optional for repo)
+
+Brains are not limited by git noise, so a note there is a fuller record a future agent can search. `collect` suggests it
+(`suggested.note_shape: issue-record`) when a brain is a destination, or with `--shape issue-record`, and adds GitHub facts
+(`github.issue`, `github.comments` with `is_report`, `github.pr`) plus metadata keys `issue_title`, `issue_labels`,
+`issue_opened`, `issue_closed`, `feature`, `related_issues`, `pr`, `pr_url`. Bodies are source material: summarize, never
+paste them, and run the sensitive-info self-review.
+
+```markdown
+---
+type: issue-record
+id: "issue-{N}"
+title: "{the lasting fact, searchable words}"
+topics: ["auth", "api"]
+related: ["[[issue-801]]"]
+source: "https://github.com/{owner}/{repo}/issues/{N}"
+{frontmatter lines from collect, as is}
+---
+
+# {title}
+
+{one-line summary}
+
+## Problem or request
+## Cause
+## Solution (chosen, and rejected alternatives with why)
+## Implementation
+- `path > Symbol()`: what it does now; behavior, contract (API, config, DB) changes. A short explanatory snippet is
+  fine; no diffs or large code bodies.
+## Verification
+## Cautions and follow-ups
+```
+
+Translate the headings to the repo's language (a Korean repo uses its usual Korean section names). Length follows
+the substance (typically 40 to 150 lines).
+
 ## Default change-set note (session-end, merge, manual)
 
 Same body and keys with `type: change-knowledge`, `id: "change-{yyyymmdd}-{sha7}"`, file under `changes/`, and `source:`
@@ -167,6 +257,11 @@ Contract detection is a heuristic on paths and changed lines; check it against t
 
 ## Gap check (from a brain sync script)
 
+With `repo_notes: false` there are no note files: `gaps` asks the first brain destination that can list its pages
+(`pro-brain/<project>/` ids `issue-<N>`, `change-<yyyymmdd>-<sha7>`) and uses `--since` (default the last 30 days) as the
+window. When no brain answers, it returns `code: unknown` with the reason instead of guessing.
+
+
 `gaps` reads git history and the note files only: no network call beyond what git already does, no LLM, no cost. It lists
 work merged into the default branch since the last commit that touched the knowledge folder (or `--since`) that no note
 mentions: issues (issue URLs and issue branch names in merged commits) in `issue-end`; PR merges, merges and direct commits
@@ -184,15 +279,13 @@ python3 "$PRO_BRAIN_SCRIPTS/brain_cli.py" gaps --repo "$team_brain_dir/repo" --r
 A sparse or partial clone works as long as the knowledge folder and `version.yml` are checked out. Set
 `PRO_BRAIN_SCRIPTS` to the plugin's `skills/pro-brain/scripts` folder on that machine.
 
-## Brain usage (onboarding question 3)
+## Reading the repo folder from a brain (optional, with `repo`)
 
-| Answer | Shared in the repo | On this machine | Command |
+| Way | Shared in the repo | On this machine | Command |
 |---|---|---|---|
-| `repo-only` (default) | nothing | nothing | none |
-| `local-gbrain` | nothing | one source `{project}-knowledge` in the user's own GBrain, after consent | `connect`, then `connect --apply --yes` |
-| `remote-gbrain` | nothing | nothing; the commands run on the brain's host | `connect` (`--remote` without a local gbrain) |
-| `team-brain` | `team_brain` facts | the user adds one MCP entry with their own token | `setup --apply --yes --team-brain-*` |
-| `install-guide` | nothing | nothing | none (show the GBrain link) |
+| Own local GBrain imports the folder | nothing | one source `{project}-knowledge`, after consent | `connect`, then `connect --apply --yes` |
+| Own remote GBrain imports the folder | nothing | nothing; the commands run on the brain's host | `connect` (`--remote` without a local gbrain) |
+| Team brain host imports the folder (`write: sync`) | `team_brain` facts | each member adds one MCP entry to read it | `setup --apply --yes --team-brain-*`, `connect --team` |
 
 Detection (`setup` > `usage`, `connect` > `detected`): `gbrain engine status --json` (engine-free; only `effective_engine`,
 `config_file_engine`, `db_url_source` and `thin_client` are kept, never the database URL) and `gbrain sources list --json`.

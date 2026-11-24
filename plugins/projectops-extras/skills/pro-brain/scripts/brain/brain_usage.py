@@ -23,9 +23,47 @@ MCP_NAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 ENGINE_FIELDS_SHOWN = ("effective_engine", "config_file_engine", "db_url_source", "thin_client")
 
 
+# Install locations not always on a non-login PATH (bun global installs; Windows adds .exe)
+GBRAIN_FALLBACK_FOLDERS = (Path.home() / ".bun" / "bin", Path.home() / ".local" / "bin")
+
+
 def gbrain_binary() -> str | None:
+    """PRO_BRAIN_GBRAIN > gbrain on PATH > ~/.bun/bin, ~/.local/bin (gbrain or gbrain.exe)"""
     configured = os.environ.get(GBRAIN_BINARY_ENV)
-    return configured if configured and Path(configured).is_file() else shutil.which("gbrain")
+    if configured:
+        return configured if Path(configured).is_file() else None
+    found = shutil.which("gbrain")
+    if found:
+        return found
+    for folder in GBRAIN_FALLBACK_FOLDERS:
+        for name in ("gbrain", "gbrain.exe", "gbrain.cmd"):
+            if (folder / name).is_file():
+                return str(folder / name)
+    return None
+
+
+def run_gbrain_full(*arguments: str, input_text: str | None = None,
+                    timeout_seconds: int = GBRAIN_TIMEOUT_SECONDS) -> tuple[int, str, str]:
+    """gbrain command > (exit code, stdout, error code parsed from its JSON error or ""); raw stderr is never returned"""
+    binary = gbrain_binary()
+    if not binary:
+        return 127, "", "gbrain_missing"
+    try:
+        completed = subprocess.run([binary, *arguments], capture_output=True, encoding="utf-8", errors="replace",
+                                   timeout=timeout_seconds, input=input_text,
+                                   stdin=None if input_text is not None else subprocess.DEVNULL)
+    except subprocess.TimeoutExpired:
+        return 124, "", "timeout"
+    except OSError:
+        return 126, "", "not_runnable"
+    error_code = ""
+    if completed.returncode != 0:
+        parsed = parse_json(completed.stdout or "") or parse_json(completed.stderr or "") or {}
+        error_code = str(parsed.get("code") or parsed.get("error") or "")
+        if not error_code:
+            match = re.search(r"Error \[([a-z_]+)\]", (completed.stderr or "") + (completed.stdout or ""))
+            error_code = match.group(1) if match else f"exit_{completed.returncode}"
+    return completed.returncode, completed.stdout or "", error_code
 
 
 def run_gbrain(*arguments: str) -> tuple[int, str]:
@@ -115,7 +153,8 @@ def validate_team_brain(team: dict) -> str | None:
         return f"team brain MCP name '{name}' must be letters, digits, - or _ (for example gbrain-<project>)"
     if name.lower() == PERSONAL_MCP_NAME:
         return "team brain MCP name must differ from 'gbrain' so it never replaces anyone's personal brain entry"
-    if not re.match(r"^https?://[^\s\"']+$", url):
+    # URL optional: a public repo may record the name only (members get the URL from the admin or their registry)
+    if url and not re.match(r"^https?://[^\s\"']+$", url):
         return f"team brain MCP URL '{url}' must be an http(s) URL"
     if re.search(r"(token|key|secret|password)=", url, re.IGNORECASE) or "@" in url.split("//", 1)[-1].split("/", 1)[0]:
         return "team brain MCP URL must not carry a credential: the token goes only into each member's own MCP entry"

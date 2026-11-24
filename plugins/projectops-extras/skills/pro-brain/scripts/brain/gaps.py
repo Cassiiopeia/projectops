@@ -143,21 +143,38 @@ def change_gaps(commits: list[dict], covered_pulls: set[int], covered_shas: set[
     return {"gaps": gaps, "covered": covered, "skipped_by_rule": skipped}
 
 
+BRAIN_ISSUE_ID = re.compile(r"^issue-(\d+)$", re.IGNORECASE)
+BRAIN_CHANGE_ID = re.compile(r"^change-\d{8}-([0-9a-f]{7,40})$", re.IGNORECASE)
+
+
 def find_gaps(repo_root: Path, ref: str, knowledge_path: str, capture: str, remote_slug: str | None,
-              since: str | None, skip: list[str]) -> dict:
-    window = resolve_window(repo_root, ref, knowledge_path, since)
-    existing = notes.scan_notes(repo_root / knowledge_path, remote_slug)
-    if capture == "issue-end":
-        result = issue_gaps(_log(repo_root, ref, window, first_parent=False), remote_slug,
-                            set().union(*(note["issues"] for note in existing)) if existing else set(), skip)
+              since: str | None, skip: list[str], brain_note_ids: set[str] | None = None) -> dict:
+    """brain_note_ids given (notes live only in a brain): coverage from note ids (issue-N, change-<date>-<sha>), window
+    from --since or the fallback, since no knowledge folder commit marks the last capture"""
+    if brain_note_ids is not None:
+        window = resolve_window(repo_root, ref, "__no_knowledge_folder__", since)
+        issues = {int(match.group(1)) for match in map(BRAIN_ISSUE_ID.match, brain_note_ids) if match}
+        shas = {match.group(1).lower() for match in map(BRAIN_CHANGE_ID.match, brain_note_ids) if match}
+        note_count = len(brain_note_ids)
+        if capture == "issue-end":
+            result = issue_gaps(_log(repo_root, ref, window, first_parent=False), remote_slug, issues, skip)
+        else:
+            result = change_gaps(_log(repo_root, ref, window, first_parent=True), set(), set(), shas, skip)
     else:
-        result = change_gaps(_log(repo_root, ref, window, first_parent=True),
-                             set().union(*(note["pulls"] for note in existing)) if existing else set(),
-                             notes.covered_commits(repo_root, existing),
-                             set().union(*(note["shas"] for note in existing)) if existing else set(), skip)
+        window = resolve_window(repo_root, ref, knowledge_path, since)
+        existing = notes.scan_notes(repo_root / knowledge_path, remote_slug)
+        note_count = len(existing)
+        if capture == "issue-end":
+            result = issue_gaps(_log(repo_root, ref, window, first_parent=False), remote_slug,
+                                set().union(*(note["issues"] for note in existing)) if existing else set(), skip)
+        else:
+            result = change_gaps(_log(repo_root, ref, window, first_parent=True),
+                                 set().union(*(note["pulls"] for note in existing)) if existing else set(),
+                                 notes.covered_commits(repo_root, existing),
+                                 set().union(*(note["shas"] for note in existing)) if existing else set(), skip)
     total = len(result["gaps"])
     result["gaps"] = result["gaps"][:GAP_LIMIT]
-    return {"window": window["from"], "ref": ref, "capture": capture, "note_count": len(existing), "gap_count": total,
+    return {"window": window["from"], "ref": ref, "capture": capture, "note_count": note_count, "gap_count": total,
             **result}
 
 

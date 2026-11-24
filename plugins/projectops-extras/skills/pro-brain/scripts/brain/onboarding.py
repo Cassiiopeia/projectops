@@ -35,21 +35,33 @@ def load_strings(language: str) -> dict:
 
 
 def render_block(language: str, capture: str, knowledge_path: str, default_branch: str, brain_mcp: str | None,
-                 rules_file: str | None = None) -> str:
-    """Rule block for the project agent instructions, in the repo's language"""
+                 rules_file: str | None = None, repo_notes: bool = True, sync_branch: str | None = None,
+                 team_write: str = "sync") -> str:
+    """Rule block for the project agent instructions, in the repo's language (shared switch facts only)
+    repo_notes off: notes go to brains with /pro-brain and are never committed; team_write direct: no sync suffix.
+    """
     strings = load_strings(language)
-    values = {"path": knowledge_path, "default_branch": default_branch, "brain_mcp": brain_mcp or "", "rules": rules_file or ""}
-    sync = strings["sync_suffix"].format(**values) if brain_mcp else ""
-    lookup = strings["lookup_with_brain" if brain_mcp else "lookup_without_brain"].format(**values)
+    values = {"path": knowledge_path, "default_branch": sync_branch or default_branch, "brain_mcp": brain_mcp or "",
+              "rules": rules_file or ""}
+    if not repo_notes:
+        intro = strings["intro_brain_only_team" if brain_mcp else "intro_brain_only"].format(**values)
+        lookup = strings["lookup_brain_only_team" if brain_mcp else "lookup_brain_only"].format(**values)
+        rules_line = strings["rules_brain_only"]
+    else:
+        suffix_key = "direct_suffix" if team_write == "direct" else "sync_suffix"
+        sync = strings[suffix_key].format(**values) if brain_mcp else ""
+        intro = strings["intro"].format(sync=sync, **values)
+        lookup = strings["lookup_with_brain" if brain_mcp else "lookup_without_brain"].format(**values)
+        rules_line = strings["rules"]
     lines = [
         BLOCK_BEGIN,
         strings["heading"],
         "",
-        strings["intro"].format(sync=sync, **values) + (strings["rules_ref"].format(**values) if rules_file else ""),
+        intro + (strings["rules_ref"].format(**values) if rules_file else ""),
         "",
         f"- **{strings['when_label']}**: {strings['mode_' + capture].format(**values)}",
         f"- **{strings['lookup_label']}**: {lookup}",
-        f"- {strings['rules']}",
+        f"- {rules_line}",
         f"- {strings['settings']}",
         BLOCK_END,
     ]

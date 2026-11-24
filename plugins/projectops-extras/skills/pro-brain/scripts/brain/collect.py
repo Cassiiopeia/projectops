@@ -195,7 +195,8 @@ def _yaml_value(value) -> str:
 # (type, id, title, created, topics, status, related, supersedes, source, resolves): those belong to the note
 # template or the repo's own schema, so a repo's vault rules stay intact and these are extra keys.
 METADATA_KEYS = ("capture_mode", "captured_at", "captured_by", "project", "stacks", "app_version", "build_number",
-                 "issue", "issue_url", "pr", "pr_url", "branch", "commit_base", "commit_head", "commit_count", "commits",
+                 "issue", "issue_url", "issue_title", "issue_labels", "issue_opened", "issue_closed", "feature",
+                 "related_issues", "pr", "pr_url", "branch", "commit_base", "commit_head", "commit_count", "commits",
                  "merge_commit", "changed_modules", "main_files", "lines_added", "lines_deleted",
                  "api_endpoints", "db_migrations", "config_keys", "env_or_secret_names", "feature_flags",
                  "deployed", "deploy_targets", "deploy_version")

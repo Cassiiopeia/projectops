@@ -12,5 +12,11 @@
   "lookup_without_brain": "`{path}` 폴더를 먼저 읽는다 (주제, 파일, 이슈 번호로 검색).",
   "rules": "사소한 변경은 이유 한 줄로 건너뛴다. 비밀값, 개인정보, 대화 내용은 노트에 넣지 않는다.",
   "settings": "설정: `version.yml` > `metadata.template.options.knowledge`.",
-  "rules_ref": " 노트 형식과 절차는 `{rules}`를 따른다."
+  "rules_ref": " 노트 형식과 절차는 `{rules}`를 따른다.",
+  "direct_suffix": ". 팀 브레인에도 바로 기록한다",
+  "intro_brain_only": "나중에도 유효한 프로젝트 지식(결정, 이유, 주의점)은 레포가 아니라 각자의 gbrain에 노트로 남긴다.",
+  "intro_brain_only_team": "나중에도 유효한 프로젝트 지식(결정, 이유, 주의점)은 레포가 아니라 팀 브레인 `{brain_mcp}`에 노트로 남긴다.",
+  "lookup_brain_only": "내 gbrain MCP에서 먼저 찾는다 (`/pro-brain status`로 노트 저장 위치 확인).",
+  "lookup_brain_only_team": "팀 브레인 MCP(`{brain_mcp}`)에서 먼저 찾는다 (`/pro-brain doctor`로 연결 확인).",
+  "rules_brain_only": "`/pro-brain`이 노트를 브레인에 바로 기록한다(`brain_cli.py write`). 노트를 레포에 커밋하지 않는다. 사소한 변경은 이유 한 줄로 건너뛴다. 비밀값, 개인정보, 대화 내용은 노트에 넣지 않는다."
 }

@@ -6,8 +6,8 @@ from __future__ import annotations
 import difflib
 from pathlib import Path
 
-from . import (brain_usage, collect, contracts, gaps, gbrain_connect, install_guide, mcp_probe, notes, onboarding, registry,
-               repo_facts, switch_edit, team_connect)
+from . import (brain_usage, collect, contracts, dest_commands, doctor, gaps, gbrain_connect, github_facts, mcp_probe, notes, onboarding,
+               registry, repo_facts, resolver, switch_edit, user_config)
 
 DEFAULT_CAPTURE = "issue-end"   # repos switched on before capture modes existed keep the issue flow
 TEAM_BRAIN_DECLINED = "none"    # team_brain value when the user chose no team brain
@@ -50,11 +50,18 @@ def default_ref(root: Path, default_branch: str) -> str:
     return "HEAD"
 
 
+def render_block_for(context: dict, capture: str, brain_mcp: str | None, switch: dict, rules: str | None) -> str:
+    """Rule block from shared switch facts only (repo_notes, sync_branch, team write mode), identical for every teammate"""
+    team = switch.get("team_brain") if isinstance(switch.get("team_brain"), dict) else {}
+    return onboarding.render_block(context["language"], capture, switch.get("path", "knowledge/"), context["default_branch"],
+                                   brain_mcp, rules, repo_notes=switch.get("repo_notes") is not False,
+                                   sync_branch=switch.get("sync_branch"), team_write=str(team.get("write") or "sync"))
+
+
 def _onboarding_facts(context: dict, capture: str) -> dict:
     """Which onboarding questions are still open: capture mode, rule block (unless declined), block refresh"""
     root, switch = context["root"], context["switch"]
-    block = onboarding.render_block(context["language"], capture, switch.get("path", "knowledge/"),
-                                    context["default_branch"], context["brain_mcp"], switch.get("rules"))
+    block = render_block_for(context, capture, context["brain_mcp"], switch, switch.get("rules"))
     files = onboarding.instruction_files(root)
     decision = switch.get("claude_md")
     target = decision if decision and decision != "declined" else onboarding.target_options(files)[0]["target"]
@@ -83,8 +90,12 @@ def cmd_status(args) -> dict:
                         "run setup to show the onboarding questions, then setup --apply --yes --enable after the user agrees"}
     capture = switch.get("capture") or DEFAULT_CAPTURE
     folder = context["root"] / switch["path"]
+    resolved = resolver.resolve(context)
+    last_doctor = doctor.read_last(user_config.repo_key(context["remote"], context["root"]))
     result.update({"capture": capture, "knowledge_folder_exists": folder.is_dir(),
-                   "onboarding": _onboarding_facts(context, capture)})
+                   "onboarding": _onboarding_facts(context, capture),
+                   "destinations": dest_commands.summarize_resolved(resolved),
+                   "last_doctor": {key: last_doctor.get(key) for key in ("checked_at", "code", "summary")} if last_doctor else None})
     # rules is relative to the repo root; template is relative to the knowledge folder
     if "rules" in switch:
         result["rules_exists"] = (context["root"] / str(switch["rules"])).is_file()
@@ -99,7 +110,12 @@ def cmd_status(args) -> dict:
         next_step = "rule block is outdated: refresh it in place with setup --apply --yes --claude-md add (consent already given), then go on"
     else:
         next_step = "judge whether this work produced durable knowledge; if yes run collect, if not skip with a one-line reason"
-    return {**result, "code": "switch_on", "summary": f"knowledge capture is on ({capture}): notes go to {switch['path']}; {sync_line}",
+    targets = resolved["write_targets"]
+    where = ", ".join(switch["path"] if item == "repo" else item for item in targets) or "nowhere (no destination)"
+    mapping = f"; {resolved['legacy_mapping']}" if resolved["legacy_mapping"] else ""
+    if not onboarding_state["open_questions"] and any(item != "repo" for item in targets):
+        next_step += "; brain destinations: write with brain_cli.py write --note FILE (doctor first if it failed before)"
+    return {**result, "code": "switch_on", "summary": f"knowledge capture is on ({capture}): notes go to {where}; {sync_line}{mapping}",
             "next": next_step}
 
 
@@ -168,10 +184,32 @@ def cmd_collect(args) -> dict:
         "next": ("write the note (references/note-format.md): repo rules/template first, these keys appended to its frontmatter"
                  + (f"; not given: {', '.join(missing)} (pass --pr-number/--pr-url/--branch when they exist)" if missing else "")),
     }
+    _add_record_facts(args, context, result, metadata, issue, branch, hints)
     if is_change_set:
         result["commit_outline"] = collect.commit_outline(root, commit_range)
         result["next"] += "; group commit_outline by topic and run collect --commits a,b,c per topic when it mixes topics"
     return result
+
+
+def _add_record_facts(args, context: dict, result: dict, metadata: dict, issue, branch, hints: list[str]) -> None:
+    """Issue record shape (brain destinations, or --shape issue-record): GitHub facts + feature slug in the frontmatter"""
+    resolved = resolver.resolve(context)
+    is_record = args.shape == "issue-record" or (args.shape is None and bool(resolved["brain_targets"]))
+    result["suggested"]["note_shape"] = "issue-record" if is_record else "default"
+    result["destinations"] = resolved["write_targets"]
+    if (args.github or (is_record and not args.no_github)) and (issue or args.pr_number or branch):
+        facts = github_facts.fetch(context["remote"], issue, args.pr_number, branch)
+        result["github"] = facts
+        for key, value in (facts.get("metadata") or {}).items():
+            if metadata.get(key) in (None, "", []):
+                metadata[key] = value
+    if is_record and hints:
+        metadata["feature"] = hints[0]
+    result["metadata"] = metadata
+    result["frontmatter"] = "\n".join(collect.frontmatter_lines(metadata))
+    if is_record:
+        result["next"] += ("; issue record shape (references/note-format.md §Issue record): summarize github.issue, comments "
+                           "(is_report first) and pr into the sections, never paste bodies")
 
 
 def _usage_facts(context: dict) -> dict:
@@ -196,7 +234,7 @@ def _usage_facts(context: dict) -> dict:
 
 
 def _setup_questions(context: dict, recommendation: dict, onboarding_state: dict, options: list[dict],
-                     usage: dict) -> list[dict]:
+                     destinations: dict) -> list[dict]:
     """At most three questions, each with a recommended answer so 'yes' is enough"""
     questions = []
     if "capture" in onboarding_state["open_questions"] or not context["switch"]["enabled"]:
@@ -209,11 +247,22 @@ def _setup_questions(context: dict, recommendation: dict, onboarding_state: dict
         questions.append({"id": "rule_block", "recommended": "add", "target": target["target"],
                           "question": f"May I add the knowledge rule to {place}? (recommended)",
                           "choices": ["add", "decline"] + [option["target"] for option in options[1:]]})
-    # Always asked in setup: re-running onboarding shows the current state and lets the user change it
-    questions.append({"id": "usage", "recommended": usage["recommended"], "current": usage["current"], "why": usage["why"],
-                      "question": "How do you use this repo's knowledge? (a personal GBrain can be combined with a team brain)",
-                      "choices": usage["choices"], "multi_select": True})
+    # Always asked in setup: re-running onboarding shows the current state and lets the user add or remove destinations
+    questions.append({"id": "destinations", "recommended": destinations["recommended"], "current": destinations["current"],
+                      "why": destinations["why"], "question": "Where should notes be written? (one or more)",
+                      "choices": destinations["choices"], "multi_select": True, "minimum": 1})
     return questions
+
+
+def _apply_team_write(team_updates: dict, team_removals: tuple, switch: dict, team_write: str | None) -> tuple[dict, tuple]:
+    """--team-write or --to with/without team > team_brain.write (legacy brain_mcp becomes a team_brain map)"""
+    if not team_write or team_updates.get("team_brain") == TEAM_BRAIN_DECLINED:
+        return team_updates, team_removals
+    base = team_updates.get("team_brain") or (dict(switch["team_brain"]) if isinstance(switch.get("team_brain"), dict) else
+                                              ({"mcp_name": switch["brain_mcp"]} if switch.get("brain_mcp") else None))
+    if not base or base.get("write", "sync") == team_write and "team_brain" not in team_updates:
+        return team_updates, team_removals
+    return {**team_updates, "team_brain": {**base, "write": team_write}}, tuple(set(team_removals) | ({"brain_mcp"} if switch.get("brain_mcp") else set()))
 
 
 def _team_brain_updates(args, switch: dict) -> tuple[dict, tuple[str, ...], str | None]:
@@ -243,11 +292,18 @@ def cmd_setup(args) -> dict:
     if team_error:
         return {"ok": False, "code": "bad_team_brain", "summary": team_error,
                 "next": "fix the --team-brain-* values (name like gbrain-<project>, an https URL without a token)"}
+    resolved = resolver.resolve(context)
+    destination_plan = dest_commands.destination_updates(args, context, resolved)
+    if destination_plan["error"]:
+        return {"ok": False, "code": "bad_destinations", "summary": destination_plan["error"],
+                "next": "setup --to repo,local,team,remote:NAME [--remote-name N --remote-url URL --remote-token-cred CRED]"}
+    shared_updates = dict(destination_plan["switch_updates"])
+    team_updates, team_removals = _apply_team_write(team_updates, team_removals, switch, shared_updates.pop("_team_write", None))
     brain_mcp = (None if args.team_brain_off else
                  (team_updates.get("team_brain") or {}).get("mcp_name") or args.brain_mcp or context["brain_mcp"])
     knowledge_path = switch.get("path", "knowledge/")
-    block = onboarding.render_block(context["language"], capture, knowledge_path, context["default_branch"], brain_mcp,
-                                    switch.get("rules") or onboarding.detect_rules_file(root))
+    effective_switch = {**switch, **shared_updates, **team_updates}
+    block = render_block_for(context, capture, brain_mcp, effective_switch, switch.get("rules") or onboarding.detect_rules_file(root))
     files = onboarding.instruction_files(root)
     options = onboarding.target_options(files)
     recorded = switch.get("claude_md") if switch.get("claude_md") not in (None, "declined") else None
@@ -267,6 +323,7 @@ def cmd_setup(args) -> dict:
     if args.brain_mcp and not team_updates and not args.team_brain_off:
         updates["brain_mcp"] = args.brain_mcp
     updates.update(team_updates)
+    updates.update(shared_updates)
     detected_rules = onboarding.detect_rules_file(root) if not switch.get("rules") else None
     if detected_rules:
         updates["rules"] = detected_rules   # the repo's own vault rules win over the default note format
@@ -291,7 +348,10 @@ def cmd_setup(args) -> dict:
             "team_brain_probe": probe,
             "target_options": options, "target": target, "target_kind": target_kind, "block": block,
             "block_state": onboarding_state["rule_block_state"],
-            "questions": _setup_questions(context, recommendation, onboarding_state, options, usage),
+            "questions": _setup_questions(context, recommendation, onboarding_state, options,
+                                          dest_commands.recommend_destinations(context, resolved)),
+            "destinations": dest_commands.summarize_resolved(resolved),
+            "personal_config_update": destination_plan["personal"],
             "switch_updates": updates, "switch_error": switch_error,
             "version_yml_diff": "".join(difflib.unified_diff(
                 context["text"].splitlines(keepends=True), new_version_text.splitlines(keepends=True),
@@ -302,8 +362,9 @@ def cmd_setup(args) -> dict:
                 f"rule block target {target} ({target_kind})",
                 "next": "ask the questions (recommended answer first, in the user's language), then "
                         f"setup --apply --yes{' --enable' if needs_enable else ''} --capture MODE --claude-md add|decline [--target PATH] "
-                        "[--team-brain-name N --team-brain-url URL --team-brain-contact WHO | --team-brain-off]; "
-                        "for local-gbrain or remote-gbrain run connect (plan) next; for install-guide show usage.install_url"}
+                        "[--to repo,local,team,remote:NAME --remote-name N --remote-url URL --remote-token-cred CRED "
+                        "--team-write sync|direct --sync-branch B] [--team-brain-name N --team-brain-url URL "
+                        "--team-brain-contact WHO | --team-brain-off]; then doctor; install-guide: brain_cli.py install"}
     if needs_enable and not args.enable:
         raise NeedsConsent("capture is off for this repo: pass --enable together with --apply --yes once the user agreed to turn it on")
     if not args.yes:
@@ -312,17 +373,20 @@ def cmd_setup(args) -> dict:
         return {**plan, "ok": False, "code": "switch_edit_failed", "summary": switch_error,
                 "next": "edit the knowledge block in version.yml by hand (references/note-format.md §Repo switch)"}
     written = []
+    if destination_plan["personal"] is not None and destination_plan["personal"] != destination_plan["personal_current"]:
+        path = user_config.write_repo_entry(context["remote"], root, destination_plan["personal"])
+        written.append(f"{path} (personal destinations, not in the repo)")
     if new_version_text != context["text"]:
         (root / "version.yml").write_text(new_version_text, encoding="utf-8")
         written.append("version.yml")
     # A team brain change rewrites the block's lookup line, so a block that is already there follows it
-    block_follows_switch = (team_updates or args.team_brain_off) and onboarding_state["rule_block_state"] not in ("absent", "declined")
+    block_follows_switch = (team_updates or args.team_brain_off or shared_updates) and onboarding_state["rule_block_state"] not in ("absent", "declined")
     if args.claude_md == "add" or (args.claude_md is None and (onboarding_state["rule_block_state"] == "outdated" or block_follows_switch)):
         outcome = onboarding.apply_block(root / target, block)
         written.append(f"{target} ({outcome})")
         if args.agents_md and files["agents_md_needs_block"]:
             written.append(f"AGENTS.md ({onboarding.apply_block(root / 'AGENTS.md', block)})")
-    follow_up = ["commit the tracked files above with pro-commit (stage only these paths)"]
+    follow_up = ["commit the tracked files above with pro-commit (stage only these paths)", "brain_cli.py doctor"]
     if probe and not probe["ok"]:
         follow_up.insert(0, f"warn the user: team brain URL probe said {probe['verdict']} ({probe['summary']})")
     if usage.get("team_brain_setup") and not usage["team_brain_setup"].get("registered"):
@@ -333,72 +397,17 @@ def cmd_setup(args) -> dict:
             "next": "; then ".join(follow_up)}
 
 
-def cmd_connect(args) -> dict:
-    """Personal GBrain: plan (default) or --apply --yes to add the source and sync it; --team: the team brain MCP entry"""
-    context = repo_context(args.repo)
-    if args.team:
-        return _connect_team(args, context)
-    knowledge_path = context["switch"].get("path", "knowledge/")
-    result = gbrain_connect.plan(context["root"], knowledge_path, context["project"], context["default_branch"],
-                                 args.source_id, args.source_root, is_remote=args.remote)
-    code = result["code"]
-    next_by_code = {
-        "ready": "show the source id, path and branch, then connect --apply --yes after the user agreed",
-        "already_connected": "connect --apply --yes syncs it again (no add)",
-        "source_id_taken": "stop and report; ask for another id (connect --source-id NAME), never overwrite",
-        "folder_already_connected": "stop and report the existing source; nothing to add",
-        "no_notes_yet": "write and commit the first note, then run connect again",
-        "remote_brain": "give the user the commands to run on the brain host; do not change MCP settings",
-        "brain_not_initialized": "the user creates a brain first (gbrain init), or keep repo-only",
-        "gbrain_missing": f"show the install guide ({brain_usage.GBRAIN_INSTALL_URL}) and keep repo-only",
-    }
-    if not args.apply:
-        return {**result, "next": next_by_code.get(code, "report the summary")}
-    if code not in ("ready", "already_connected"):
-        return {**result, "ok": False, "summary": f"nothing applied: {result['summary']}", "next": next_by_code.get(code)}
-    if not args.yes:
-        raise NeedsConsent("connect --apply adds a source to the user's GBrain: pass --yes only after the user agreed")
-    outcome = gbrain_connect.apply(result, should_sync=not args.no_sync)
-    return {**result, **outcome,
-            "next": ("one line to the user: notes enter the brain from the branch checked out at the source path; "
-                     "for merged notes only, follow default_branch_recipe" if outcome["ok"] else "report the failed step")}
-
-
-def _connect_team(args, context: dict) -> dict:
-    """Team brain: plan (default) or --apply --yes to register the user-scope MCP entry with the stored token"""
-    switch = context["switch"]
-    team = switch.get("team_brain") if isinstance(switch.get("team_brain"), dict) else None
-    result = team_connect.plan(team, args.token_cred or context.get("registry_token_cred"), context["project"],
-                               context["root"], args.rotate, args.project_mcp_json)
-    if team and team.get("mcp_url") and not args.no_probe and result["code"] not in ("bad_team_brain",):
-        result["team_brain_probe"] = mcp_probe.probe_team_brain(team["mcp_url"], team.get("mcp_name"), context["project"])
-    code = result["code"]
-    next_by_code = {
-        "ready": "show the command (token placeholder) and the probe verdict, then connect --team --apply --yes after a yes",
-        "already_registered": "nothing to do; after a token change: store the new token, then connect --team --rotate",
-        "token_missing": "the user runs store_token_command in a terminal (! prefix in Claude Code), then connect --team again",
-        "claude_cli_missing": "give the user the command; they put their token in place of <token> in their own terminal",
-        "no_team_brain": "setup --team-brain-name N --team-brain-url URL --team-brain-contact WHO (ask the user first)",
-        "bad_team_brain": "fix team_brain in version.yml with setup --team-brain-* flags",
-        "config_unreadable": "the user repairs ~/.projectops/config/config.json first",
-    }
-    project_note = ""
-    if args.project_mcp_json and result.get("project_mcp_json"):
-        project_note = (f"; .mcp.json reads ${{{result['project_mcp_json'].get('env_var')}}}: each teammate sets that "
-                        "variable, and a project entry overrides a user entry of the same name")
-    if not args.apply:
-        return {**result, "next": next_by_code.get(code, "report the summary") + project_note}
-    if not args.yes:
-        raise NeedsConsent("connect --team --apply registers an MCP entry with the user's token: pass --yes only after the user agreed")
-    outcome = team_connect.apply(result, context["root"], context["project"])
-    return {**result, **outcome,
-            "next": ("restart the agent session so the MCP entry loads; commit .mcp.json with pro-commit if it was written"
-                     if outcome["ok"] else next_by_code.get(code, "report the failed step"))}
-
-
-def cmd_install(args) -> dict:
-    """Guided install and init: one question, then exact commands, prerequisites and verification (read only)"""
-    return install_guide.guide(args.choice)
+def _brain_note_ids(context: dict, resolved: dict) -> tuple[set[str] | None, str]:
+    from .adapters import adapter_for
+    reasons = []
+    for destination in resolved["destinations"]:
+        if destination["kind"] == "repo-files" or not destination["is_write_target"]:
+            continue
+        ids, how = adapter_for(destination, context).note_ids()
+        if ids is not None:
+            return ids, how
+        reasons.append(f"{destination['id']}: {how}")
+    return None, "; ".join(reasons) or "no brain destination can list notes"
 
 
 def cmd_gaps(args) -> dict:
@@ -406,8 +415,19 @@ def cmd_gaps(args) -> dict:
     switch = context["switch"]
     capture = args.capture or switch.get("capture") or DEFAULT_CAPTURE
     ref = args.ref or default_ref(context["root"], context["default_branch"])
+    resolved = resolver.resolve(context)
+    brain_ids, coverage = None, "note files"
+    if not resolved["repo_notes"]["value"]:
+        # Notes live only in brains: ask the first brain destination that can list its notes
+        brain_ids, coverage = _brain_note_ids(context, resolved)
+        if brain_ids is None:
+            return {"ok": True, "code": "unknown", "project": context["project"], "coverage": coverage,
+                    "text": f"[pro-brain gaps] {context['project']}: unknown ({coverage})",
+                    "summary": f"cannot tell which work has a note: {coverage}",
+                    "next": "brain_cli.py doctor (fix the brain connection), then gaps again"}
     report = gaps.find_gaps(context["root"], ref, switch.get("path", "knowledge/"), capture, context["remote"],
-                            args.since, switch.get("skip") or [])
+                            args.since, switch.get("skip") or [], brain_note_ids=brain_ids)
+    report["coverage"] = coverage
     return {**report, "project": context["project"], "text": gaps.format_text(context["project"], report),
             "code": "gaps" if report["gap_count"] else "no_gaps",
             "summary": f"{report['gap_count']} item(s) merged without a note ({report['window']})",

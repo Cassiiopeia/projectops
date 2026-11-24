@@ -8,14 +8,16 @@ import json
 import urllib.error
 import urllib.request
 
+from . import http_client
+
 PROBE_TIMEOUT_SECONDS = 10
 # Deliberately invalid bearer value: a real brain must reject it with 401
 PROBE_DUMMY_TOKEN = "projectops-probe-not-a-real-token"
 # Phrases in a 401 body that mean "the brain exists, the token is wrong"
 INVALID_TOKEN_PHRASES = ("invalid token", "invalid_token", "invalid bearer", "unauthorized")
 RESPONSE_BYTES_READ = 2048
-# Named client: some proxies (e.g. Cloudflare bot rules) answer 403 to the default Python-urllib agent
-PROBE_USER_AGENT = "projectops-pro-brain-probe/1"
+# Named client: some proxies (e.g. Cloudflare bot rules, error 1010) answer 403 to the default Python-urllib agent
+PROBE_USER_AGENT = http_client.USER_AGENT
 INITIALIZE_REQUEST = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
                       "params": {"protocolVersion": "2025-06-18", "capabilities": {},
                                  "clientInfo": {"name": "projectops-pro-brain-probe", "version": "1"}}}
@@ -68,6 +70,10 @@ def probe_team_brain(url: str, mcp_name: str | None = None, project: str | None 
     if anonymous_status is not None and 200 <= anonymous_status < 300:
         return {**result, "verdict": "no_auth", "ok": False,
                 "summary": "the URL answers without a token: the brain is open to anyone, tell the brain admin"}
+    if http_client.is_proxy_refusal(dummy_status, dummy_body):
+        return {**result, "verdict": "blocked", "ok": False,
+                "summary": f"a proxy in front of the brain refused the probe (Cloudflare 1010 or a 403 page): allow the "
+                           f"User-Agent '{http_client.USER_AGENT}' in its rules"}
     if anonymous_status == 403 and dummy_status == 403:
         return {**result, "verdict": "blocked", "ok": False,
                 "summary": "403 for both calls: a proxy or firewall in front of the brain refused the probe; check by hand"}

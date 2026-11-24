@@ -477,7 +477,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a project the owner's way) and `/pro-brain` (a knowledge note per issue for a team brain) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a project the owner's way) and `/pro-brain` (a knowledge note per issue, written to the repo or your brains) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
 
 ```bash
 # Claude Code
@@ -567,13 +567,13 @@ It **keeps what stays true about the project** (the decision, why, and what the 
 
 **How it works (for owners)**
 - The first run asks at most three questions, each with a recommended answer: **when** to write notes (after each finished issue, at the end of a work session, on each merge, or only when asked; recommended from the repo's history), and **may it add the knowledge rule to the project CLAUDE.md** (tells every agent when to capture and to search the team brain first for "why" questions). A no is remembered. If CLAUDE.md is gitignored, it offers a small committed `.claude/rules/pro-brain.md` instead, or copies CLAUDE.md into new worktrees on this machine.
-- The third question is **how you use this repo's knowledge**: repo only (default), your own local GBrain (it adds the folder as one source `<project>-knowledge` and syncs it, and stops if that name is taken), your own remote GBrain (commands to run on its host), a team brain server (name, address and who issues read-only tokens are saved in `version.yml` after a check that the address answers like a brain, which catches a mistyped brain key; each member types their own read-only token once in a terminal and says yes to `connect --team`, `--rotate` after a new token), or an install guide (one question: only you on this computer, your own Postgres, Supabase, another machine or a team server, then the exact commands and how to check them). Personal and team can be combined; run setup again to see and change what is in effect.
+- The third question is **where notes should be written** (pick one or more, recommended from what it finds): the repo's knowledge folder (default), your local gbrain (PGLite, Postgres or Supabase), your own remote gbrains, the team's shared gbrain (written directly with each member's write token, or read while the server syncs the repo folder), or an install guide. Personal choices stay in your own config; shared ones go in `version.yml`. Without the repo folder, nothing about notes is committed and it suggests a daily `gbrain export` backup. `write` sends one note to every place (saving again updates the same page), and `doctor` checks each place (gbrain installed, database, tunnel, pgvector, token, write permission) with a fix for each failure. In a brain the note is a fuller issue record (problem, cause, solution and rejected options, implementation, verification, cautions).
 - After that the agent writes notes at the right moment and skips trivial work with one line. Notes reach the team brain once merged into the main branch: no extra service, no AI cost in CI.
 - A note has a searchable title, stable id, tags, links to related notes, facts collected automatically (version, commit range, files, API endpoints, migrations, setting and secret **names**, never values) and 30 to 80 lines of prose: background, decision with reasons and rejected alternatives, behavior change, code pointers, cautions, verification. No code dumps or logs.
 - `gaps` lists work merged into the main branch that has no note yet, from git history only, so a brain's sync job can log it for free.
 
 **Modifies**: notes in the knowledge folder (plus files the repo's own vault rules require); once, after you agree, the `version.yml` switch and one marked rule block
-**Returns**: the note path and the sync target known on this machine, or the reason it was skipped
+**Returns**: per destination what happened (written, updated, unchanged, failed with a fix), or the reason it was skipped
 
 **When to use it**
 - Right after `pro-report` (issue repos), after a feature commit or at the end of a session, or after a merge, as the repo's mode says

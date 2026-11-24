@@ -162,7 +162,7 @@ npx projectops --intent library
 | `metadata.template.options.code_review.ai_summary` | boolean | default: `true` | wizard (--ai-summary) | AI PR summary workflow installed. |
 | `metadata.template.options.changelog.provider` | enum | values: `copilot` `coderabbit` `openai` `gemini` `claude` `groq` `mistral` `ollama` `commit`; default: commit | by hand | Release note generator. 'commit' is free and always works; AI keys are picked up automatically when registered as secrets. |
 | `metadata.template.options.changelog.base_url` | string |  | by hand | Only for provider ollama. |
-| `metadata.template.options.knowledge` | map |  | by hand | Knowledge capture switch for the pro-brain skill: enabled, path (default knowledge/), capture (issue-end \| session-end \| merge \| manual), optional claude_md, team_brain (mcp_name, mcp_url, contact; never a token) or none, legacy brain_mcp, note_dir, template, rules, check, skip. Shared with everyone who clones the repo. |
+| `metadata.template.options.knowledge` | map |  | by hand | Knowledge capture switch for the pro-brain skill: enabled, path (default knowledge/), capture (issue-end \| session-end \| merge \| manual), optional claude_md, schema, repo_notes (false = notes go only to brains), sync_branch, team_brain (mcp_name, optional mcp_url, contact, write: sync \| direct; never a token) or none, legacy brain_mcp, note_dir, template, rules, check, skip. Shared with everyone who clones the repo; personal destinations live in the user config. |
 
 <!-- /generated -->
 

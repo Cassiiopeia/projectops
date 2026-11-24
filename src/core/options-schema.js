@@ -136,7 +136,7 @@ export const VERSION_YML = [
   { path: "metadata.template.options.changelog.base_url", parserKey: "changelogBaseUrl", type: "string", description: "Only for provider ollama.", edit: "by hand" },
   // Read by the extras skill pro-brain, not by the wizard: kept verbatim on updates like issue_helper (#835, #1259)
   { path: "metadata.template.options.knowledge", type: "map",
-    description: "Knowledge capture switch for the pro-brain skill: enabled, path (default knowledge/), capture (issue-end | session-end | merge | manual), optional claude_md, team_brain (mcp_name, mcp_url, contact; never a token) or none, legacy brain_mcp, note_dir, template, rules, check, skip. Shared with everyone who clones the repo.",
+    description: "Knowledge capture switch for the pro-brain skill: enabled, path (default knowledge/), capture (issue-end | session-end | merge | manual), optional claude_md, schema, repo_notes (false = notes go only to brains), sync_branch, team_brain (mcp_name, optional mcp_url, contact, write: sync | direct; never a token) or none, legacy brain_mcp, note_dir, template, rules, check, skip. Shared with everyone who clones the repo; personal destinations live in the user config.",
     edit: "by hand" },
 ];
 
