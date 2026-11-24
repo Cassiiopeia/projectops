@@ -1,7 +1,18 @@
 # Changelog
 
-**Current version:** 4.115.1  
-**Last updated:** 2026-11-24T00:53:03Z  
+**Current version:** 4.116.0  
+**Last updated:** 2026-11-24T02:09:49Z  
+
+---
+
+## [4.116.0] - 2026-11-24
+
+**PR:** #1277  
+
+**New features**
+- pro-gbrain now handles GBrain setup end to end from one place: install, brain setup, Claude Code and Codex connection, indexing, search, embeddings and local HTML sharing
+- A setup check shows what is done, whether Claude Code and Codex use the same brain, and the next step to take
+- Choose several moments to save project knowledge (report, issue done, merge, confirmed deploy) without duplicate notes
 
 ---
 
