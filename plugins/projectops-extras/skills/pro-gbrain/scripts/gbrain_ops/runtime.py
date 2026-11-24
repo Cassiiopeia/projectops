@@ -19,7 +19,9 @@ def executable(env: dict | None = None) -> str | None:
 
 def redact(value, secrets=()):
     if isinstance(value, dict):
-        return {key: ("<secret>" if credentials.is_secret_key(key) and not key.endswith(("_source", "_cred", "_path"))
+        # Mask only string values under secret-looking keys; counts such as newTokens stay readable
+        return {key: ("<secret>" if isinstance(item, str) and credentials.is_secret_key(key)
+                      and not key.endswith(("_source", "_cred", "_path"))
                       else redact(item, secrets)) for key, item in value.items()}
     if isinstance(value, list):
         return [redact(item, secrets) for item in value]
@@ -49,6 +51,11 @@ def decode(text: str):
 def environment(args) -> tuple[dict, list[str]]:
     home = getattr(args, "gbrain_home", None)
     env = common.gbrain_environment(Path(home).expanduser().resolve() if home else None)
+    if home:
+        # A separate brain home also isolates harness wiring; otherwise setup rewires the real ~/.codex and ~/.claude
+        isolated = Path(home).expanduser().resolve()
+        env["CODEX_HOME"] = str(isolated / ".codex")
+        env["CLAUDE_CONFIG_DIR"] = str(isolated / ".claude")
     secrets = []
     cred = getattr(args, "credential", None)
     if cred:
@@ -104,7 +111,13 @@ def run(arguments: list[str], args=None, timeout=90, env=None) -> dict:
     if completed.stderr:
         result["diagnostics"] = completed.stderr[-2000:]
     if not result["ok"]:
-        result["next"] = parsed.get("next") if isinstance(parsed, dict) else "manage doctor"
+        # GBrain refusals carry the exact fix in `suggestion`; pass it on instead of a generic hint
+        result["next"] = (parsed.get("next") or parsed.get("suggestion")) if isinstance(parsed, dict) else "manage doctor"
+        missing = ((parsed.get("diagnosis") or {}).get("missingEnvVars") or []) if isinstance(parsed, dict) else []
+        if missing:
+            # Provider key absent: name the variable to fill from a stored credential
+            result["next"] = (f"store the provider key, then repeat with --credential NAME --credential-field api_key "
+                              f"--credential-env {missing[0]}")
         result["next"] = result["next"] or "manage doctor"
     return redact(result, secrets)
 
@@ -124,7 +137,16 @@ def engine(args=None) -> dict:
             "connection": "not_probed", "next": result.get("next")}
 
 
+def require_stored_credential(args) -> None:
+    """Refuse a plan whose --credential name is not in the store (presence only, the value is not read)"""
+    name = getattr(args, "credential", None)
+    if name and name not in credentials.list_credential_names():
+        raise common.StepError("credential_missing", f"no stored credential named {name}",
+                               "store it with hidden input: projectops_cli.py launch cred set --name NAME --prompt")
+
+
 def plan_or_run(argv: list[str], args, *, effects: list[str], timeout=600) -> dict:
+    require_stored_credential(args)
     plan = {"ok": True, "code": "plan", "argv": ["gbrain", *argv], "effects": effects,
             "gbrain_home": getattr(args, "gbrain_home", None), "summary": "review the selected target and effects",
             "next": "repeat this command with --apply --yes"}

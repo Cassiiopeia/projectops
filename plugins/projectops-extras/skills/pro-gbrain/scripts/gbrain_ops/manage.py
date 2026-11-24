@@ -139,6 +139,37 @@ def harness(args):
     return result
 
 
+def _registered_source_ids(args) -> set[str] | None:
+    """sources list --json > registered ids; None when the list cannot be read"""
+    listing = runtime.run(["sources", "list", "--json"], args)
+    data = listing.get("result")
+    items = data.get("sources") if isinstance(data, dict) else data
+    if not listing["ok"] or not isinstance(items, list):
+        return None
+    return {item.get("id") for item in items if isinstance(item, dict)}
+
+
+def source(args):
+    """Source status, or register one new git-backed source (never --force, never an existing id)"""
+    if not args.path:
+        return runtime.run(["sources", "status", *([args.source] if args.source else []), "--json"], args)
+    source_id = required(args, "source")
+    folder = Path(args.path).expanduser().resolve()
+    if not (folder / ".git").exists():
+        raise common.StepError("not_a_git_repo", "a source path must be a git repository with committed files",
+                               "commit the documents first, then pass that repository as --path")
+    registered = _registered_source_ids(args)
+    if registered is None:
+        raise common.StepError("sources_unreadable", "could not list existing sources", "manage doctor --probe")
+    if source_id in registered:
+        return {"ok": True, "code": "already_registered", "source": source_id,
+                "next": f"manage ingest --source {source_id}"}
+    result = runtime.plan_or_run(["sources", "add", source_id, "--path", str(folder), "--no-federated", "--json"], args,
+                                 effects=[f"register source {source_id} reading committed files of {folder}"])
+    result["next"] = f"manage ingest --source {source_id}" if args.apply else result["next"]
+    return result
+
+
 def ingest(args):
     source = required(args, "source")
     argv = ["sync", "--source", source, "--no-pull", "--json"]
@@ -163,9 +194,16 @@ def embeddings(args):
     if args.dimensions:
         argv += ["--embedding-dimensions", str(args.dimensions)]
     result = runtime.plan_or_run(argv, args, effects=["enable embedding provider; future calls may cost money",
+                                                    "host-wide model: every brain mounted on this host shares it",
                                                     "model and vector compatibility are enforced by GBrain"])
-    result["backfill"] = "manage ingest --source SOURCE --embedding --apply --yes"
+    result["backfill"] = "manage embed --apply --yes"
     return result
+
+
+def embed(args):
+    """Backfill vectors for chunks queued after enablement (enablement alone embeds nothing)"""
+    return runtime.plan_or_run(["embed", "--stale", "--json"], args,
+                               effects=["embed stale chunks with the configured provider; paid providers bill per token"])
 
 
 def publish(args):
@@ -190,16 +228,25 @@ def publish(args):
 
 
 def schedule(args):
-    if args.schedule_action == "status":
+    """Autopilot maintenance runner: status, install, uninstall, pause, resume (brain-wide, never --force)"""
+    action = args.schedule_action
+    if action == "status":
         return runtime.run(["autopilot", "--status", "--json"], args)
-    argv = ["autopilot", "--install"] if args.schedule_action == "install" else ["autopilot", args.schedule_action]
-    if args.schedule_action == "install":
-        if not args.repo:
-            raise common.StepError("missing_option", "select the brain repository for its maintenance daemon", "pass --repo PATH")
-        argv += ["--repo", str(Path(args.repo).resolve())]
-        if args.target:
-            argv += ["--target", args.target]
-    return runtime.plan_or_run(argv, args, effects=["change the selected brain's persistent maintenance runner"])
+    if action == "uninstall":
+        return runtime.plan_or_run(["autopilot", "--uninstall"], args, effects=["remove the installed maintenance daemon"])
+    if action in ("pause", "resume"):
+        return runtime.plan_or_run(["autopilot", action], args, effects=[f"{action} brain-wide maintenance cycles"])
+    if not args.repo:
+        raise common.StepError("missing_option", "select the brain repository for its maintenance daemon", "pass --repo PATH")
+    # PGlite holds a single-writer lock; a daemon would block every other writer, and --force is never passed
+    if (runtime.engine(args).get("effective_engine")) == "pglite":
+        raise common.StepError("pglite_single_writer", "a resident daemon on a PGlite brain locks out other writers",
+                               "use Postgres for a scheduled runner, or run manage ingest on demand")
+    argv = ["autopilot", "--install", "--repo", str(Path(args.repo).resolve()), "--no-inject"]
+    if args.target:
+        argv += ["--target", args.target]
+    return runtime.plan_or_run(argv, args, effects=["install a persistent maintenance daemon under the host supervisor",
+                                                    "undo with manage schedule --schedule-action uninstall"])
 
 
 def note(args):
@@ -216,5 +263,6 @@ def note(args):
     return result
 
 
-HANDLERS = {"doctor": doctor, "install": install, "init": initialize, "harness": harness, "ingest": ingest,
-            "search": search, "embeddings": embeddings, "publish": publish, "schedule": schedule, "note": note}
+HANDLERS = {"doctor": doctor, "install": install, "init": initialize, "harness": harness, "source": source,
+            "ingest": ingest,
+            "search": search, "embeddings": embeddings, "embed": embed, "publish": publish, "schedule": schedule, "note": note}

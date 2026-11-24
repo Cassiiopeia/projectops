@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -142,9 +144,12 @@ def handle_event(args):
     try:
         with os.fdopen(fd, "w") as handle:
             handle.write(str(os.getpid()))
-        result = pro_brain.run_brain_cli(["write", "--note", str(note), "--id", key], root)
-        if result.get("code") == "bad_args":
-            result = _repo_fallback(root, policy, key, note)
+        existing = _find_record_note(root, policy, key)
+        with tempfile.TemporaryDirectory(prefix="pro-gbrain-event-") as staging:
+            delivered = _stage_under_record_name(note, existing, Path(staging))
+            result = pro_brain.run_brain_cli(["write", "--note", str(delivered), "--id", key], root)
+            if result.get("code") == "bad_args":
+                result = _repo_fallback(root, policy, delivered, existing, previous.get("digest"))
         state = {"schema": 1, "project": project, "record_id": key, "event": args.event,
                  "digest": digest, "status": "done" if result.get("ok") else "failed", "updated_at": common.timestamp()}
         common.write_private_json(receipt_path, state)
@@ -154,19 +159,44 @@ def handle_event(args):
         lock.unlink()
 
 
-def _repo_fallback(root, policy, key, note):
+def _find_record_note(root: Path, policy: dict, key: str) -> Path | None:
+    """Knowledge folder > the note whose frontmatter id is this record (first match), else None"""
+    folder = (root / str(policy["note_path"])).resolve()
+    if not folder.is_dir():
+        return None
+    id_line = re.compile(r'^id:\s*["\']?' + re.escape(key) + r'["\']?\s*$', re.MULTILINE)
+    for path in sorted(folder.rglob("*.md")):
+        head = path.read_text(encoding="utf-8", errors="replace")[:2000]
+        if head.startswith("---") and id_line.search(head.split("\n---", 1)[0]):
+            return path
+    return None
+
+
+def _stage_under_record_name(note: Path, existing: Path | None, staging: Path) -> Path:
+    """Note > copy named like the record's existing file, so one record keeps one file across events"""
+    if existing is None or existing.name == note.name:
+        return note
+    staged = staging / existing.name
+    shutil.copyfile(note, staged)
+    return staged
+
+
+def _repo_fallback(root, policy, note, existing, last_written_digest):
     # pro-brain without `write`: repo file only, never reported as delivered to a brain
     facts, _ = modules()
     raw = facts.read_nested_block(facts.read_version_yml_text(root), facts.KNOWLEDGE_BLOCK_PATH) or {}
     if raw.get("repo_notes") is False:
         return {"ok": False, "code": "write_upgrade_required", "next": "install pro-brain with destination write support"}
-    safe_key = hashlib.sha256(key.encode()).hexdigest()[:20] if not key.startswith("issue-") else key
-    target = (root / str(policy["note_path"]) / f"{safe_key}.md").resolve()
+    target = (existing or (root / str(policy["note_path"]) / note.name)).resolve()
     if not target.is_relative_to(root) or target == root:
         raise common.StepError("invalid_note_path", "notes must stay inside this repository", "fix knowledge.path")
     target.parent.mkdir(parents=True, exist_ok=True)
-    if target.exists() and target != note and target.read_bytes() != note.read_bytes():
-        return {"ok": False, "code": "note_conflict", "path": str(target), "next": "update the existing note deliberately, then pass that file"}
+    # Overwrite only what this flow wrote last; a hand-edited note is a conflict
+    if target.exists() and target.read_bytes() != note.read_bytes():
+        current = hashlib.sha256(target.read_bytes()).hexdigest()
+        if current != last_written_digest:
+            return {"ok": False, "code": "note_conflict", "path": str(target),
+                    "next": "merge the edits into the note deliberately, then pass that file"}
     if target != note:
         target.write_bytes(note.read_bytes())
     return {"ok": True, "code": "repo_written", "path": str(target), "ingestion": "pending_commit_and_sync",
