@@ -1,7 +1,18 @@
 # Changelog
 
-**Current version:** 4.117.1  
-**Last updated:** 2026-11-24T02:21:31Z  
+**Current version:** 4.117.2  
+**Last updated:** 2026-11-24T07:36:56Z  
+
+---
+
+## [4.117.2] - 2026-11-24
+
+**PR:** #1280  
+
+**Bug fixes**
+- pro-gbrain can actually install background brain maintenance on macOS and Linux (it was always refused before)
+- pro-gbrain shows the background jobs you already have before adding another
+- pro-gbrain works on Korean Windows consoles and explains the manual steps where GBrain does not support Windows yet
 
 ---
 

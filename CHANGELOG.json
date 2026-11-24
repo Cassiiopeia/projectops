@@ -1,14 +1,35 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-24T02:21:31Z",
-    "currentVersion": "4.117.1",
+    "lastUpdated": "2026-11-24T07:36:56Z",
+    "currentVersion": "4.117.2",
     "projectType": "basic",
-    "totalReleases": 436,
+    "totalReleases": 437,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.117.2",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-24",
+      "pr_number": 1280,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * pro-gbrain can actually install background brain maintenance on macOS and Linux (it was always refused before)\n  * pro-gbrain shows the background jobs you already have before adding another\n  * pro-gbrain works on Korean Windows consoles and explains the manual steps where GBrain does not support Windows yet",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "pro-gbrain can actually install background brain maintenance on macOS and Linux (it was always refused before)",
+            "pro-gbrain shows the background jobs you already have before adding another",
+            "pro-gbrain works on Korean Windows consoles and explains the manual steps where GBrain does not support Windows yet"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.117.1",
       "project_type": "basic",
