@@ -1,14 +1,43 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-24T07:36:56Z",
-    "currentVersion": "4.117.2",
+    "lastUpdated": "2026-11-24T08:44:38Z",
+    "currentVersion": "4.118.0",
     "projectType": "basic",
-    "totalReleases": 437,
+    "totalReleases": 438,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.118.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-24",
+      "pr_number": 1281,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * pro-brain lets you choose where notes are saved: the repo, the gbrain on this computer, remote gbrains, or several at once\n  * Notes go straight to every chosen place, and saving again updates the same note instead of adding a copy\n  * A check command tells you, for each place, why saving would fail and how to fix it (missing tool, locked database, missing or read-only key)\n\n* **Bug fixes**\n  * Notes saved from Windows editors are no longer rejected\n  * A note you edited by hand in the repo is not silently overwritten\n  * Checking a local brain on Windows no longer risks stopping the running gbrain process",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "pro-brain lets you choose where notes are saved: the repo, the gbrain on this computer, remote gbrains, or several at once",
+            "Notes go straight to every chosen place, and saving again updates the same note instead of adding a copy",
+            "A check command tells you, for each place, why saving would fail and how to fix it (missing tool, locked database, missing or read-only key)"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Notes saved from Windows editors are no longer rejected",
+            "A note you edited by hand in the repo is not silently overwritten",
+            "Checking a local brain on Windows no longer risks stopping the running gbrain process"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.117.2",
       "project_type": "basic",

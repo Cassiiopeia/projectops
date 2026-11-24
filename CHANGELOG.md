@@ -1,7 +1,23 @@
 # Changelog
 
-**Current version:** 4.117.2  
-**Last updated:** 2026-11-24T07:36:56Z  
+**Current version:** 4.118.0  
+**Last updated:** 2026-11-24T08:44:38Z  
+
+---
+
+## [4.118.0] - 2026-11-24
+
+**PR:** #1281  
+
+**New features**
+- pro-brain lets you choose where notes are saved: the repo, the gbrain on this computer, remote gbrains, or several at once
+- Notes go straight to every chosen place, and saving again updates the same note instead of adding a copy
+- A check command tells you, for each place, why saving would fail and how to fix it (missing tool, locked database, missing or read-only key)
+
+**Bug fixes**
+- Notes saved from Windows editors are no longer rejected
+- A note you edited by hand in the repo is not silently overwritten
+- Checking a local brain on Windows no longer risks stopping the running gbrain process
 
 ---
 
