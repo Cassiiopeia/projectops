@@ -2,7 +2,8 @@
 
 Use the same `{PYTHON} {SCRIPTS}/gbrain_cli.py` as the main skill. These are executable commands, not shell recipes.
 Mutations preview by default; `--apply --yes` executes the selected operation after authorization. No command accepts a
-raw password or token. `--gbrain-home PATH` selects a separate GBrain installation home for management commands.
+raw password or token. `--gbrain-home PATH` selects a separate GBrain home for management commands and also points
+harness wiring at `PATH/.codex` and `PATH/.claude`, so a trial never rewires the real Claude Code or Codex.
 
 ```bash
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage doctor --repo /path/to/project
@@ -32,20 +33,30 @@ paid provider setup. Add `--no-hooks` for MCP only or `--capture` only when auto
 Hosted ownership conflicts are reported rather than replaced.
 
 ```bash
+{PYTHON} {SCRIPTS}/gbrain_cli.py manage source --source project-knowledge --path /path/to/committed-docs-repo
+{PYTHON} {SCRIPTS}/gbrain_cli.py manage source --source project-knowledge --path /path/to/committed-docs-repo --apply --yes
+{PYTHON} {SCRIPTS}/gbrain_cli.py manage source --source project-knowledge
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage ingest --source project-knowledge
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage ingest --source project-knowledge --apply --yes
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage search --source project-knowledge --query "deployment decision"
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage search --source project-knowledge --query "why did we choose this" --semantic
 ```
+`source` with `--path` registers one new git-backed source (never `--force`; an existing id returns
+`already_registered`); without `--path` it returns source status (pages, chunks, embedding coverage).
 Ingest returns `plan` with a real sync preview, or executes source-scoped committed-content sync without Git pull.
 Embedding is off unless `--embedding` is selected. Read the source's held/resumable/blocked states; exit zero alone is
 not completion. Search returns GBrain results for the selected source. Read and cite them when summarizing.
 
 ```bash
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage embeddings --model provider:model --dimensions 1024 --credential embeddings-key --credential-field api_key --credential-env OPENAI_API_KEY
+{PYTHON} {SCRIPTS}/gbrain_cli.py manage embeddings --model ollama:qwen3-embedding:0.6b --dimensions 1024 --apply --yes
+{PYTHON} {SCRIPTS}/gbrain_cli.py manage embed --apply --yes
 ```
-Returns `plan`; apply only for the selected brain and provider. GBrain enforces vector/model compatibility. Enablement
-is not backfill: afterward use source-scoped ingest with `--embedding`. Provider model and environment must match.
+Returns `plan`; apply only for the selected brain and provider. A credential name that is not stored is refused at plan
+time (`credential_missing`). GBrain enforces vector/model compatibility; its refusal (for example
+`embedding_width_mismatch`) comes back with GBrain's exact fix in `next`. The model is host-wide for that GBrain home.
+Enablement only queues chunks: `manage embed` backfills them, and `manage source --source ID` shows coverage. A local
+Ollama model costs nothing; paid providers bill per token. A missing provider key names the variable in `next`.
 
 ```bash
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage publish --file /path/to/reviewed.md --out /path/to/new-share.html
@@ -60,9 +71,11 @@ publication needs the installed GBrain's supported flow; do not claim it happene
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage schedule --schedule-action install --repo /path/to/brain --target macos
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage schedule --schedule-action pause --apply --yes
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage schedule --schedule-action resume --apply --yes
+{PYTHON} {SCRIPTS}/gbrain_cli.py manage schedule --schedule-action uninstall --apply --yes
 ```
 Status reads autopilot. Other operations return plans unless applied. Maintenance is brain-wide: inspect existing
-runners and explain the scope before installing. No forced PGlite lock override is used.
+runners and explain the scope before installing. A PGlite brain is refused (`pglite_single_writer`): a resident daemon
+would hold its single-writer lock, and `--force` is never passed. Install never edits agent bootstrap files.
 
 ```bash
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage note --repo /path/to/project --issue 123
@@ -83,12 +96,18 @@ legacy `capture` mode, `capture_runner` and optional `capture_source` in version
 `event` returns `skipped`, `needs_note`, `plan`, `noop`, or destination results. No note means collect facts, then author
 or update that stable record. Deployment events need `--outcome success`. Non-issue records require `--record-id`.
 Receipts live privately per project and record. A completed identical payload is a no-op; failed payloads retry.
+A record keeps one file: when the knowledge folder already has a note with the same `id`, the update is delivered under
+that file name whatever the new file is called. The repo-only path overwrites only what it wrote last; a hand-edited
+note returns `note_conflict`.
 Old pro-brain versions write repo files and explicitly report `pending_commit_and_sync`, never remote success.
 
 ## Error handling
 
 | Code | Action |
 |---|---|
+| `credential_missing` | Store the credential with hidden input under that name, then repeat |
+| `pglite_single_writer` | Keep on-demand ingest, or move the brain to Postgres before installing a runner |
+| `not_a_git_repo` / `sources_unreadable` | Commit the documents in a git repo; run `manage doctor --probe` |
 | `gbrain_missing` / `bun_missing` | Run install plan; prepare the official runtime if required |
 | `needs_consent` | Use existing authorization or obtain consent for the displayed new effects |
 | `credential_env_required` / `database_credential_required` | Choose a named credential and supported environment variable |

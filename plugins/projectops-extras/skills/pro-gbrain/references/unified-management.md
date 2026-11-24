@@ -13,7 +13,7 @@ version-dependent operations. No installation, database, provider or public publ
 | Create / connect the project | Existing `plan` and `add`; retain the current repo/own/team modes |
 | Wire Claude Code or Codex | GBrain `setup <harness> --dry-run --json`, review target and ownership, then the authorized setup and harness doctor |
 | Store a decision / report / issue | pro-brain note workflow; use its installed `write` capability when available |
-| Import or refresh documents | GBrain source-scoped sync preview, then sync; inspect outcomes and search a known document |
+| Import or refresh documents | `manage source` (register once), then `manage ingest` preview and apply; search a known document |
 | Diagnose / repair | Project status, pro-brain doctor when supported, GBrain doctor and source status; fix only the diagnosed target |
 | Search / summarize | Search accessible project sources, read hits, synthesize with citations; never assume a `summary` command exists |
 | Embeddings | Inspect engine and existing vectors; follow the provider procedure below |
@@ -88,7 +88,8 @@ Start with keyword search and verify a known document is retrievable. For option
 vector dimension, stale chunks, provider credential availability and which machine actually performs embedding.
 Explain provider data transfer and cost before enabling it. Use `embeddings enable --help` and the installed migration
 help: existing incompatible vectors need the supported migration, not a silent config replacement. Enablement and
-backfill are distinct; check coverage after embedding and run a representative query. Do not run `embed --all` against
+backfill are distinct (`manage embed` backfills); check coverage with `manage source --source ID` and run a
+representative query. Do not run `embed --all` against
 an unrelated personal or shared brain. Query expansion is a separate model call and optional cost.
 
 Summaries are grounded in selected issue/report/document evidence or actual search hits. Distinguish project knowledge
