@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.116.0  
-**Last updated:** 2026-11-24T02:09:49Z  
+**Current version:** 4.117.0  
+**Last updated:** 2026-11-24T02:18:07Z  
+
+---
+
+## [4.117.0] - 2026-11-24
+
+**PR:** #1278  
+
+**New features**
+- pro-gbrain can register a document folder as a brain source and fill in missing embeddings after you turn them on
+
+**Bug fixes**
+- Trying pro-gbrain in a separate test folder no longer changes your real Claude Code or Codex settings
+- Saving the same issue's knowledge again now updates one note instead of creating a second file
+- Clearer next steps when an embedding model, key or scheduled runner cannot be used
+
+**Documentation**
+- Added the knowledge note for the pro-gbrain update
 
 ---
 
