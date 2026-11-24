@@ -272,7 +272,7 @@ Read by the extras skill `pro-disk-cleanup` (`disk_cli.py`). Every field is opti
 
 ### `project-blueprint` section (#1249, registry #1250, knowledge #1259)
 
-Read by the extras skills `pro-project-blueprint` and `pro-brain`. Holds the infra values the owner reuses in every project and a
+Read by the extras skills `pro-project-blueprint`, `pro-brain` and `pro-gbrain`. Holds the infra values the owner reuses in every project and a
 registry of the owner's projects, so a repo is set up or worked on without asking again. One section, not a sibling:
 config keys are owned by skill_id (§8), and the registry's references point into this section's `infra`.
 Placeholders below; the annotated shape ships as the skill's `config.sample.json`, and the lookup and write rules as
@@ -334,7 +334,7 @@ password; `secrets` lists GitHub Secret names, never values. Keep keys you do no
 | `projects.<key>` | | Registry entry per project. Agents match the current repo by git remote (`repos[].github`) or path (`local_path`, `worktree_path`) before asking anything, and write the entry when a project is set up. Every field is optional; absent = unknown |
 | `projects.<key>.deploy.server`, `.database.instance`, `.database.account` | | Names of `infra.servers` / `infra.databases` / `accounts` entries, never copies of their values |
 | `projects.<key>.status` | | `active` or `archived` |
-| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `mcp_server_name` (hint for pro-brain's team-brain answer, e.g. `gbrain-<project>`; the repo switch `team_brain` is the shared truth), `token_cred` (name of the credential store entry holding the brain token, §9), `server`, `database_instance`, `database`, `sync_script`, `notes`. References only |
+| `infra.brains.<name>` | | One entry per brain: `engine` (`gbrain`), `kind` (`team` or `personal`), `mcp_url` (endpoint only, omitted when none; never a token), `mcp_server_name` (hint for pro-brain's team-brain answer, e.g. `gbrain-<project>`; the repo switch `team_brain` is the shared truth), `token_cred` (name of the credential store entry holding the brain token, §9), `server`, `database_instance`, `database`, `sync_script`, `notes`, and from `pro-gbrain` `service`, `port`, `provisioned_by`, `status`. `kind: provisioner` is a brain server `pro-gbrain` asks for team brains: its `provisioner` block holds `type`, `base_url`, `auth_header`, `credential` (a §9 name), `credential_field`, `supports_dry_run`, `server`, `sync` (contract: the pro-gbrain skill folder, provisioner-contract.md). References only |
 | `projects.<key>.knowledge` | | `brain` (an `infra.brains` name), `source_id` (default `<key>-knowledge`), `sync` (`repo-commit`), `enabled`/`path` (owner intent only). The on/off switch itself is the repo's `version.yml` `metadata.template.options.knowledge`; `pro-brain` never connects to a brain |
 
 ### `image` section

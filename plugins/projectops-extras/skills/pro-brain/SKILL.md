@@ -97,7 +97,7 @@ enough (AskUserQuestion when available, all questions in one dialog):
 | 1 `repo-only` (default, most repos) | Notes live in the repo; no brain | Nothing else to set up |
 | 2 `local-gbrain` | Your own GBrain on this machine (PGLite or local Postgres) | `connect` (plan), show it, `connect --apply --yes` after a yes |
 | 3 `remote-gbrain` | Your own GBrain on another machine, reached over HTTP | `connect` (`--remote` when gbrain is not installed here): give the host commands; change nothing here |
-| 4 `team-brain` | A gbrain HTTP server your team runs | Ask name, URL, token contact (prefill from `usage.team_brain` or `usage.registry_mcp_hint`), apply with `--team-brain-*` (the URL is probed, see `team_brain_probe`), then §Team brain connection |
+| 4 `team-brain` | A gbrain HTTP server your team runs | Ask name, URL, token contact (prefill from `usage.team_brain` or `usage.registry_mcp_hint`), apply with `--team-brain-*` (the URL is probed, see `team_brain_probe`), then §Team brain connection. No team brain yet? `/pro-gbrain` creates one end to end |
 | 5 `install-guide` | No GBrain yet | §Guided install, then behave like 1 until a brain exists |
 
 Choosing no team brain when one is recorded (or hinted by the private registry) is `--team-brain-off`: it stores
