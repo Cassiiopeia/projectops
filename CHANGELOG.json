@@ -1,14 +1,47 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-23T05:53:45Z",
-    "currentVersion": "4.114.0",
+    "lastUpdated": "2026-11-24T00:37:28Z",
+    "currentVersion": "4.115.0",
     "projectType": "basic",
-    "totalReleases": 431,
+    "totalReleases": 432,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.115.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-24",
+      "pr_number": 1273,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * New `/pro-gbrain`: attach a repo to GBrain in one command, with one question (alone or with your team)\n  * Team brain setup end to end: server brain, repo switch, hourly sync script, registry and a final read-only check\n  * `/pro-gbrain status`, `repair`, `share` (teammate read-only key in a private message) and `remove` (deletes nothing)\n\n* **Bug fixes**\n  * `/pro-brain` connect no longer reports a failure after the source was added with newer GBrain\n\n* **Documentation**\n  * Brain server contract for teams that run their own server, and a plain-language how-it-works page",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "New `/pro-gbrain`: attach a repo to GBrain in one command, with one question (alone or with your team)",
+            "Team brain setup end to end: server brain, repo switch, hourly sync script, registry and a final read-only check",
+            "`/pro-gbrain status`, `repair`, `share` (teammate read-only key in a private message) and `remove` (deletes nothing)"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "`/pro-brain` connect no longer reports a failure after the source was added with newer GBrain"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Brain server contract for teams that run their own server, and a plain-language how-it-works page"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.114.0",
       "project_type": "basic",

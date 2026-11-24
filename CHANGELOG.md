@@ -1,7 +1,24 @@
 # Changelog
 
-**Current version:** 4.114.0  
-**Last updated:** 2026-11-23T05:53:45Z  
+**Current version:** 4.115.0  
+**Last updated:** 2026-11-24T00:37:28Z  
+
+---
+
+## [4.115.0] - 2026-11-24
+
+**PR:** #1273  
+
+**New features**
+- New `/pro-gbrain`: attach a repo to GBrain in one command, with one question (alone or with your team)
+- Team brain setup end to end: server brain, repo switch, hourly sync script, registry and a final read-only check
+- `/pro-gbrain status`, `repair`, `share` (teammate read-only key in a private message) and `remove` (deletes nothing)
+
+**Bug fixes**
+- `/pro-brain` connect no longer reports a failure after the source was added with newer GBrain
+
+**Documentation**
+- Brain server contract for teams that run their own server, and a plain-language how-it-works page
 
 ---
 
