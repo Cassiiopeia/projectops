@@ -166,7 +166,7 @@ def _find_record_note(root: Path, policy: dict, key: str) -> Path | None:
         return None
     id_line = re.compile(r'^id:\s*["\']?' + re.escape(key) + r'["\']?\s*$', re.MULTILINE)
     for path in sorted(folder.rglob("*.md")):
-        head = path.read_text(encoding="utf-8", errors="replace")[:2000]
+        head = path.read_text(encoding="utf-8-sig", errors="replace")[:2000]   # BOM from Windows editors
         if head.startswith("---") and id_line.search(head.split("\n---", 1)[0]):
             return path
     return None

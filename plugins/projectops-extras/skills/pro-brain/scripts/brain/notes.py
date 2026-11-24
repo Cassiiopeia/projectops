@@ -59,7 +59,7 @@ def _int_or_none(value) -> int | None:
 
 def read_note(path: Path, knowledge_folder: Path, remote_slug: str | None) -> dict:
     """One note > id, title, topics, modules, files and the issues, PRs and commits it refers to"""
-    text = path.read_text(encoding="utf-8", errors="replace")
+    text = path.read_text(encoding="utf-8-sig", errors="replace")   # BOM from Windows editors
     frontmatter = read_frontmatter(text)
     slug_pattern = re.escape(remote_slug) if remote_slug else r"[^/\s]+/[^/\s]+"
     issues = {int(number) for number in re.findall(rf"github\.com/{slug_pattern}/issues/(\d+)", text, re.IGNORECASE)}

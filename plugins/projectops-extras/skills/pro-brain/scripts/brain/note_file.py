@@ -45,7 +45,8 @@ def load_note(path_text: str, project: str, id_override: str | None = None) -> d
     raw = path.read_bytes()
     if len(raw) > MAX_NOTE_BYTES:
         raise NoteError("note_too_large", f"note is {len(raw)} bytes (limit {MAX_NOTE_BYTES}): keep it compact")
-    content = raw.decode("utf-8", errors="replace")
+    # utf-8-sig: Windows editors and PowerShell 5.1 prefix a BOM that would hide the frontmatter
+    content = raw.decode("utf-8-sig", errors="replace")
     frontmatter = read_frontmatter(content)
     note_id = id_override or frontmatter.get("id")
     if not note_id:
