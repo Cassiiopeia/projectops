@@ -1,10 +1,12 @@
 """repo-files adapter: notes as markdown in the repo's knowledge folder, committed with the work by pro-commit (never here)"""
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 from pathlib import Path
 
-from ..repo_facts import path_tracking_state
+from ..repo_facts import GitError, path_tracking_state, run_git
 from .base import Adapter, check, write_result
 
 
@@ -49,11 +51,43 @@ class RepoFilesAdapter(Adapter):
                                 commit="stage this path and commit with pro-commit")
         if target.is_file() and target.read_bytes() == source.read_bytes():
             return write_result(self.destination, "unchanged", f"{relative} already holds this note", path=relative)
+        if target.is_file() and not self._is_safe_to_replace(target, relative):
+            return write_result(self.destination, "failed", f"{relative} was edited after the last write",
+                                path=relative, code="note_edited",
+                                fix="merge those edits into the new note, then write that file")
         outcome = "updated" if target.is_file() else "written"
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, target)
+        self._remember_written(relative, target.read_bytes())
         return write_result(self.destination, outcome, f"{outcome} {relative}", path=relative,
                             commit="stage this path and commit with pro-commit")
+
+    def _receipt_path(self, relative: str) -> Path:
+        """{state}/pro-brain/written/<hash of repo + path>.json: digest of the last content this adapter wrote"""
+        from ..doctor import state_folder
+        key = hashlib.sha256(f"{self.context['root']}::{relative}".encode()).hexdigest()[:24]
+        return state_folder() / "written" / f"{key}.json"
+
+    def _remember_written(self, relative: str, content: bytes) -> None:
+        receipt = self._receipt_path(relative)
+        receipt.parent.mkdir(parents=True, exist_ok=True)
+        receipt.write_text(json.dumps({"path": relative, "sha256": hashlib.sha256(content).hexdigest()}), encoding="utf-8")
+
+    def _is_safe_to_replace(self, target: Path, relative: str) -> bool:
+        """Replace only content nobody edited by hand: equal to HEAD, or equal to what this adapter wrote last"""
+        current = target.read_bytes()
+        try:
+            # Line endings ignored: a Windows checkout may hold CRLF for the same committed text
+            committed = run_git(self.context["root"], "show", f"HEAD:{relative}").encode("utf-8")
+            if committed.replace(b"\r", b"") == current.replace(b"\r", b""):
+                return True
+        except (GitError, FileNotFoundError):
+            pass
+        receipt = self._receipt_path(relative)
+        if receipt.is_file():
+            recorded = json.loads(receipt.read_text(encoding="utf-8")).get("sha256")
+            return recorded == hashlib.sha256(current).hexdigest()
+        return False
 
     def search_hint(self) -> str:
         return f"read {self.destination.get('path', 'knowledge/')} (search by topic, file or issue number)"

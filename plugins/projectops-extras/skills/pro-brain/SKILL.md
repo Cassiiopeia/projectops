@@ -255,6 +255,8 @@ others (`code: partial`, each failure with `fix`).
 - `repo` chosen: save the note in the knowledge folder (or let `write` copy it there), stage only the note and the files
   the repo rules made you touch, commit with `pro-commit`. Issue PR still open: on the issue branch; already merged: a
   follow-up commit on the development branch. Never commit to `main` or a deploy branch. Push only when the user asks.
+  The repo copy is replaced only when it still matches the last commit or the last `write`; a note edited by hand
+  since then fails with `note_edited`: merge those edits into the new note, then write again.
 - Brain only: write the note to a temp file **outside the repo** (`note_inside_repo` otherwise), run `write`, delete it.
   Nothing is committed. Offer the `backup_hint` line once.
 

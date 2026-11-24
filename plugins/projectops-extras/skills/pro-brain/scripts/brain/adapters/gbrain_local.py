@@ -10,7 +10,7 @@ import socket
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .. import brain_usage, http_client, note_file
+from .. import brain_usage, http_client, note_file, proc
 from .base import Adapter, check, write_result
 
 DOCTOR_TIMEOUT_SECONDS = 180
@@ -62,18 +62,15 @@ def pglite_lock(database_path: str | None) -> dict:
     if not owner.is_file():
         return {"held": False}
     try:
-        pid = int((json.loads(owner.read_text(encoding="utf-8")) or {}).get("pid") or 0)
-    except (OSError, ValueError, TypeError):
-        pid = 0
-    alive = False
-    if pid:
-        try:
-            os.kill(pid, 0)
-            alive = True
-        except PermissionError:
-            alive = True
-        except OSError:
-            alive = False
+        owner_record = json.loads(owner.read_text(encoding="utf-8")) or {}
+        pid = int(owner_record.get("pid") or 0)
+    except (OSError, ValueError, TypeError, AttributeError):
+        owner_record, pid = {}, 0
+    # GBrain 0.60 owner file is {"protocol": "kernel-v1"}: the OS file lock decides, no pid to check
+    if not pid:
+        return {"held": False, "protocol": owner_record.get("protocol") if isinstance(owner_record, dict) else None}
+    # Shared OS-branching check: a signal-0 probe would terminate the lock owner on Windows
+    alive = bool(pid) and proc.pid_alive(pid)
     return {"held": True, "pid": pid or None, "alive": alive}
 
 

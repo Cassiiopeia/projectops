@@ -97,6 +97,10 @@ class GbrainRemoteAdapter(Adapter):
             checks.append(check("initialize", "fail", http_client.mask_text(error.message, [token]), fix, code=code))
             return {"checks": checks, "command": command}
         capabilities = self._capabilities(tools, session.server_info)
+        if not capabilities["write_tools"] and capabilities["request_tools"]:
+            capabilities["write_probe"] = self._probe_write_tool(session)
+            if capabilities["write_probe"] == "granted":
+                capabilities["write_tools"] = ["put_page"]
         checks.append(check("initialize", "ok", f"MCP session open ({capabilities['server']})"))
         checks.append(self._scope_check(capabilities))
         return {"checks": checks, "command": command, "capabilities": capabilities}
@@ -112,12 +116,25 @@ class GbrainRemoteAdapter(Adapter):
                 "request_tools": "request_tools" in names,
                 "batch": "put_pages" in names}
 
+    @staticmethod
+    def _probe_write_tool(session) -> str:
+        """request_tools(put_page) > granted (write token) | refused (read token gets an empty list) | unknown"""
+        try:
+            answer = session.call_tool("request_tools", {"tools": ["put_page"]})
+        except mcp_http.McpError:
+            return "unknown"
+        data = answer.get("data")
+        if answer.get("is_error") or not isinstance(data, dict) or not isinstance(data.get("tools"), list):
+            return "unknown"
+        return "granted" if any(isinstance(tool, dict) and tool.get("name") == "put_page" for tool in data["tools"]) \
+            else "refused"
+
     def _scope_check(self, capabilities: dict) -> dict:
         is_write_target = self.destination.get("is_write_target")
         if capabilities["write_tools"]:
             return check("scope", "ok", f"write tools exposed: {', '.join(capabilities['write_tools'])}; "
                                         f"search: {', '.join(capabilities['search_tools']) or 'none listed'}", scope="write")
-        if capabilities["request_tools"]:
+        if capabilities["request_tools"] and capabilities.get("write_probe") != "refused":
             return check("scope", "warn" if is_write_target else "ok",
                          "no write tool advertised; request_tools may unlock put_page (write tries it)",
                          "if write fails with an unknown tool, ask the admin for a write-scoped token or a wider surface",
