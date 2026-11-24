@@ -1,7 +1,16 @@
 # Changelog
 
-**Current version:** 4.117.0  
-**Last updated:** 2026-11-24T02:18:07Z  
+**Current version:** 4.117.1  
+**Last updated:** 2026-11-24T02:21:31Z  
+
+---
+
+## [4.117.1] - 2026-11-24
+
+**PR:** #1279  
+
+**Bug fixes**
+- pro-gbrain warns before installing a background maintenance job on a brain that a server may already maintain
 
 ---
 

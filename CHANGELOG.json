@@ -1,14 +1,33 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-24T02:18:07Z",
-    "currentVersion": "4.117.0",
+    "lastUpdated": "2026-11-24T02:21:31Z",
+    "currentVersion": "4.117.1",
     "projectType": "basic",
-    "totalReleases": 435,
+    "totalReleases": 436,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.117.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-24",
+      "pr_number": 1279,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * pro-gbrain warns before installing a background maintenance job on a brain that a server may already maintain",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "pro-gbrain warns before installing a background maintenance job on a brain that a server may already maintain"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.117.0",
       "project_type": "basic",
