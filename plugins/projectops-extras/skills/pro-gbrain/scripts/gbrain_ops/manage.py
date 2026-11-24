@@ -44,8 +44,34 @@ def doctor(args):
         result["project"] = {"code": "not_a_repo", "next": "pass --repo to inspect project policy"}
     if result["harnesses"]:
         result["harness_targets"] = summarize_harness_targets(result["harnesses"])
+    # Existing runners first: a second scheduler for the same brain duplicates maintenance
+    result["existing_runners"] = detect_existing_runners()
     result["next_steps"] = recommend_next_steps(result)
     return result
+
+
+def detect_existing_runners() -> list[dict]:
+    """Host schedulers that already mention gbrain: launchd plists, crontab lines, Windows tasks (read only)"""
+    runners = []
+    agents = common.home() / "Library" / "LaunchAgents"
+    if agents.is_dir():
+        runners += [{"kind": "launchd", "name": path.stem} for path in sorted(agents.glob("*.plist"))
+                    if "gbrain" in path.read_text(encoding="utf-8", errors="replace").lower()]
+    if os.name == "nt":
+        command = ["schtasks", "/Query", "/FO", "CSV", "/NH"]
+    elif shutil.which("crontab"):
+        command = ["crontab", "-l"]
+    else:
+        return runners
+    try:
+        completed = subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", timeout=20)
+    except (OSError, subprocess.TimeoutExpired):
+        return runners + [{"kind": command[0], "name": "unknown"}]
+    for line in (completed.stdout or "").splitlines():
+        if "gbrain" in line.lower() and not line.lstrip().startswith("#"):
+            name = line.split('","')[0].strip('"') if os.name == "nt" else line.strip()[:120]
+            runners.append({"kind": "schtasks" if os.name == "nt" else "crontab", "name": name})
+    return runners
 
 
 def _harness_needs_setup(preview: dict | None) -> bool:
@@ -125,12 +151,25 @@ def initialize(args):
 def harness(args):
     target = required(args, "harness")
     argv = ["setup", target, "--json", "--shape", "none", "--no-providers"]
+    env, _ = runtime.environment(args)
+    launcher = runtime.executable(env)
+    if launcher:
+        # Windows hosts cannot resolve an absolute launcher on their own (setup exits 2)
+        argv += ["--gbrain-bin", launcher]
     argv += ["--capture" if args.capture else "--no-capture"]
     if args.no_hooks:
         argv.append("--no-hooks")
     if args.source:
         argv += ["--source", args.source]
     preview = runtime.run([*argv, "--dry-run"], args)
+    if not preview["ok"] and "absolute gbrain launcher" in (preview.get("diagnostics") or ""):
+        # GBrain 0.60 setup rejects every launcher on Windows; register the stdio server by hand instead
+        serve = f'"{launcher or "gbrain"}" serve --surface starter --advertise verbs'
+        manual = (f"claude mcp add --scope user gbrain -- {serve}" if target == "claude-code"
+                  else f'add [mcp_servers.gbrain] command = "{launcher or "gbrain"}", '
+                       'args = ["serve", "--surface", "starter", "--advertise", "verbs"] to the Codex config.toml')
+        return {"ok": False, "code": "harness_launcher_unresolved", "launcher": launcher,
+                "summary": "gbrain setup cannot resolve its launcher on this host", "next": manual}
     if not preview["ok"] or not args.apply:
         return {**preview, "code": "plan" if preview["ok"] else preview["code"], "next": "review target; repeat with --apply --yes"}
     result = runtime.plan_or_run(argv, args, effects=[f"wire {target} MCP, selected hooks and instructions"])
@@ -238,6 +277,11 @@ def schedule(args):
         return runtime.plan_or_run(["autopilot", action], args, effects=[f"{action} brain-wide maintenance cycles"])
     if not args.repo:
         raise common.StepError("missing_option", "select the brain repository for its maintenance daemon", "pass --repo PATH")
+    # GBrain 0.60 has no Windows supervisor: install falls back to crontab and fails
+    if os.name == "nt":
+        raise common.StepError("windows_supervisor_unsupported", "GBrain autopilot cannot install a service on Windows",
+                               "Task Scheduler at logon: schtasks /Create /SC ONLOGON /TN gbrain-autopilot "
+                               "/TR \"gbrain autopilot --repo REPO\" (or run manage ingest on demand)")
     # PGlite holds a single-writer lock; a daemon would block every other writer, and --force is never passed
     engine_status = runtime.engine(args)
     if engine_status.get("effective_engine") == "pglite":
@@ -251,7 +295,12 @@ def schedule(args):
     if engine_status.get("effective_engine") == "postgres":
         # A loopback Postgres is often an SSH tunnel to a server brain whose own scheduler this host cannot see
         effects.append("postgres brain: if the database is shared with a server, run maintenance there, not here")
-    return runtime.plan_or_run(argv, args, effects=effects)
+    if not args.apply:
+        # GBrain's own dry run names the supervisor and the files it would write
+        return {**runtime.run([*argv, "--dry-run"], args), "code": "plan", "effects": effects,
+                "next": "repeat with --apply --yes"}
+    # autopilot --install has its own consent gate (persistent_install): --yes carries the user's approval
+    return runtime.plan_or_run([*argv, "--yes"], args, effects=effects)
 
 
 def note(args):

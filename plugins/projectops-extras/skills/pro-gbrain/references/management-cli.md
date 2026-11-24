@@ -73,7 +73,10 @@ publication needs the installed GBrain's supported flow; do not claim it happene
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage schedule --schedule-action resume --apply --yes
 {PYTHON} {SCRIPTS}/gbrain_cli.py manage schedule --schedule-action uninstall --apply --yes
 ```
-Status reads autopilot. Other operations return plans unless applied. Maintenance is brain-wide: inspect existing
+Status reads autopilot. The install plan is GBrain's own `--dry-run` (supervisor and files it would write); apply
+passes `--yes`, which GBrain requires for this persistent install. `manage doctor` lists `existing_runners` (launchd
+plists, crontab lines or Windows tasks that mention gbrain): reuse those before adding another. Other operations
+return plans unless applied. Maintenance is brain-wide: inspect existing
 runners and explain the scope before installing. A PGlite brain is refused (`pglite_single_writer`): a resident daemon
 would hold its single-writer lock, and `--force` is never passed. Install never edits agent bootstrap files.
 
@@ -105,6 +108,8 @@ Old pro-brain versions write repo files and explicitly report `pending_commit_an
 
 | Code | Action |
 |---|---|
+| `harness_launcher_unresolved` | GBrain setup cannot resolve its launcher (GBrain 0.60 on Windows): run the manual MCP registration in `next` |
+| `windows_supervisor_unsupported` | GBrain autopilot has no Windows service: use the Task Scheduler line in `next`, or on-demand ingest |
 | `credential_missing` | Store the credential with hidden input under that name, then repeat |
 | `pglite_single_writer` | Keep on-demand ingest, or move the brain to Postgres before installing a runner |
 | `not_a_git_repo` / `sources_unreadable` | Commit the documents in a git repo; run `manage doctor --probe` |

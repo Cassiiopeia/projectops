@@ -15,6 +15,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gbrain_ops import commands, common, context, credentials, management_parser  # noqa: E402
 
+# Same rule as scripts/common/emit.py: one unencodable char on a cp949 console must not kill the CLI
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(errors="replace")
+
 USAGE = "gbrain_cli.py manage | triggers | event | detect | plan | add | repair | status | verify | share | remove [options]"
 
 
