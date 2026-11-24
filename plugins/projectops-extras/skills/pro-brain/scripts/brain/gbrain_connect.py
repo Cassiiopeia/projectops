@@ -120,7 +120,8 @@ def apply(plan_result: dict, should_sync: bool) -> dict:
     if code == "ready":
         exit_code, output = brain_usage.run_gbrain("sources", "add", source_id, "--path", plan_result["source_path"], "--json")
         parsed = brain_usage.parse_json(output) or {}
-        added = exit_code == 0 and parsed.get("source_id") == source_id
+        # gbrain 0.60 answers {"id": ...}; older builds used "source_id"
+        added = exit_code == 0 and (parsed.get("id") or parsed.get("source_id")) == source_id
         steps.append({"step": "sources add", "ok": added, "state": parsed.get("state"), "error": None if added else
                       (parsed.get("code") or parsed.get("error") or f"exit {exit_code}")})
         if not added:

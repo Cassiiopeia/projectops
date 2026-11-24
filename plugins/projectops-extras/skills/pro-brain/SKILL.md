@@ -102,7 +102,7 @@ enough (AskUserQuestion when available, all questions in one dialog):
 | `repo` (default) | `knowledge/*.md`, committed with the work | switch `repo_notes` (shared) | nothing else |
 | `local` | This machine's gbrain (PGLite, local Postgres or Supabase), written with `gbrain put` | your config (personal) | `doctor --to local` |
 | `remote:NAME` | Your own `gbrain serve` elsewhere over HTTP MCP (any number) | your config: name, URL, token name | store the token (§Tokens), `doctor` |
-| `team` | The team's shared remote gbrain, written directly (`write: direct`) | switch `team_brain` (name, URL optional) | each member stores a write token, `doctor` |
+| `team` | The team's shared remote gbrain, written directly (`write: direct`) | switch `team_brain` (name, URL optional) | each member stores a write token, `doctor`. No team brain yet? `/pro-gbrain` creates one end to end |
 | `install-guide` | No gbrain yet | nothing | §Guided install; behaves like `repo` meanwhile |
 
 A team brain that only syncs the repo folder (`write: sync`, the legacy `brain_mcp`) is read, not written: leave `team` out

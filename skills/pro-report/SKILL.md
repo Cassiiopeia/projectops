@@ -123,7 +123,12 @@ report_cli loads the PAT from config.json automatically (an environment variable
 
 ### Step 7: Finish the issue (after posting the report)
 
-Before finishing: if `version.yml` has `metadata.template.options.knowledge.enabled: true` with `capture` `issue-end` (or no `capture`) and `/pro-brain` (projectops-extras) is installed, run `/pro-brain` first.
+Before finishing, when `knowledge.capture_events` is present, use `/pro-gbrain` `event report --issue N` instead
+of the legacy capture-mode check below. It returns `skipped` or facts for one stable note; author/update the note, then
+call `event report --issue N --note FILE --apply --yes` within the configured capture authorization. Report failures
+without pretending ingestion succeeded. This does not install a CI runner. Do not execute both capture paths.
+
+Legacy policy only (no `capture_events`): if `version.yml` has `metadata.template.options.knowledge.enabled: true` with `capture` `issue-end` (or no `capture`) and `/pro-brain` (projectops-extras) is installed, run `/pro-brain` first.
 
 Once the report comment is posted, finish the issue. Follow the "Finish an issue" recipe in the `pro-github` SKILL.md exactly; do not define a separate procedure here.
 

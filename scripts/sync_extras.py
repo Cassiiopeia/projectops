@@ -14,6 +14,7 @@ COPIES = [
     ("scripts/common/redact.py", "skills/pro-skill-bug/scripts/bug/redact.py"),   # redaction rules original (extras cannot use common)
     ("scripts/common/proc.py", "skills/pro-remote-link/scripts/tunnel/proc.py"),  # original of the per-OS process liveness check
     ("scripts/common/credentials.py", "skills/pro-brain/scripts/brain/credentials.py"),  # credential store accessor (team brain token, #1265)
+    ("scripts/common/credentials.py", "skills/pro-gbrain/scripts/gbrain_ops/credentials.py"),  # provisioner admin key by credential name (#1271)
 ]
 
 if __name__ == "__main__":

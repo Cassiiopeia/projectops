@@ -68,6 +68,8 @@ Work through it in order. Each step names the skill that does the work.
    volume folder, domain and reverse proxy (`pro-synology-expose`), then the first deploy (`references/server-deploy.md`).
 7. **Verify** - build each stack locally, then check the deployed health endpoint (`pro-ssh` for logs).
 8. **Register** - write the project's entry into `project-blueprint.projects` (`references/project-registry.md`).
+9. **Brain (optional)** - "attach gbrain to this project" is one command: `/pro-gbrain` (repo switch, team brain on the
+   brain server, sync script, registry entries, end-to-end check).
 
 ## Daily work pipeline
 
@@ -77,6 +79,7 @@ design > issue (pro-github) > worktree (pro-init-worktree) > implement > verify 
 > report (pro-report) > knowledge note when the repo turns it on (pro-brain) > label done and close (pro-github finish-issue)
 ```
 
+- The knowledge note step needs the repo switch on; to switch it on and connect a brain once, run `/pro-gbrain`.
 - Stage only the paths you touched; other agent sessions may be working in the same tree.
 - Push only when the user asks. Never force-push; integrate with rebase.
 - App store deploys run only when the user explicitly asks for that deploy (store review follows).

@@ -229,3 +229,11 @@ Your own language, tone and rules apply: see `../references/preferences.md`. Rea
 Keys for this skill: `template` (release-note lead-in) plus the common `tone`, `rules`.
 The personal `language` preference does not change the release notes: they land in the team `CHANGELOG.md`, so their language is the repo's `version.yml` `language` (the key the workflow reads). Set that key to change it for the team; for one release, just ask.
 Preferences change presentation only; approval gates, secret protection and `--dry-run` stay in force.
+
+## Knowledge capture events
+
+When `knowledge.capture_events` exists, use `/pro-gbrain` after each issue report (`event report --issue N`) and after
+confirmed deployment success (`event deploy --issue N --outcome success`). Follow `needs_note` by updating the same
+issue record and delivering it with `--note FILE --apply --yes`. An automerge is not evidence of deployment success.
+Disabled events are skipped; do not also run the legacy capture path for these events. Record delivery failures as
+follow-up work without changing the deployment outcome. Existing CI ingestion is inspected before adding any runner.

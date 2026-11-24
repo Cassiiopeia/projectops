@@ -114,7 +114,7 @@ Every card above is a real record from this repository. You open an issue (or `/
 | Design & upkeep | `/pro-oss-consult` | Score a repo as an open-source project and fix what you approve |
 | Design & upkeep | `/pro-skill-creator` | Create, review and improve a skill |
 
-**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected skill bug from any session), `/pro-disk-cleanup` (reclaim disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a new repo with your usual layout, branches, public-repo secrets and deploy), `/pro-brain` (knowledge notes per issue, change set or merge, written where you choose: the repo, your local gbrain, remote or team gbrains; `doctor` checks each one). Install: `claude plugin install projectops-extras@projectops-marketplace --scope user`
+**Extras** (optional plugin): `/pro-synology-expose`, `/pro-skill-bug` (report a suspected skill bug from any session), `/pro-disk-cleanup` (reclaim disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a new repo with your usual layout, branches, public-repo secrets and deploy), `/pro-brain` (knowledge notes per issue, change set or merge, written where you choose: the repo, your local gbrain, remote or team gbrains; `doctor` checks each one), `/pro-gbrain` (attach a repo to GBrain in one command: one question, then repo, server brain, sync, registry and an end-to-end check; status, repair, share, remove). Install: `claude plugin install projectops-extras@projectops-marketplace --scope user`
 
 ```bash
 # Claude Code
@@ -163,7 +163,7 @@ Supported types: <!-- generated: project-types:types-list -->`flutter`, `spring`
 Everything is on the **[docs site](https://cassiiopeia.github.io/projectops/)**, in English and [Korean](https://cassiiopeia.github.io/projectops/ko/): [Getting started](https://cassiiopeia.github.io/projectops/getting-started) · [CLI](https://cassiiopeia.github.io/projectops/cli) · [Agent Skills](https://cassiiopeia.github.io/projectops/skills) · [Versioning](https://cassiiopeia.github.io/projectops/version-control) · [Changelog](https://cassiiopeia.github.io/projectops/changelog-automation) · [SSH + Docker deploy](https://cassiiopeia.github.io/projectops/ssh-docker-deployment-guide) · [Flutter CI/CD](https://cassiiopeia.github.io/projectops/flutter-cicd-overview) · [Troubleshooting](https://cassiiopeia.github.io/projectops/troubleshooting)
 
 <!-- AUTO-VERSION-SECTION: DO NOT EDIT MANUALLY -->
-## Latest version : v4.113.0 (2026-11-23)
+## Latest version : v4.117.2 (2026-11-24)
 
 [View full version history](CHANGELOG.md)
 

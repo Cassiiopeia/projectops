@@ -477,7 +477,7 @@ Skills write in your style. Put your preferences in `~/.projectops/config/config
 
 ## Extras (optional plugin)
 
-`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a project the owner's way) and `/pro-brain` (a knowledge note per issue, written to the repo or your brains) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
+`/pro-synology-expose` (a guide for exposing a Synology NAS service on an external domain), `/pro-skill-bug` (report a projectops skill bug) `/pro-disk-cleanup` (free disk space safely), `/pro-remote-link` (a link to open Orca or Paseo from outside), `/pro-project-blueprint` (start a project the owner's way) `/pro-brain` (a knowledge note per issue, written to the repo or your brains) and `/pro-gbrain` (attach a repo to GBrain in one command) are not in the core plugin. They live in the optional `projectops-extras` plugin. (`/pro-code-consult` moved to the core plugin.)
 
 ```bash
 # Claude Code
@@ -578,6 +578,26 @@ It **keeps what stays true about the project** (the decision, why, and what the 
 **When to use it**
 - Right after `pro-report` (issue repos), after a feature commit or at the end of a session, or after a merge, as the repo's mode says
 - "Save this decision to the team brain", "write the knowledge note", "set up pro-brain", "connect this repo to my GBrain", "which merged work has no note?"
+
+
+---
+
+### `/pro-gbrain`
+
+**What does it do?**
+It **attaches a repo to GBrain in one command**. Say "attach gbrain to this project": it looks at the repo and your setup, asks one question (alone or with your team, with a recommendation) and one "go ahead?", then does the rest. With a team it creates (or reuses) the project's brain on your brain server, turns the repo switch on through `pro-brain`, prepares this machine's copy of the main branch's notes with an hourly sync script, records everything in your private registry and checks the result with a temporary read-only key (it can search, cannot write, and stops working once revoked). Alone, it adds the notes to your own GBrain; or it keeps notes in the repo only.
+
+**How it works (for owners)**
+- Nothing is deleted, ever; running it again (`repair`) only fills in what is missing and re-applies permissions.
+- No secret is shown in the chat: keys stay in your private settings file or files only you can read.
+- `status` shows every team brain (server health, last sync, merged work with no note); `share` makes a read-only key and a ready-to-send message for a teammate; `remove` detaches after you type the project name.
+- Without your own brain server it shows the steps for whoever runs your brain; `references/provisioner-contract.md` explains how to automate another server.
+
+**Modifies**: after your yes, the repo switch and rule block (via pro-brain), the brain server (create or adopt), `~/gbrains/<project>/` on this machine and your private registry (backup first)
+**Returns**: what was set up, where the sync runs, the check result and the `share` line for teammates
+
+**When to use it**
+- "Attach gbrain to this project", "make a team brain for this repo", "how are our team brains?", "give Alex access to the team brain"
 
 
 ---

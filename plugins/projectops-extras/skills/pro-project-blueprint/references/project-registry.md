@@ -19,6 +19,7 @@ project-blueprint
 │   ├── servers.<name>        kind, credential, host, ssh_port, user, docker_bin, volume_base_path, timezone
 │   ├── databases.<instance>  engine, server, container, host, port, default_account, accounts.<name>
 │   └── brains.<name>         engine, kind, mcp_url?, mcp_server_name?, server?, database_instance?, database?, sync_script?, notes
+│                             (kind: provisioner = a brain server /pro-gbrain can ask for team brains; shape in its provisioner-contract.md)
 ├── defaults                  branch names and install options picked once
 └── projects.<key>
     ├── status, display_name, gbrain_entity, notes
@@ -34,6 +35,8 @@ project-blueprint
 - `repos` is a list because one product can span several repositories (backend and app repos); a monorepo has one.
   Branches, stacks, secret names and store ids belong to the repo, deploy and database to the project.
 - `database.account` may be omitted: the instance's `default_account` applies.
+- `/pro-gbrain` (extras) writes `infra.brains.<project>-team` and `projects.<key>.knowledge` after a team brain is set up
+  (backup first, missing keys only), and reads the `kind: provisioner` entry.
 - `knowledge` and `infra.brains` are read by `pro-brain` (extras) only to say where the repo's knowledge folder is
   synced; see §Knowledge capture below.
 

@@ -77,6 +77,7 @@ No slash-command UI is needed; read the file directly.
 | Run commands on a remote server over SSH | `pro-ssh` |
 | Expose a Synology service on a domain | `pro-synology-expose` (optional `projectops-extras` plugin) |
 | Keep decisions, reasons and cautions (per issue, change set or merge) as knowledge notes in the repo for a team brain; list merged work with no note | `pro-brain` (optional `projectops-extras` plugin) |
+| Attach a repo to GBrain in one command (team brain on a brain server, own brain or repo only); team brain status, repair, teammate access | `pro-gbrain` (optional `projectops-extras` plugin) |
 | Audit or refactor AI-written code, check a diff for stale comments, install coding conventions | `pro-code-consult` |
 | Create, review or improve a skill | `pro-skill-creator` |
 

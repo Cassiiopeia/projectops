@@ -1,7 +1,84 @@
 # Changelog
 
-**Current version:** 4.114.0  
-**Last updated:** 2026-11-23T05:53:45Z  
+**Current version:** 4.117.2  
+**Last updated:** 2026-11-24T07:36:56Z  
+
+---
+
+## [4.117.2] - 2026-11-24
+
+**PR:** #1280  
+
+**Bug fixes**
+- pro-gbrain can actually install background brain maintenance on macOS and Linux (it was always refused before)
+- pro-gbrain shows the background jobs you already have before adding another
+- pro-gbrain works on Korean Windows consoles and explains the manual steps where GBrain does not support Windows yet
+
+---
+
+## [4.117.1] - 2026-11-24
+
+**PR:** #1279  
+
+**Bug fixes**
+- pro-gbrain warns before installing a background maintenance job on a brain that a server may already maintain
+
+---
+
+## [4.117.0] - 2026-11-24
+
+**PR:** #1278  
+
+**New features**
+- pro-gbrain can register a document folder as a brain source and fill in missing embeddings after you turn them on
+
+**Bug fixes**
+- Trying pro-gbrain in a separate test folder no longer changes your real Claude Code or Codex settings
+- Saving the same issue's knowledge again now updates one note instead of creating a second file
+- Clearer next steps when an embedding model, key or scheduled runner cannot be used
+
+**Documentation**
+- Added the knowledge note for the pro-gbrain update
+
+---
+
+## [4.116.0] - 2026-11-24
+
+**PR:** #1277  
+
+**New features**
+- pro-gbrain now handles GBrain setup end to end from one place: install, brain setup, Claude Code and Codex connection, indexing, search, embeddings and local HTML sharing
+- A setup check shows what is done, whether Claude Code and Codex use the same brain, and the next step to take
+- Choose several moments to save project knowledge (report, issue done, merge, confirmed deploy) without duplicate notes
+
+---
+
+## [4.115.1] - 2026-11-24
+
+**PR:** #1274  
+
+**Bug fixes**
+- `/pro-gbrain share` accepts any teammate name, including spaces, capitals and non-Latin letters
+
+**Documentation**
+- Knowledge note on how `/pro-gbrain` is designed and what to watch for
+
+---
+
+## [4.115.0] - 2026-11-24
+
+**PR:** #1273  
+
+**New features**
+- New `/pro-gbrain`: attach a repo to GBrain in one command, with one question (alone or with your team)
+- Team brain setup end to end: server brain, repo switch, hourly sync script, registry and a final read-only check
+- `/pro-gbrain status`, `repair`, `share` (teammate read-only key in a private message) and `remove` (deletes nothing)
+
+**Bug fixes**
+- `/pro-brain` connect no longer reports a failure after the source was added with newer GBrain
+
+**Documentation**
+- Brain server contract for teams that run their own server, and a plain-language how-it-works page
 
 ---
 
