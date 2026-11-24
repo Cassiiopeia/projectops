@@ -1,7 +1,19 @@
 # Changelog
 
-**Current version:** 4.115.0  
-**Last updated:** 2026-11-24T00:37:28Z  
+**Current version:** 4.115.1  
+**Last updated:** 2026-11-24T00:53:03Z  
+
+---
+
+## [4.115.1] - 2026-11-24
+
+**PR:** #1274  
+
+**Bug fixes**
+- `/pro-gbrain share` accepts any teammate name, including spaces, capitals and non-Latin letters
+
+**Documentation**
+- Knowledge note on how `/pro-gbrain` is designed and what to watch for
 
 ---
 

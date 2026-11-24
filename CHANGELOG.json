@@ -1,14 +1,39 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-24T00:37:28Z",
-    "currentVersion": "4.115.0",
+    "lastUpdated": "2026-11-24T00:53:03Z",
+    "currentVersion": "4.115.1",
     "projectType": "basic",
-    "totalReleases": 432,
+    "totalReleases": 433,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.115.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-24",
+      "pr_number": 1274,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * `/pro-gbrain share` accepts any teammate name, including spaces, capitals and non-Latin letters\n\n* **Documentation**\n  * Knowledge note on how `/pro-gbrain` is designed and what to watch for",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "`/pro-gbrain share` accepts any teammate name, including spaces, capitals and non-Latin letters"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Knowledge note on how `/pro-gbrain` is designed and what to watch for"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.115.0",
       "project_type": "basic",
