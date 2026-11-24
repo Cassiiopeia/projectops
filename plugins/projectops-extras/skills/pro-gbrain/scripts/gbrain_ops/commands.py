@@ -178,13 +178,20 @@ def cmd_share(args) -> dict:
     if not (args.apply and args.yes):
         return {"ok": True, "code": "plan", "summary": f"issue one read-only token for {member} on {project}",
                 "next": f"share --project {project} --member {member} --apply --yes"}
-    issued = provisioner.issue_read_only_token(project, f"{member}-{common.compact_timestamp()}")
+    issued = provisioner.issue_read_only_token(project, to_token_label(member))
     message_path = _write_share_message(project, member, issued)
     copied = _copy_to_clipboard(message_path)
     return {"ok": True, "code": "shared", "token_id": issued.get("token_id"), "scopes": issued.get("scopes"),
             "message_file": str(message_path), "copied_to_clipboard": copied,
             "summary": f"read-only token for {member} saved in a private file (600); the token is not shown here",
             "next": "send the file's text to the member one to one (DM), then delete the file"}
+
+
+def to_token_label(member: str) -> str:
+    """Teammate name > token label the reference server accepts (lower case letters, digits, hyphens; 2-63 chars)"""
+    import re
+    slug = re.sub(r"[^a-z0-9]+", "-", member.lower()).strip("-")[:40] or "member"
+    return f"{slug}-{common.compact_timestamp()}"
 
 
 def _write_share_message(project: str, member: str, issued: dict) -> Path:
