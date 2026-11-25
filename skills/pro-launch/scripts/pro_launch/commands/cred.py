@@ -8,6 +8,7 @@ import sys
 import credentials
 
 from pro_launch.registry import Command
+from pro_launch.runtime import secret_input
 from pro_launch.runtime.output import out
 
 
@@ -129,24 +130,6 @@ def _cred_migrate_github_pat(args) -> int:
                          else "cred check")})
 
 
-def _secret_from_input(args, field: str) -> tuple[str | None, dict | None]:
-    """Secret value for --secret-field: hidden terminal input (--prompt) or a named env var (--from-env)"""
-    if args.from_env:
-        value = os.environ.get(args.from_env, "")
-        if not value:
-            return None, {"ok": False, "code": "env_empty", "error": f"Environment variable {args.from_env} is empty"}
-        return value, None
-    if not sys.stdin.isatty():
-        return None, {"ok": False, "code": "no_tty",
-                      "error": "The value must be typed in a terminal (not accepted via chat or pipe)",
-                      "next": f"User, in a terminal: launch_cli.py cred set --name {args.name} --secret-field {field} --prompt"}
-    import getpass
-    value = getpass.getpass(f"{field} for {args.name} (hidden): ")
-    if not value:
-        return None, {"ok": False, "code": "empty_password", "error": "Value is empty"}
-    return value, None
-
-
 # 3 sub-actions of cred policy / 3 actions that take the name as a positional argument
 POLICY_ACTIONS = ("get", "set", "unset")
 NAME_POSITIONAL_ACTIONS = ("show", "set", "unset")
@@ -245,27 +228,22 @@ def cmd_cred(args) -> int:
 
         if args.action == "set":
             name = credentials.validate_name(args.name)
-            try:
-                fields = json.loads(args.json_value) if args.json_value else None
-            except json.JSONDecodeError as e:
-                return out({"ok": False, "code": "bad_json", "error": f"Invalid --json: {e}"})
-            if args.secret_field and (args.prompt or args.from_env):
+            # Validate every argument before any secret is read or a file deleted
+            error_payload = secret_input.validate_set_arguments(args, name)
+            if error_payload:
+                return out(error_payload)
+            fields, error_payload = secret_input.load_json_fields(args)
+            if error_payload:
+                return out(error_payload)
+            if args.secret_field:
                 # Any secret field (token, api_key ...) without the value passing through chat or argv
-                secret_value, error_payload = _secret_from_input(args, args.secret_field)
+                secret_value, error_payload = secret_input.read_secret(args, name, args.secret_field)
                 if error_payload:
                     return out(error_payload)
                 fields = {**(fields or {}), args.secret_field: secret_value}
-            elif args.from_env:
-                return out({"ok": False, "code": "secret_field_required",
-                            "error": "--from-env needs --secret-field <field>",
-                            "next": f"cred set --name {name} --secret-field token --from-env {args.from_env}"})
             elif args.prompt:
                 # This Mac's sudo password (#784). Never taken via chat or pipe — the session log would keep it in plain text.
                 # The user types it in the terminal (input is hidden) and only that value is saved.
-                if not sys.stdin.isatty():
-                    return out({"ok": False, "code": "no_tty",
-                                "error": "The password must be typed in a terminal (not accepted via chat or pipe)",
-                                "next": f"User, in a terminal: launch_cli.py cred set --name {name} --prompt"})
                 import getpass
                 # kind: ssh means the server login password (#946); otherwise this Mac's sudo password
                 is_ssh_server = (fields or {}).get("kind") == "ssh"
@@ -280,8 +258,9 @@ def cmd_cred(args) -> int:
             f = credentials.save_credential(name, fields or {}, replace=args.replace)
             saved = credentials.load_all().get(name, {})
             missing = [k for k in ("kind", "use_when") if not saved.get(k)]
+            source_file = secret_input.delete_source_file(args)
             return out({"file": str(f), "name": name, "credential": credentials.public_view(saved),
-                        "summary": f"Saved {name}",
+                        "summary": f"Saved {name}", "source_file": source_file,
                         "hint": (f"Fill {'·'.join(missing)} so agents can judge when it may be used"
                                  if missing else None)})
 
@@ -310,14 +289,22 @@ def configure_cred(p) -> None:
                    help="after import-ssh, remove the imported servers from the old ssh section (config is backed up first)")
     p.add_argument("--json", dest="json_value", default=None,
                    help='Content to save (JSON). e.g. {"kind":"ssh","host":"h","port":22,"user":"u","use_when":"..."}')
+    p.add_argument("--json-file", dest="json_file", default=None,
+                   help="set: read the --json content from a UTF-8 file (PowerShell splits non-ASCII --json)")
     p.add_argument("--replace", action="store_true", help="set: replace the entry instead of merging")
     # --key · --value have no choices — so invalid values still come back as a JSON code
     p.add_argument("--key", default=None, help="policy: trust_device · keep_signed_in · skip_nags")
     p.add_argument("--value", default=None, help="policy set: ask · always · never")
     p.add_argument("--secret-field", dest="secret_field", default=None,
-                   help="set: field that receives the secret from --prompt (hidden) or --from-env (e.g. token)")
+                   help="set: field that receives the secret from --prompt, --from-env, --from-file or --from-clipboard (e.g. token)")
     p.add_argument("--from-env", dest="from_env", default=None,
                    help="set: read the --secret-field value from this environment variable (never from argv)")
+    p.add_argument("--from-file", dest="from_file", default=None,
+                   help="set: read the --secret-field value from this file (one trailing newline stripped)")
+    p.add_argument("--delete-after", dest="delete_after", action="store_true",
+                   help="set --from-file: delete the file after the value is stored")
+    p.add_argument("--from-clipboard", dest="from_clipboard", action="store_true",
+                   help="set: read the --secret-field value from the OS clipboard (never printed)")
     p.add_argument("--yes", action="store_true", help="migrate-github-pat: apply (without it, plan only)")
     p.add_argument("--reveal", action="store_true", help="show: reveal secret values too (only when really needed)")
     p.add_argument("--prompt", action="store_true",

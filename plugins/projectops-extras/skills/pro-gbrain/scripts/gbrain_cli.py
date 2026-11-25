@@ -13,14 +13,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gbrain_ops import commands, common, context, credentials, management_parser  # noqa: E402
+from gbrain_ops.repo_switch import WRITE_MODES  # noqa: E402
+from gbrain_ops import commands, common, context, credentials, management_parser, registry_commands  # noqa: E402
 
 # Same rule as scripts/common/emit.py: one unencodable char on a cp949 console must not kill the CLI
 for _stream in (sys.stdout, sys.stderr):
     if hasattr(_stream, "reconfigure"):
         _stream.reconfigure(errors="replace")
 
-USAGE = "gbrain_cli.py manage | triggers | event | detect | plan | add | repair | status | verify | share | remove [options]"
+USAGE = "gbrain_cli.py manage | triggers | event | registry | detect | plan | add | repair | status | verify | share | remove [options]"
 
 
 class _BadArgumentsExit(Exception):
@@ -55,6 +56,8 @@ def _add_flow_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--mcp-url", dest="mcp_url", help="team brain URL when there is no provisioner (manual server)")
     parser.add_argument("--mcp-name", dest="mcp_name", help="team brain MCP name when there is no provisioner, e.g. gbrain-myapp")
     parser.add_argument("--no-first-sync", dest="no_first_sync", action="store_true", help="skip the first sync run")
+    parser.add_argument("--write", choices=WRITE_MODES,
+                        help="team: direct (members write, no sync machine) or sync (repo + sync machine; default for old setups)")
     parser.add_argument("--steps", help="comma-separated subset of steps, e.g. local,verify")
     parser.add_argument("--apply", action="store_true", help="write (needs --yes)")
     parser.add_argument("--yes", action="store_true", help="the user agreed in this conversation")
@@ -83,12 +86,15 @@ def build_parser() -> JsonArgumentParser:
     status = sub.add_parser("status", help="every team brain: registry, server health, this machine's sync (read only)")
     status.add_argument("--project")
 
-    verify = sub.add_parser("verify", help="end-to-end check with a throwaway read-only token (revoked at the end)")
+    verify = sub.add_parser("verify", help="end-to-end check with a throwaway token (revoked at the end)")
     verify.add_argument("--project", required=True)
+    verify.add_argument("--write", choices=WRITE_MODES, help="expectation: direct = writes allowed, sync = writes refused")
 
-    share = sub.add_parser("share", help="issue a read-only teammate token into a private message file")
+    share = sub.add_parser("share", help="issue a teammate key and a teammate kit into a private message file")
     share.add_argument("--project", required=True)
     share.add_argument("--member", help="teammate name (token label)")
+    share.add_argument("--scope", choices=("read_only", "read_write"), help="default: read_write for direct, read_only for sync")
+    share.add_argument("--repo", help="repository folder, for the rule branch in the kit (default: current folder)")
     share.add_argument("--apply", action="store_true")
     share.add_argument("--yes", action="store_true")
 
@@ -97,6 +103,7 @@ def build_parser() -> JsonArgumentParser:
     remove.add_argument("--apply", action="store_true")
     remove.add_argument("--confirm", help="the project key, typed by the user")
     COMMANDS.update(management_parser.register(sub))
+    COMMANDS.update(registry_commands.register(sub))
     return parser
 
 

@@ -1,5 +1,6 @@
-"""End-to-end check of a team brain with a throwaway read-only token:
-initialize 200 > search answers (hit when notes exist) > write refused > revoke > initialize 401.
+"""End-to-end check of a team brain with a throwaway token (read-only for sync, read+write for direct):
+initialize 200 > search answers (hit when notes exist) > write refused (sync) or allowed and cleaned up (direct)
+> revoke > initialize 401.
 The token lives in memory only; output carries statuses and verdicts, never a body or the token.
 """
 from __future__ import annotations
@@ -16,6 +17,9 @@ PROTOCOL_VERSION = "2025-06-18"
 # Tool names tried in order (gbrain versions differ); the first one tools/list offers wins
 SEARCH_TOOL_NAMES = ("search", "query", "recall")
 WRITE_TOOL_NAMES = ("put_page", "remember")
+DELETE_TOOL_NAMES = ("delete_page",)
+# Servers with advertise=verbs list write tools only after request_tools asks for them
+UNLOCK_TOOL_NAME = "request_tools"
 # Page the write probe would create if the token wrongly allowed writes (reported so the admin can remove it)
 WRITE_PROBE_SLUG = "pro-gbrain/verify-write-probe"
 
@@ -77,8 +81,18 @@ def _has_content(body: dict) -> bool:
     return bool(text.strip()) and text.strip() not in ("[]", "{}", "No results", "no results")
 
 
-def check_team_brain(url: str, token: str, query: str) -> dict:
-    """Checks with a valid read-only token (before revoking). Each check: passed true/false + short detail"""
+def _unlock_tools(session: McpSession, tool_names: list, wanted: tuple) -> list:
+    """Ask request_tools for unlisted write/delete tools, then list again (no-op when nothing is missing)"""
+    missing = [name for name in wanted if name not in tool_names]
+    if not missing or UNLOCK_TOOL_NAME not in tool_names:
+        return tool_names
+    session.call("tools/call", {"name": UNLOCK_TOOL_NAME, "arguments": {"tools": missing}})
+    _, listed = session.call("tools/list", {})
+    return [tool.get("name") for tool in (listed.get("result") or {}).get("tools") or [] if isinstance(tool, dict)] or tool_names
+
+
+def check_team_brain(url: str, token: str, query: str, write_mode: str = "sync") -> dict:
+    """Checks with a valid token (before revoking). Each check: passed true/false + short detail"""
     session = McpSession(url, token)
     checks = {}
     status, body = session.call("initialize", {"protocolVersion": PROTOCOL_VERSION, "capabilities": {},
@@ -98,16 +112,32 @@ def check_team_brain(url: str, token: str, query: str) -> dict:
     else:
         checks["search"] = {"passed": False, "detail": "no search tool offered", "tools_offered": len(tool_names)}
 
-    # Write refused: passes when the tool is not offered or the call errors (on success, report the probe page)
+    tool_names = _unlock_tools(session, tool_names, WRITE_TOOL_NAMES[:1] + DELETE_TOOL_NAMES)
     write_tool = next((name for name in WRITE_TOOL_NAMES if name in tool_names), WRITE_TOOL_NAMES[0])
     write_arguments = ({"slug": WRITE_PROBE_SLUG, "content": "pro-gbrain write probe"} if write_tool == "put_page"
                        else {"fact": "pro-gbrain write probe", "visibility": "world"})
     write_status, written = session.call("tools/call", {"name": write_tool, "arguments": write_arguments})
     refused = write_status in (401, 403) or _is_tool_error(written) or write_tool not in tool_names
+    if write_mode == "direct":
+        # Direct: members must be able to write; the probe page is removed again when the server offers a delete
+        checks["write_allowed"] = {"passed": not refused, "tool": write_tool, "listed": write_tool in tool_names}
+        if not refused:
+            checks["write_allowed"]["probe_cleaned"] = _delete_probe(session, tool_names, write_tool)
+        return checks
+    # Sync: write refused passes when the tool is not offered or the call errors (on success, report the probe page)
     checks["write_refused"] = {"passed": refused, "tool": write_tool, "listed": write_tool in tool_names}
     if not refused:
         checks["write_refused"]["probe_slug"] = WRITE_PROBE_SLUG
     return checks
+
+
+def _delete_probe(session: McpSession, tool_names: list, write_tool: str) -> bool | None:
+    """True removed, False delete failed, None no page delete possible (remember facts or no delete tool)"""
+    delete_tool = next((name for name in DELETE_TOOL_NAMES if name in tool_names), None)
+    if write_tool != "put_page" or not delete_tool:
+        return None
+    status, body = session.call("tools/call", {"name": delete_tool, "arguments": {"slug": WRITE_PROBE_SLUG}})
+    return status == 200 and not _is_tool_error(body)
 
 
 def check_revoked(url: str, token: str) -> dict:
@@ -116,10 +146,12 @@ def check_revoked(url: str, token: str) -> dict:
     return {"passed": status == 401, "status": status}
 
 
-def run_verification(provisioner, project: str, mcp_url: str) -> dict:
-    """Issue a throwaway token > checks > revoke (always, even after a failed check) > 401 check"""
+def run_verification(provisioner, project: str, mcp_url: str, write_mode: str | None = "sync") -> dict:
+    """Issue a throwaway token (scope by write mode) > checks > revoke (always, even after a failed check) > 401 check"""
+    write_mode = write_mode or "sync"
     token_name = f"pro-gbrain-verify-{common.compact_timestamp()}"
-    issued = provisioner.issue_read_only_token(project, token_name)
+    scope = "read_write" if write_mode == "direct" else "read_only"
+    issued = provisioner.issue_token(project, token_name, scope)
     secret, token_id = issued.get("secret"), issued.get("token_id")
     if not secret or not token_id:
         raise common.StepError("verify_token_missing", "the brain server returned no token",
@@ -127,11 +159,14 @@ def run_verification(provisioner, project: str, mcp_url: str) -> dict:
     url = mcp_url or issued.get("mcp_url")
     checks = {}
     try:
-        checks = check_team_brain(url, secret, project)
+        checks = check_team_brain(url, secret, project, write_mode)
     finally:
         provisioner.revoke_token(project, token_id)   # (success and failure alike)
     checks["revoked_refused"] = check_revoked(url, secret)
     is_passed = all(check.get("passed") for check in checks.values())
-    return {"passed": is_passed, "token_name": token_name, "scopes": issued.get("scopes"), "checks": checks,
-            "warnings": ([] if checks.get("search", {}).get("has_hit")
-                         else ["search answered but found nothing: normal for a brain with no synced notes yet"])}
+    warnings = [] if checks.get("search", {}).get("has_hit") else ["search answered but found nothing: normal for a brain with no notes yet"]
+    if checks.get("write_allowed", {}).get("probe_cleaned") is False or (
+            checks.get("write_allowed", {}).get("passed") and checks["write_allowed"].get("probe_cleaned") is None):
+        warnings.append(f"the write probe could not be removed: the brain admin deletes {WRITE_PROBE_SLUG}")
+    return {"passed": is_passed, "write_mode": write_mode, "token_name": token_name, "scopes": issued.get("scopes"),
+            "checks": checks, "warnings": warnings}

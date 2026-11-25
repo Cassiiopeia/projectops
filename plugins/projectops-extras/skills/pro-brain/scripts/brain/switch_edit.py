@@ -77,12 +77,32 @@ def _child_block_end(lines: list[str], index: int) -> int:
     return max(index + 1, _block_end(lines, index, _indent(lines[index])))
 
 
+def _ensure_options_block(lines: list[str]) -> None:
+    """Add the missing metadata / template / options levels in place (sibling indent, other lines untouched)"""
+    if not any(_is_content(line) for line in lines):
+        raise SwitchEditError("version.yml is empty: install projectops first (npx projectops@latest --mode version)")
+    start, end, indent = 0, len(lines), -1
+    for key in OPTIONS_PATH:
+        index = _find_child(lines, start, end, indent, key)
+        if index is None:
+            siblings = [line for line in lines[start:end] if _is_content(line) and _indent(line) > indent]
+            child_indent = min((_indent(line) for line in siblings), default=indent + 2 if indent >= 0 else 0)
+            # Appended at the end of the parent block (top level: end of file)
+            lines.insert(end, " " * child_indent + f"{key}:")
+            index = end
+        indent = _indent(lines[index])
+        if re.match(rf"^\s*{re.escape(key)}:\s*\S", lines[index]) and not lines[index].split(":", 1)[1].lstrip().startswith("#"):
+            raise SwitchEditError(f"version.yml {key} is a one-line value: turn it into an indented block, then run again")
+        start, end = index + 1, _block_end(lines, index, indent)
+
+
 def set_knowledge_keys(text: str, updates: dict, create_if_missing: bool, removals: tuple[str, ...] = ()) -> str:
-    """Set (or add) keys in the knowledge block; creates the block with enabled + path when asked"""
+    """Set (or add) keys in the knowledge block; creates missing metadata.template.options levels and the block when asked"""
     lines = text.splitlines()
     options = _locate(lines, OPTIONS_PATH)
     if options is None:
-        raise SwitchEditError("version.yml has no metadata.template.options block: add the knowledge block by hand")
+        _ensure_options_block(lines)
+        options = _locate(lines, OPTIONS_PATH)
     options_index, options_indent = options
     options_end = _block_end(lines, options_index, options_indent)
     knowledge_index = _find_child(lines, options_index + 1, options_end, options_indent, "knowledge")
@@ -91,7 +111,8 @@ def set_knowledge_keys(text: str, updates: dict, create_if_missing: bool, remova
             raise SwitchEditError("knowledge block is missing (pass --enable to create it)")
         child_indent = " " * (options_indent + 2)
         new_block = [f"{child_indent}knowledge:                     # pro-brain knowledge capture (kept on updates)"]
-        values = {"enabled": True, "path": DEFAULT_KNOWLEDGE_PATH, **updates}
+        # No path line when repo notes are off (the reader defaults it anyway)
+        values = {"enabled": True, **({} if "path" in removals else {"path": DEFAULT_KNOWLEDGE_PATH}), **updates}
         new_block += [f"{child_indent}  {key}: {format_value(value)}" for key, value in values.items()]
         lines[options_end:options_end] = new_block
         return "\n".join(lines) + "\n"

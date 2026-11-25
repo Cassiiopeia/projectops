@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from . import common, local_sync, mcp_check, pro_brain, provisioner as provisioner_module, registry_store
+from . import common, local_sync, mcp_check, pro_brain, provisioner as provisioner_module, registry_store, repo_switch
 
 STEPS_BY_MODE = {"team": ("server", "repo", "local", "registry", "verify"),
                  "own": ("repo", "connect"),
@@ -39,6 +39,11 @@ class Run:
         self.repo_root = Path(facts["repo_root"])
         self.state = load_state(self.project)
         self.state["mode"] = mode
+        # Team write mode: flag > recorded state > repo switch > sync (the behavior before direct existed)
+        self.write_mode = (options.get("write") or self.state.get("write") or repo_switch.read(self.repo_root)["write_mode"]
+                           or repo_switch.DEFAULT_WRITE_MODE) if mode == "team" else None
+        if self.write_mode:
+            self.state["write"] = self.write_mode
         block = (registry_store.find_provisioner(section)[1] or {}) if provisioner else {}
         self.sync_settings = block.get("sync") or {}
         self.sync_root = Path(str(self.sync_settings.get("root") or common.default_sync_root())).expanduser()
@@ -81,7 +86,11 @@ def step_repo(run: Run) -> dict:
             raise common.StepError("team_brain_unknown", "the team brain name and URL are not known yet",
                                    "run the server step first (add or repair)")
         arguments += ["--team-brain-name", name, "--team-brain-url", url,
-                      "--team-brain-contact", run.options.get("contact") or "the brain admin"]
+                      "--team-brain-contact", run.options.get("contact") or "the brain admin",
+                      "--team-write", run.write_mode]
+        if run.write_mode == "direct":
+            # Direct: notes go to the team brain only, nothing is committed to knowledge/
+            arguments += ["--to", "team"]
     result = pro_brain.run_brain_cli(arguments, run.repo_root)
     if not result.get("ok"):
         raise common.StepError(f"repo_{result.get('code') or 'setup_failed'}", str(result.get("summary")),
@@ -99,6 +108,8 @@ def step_connect(run: Run) -> dict:
 
 
 def step_local(run: Run) -> dict:
+    if run.write_mode == "direct":
+        return {"result": "skipped", "why": "direct write: members write to the team brain, no sync machine is needed"}
     if run.provisioner is None:
         return {"result": "skipped", "why": "no provisioner: the brain admin's machine syncs the knowledge folder"}
     brain = run.brain
@@ -140,10 +151,14 @@ def step_registry(run: Run) -> dict:
         "mcp_url": url, "mcp_server_name": name, "service": run.brain.get("service_name"), "port": run.brain.get("port"),
         "server": (registry_store.find_provisioner(run.section)[1] or {}).get("server") if run.provisioner else None,
         "provisioned_by": run.provisioner.name if run.provisioner else None,
-        "sync_script": str(run.home_directory / local_sync.SYNC_SCRIPT_NAME) if run.provisioner else None,
+        "sync_script": str(run.home_directory / local_sync.SYNC_SCRIPT_NAME) if run.provisioner and run.write_mode == "sync" else None,
+        "write": run.write_mode,
     }.items() if value is not None}
-    knowledge_entry = {"enabled": True, "brain": registry_store.team_brain_name(run.project), "path": "knowledge/",
-                       "source_id": local_sync.source_id(run.project), "sync": "repo-commit"}
+    if run.write_mode == "direct":
+        knowledge_entry = {"enabled": True, "brain": registry_store.team_brain_name(run.project), "sync": "direct-write"}
+    else:
+        knowledge_entry = {"enabled": True, "brain": registry_store.team_brain_name(run.project), "path": "knowledge/",
+                           "source_id": local_sync.source_id(run.project), "sync": "repo-commit"}
     return registry_store.apply_entries(run.project, brain_entry, knowledge_entry)
 
 
@@ -151,7 +166,7 @@ def step_verify(run: Run) -> dict:
     if run.provisioner is None:
         return {"result": "skipped", "why": "no provisioner token API: verify with a teammate token via pro-brain connect --team"}
     _, url = mcp_name_and_url(run)
-    verification = mcp_check.run_verification(run.provisioner, run.project, url)
+    verification = mcp_check.run_verification(run.provisioner, run.project, url, run.write_mode)
     if not verification["passed"]:
         raise common.StepError("verify_failed", "end-to-end check failed", "read `checks`, fix the failing part, then run repair",
                                {"verification": verification})

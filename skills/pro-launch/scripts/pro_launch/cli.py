@@ -168,6 +168,10 @@ def main(argv: list[str] | None = None) -> int:
             payload["next"] = f"Fix the name and call again ({fixes})"
         elif diagnosis.get("example"):
             payload["next"] = f"e.g. {diagnosis['example']}"
+        # PowerShell splits a --json value with non-ASCII text or quotes into several argv items (#1282)
+        if "--json" in raw and "unrecognized arguments" in reason:
+            payload["next"] = ("--json was split into several arguments: save the JSON to a UTF-8 file and pass "
+                               "--json-file PATH instead")
         if registry.LOAD_ERRORS:
             # The subcommand may be missing because its module is broken — report the cause
             payload["load_errors"] = dict(registry.LOAD_ERRORS)

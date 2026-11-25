@@ -73,6 +73,17 @@ setup prints the exact commands.
    terminal) and says yes to `connect --team`, which registers the brain for them. `install --choice team-server` prints
    the server commands.
 
+**Members write directly instead (recommended for small teams).** Skip steps 2 and 3's read-only keys: give each member a
+read+write key, and in step 4 answer the first question with "direct" (`setup --team-model direct`). Notes then go
+straight into the team brain and nothing is committed to the repo. When the server is already run by someone else (one
+brain per project at `https://<host>/team/<key>/mcp`), `setup --team-server https://<host> --team-key <key>` fills the
+name and address for you. After `connect --team` and a restart, `doctor --to team` writes, reads back and deletes one
+test page, so you know writing works before the first real note.
+
+**Never paste a key or a database address with a password into the chat.** The admin page's "copy the whole guide" text
+contains the raw key. If it happens, rotate the key (revoke it and issue a new one) and store the new one in a terminal.
+Without a terminal, save the key to a file and the agent stores it with `cred set --from-file <file> --delete-after`.
+
 Optional: the same hourly job can log notes that were never written (`gaps`, see "Did anything slip through?").
 
 If your CLAUDE.md is not committed (it is in `.gitignore`), the rule would not reach new worktrees or teammates, so it

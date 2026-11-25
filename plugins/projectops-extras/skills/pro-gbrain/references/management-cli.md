@@ -123,3 +123,17 @@ Old pro-brain versions write repo files and explicitly report `pending_commit_an
 | `note_conflict` | Review and update the existing note, then pass that file explicitly |
 | `write_upgrade_required` | Update pro-brain to a version with destination adapters |
 | `config_changed` / `switch_invalid` | Re-read version.yml and preserve concurrent changes |
+
+## Brain server registry
+
+```bash
+{PYTHON} {SCRIPTS}/gbrain_cli.py registry add-provisioner --name brain-server --base-url https://brain.example.com/api --credential brain-server-admin
+{PYTHON} {SCRIPTS}/gbrain_cli.py registry add-provisioner --name brain-server --base-url https://brain.example.com/api --credential brain-server-admin --apply --yes
+{PYTHON} {SCRIPTS}/gbrain_cli.py registry export --out ~/brains-registry.json
+{PYTHON} {SCRIPTS}/gbrain_cli.py registry import --file ~/brains-registry.json
+{PYTHON} {SCRIPTS}/gbrain_cli.py registry import --file ~/brains-registry.json --apply --yes
+```
+Each returns `plan` first (`added_entries`, `merged_entries`, `kept_conflicts`), then `registered` or `imported` with
+the `backup` path. Only `infra.brains` is exported or imported; secret-looking keys are dropped (`dropped_secret_keys`)
+and existing values are never overwritten. `admin_key_stored: false` or `credentials_to_store` means the admin key still
+has to be stored on this machine with `launch cred set` (`--prompt` in a terminal or `--from-file FILE --delete-after`).

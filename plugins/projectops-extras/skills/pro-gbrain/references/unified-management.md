@@ -18,7 +18,8 @@ version-dependent operations. No installation, database, provider or public publ
 | Search / summarize | Search accessible project sources, read hits, synthesize with citations; never assume a `summary` command exists |
 | Embeddings | Inspect engine and existing vectors; follow the provider procedure below |
 | Publish a document | Separate explicit publication workflow below |
-| Teammate access / detach | Existing share / remove; never delete the underlying brain |
+| Teammate access / detach | `share` (key by write mode + one teammate kit) / remove; never delete the underlying brain |
+| Team already runs a brain server | `registry add-provisioner` or `registry import`, then `add --mode team --write direct\|sync` |
 
 ## Discovery and onboarding
 

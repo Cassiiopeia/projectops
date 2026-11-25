@@ -8,6 +8,7 @@ import uuid
 
 from .. import credentials, http_client, mcp_http, note_file
 from .base import Adapter, check, write_result
+from .write_probe import run_write_probe
 
 TOKEN_FIELD = "token"
 WRITE_TOOLS = ("put_page", "put_pages")
@@ -102,8 +103,23 @@ class GbrainRemoteAdapter(Adapter):
             if capabilities["write_probe"] == "granted":
                 capabilities["write_tools"] = ["put_page"]
         checks.append(check("initialize", "ok", f"MCP session open ({capabilities['server']})"))
+        # Real write check (put > read back > delete) instead of trusting advertised tools; full doctor only
+        if self._should_probe_write(quick, capabilities):
+            probe = run_write_probe(session, self.context["project"], tools, capabilities["request_tools"], self._revision)
+            checks.append(probe["check"])
+            capabilities["write_verified"] = probe["verified"]
+            if probe["verified"]:
+                capabilities["write_tools"] = capabilities["write_tools"] or ["put_page"]
+            else:
+                return {"checks": checks, "command": command, "capabilities": capabilities}
         checks.append(self._scope_check(capabilities))
         return {"checks": checks, "command": command, "capabilities": capabilities}
+
+    def _should_probe_write(self, quick: bool, capabilities: dict) -> bool:
+        """Write targets only, not with --quick or --no-write-probe, and not when request_tools already refused put_page"""
+        if quick or self.context.get("_no_write_probe") or not self.destination.get("is_write_target"):
+            return False
+        return bool(capabilities["write_tools"]) or (capabilities["request_tools"] and capabilities.get("write_probe") != "refused")
 
     def _capabilities(self, tools: list[str], server_info: dict) -> dict:
         names = set(tools)

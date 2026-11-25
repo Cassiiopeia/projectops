@@ -199,6 +199,23 @@ def team_brain_mcp_name(switch: dict) -> str | None:
     return (switch.get("team_brain") or {}).get("mcp_name") or switch.get("brain_mcp") or None
 
 
+# Team brain key in its MCP name (gbrain-<key>) or URL (.../team/<key>/mcp)
+TEAM_BRAIN_NAME_PREFIX = "gbrain-"
+TEAM_BRAIN_URL_KEY = re.compile(r"/team/([A-Za-z0-9._-]+)(?:/|$)")
+
+
+def team_brain_project_key(switch: dict) -> str | None:
+    """Project key the team brain uses: URL /team/<key>/ > MCP name gbrain-<key> > None (shared by pro-gbrain)"""
+    team = switch.get("team_brain") if isinstance(switch.get("team_brain"), dict) else {}
+    match = TEAM_BRAIN_URL_KEY.search(str(team.get("mcp_url") or ""))
+    if match:
+        return match.group(1).lower()
+    name = str(team.get("mcp_name") or switch.get("brain_mcp") or "")
+    if name.lower().startswith(TEAM_BRAIN_NAME_PREFIX) and len(name) > len(TEAM_BRAIN_NAME_PREFIX):
+        return name[len(TEAM_BRAIN_NAME_PREFIX):].lower()
+    return None
+
+
 def read_repo_language(text: str) -> str:
     """metadata.template.options.language (en | ko), default en"""
     options = read_nested_block(text, ("metadata", "template", "options")) or {}

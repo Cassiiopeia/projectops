@@ -92,6 +92,7 @@ def _backup_hints(resolved: dict, context: dict) -> list[str]:
 
 def cmd_doctor(args, context: dict) -> dict:
     resolved = resolver.resolve(context)
+    context = {**context, "_no_write_probe": bool(getattr(args, "no_write_probe", False))}
     report = doctor.run_doctor(context, resolved, args.to, quick=args.quick)
     key = user_config.repo_key(context.get("remote"), context["root"])
     log = doctor.save_log(report, key)

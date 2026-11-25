@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import common, registry_store
+from . import common, registry_store, repo_switch
 
 MODES = ("repo-only", "own", "team")
 # Distinct commit authors above which the repo counts as a team repo (bots excluded by name)
@@ -73,7 +73,12 @@ def detect(repo_path: Path, project_override: str | None = None) -> dict:
     remote_url, remote_slug = read_remote(repo_root)
     section = registry_store.load_section()
     registry_key, registry_entry = registry_store.find_project(section, remote_slug, repo_root)
-    project = project_override or registry_key or common.to_project_key(repo_root.name)
+    switch_facts = repo_switch.read(repo_root)
+    # Key priority: flag > the repo's team brain (version.yml) > registry > folder name, so pro-brain and pro-gbrain agree
+    switch_key = switch_facts["team_key"] if switch_facts.get("team_key_valid") else None
+    project = project_override or switch_key or registry_key or common.to_project_key(repo_root.name)
+    project_from = ("flag" if project_override else "version.yml team_brain" if switch_key else
+                    "registry" if registry_key else "folder name")
     provisioner_name, provisioner_block = registry_store.find_provisioner(section)
     own_brain = detect_own_brain()
     authors = count_human_authors(repo_root)
@@ -82,21 +87,53 @@ def detect(repo_path: Path, project_override: str | None = None) -> dict:
     return {
         "repo_root": str(repo_root), "remote_slug": remote_slug, "remote_url": remote_url,
         "default_branch": read_default_branch(repo_root),
-        "project": project, "project_from": "flag" if project_override else ("registry" if registry_key else "folder name"),
+        "project": project, "project_from": project_from,
+        "team_brain_key_in_switch": switch_facts["team_key"], "team_write": switch_facts["write_mode"],
         "has_registry": section is not None, "registry_project_known": bool(registry_entry),
         "team_brain_in_registry": bool(team_entry),
         "provisioner": {"name": provisioner_name, "type": provisioner_block.get("type"),
                         "supports_dry_run": bool(provisioner_block.get("supports_dry_run"))} if provisioner_block else None,
+        "provisioner_hint": None if provisioner_block else provisioner_hint(),
         "own_brain": own_brain, "human_authors": authors,
         "question": {
             "text": "Will you use this brain alone, or with your team?",
             "options": [
-                {"mode": "team", "label": "With my team", "means": "a team brain on the brain server, teammates read it with their own read-only token"},
+                {"mode": "team", "label": "With my team", "means": "a team brain on the brain server shared by the team (then: do members write directly or through the repo?)"},
                 {"mode": "own", "label": "Alone, in my own GBrain", "means": "this repo's notes become one source in your personal brain"},
                 {"mode": "repo-only", "label": "Notes in the repo only", "means": "no brain; notes stay in the knowledge folder"},
             ],
             "recommended": recommended, "why": why,
         },
+        # Asked right after a team answer: the team model decides the steps, the token scope and what verify expects
+        "team_write_question": team_write_question(switch_facts["write_mode"]),
+    }
+
+
+def team_write_question(current: str | None) -> dict:
+    return {
+        "text": "Do members write notes straight into the team brain, or through the repo and one sync machine?",
+        "options": [
+            {"write": "direct", "label": "Everyone writes directly",
+             "means": "each member gets a read+write key; notes go to the team brain, nothing is committed; no sync machine"},
+            {"write": "sync", "label": "Through the repo",
+             "means": "notes are committed to knowledge/; one machine imports them hourly; members get read-only keys"},
+        ],
+        "current": current,
+        "recommended": current or "direct",
+        "why": "already set in this repo's switch" if current else "small teams: one step less, no sync machine to keep running",
+    }
+
+
+def provisioner_hint() -> dict:
+    """What a brain server (provisioner) entry enables and the two ways to get one on this machine"""
+    return {
+        "enables": "add --mode team creates the brain, issues member keys (share) and verifies it in one run",
+        "without_it": "the brain admin creates the brain and keys in the server's admin page; pass --mcp-url/--mcp-name",
+        "register": "registry add-provisioner --name brain-server --base-url https://<host>/api --credential <cred name>",
+        "import": "registry export --out FILE on a machine that has it, copy the file over, then registry import --file FILE",
+        # --prompt needs a real terminal; an agent saves the key to a file first and uses --from-file
+        "store_admin_key": ("python3 ~/.projectops/bin/projectops_cli.py launch cred set --name <cred name> --secret-field token "
+                            "--prompt (in a separate terminal) or --from-file FILE --delete-after"),
     }
 
 
@@ -106,7 +143,7 @@ def recommend_mode(has_provisioner: bool, own_brain: dict, authors: int, has_tea
     if has_provisioner and authors > TEAM_AUTHOR_THRESHOLD:
         return "team", f"{authors} people commit to this repo and a brain server is configured"
     if has_provisioner:
-        return "team", "a brain server is configured, so teammates can join later with a read-only token"
+        return "team", "a brain server is configured, so teammates can join later with their own key"
     if own_brain.get("installed") and own_brain.get("kind") in ("local", "postgres"):
         return "own", "GBrain is installed on this machine and no team brain server is configured"
     return "repo-only", "no brain server and no GBrain here: notes stay in the repo until you set one up"

@@ -15,12 +15,15 @@ REQUEST_TIMEOUT_SECONDS = 180   # create runs gbrain init and installs a service
 USER_AGENT = "projectops-pro-gbrain/1"
 SUPPORTED_TYPES = ("control-tower",)
 READ_ONLY_SCOPE_PRESET = "read_only"
+READ_WRITE_SCOPE_PRESET = "read_write"   # direct-write team brains: members search and write
+SCOPE_PRESETS = (READ_ONLY_SCOPE_PRESET, READ_WRITE_SCOPE_PRESET)
 # Server error codes > what the user does next (unknown codes fall back to the server's own next_step)
 NEXT_STEP_BY_CODE = {
     "invalid_project": "pass --project with 2-20 lower case letters or digits",
     "reserved_project": "pass another --project key",
     "team_brain_not_found": "run add (or repair) first so the server creates the brain",
     "team_database_not_empty_unknown": "the database holds data the server cannot classify: the brain admin checks it by hand; nothing was dropped",
+    "invalid_scope_preset": "this brain server cannot issue read_write keys yet: the brain admin issues the member key in its admin page",
 }
 
 
@@ -53,9 +56,15 @@ class ControlTowerProvisioner:
         return self._request("GET", f"/gbrain/teams/{urllib.parse.quote(project)}/status")
 
     def issue_read_only_token(self, project: str, token_name: str) -> dict:
-        """> {token_id, secret, mcp_url, mcp_server_name}; the caller keeps secret in memory or a 600 file only"""
+        return self.issue_token(project, token_name, READ_ONLY_SCOPE_PRESET)
+
+    def issue_token(self, project: str, token_name: str, scope_preset: str) -> dict:
+        """> {token_id, scopes, secret, mcp_url, mcp_server_name}; the caller keeps secret in memory or a 600 file only"""
+        if scope_preset not in SCOPE_PRESETS:
+            raise common.StepError("invalid_scope_preset", f"scope '{scope_preset}' is not one of {', '.join(SCOPE_PRESETS)}",
+                                   "pass --scope read_only or --scope read_write")
         response = self._request("POST", "/gbrain/tokens",
-                                 {"brain": project, "name": token_name, "scope_preset": READ_ONLY_SCOPE_PRESET})
+                                 {"brain": project, "name": token_name, "scope_preset": scope_preset})
         token = response.get("token") or {}
         return {"token_id": token.get("id"), "scopes": token.get("scopes"), "secret": response.get("secret"),
                 "mcp_url": response.get("mcp_url"), "mcp_server_name": response.get("mcp_server_name")}
@@ -118,6 +127,6 @@ def manual_server_steps(project: str) -> list[str]:
         f"Create a Postgres database for the team brain (e.g. gbrain_{project}) with pgvector, and a writer role that owns it",
         "Run `gbrain init --url <writer connection>` once for that database on the brain server",
         f"Run `gbrain serve --http` for it as a service on a private port, behind HTTPS (e.g. https://<host>/team/{project}/mcp)",
-        "Issue read-only tokens per teammate with the brain's admin tools (gbrain mcp admin)",
-        f"Then run: gbrain_cli.py add --mode team --mcp-url https://<host>/team/{project}/mcp --mcp-name gbrain-{project}",
+        "Issue one key per teammate with the brain's admin tools (gbrain mcp admin): read-only for sync, read+write for direct",
+        f"Then run: gbrain_cli.py add --mode team --write direct|sync --mcp-url https://<host>/team/{project}/mcp --mcp-name gbrain-{project}",
     ]

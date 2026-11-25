@@ -32,7 +32,14 @@ metadata:
 
 - The projectops installer keeps this block verbatim on every update (like `issue_helper`); it is listed in
   `npx projectops --mode options`.
-- Missing block or `enabled` not `true` means off. `path` defaults to `knowledge/`, `capture` to `issue-end`.
+- Missing block or `enabled` not `true` means off. `path` defaults to `knowledge/`, `capture` to `issue-end`. With
+  `repo_notes: false` setup removes `path` (unused). A `version.yml` without `metadata.template.options` gets those
+  levels added; no `version.yml` at all returns `needs_version_yml` (`npx projectops@latest --mode version` first).
+- Team model presets: `--team-model direct` = `repo_notes: false` + `team_brain.write: direct` (members write with
+  read+write keys); `--team-model sync` = `repo_notes: true` + `write: sync`. `--team-server https://<host> --team-key KEY`
+  fills `mcp_url: https://<host>/team/KEY/mcp` and `mcp_name: gbrain-KEY` (admin-managed servers, one brain per project).
+- The project key in note slugs (`pro-brain/<project>/<id>`) is the team brain key when one is recorded (URL
+  `/team/<key>/` > name `gbrain-<key>`), else the registry key, else the repo name; pro-gbrain uses the same rule.
 - `team_brain` is the only brain fact in the shared switch: MCP server name (never `gbrain`, which is the usual personal
   entry), MCP URL (optional: a public repo may record the name only; members then take the URL from the admin or their
   registry `infra.brains.<name>.mcp_url`), who issues tokens, and `write`. `setup` writes it as one `{ }` line; an indented map
@@ -286,6 +293,7 @@ A sparse or partial clone works as long as the knowledge folder and `version.yml
 | Own local GBrain imports the folder | nothing | one source `{project}-knowledge`, after consent | `connect`, then `connect --apply --yes` |
 | Own remote GBrain imports the folder | nothing | nothing; the commands run on the brain's host | `connect` (`--remote` without a local gbrain) |
 | Team brain host imports the folder (`write: sync`) | `team_brain` facts | each member adds one MCP entry to read it | `setup --apply --yes --team-brain-*`, `connect --team` |
+| Members write to the team brain directly (`write: direct`, no folder) | `team_brain` facts, `repo_notes: false` | each member adds one MCP entry with a read+write key | `setup --apply --yes --team-model direct --team-server URL --team-key KEY`, `connect --team`, then `doctor --to team` |
 
 Detection (`setup` > `usage`, `connect` > `detected`): `gbrain engine status --json` (engine-free; only `effective_engine`,
 `config_file_engine`, `db_url_source` and `thin_client` are kept, never the database URL) and `gbrain sources list --json`.

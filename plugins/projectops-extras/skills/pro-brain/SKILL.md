@@ -17,13 +17,18 @@ description: "Keep decisions, reasons and cautions as notes per issue, change se
 - Not this skill: the report of what changed (`pro-report`); the user's personal memory (their own brain tools);
   scheduled syncing of a brain (the brain's own job reads the committed folder).
 
+**Split with `/pro-gbrain`:** pro-brain owns **notes and the repo switch** (what to capture, where notes go, the rule
+block, this member's MCP entry, doctor). `/pro-gbrain` owns **brains, servers, tokens and members** (create or adopt a team
+brain, provisioner and registry, member keys, the teammate kit). Hand off with the exact command: "create the team brain /
+issue a member key" > `gbrain_cli.py add --mode team` or `share`; after pro-gbrain set up a brain > `brain_cli.py setup`.
+
 The brain stores **why and where**; git stores **what**. Reply in the user's language. Non-technical summary for owners:
 `references/how-it-works.md`.
 
 ## What it never does
 
 It writes notes **only to the destinations the user chose** (repo files, local gbrain pages, remote gbrain pages under
-`pro-brain/<project>/`), and during onboarding, after the user agreed, the repo switch in `version.yml`, one marked rule
+`pro-brain/<project>/`, plus one fixed doctor test page `pro-brain/<project>/_doctor`), and during onboarding, after the user agreed, the repo switch in `version.yml`, one marked rule
 block and the user's personal destinations in `~/.projectops/config/config.json`. Besides note pages, the only brain change is `connect`: after
 the user agreed, it adds **one new source** (`<project>-knowledge`) to the user's **own local** GBrain and syncs it. It never
 overwrites or removes a source, never passes `--force`, and never changes hooks, mounts or other sources. Its only MCP
@@ -31,6 +36,11 @@ change is `connect --team --apply --yes`: one user-scope entry for the repo's te
 entry). A team brain token lives only in the user's credential store (`~/.projectops/config/config.json`, mode 600,
 `../references/config-rules.md` §9), typed by the user in a terminal and referenced by name; it never goes into the chat, a
 note, `version.yml`, `.mcp.json` or any output. Secrets, personal data and chat content never go into a note.
+
+**A secret pasted into the chat** (a token-shaped value such as `gbrain_...`, a bearer key, or `postgresql://user:pass@`):
+never repeat or echo it, never store it from the chat. Say once, in the user's language: "That value is now in this
+conversation's history, so treat it as exposed: rotate it (brain admin page > member key > revoke and issue a new one;
+for a database password, change it on the server), then store the new one with `cred set` (§Tokens)." Continue the task.
 
 ## Find the scripts
 
@@ -87,9 +97,13 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup
 ```
 
 It reads the repo and returns `questions` (each with `recommended`), `target_options`, `block`, `block_diff` and
-`version_yml_diff`. Ask only the questions it returns, in the user's language, recommended answer first, so pressing yes is
+`version_yml_diff`. `needs_version_yml`: the repo has no `version.yml`; ask, run `npx projectops@latest --mode version`,
+then run the same setup again (a `version.yml` without `metadata.template.options` gets those levels added). Ask only the questions it returns, in the user's language, recommended answer first, so pressing yes is
 enough (AskUserQuestion when available, all questions in one dialog):
 
+0. **Team model** (`team_model`, first, only when a team brain is involved): "Do members write notes directly to the team
+   brain, or through the repo and a sync host?" Recommended `direct` for small teams: `--team-model direct` = `--to team`
+   + `write: direct` + no repo notes (members need read+write keys). `sync` = repo notes + the brain reads the folder.
 1. **Capture mode**: show `recommended_capture.reason` in one line.
 2. **Rule block**: "May I add the knowledge rule to the project CLAUDE.md? (recommended)". Show `block_diff`. The block tells
    any agent in the repo when to run `/pro-brain`, and to search the team brain MCP (`brain_mcp`) first for design and
@@ -120,8 +134,14 @@ Then apply what the user chose:
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup --apply --yes [--enable] --capture MODE \
   --claude-md add|decline [--target PATH] [--agents-md] [--to repo,local,team,remote:NAME] \
   [--remote-name NAME --remote-url https://<host>/mcp --remote-token-cred CRED] [--team-write sync|direct] \
-  [--sync-branch BRANCH] [--team-brain-name gbrain-<project> --team-brain-url https://<host>/mcp --team-brain-contact WHO | --team-brain-off]
+  [--sync-branch BRANCH] [--team-model direct|sync] [--team-server https://<host> --team-key KEY] \
+  [--team-brain-name gbrain-<project> --team-brain-url https://<host>/mcp --team-brain-contact WHO | --team-brain-off]
 ```
+
+- **Existing team server** (an admin-managed server, one brain per project): `--team-server https://<host> --team-key KEY`
+  derives `https://<host>/team/<KEY>/mcp` and `gbrain-<KEY>` and probes it; explicit `--team-brain-*` flags win. The
+  project key of note slugs then follows the team brain key (`team_brain_project_key`), the same key pro-gbrain uses.
+- Without repo notes the switch drops `path` (it would be unused).
 
 - `--to` replaces the set of write destinations; re-run to add or remove one. Removing `team` never deletes the team
   brain, it only switches it to read via sync (`--team-brain-off` removes it). `--sync-branch` fixes the branch the rule
@@ -137,9 +157,11 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py setup --apply --yes [--en
 
 #### Tokens (remote and team destinations)
 
-The user stores each token once in a terminal (Claude Code: `!` prefix), hidden input, never through the chat:
-`python3 ~/.projectops/bin/projectops_cli.py launch cred set --name <CRED> --secret-field token --prompt`. A brain you write
-to needs a write-scoped token; `doctor` says `read_only_token` otherwise.
+The user stores each token once in their own terminal, hidden input, never through the chat:
+`python3 ~/.projectops/bin/projectops_cli.py launch cred set --name <CRED> --secret-field token --prompt`. `--prompt` needs a
+real terminal (TTY); the Claude Code `!` prefix has none. Without one: the user saves the token to a file (e.g. the admin
+page's download), and you run `... cred set --name <CRED> --secret-field token --from-file <file> --delete-after`
+(`store_token_without_tty` in the output). A brain you write to needs a write-scoped token; `doctor` proves it (§Doctor).
 
 #### Repo folder as a source of your local GBrain (optional, with `repo`)
 
@@ -174,8 +196,8 @@ It reads `team_brain` from `version.yml` and the token from the credential entry
 
 | `code` | Do |
 |---|---|
-| `token_missing` | Show `store_token_command`; the user runs it in a terminal, then `connect --team` again |
-| `ready` | Show `command` (placeholder) and `team_brain_probe.verdict`; apply after a yes; tell the user to restart the session |
+| `token_missing` | Show `store_token_command` (own terminal) or `store_token_without_tty` (token saved to a file); then `connect --team` again |
+| `ready` | Show `command` (placeholder) and `team_brain_probe.verdict`; apply after a yes; tell the user to restart the session, then run `after_restart` (`doctor --to team`) in the new session |
 | `already_registered` | Nothing to do. After a new token: store it under the same name, then `connect --team --rotate --apply --yes` |
 | `claude_cli_missing` | Give `command`; the user types it with their token in their own terminal |
 | `no_team_brain` / `bad_team_brain` | Back to step 2 (setup with `--team-brain-*`) |
@@ -188,12 +210,13 @@ overrides a user entry of the same name, so offer it only when the team wants en
 
 ```bash
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py install                  # detects gbrain, returns one question
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py install --choice CHOICE  # local | postgres | supabase | thin-client | team-server
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py install --choice CHOICE  # local | postgres | supabase | thin-client | team-server | existing-team-server
 ```
 
 Ask the one question (recommended first), then show `requires`, `commands` and `verify`. It never runs them: commands that
 carry a password or key are typed by the user in a terminal (`secret_note`). `postgres` needs the database and role to
-exist first. After the user ran them, run `install` again (`brain_ready`) and continue with `connect` or `connect --team`.
+exist first. `existing-team-server` (the team already runs a managed server) needs no local gbrain, only the server URL,
+the project's brain key and a personal key. After the user ran them, run `install` again (`brain_ready`) and continue with `connect` or `connect --team`.
 
 Notes enter the brain from **whatever branch is checked out** at the source path. Say so in one line and offer
 `default_branch_recipe`: a dedicated clone of the default branch (`connect --source-root <clone>`) plus its hourly
@@ -269,13 +292,16 @@ pipeline (in `issue-end`: label done and close with `pro-github finish-issue`).
 ## Doctor
 
 ```bash
-PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py doctor [--to all|repo|local|team|remote:NAME] [--quick]
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/brain_cli.py doctor [--to all|repo|local|team|remote:NAME] [--quick] [--no-write-probe]
 ```
 
 Checks every destination with the same resolver `write` uses: gbrain CLI (PATH, `~/.bun/bin`), engine (PGLite file and
 lock; Postgres or Supabase reachability, a local port means a tunnel; connection, pgvector, schema, embeddings from
 `gbrain doctor`), remote MCP (401 without a token, proxy refusal such as Cloudflare 1010, stored token, `initialize`,
-exposed write and search tools, read or write scope). Each failure has `code` and `fix`; URLs are shown with userinfo
+exposed write and search tools, read or write scope). For a remote or team brain you write to, the full doctor proves
+write access with a reversible probe: put `pro-brain/<project>/_doctor`, read it back, delete it (`write_probe` check;
+without a delete tool that one page stays and the next probe overwrites it; `--no-write-probe` skips it, `--quick`
+too). `read_only_token` there means the key cannot write. Each failure has `code` and `fix`; URLs are shown with userinfo
 masked, tokens as `<token>`. The last run is saved to `~/.projectops/pro-brain/doctor/<repo>.json` (`status` shows it).
 
 ## Gap check

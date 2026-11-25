@@ -6,7 +6,10 @@ uses it when the private registry declares one; without it the skill prints the 
 ## Registry entry (private, never in a repo)
 
 In `~/.projectops/config/config.json` → `project-blueprint` → `infra.brains`, one entry with `kind: "provisioner"`.
-Values below are placeholders.
+Values below are placeholders. Write it with `gbrain_cli.py registry add-provisioner --name brain-server --base-url
+https://brain.example.com/api --credential brain-server-admin` (plan first, then `--apply --yes`), or copy it from another
+machine with `registry export --out FILE` there and `registry import --file FILE` here (secret-looking keys are dropped,
+existing values are kept, `config.json` is backed up first).
 
 ```json
 "brain-server": {
@@ -48,8 +51,8 @@ Values below are placeholders.
 After `add`, the skill writes (missing keys only, backup first):
 
 - `infra.brains.<project>-team`: `engine`, `kind: team`, `database`, `mcp_url`, `mcp_server_name`, `service`, `port`,
-  `server`, `provisioned_by`, `sync_script`.
-- `projects.<project>.knowledge`: `enabled`, `brain`, `path`, `source_id`, `sync`.
+  `server`, `provisioned_by`, `write` (`sync` or `direct`), `sync_script` (sync only).
+- `projects.<project>.knowledge`: `enabled`, `brain`, `sync` (`repo-commit` or `direct-write`), and for sync `path`, `source_id`.
 
 ## HTTP contract
 
@@ -63,7 +66,7 @@ All calls send the admin key in `auth_header`. Bodies are JSON. Errors answer no
 | Preview | `POST /gbrain/teams` `{"project": "<key>", "dry_run": true}` | `{"dry_run": true, "plan": {...}, "brain": {...}}`, changes nothing |
 | List | `GET /gbrain/teams` | `{"brains": [{...}]}` |
 | One | `GET /gbrain/teams/<key>/status` | `{...brain fields}` |
-| Issue a token | `POST /gbrain/tokens` `{"brain": "<key>", "name": "<label>", "scope_preset": "read_only"}` | `{"token": {"id", "name", "scopes"}, "secret": "...", "mcp_url", "mcp_server_name"}` |
+| Issue a token | `POST /gbrain/tokens` `{"brain": "<key>", "name": "<label>", "scope_preset": "read_only" \| "read_write"}` | `{"token": {"id", "name", "scopes"}, "secret": "...", "mcp_url", "mcp_server_name"}` |
 | Revoke | `POST /gbrain/tokens/<id>/revoke` `{"brain": "<key>"}` | `{"token": {...}}` |
 
 `brain` fields: `project`, `mcp_url`, `mcp_server_name`, `database_name`, `writer_role`, `service_name`, `port`,
@@ -80,8 +83,12 @@ only when the writer role was created by this call; the client stores it in `<sy
 3. **Grants every time.** Writer role privileges are re-applied on every create, so a lost grant heals with `repair`.
    An existing writer password is not rotated unless asked.
 4. **Stable codes.** Every failure has a `code`, a message, a `next_step` and the `steps` finished so far.
-5. **Read-only tokens for teammates.** `scope_preset: read_only` tokens can search but not write; revoked tokens answer
-   401 on the next request.
+5. **Scoped member tokens.** `scope_preset: read_only` tokens can search but not write (sync team brains);
+   `scope_preset: read_write` tokens can also write pages (direct team brains, where every member writes). A server that
+   does not support `read_write` answers non-2xx with `code: invalid_scope_preset`; the client then tells the admin to
+   issue the key by hand. Revoked tokens answer 401 on the next request.
+6. **Write tools on request.** A server may list write tools only after `request_tools` asks for them; `verify` asks
+   before probing, so the result reflects the token's scope, not the advertised surface.
 
 ## Plugging in your own server
 
@@ -89,4 +96,4 @@ Implement the calls above (any language), add the registry entry, store the admi
 `python3 ~/.projectops/bin/projectops_cli.py launch cred set --name <credential> --secret-field token --prompt`,
 then run `gbrain_cli.py status` (lists your brains) and `plan --mode team` in a repo. A different API shape needs a new
 `type` in `scripts/gbrain_ops/provisioner.py` with the same methods (`create`, `list_brains`, `status`,
-`issue_read_only_token`, `revoke_token`).
+`issue_token`, `revoke_token`; `issue_read_only_token` is a read-only shortcut).

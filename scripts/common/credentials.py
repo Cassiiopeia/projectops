@@ -85,6 +85,12 @@ def has_credential(name: str) -> bool:
     return isinstance(store_entries(data).get(name), dict)
 
 
+def _store_hint(name: str, field: str) -> str:
+    """How to store a missing secret: --prompt needs a real terminal, --from-file works from an agent session"""
+    base = f"launch_cli.py cred set --name {name} --secret-field {field}"
+    return f"{base} --prompt (in a terminal)  or  {base} --from-file <file> --delete-after"
+
+
 def read_secret(name: str, field: str = "token") -> str:
     """One field of a stored credential, for code only (pass it on via env or stdin, never print it)"""
     data, status = load_config()
@@ -93,11 +99,11 @@ def read_secret(name: str, field: str = "token") -> str:
     entry = store_entries(data).get(name)
     if not isinstance(entry, dict):
         raise CredentialError("cred_not_found", f"No credential named '{name}'",
-                              next_hint=f"launch_cli.py cred set --name {name} --secret-field {field} --prompt")
+                              next_hint=_store_hint(name, field))
     value = entry.get(field)
     if value in (None, ""):
         raise CredentialError("cred_field_missing", f"'{name}' has no '{field}' value",
-                              next_hint=f"launch_cli.py cred set --name {name} --secret-field {field} --prompt")
+                              next_hint=_store_hint(name, field))
     return str(value)
 
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from brain import collect, commands, connect_commands, credentials, dest_commands, install_guide, repo_facts  # noqa: E402
+from brain import collect, commands, connect_commands, credentials, dest_commands, install_guide, repo_facts, setup_team  # noqa: E402
 
 
 class _BadArgumentsExit(Exception):
@@ -79,6 +79,10 @@ def build_parser() -> JsonArgumentParser:
     setup.add_argument("--team-brain-url", help="team brain MCP URL, e.g. https://brain.example.com/mcp (no token)")
     setup.add_argument("--team-brain-contact", help="who issues read-only tokens, e.g. a name or a team channel")
     setup.add_argument("--team-brain-off", action="store_true", help="remove the team brain from the switch")
+    setup.add_argument("--team-model", choices=setup_team.TEAM_MODELS,
+                       help="direct: members write to the team brain, no repo notes; sync: repo notes, brain reads them")
+    setup.add_argument("--team-server", help="existing team server base URL, e.g. https://brain.example.com (with --team-key)")
+    setup.add_argument("--team-key", help="the project's brain key on that server; URL becomes <server>/team/<key>/mcp")
     setup.add_argument("--no-probe", action="store_true", help="do not probe a new --team-brain-url (offline)")
     setup.add_argument("--to", help="where notes are written, comma-separated: repo,local,team,remote:NAME (replaces the set)")
     setup.add_argument("--remote-name", help="personal remote gbrain name to add, e.g. my-brain")
@@ -119,6 +123,8 @@ def build_parser() -> JsonArgumentParser:
     check.add_argument("--repo", help="repository folder (default: current folder)")
     check.add_argument("--to", help="all (default) | repo | local | team | remote:NAME")
     check.add_argument("--quick", action="store_true", help="skip the slow gbrain doctor engine checks")
+    check.add_argument("--no-write-probe", action="store_true",
+                       help="skip the reversible test page on write-scoped brains (pro-brain/<project>/_doctor)")
 
     gap = sub.add_parser("gaps", help="merged work since the last captured note that has no note (git only, no LLM)")
     gap.add_argument("--repo", help="repository folder (default: current folder)")

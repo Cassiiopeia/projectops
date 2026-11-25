@@ -55,7 +55,9 @@ def _connect_team(args, context: dict) -> dict:
     next_by_code = {
         "ready": "show the command (token placeholder) and the probe verdict, then connect --team --apply --yes after a yes",
         "already_registered": "nothing to do; after a token change: store the new token, then connect --team --rotate",
-        "token_missing": "the user runs store_token_command in a terminal (! prefix in Claude Code), then connect --team again",
+        "token_missing": "the user runs store_token_command in their own terminal (hidden input needs a TTY; the ! prefix "
+                         "in Claude Code has none), or saves the token to a file and you run store_token_without_tty; "
+                         "then connect --team again",
         "claude_cli_missing": "give the user the command; they put their token in place of <token> in their own terminal",
         "no_team_brain": "setup --team-brain-name N --team-brain-url URL --team-brain-contact WHO (ask the user first)",
         "bad_team_brain": "fix team_brain in version.yml with setup --team-brain-* flags",
@@ -71,9 +73,11 @@ def _connect_team(args, context: dict) -> dict:
     if not args.yes:
         raise NeedsConsent("connect --team --apply registers an MCP entry with the user's token: pass --yes only after the user agreed")
     outcome = team_connect.apply(result, context["root"], context["project"])
-    return {**result, **outcome,
-            "next": ("restart the agent session so the MCP entry loads; commit .mcp.json with pro-commit if it was written"
-                     if outcome["ok"] else next_by_code.get(code, "report the failed step"))}
+    # Closing loop: after the restart, doctor proves the entry answers and (direct mode) that the key can write
+    after_restart = "brain_cli.py doctor --to team"
+    return {**result, **outcome, "after_restart": after_restart if outcome["ok"] else None,
+            "next": (f"restart the agent session so the MCP entry loads, then run {after_restart}; commit .mcp.json with "
+                     "pro-commit if it was written" if outcome["ok"] else next_by_code.get(code, "report the failed step"))}
 
 
 def cmd_install(args) -> dict:

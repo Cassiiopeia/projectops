@@ -7,10 +7,10 @@ import difflib
 from pathlib import Path
 
 from . import (brain_usage, collect, contracts, dest_commands, doctor, gaps, gbrain_connect, github_facts, mcp_probe, notes, onboarding,
-               registry, repo_facts, resolver, switch_edit, user_config)
+               registry, repo_facts, resolver, setup_team, switch_edit, user_config)
 
 DEFAULT_CAPTURE = "issue-end"   # repos switched on before capture modes existed keep the issue flow
-TEAM_BRAIN_DECLINED = "none"    # team_brain value when the user chose no team brain
+TEAM_BRAIN_DECLINED = setup_team.TEAM_BRAIN_DECLINED
 
 
 class NeedsConsent(Exception):
@@ -37,7 +37,9 @@ def repo_context(repo_argument: str | None) -> dict:
             "brain_mcp": repo_facts.team_brain_mcp_name(switch),
             "registry_mcp_hint": sync_target.get("mcp_server_name") if sync_target.get("known") else None,
             "registry_token_cred": sync_target.get("token_cred") if sync_target.get("known") else None,
-            "project": project_key or (remote or root.name).split("/")[-1].lower()}
+            # Note slugs follow the team brain's own key so pro-brain and pro-gbrain agree (team key > registry > folder)
+            "project": (repo_facts.team_brain_project_key(switch) or project_key
+                        or (remote or root.name).split("/")[-1].lower())}
 
 
 def default_ref(root: Path, default_branch: str) -> str:
@@ -254,33 +256,12 @@ def _setup_questions(context: dict, recommendation: dict, onboarding_state: dict
     return questions
 
 
-def _apply_team_write(team_updates: dict, team_removals: tuple, switch: dict, team_write: str | None) -> tuple[dict, tuple]:
-    """--team-write or --to with/without team > team_brain.write (legacy brain_mcp becomes a team_brain map)"""
-    if not team_write or team_updates.get("team_brain") == TEAM_BRAIN_DECLINED:
-        return team_updates, team_removals
-    base = team_updates.get("team_brain") or (dict(switch["team_brain"]) if isinstance(switch.get("team_brain"), dict) else
-                                              ({"mcp_name": switch["brain_mcp"]} if switch.get("brain_mcp") else None))
-    if not base or base.get("write", "sync") == team_write and "team_brain" not in team_updates:
-        return team_updates, team_removals
-    return {**team_updates, "team_brain": {**base, "write": team_write}}, tuple(set(team_removals) | ({"brain_mcp"} if switch.get("brain_mcp") else set()))
-
-
-def _team_brain_updates(args, switch: dict) -> tuple[dict, tuple[str, ...], str | None]:
-    """--team-brain-* flags > (switch updates, keys to remove, error); off records team_brain: "none" (never asked again)"""
-    if args.team_brain_off:
-        return {"team_brain": TEAM_BRAIN_DECLINED}, ("brain_mcp",), None
-    if not (args.team_brain_name or args.team_brain_url or args.team_brain_contact):
-        return {}, (), None
-    current = dict(switch.get("team_brain") or {}) if isinstance(switch.get("team_brain"), dict) else {}
-    if switch.get("brain_mcp") and "mcp_name" not in current:
-        current["mcp_name"] = switch["brain_mcp"]
-    for key, value in (("mcp_name", args.team_brain_name), ("mcp_url", args.team_brain_url),
-                       ("contact", args.team_brain_contact)):
-        if value:
-            current[key] = value.strip()
-    error = brain_usage.validate_team_brain(current)
-    # team_brain.mcp_name replaces the legacy brain_mcp key
-    return {"team_brain": current}, ("brain_mcp",) if switch.get("brain_mcp") else (), error
+def _needs_version_yml(args) -> dict:
+    """No version.yml: the repo switch has nowhere to live; install projectops (version mode), then rerun setup"""
+    return {"ok": False, "code": "needs_version_yml",
+            "summary": "this repo has no version.yml, so the knowledge switch cannot be recorded",
+            "next": "ask the user, then run `npx projectops@latest --mode version` in the repo root (adds version.yml only); "
+                    "then run the same brain_cli.py setup command again"}
 
 
 def cmd_setup(args) -> dict:
@@ -288,7 +269,13 @@ def cmd_setup(args) -> dict:
     root, switch = context["root"], context["switch"]
     recommendation = onboarding.recommend_capture(root, default_ref(root, context["default_branch"]), context["remote"])
     capture = args.capture or switch.get("capture") or recommendation["mode"]
-    team_updates, team_removals, team_error = _team_brain_updates(args, switch)
+    if not (root / "version.yml").is_file():
+        return _needs_version_yml(args)
+    preset_error = setup_team.apply_team_server(args) or setup_team.apply_team_model(args)
+    if preset_error:
+        return {"ok": False, "code": "bad_team_brain", "summary": preset_error,
+                "next": "setup --team-model direct|sync [--team-server https://HOST --team-key KEY]"}
+    team_updates, team_removals, team_error = setup_team.team_brain_updates(args, switch)
     if team_error:
         return {"ok": False, "code": "bad_team_brain", "summary": team_error,
                 "next": "fix the --team-brain-* values (name like gbrain-<project>, an https URL without a token)"}
@@ -298,7 +285,9 @@ def cmd_setup(args) -> dict:
         return {"ok": False, "code": "bad_destinations", "summary": destination_plan["error"],
                 "next": "setup --to repo,local,team,remote:NAME [--remote-name N --remote-url URL --remote-token-cred CRED]"}
     shared_updates = dict(destination_plan["switch_updates"])
-    team_updates, team_removals = _apply_team_write(team_updates, team_removals, switch, shared_updates.pop("_team_write", None))
+    team_updates, team_removals = setup_team.apply_team_write(team_updates, team_removals, switch, shared_updates.pop("_team_write", None))
+    if shared_updates.get("repo_notes") is False:
+        team_removals = tuple(set(team_removals) | {"path"})   # no repo notes: the folder path is dead config
     brain_mcp = (None if args.team_brain_off else
                  (team_updates.get("team_brain") or {}).get("mcp_name") or args.brain_mcp or context["brain_mcp"])
     knowledge_path = switch.get("path", "knowledge/")
@@ -348,7 +337,8 @@ def cmd_setup(args) -> dict:
             "team_brain_probe": probe,
             "target_options": options, "target": target, "target_kind": target_kind, "block": block,
             "block_state": onboarding_state["rule_block_state"],
-            "questions": _setup_questions(context, recommendation, onboarding_state, options,
+            "questions": [question for question in [setup_team.team_model_question(context, args)] if question] +
+                         _setup_questions(context, recommendation, onboarding_state, options,
                                           dest_commands.recommend_destinations(context, resolved)),
             "destinations": dest_commands.summarize_resolved(resolved),
             "personal_config_update": destination_plan["personal"],
@@ -362,6 +352,7 @@ def cmd_setup(args) -> dict:
                 f"rule block target {target} ({target_kind})",
                 "next": "ask the questions (recommended answer first, in the user's language), then "
                         f"setup --apply --yes{' --enable' if needs_enable else ''} --capture MODE --claude-md add|decline [--target PATH] "
+                        "[--team-model direct|sync] [--team-server https://HOST --team-key KEY] "
                         "[--to repo,local,team,remote:NAME --remote-name N --remote-url URL --remote-token-cred CRED "
                         "--team-write sync|direct --sync-branch B] [--team-brain-name N --team-brain-url URL "
                         "--team-brain-contact WHO | --team-brain-off]; then doctor; install-guide: brain_cli.py install"}

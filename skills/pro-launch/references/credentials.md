@@ -16,6 +16,9 @@ This is the credential store for every skill (`../../references/config-rules.md`
 {PYTHON} {SCRIPTS}/launch_cli.py cred unset --name synology
 {PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --secret-field token --prompt --json '{"kind":"token","provider":"gbrain"}'  # user, in a terminal: hidden input
 {PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --secret-field token --from-env MY_TOKEN   # or from an env var, never argv
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --secret-field token --from-file token.txt --delete-after  # no TTY: a file the user saved (deleted after storing)
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --secret-field token --from-clipboard  # no TTY: the value the user copied (never printed)
+{PYTHON} {SCRIPTS}/launch_cli.py cred set --name gbrain-myproj --json-file fields.json  # JSON from a UTF-8 file (PowerShell splits non-ASCII --json)
 {PYTHON} {SCRIPTS}/launch_cli.py cred check                    # read only: references to missing entries, unreferenced entries (names only)
 {PYTHON} {SCRIPTS}/launch_cli.py cred migrate-github-pat        # plan; --yes (after the user agrees) moves github.global_pat into the store
 {PYTHON} {SCRIPTS}/launch_cli.py cred policy get --name google-dev                 # interstitial login screen policy (account > global > ask)
@@ -84,6 +87,8 @@ When a task on the local Mac needs admin rights (for example `sudo installer -pk
 - **The user does the first registration directly in the terminal.** The input is not shown on screen, and the password never enters the chat or session records.
   `! {PYTHON} {SCRIPTS}/launch_cli.py cred set --name mac --prompt` (the `!` prefix in Claude Code). If `!` cannot get a TTY,
   type the same command in a separate terminal window. Pipes and chat are not accepted (rejected with `no_tty`).
+- **No terminal (the agent stores it, or `!` has no TTY)**: for a `--secret-field` value use `--from-file PATH --delete-after` or `--from-clipboard`.
+  Every argument is checked before the source is read, and the file is deleted only after the value is stored.
 - The password goes only to `sudo -S` on stdin. It does not stay in the command line, responses or logs, and the same string in the output is masked as `***`.
 - Use only `kind: local`. Do not try sudo on this Mac with a server ssh password (`cred_not_local`).
 - **These commands change the system.** Before running one, say in one line what the command is. Saving once does not mean running any command; stay within `use_when`.
@@ -98,8 +103,11 @@ When a task on the local Mac needs admin rights (for example `sudo installer -pk
 | `cred_required` · `name_required` | Pick a name with `cred list`. If none fits, ask the user |
 | `cred_field_missing` | That credential lacks the field. Check the existing fields with `cred show` |
 | `cred_not_local` | Only `kind: local` credentials work with `local sudo` |
-| `no_tty` | The user types `cred set --prompt` themselves, with the `!` prefix or in a separate terminal |
+| `no_tty` | `--prompt` without a terminal. The user runs it in a separate terminal, or use `--from-file` · `--from-clipboard` · `--from-env` |
 | `env_empty` · `secret_field_required` | `--from-env` names an empty variable, or lacks `--secret-field <field>` |
+| `conflicting_sources` · `secret_source_required` · `delete_after_needs_file` · `file_not_found` | Pass exactly one source with `--secret-field`; `--delete-after` only with `--from-file` |
+| `clipboard_unavailable` · `empty_secret` | No clipboard reader or an empty value: save it to a file and use `--from-file PATH --delete-after` |
+| `bad_json` · `bad_args` on `--json` | Put the JSON in a UTF-8 file and pass `--json-file PATH` |
 | `missing_credentials` (`cred check`) | A config section names an entry that is not stored. Ask the user to save it with `cred set --secret-field ... --prompt` |
 | `name_taken` (`migrate-github-pat`) | Pick another entry name with `--name` |
 | `sudo_failed` · `auth_failed` | Do not retry; ask the user whether the value changed |

@@ -23,6 +23,9 @@ TOKEN_PLACEHOLDER = "<token>"
 # Stable entry point of core projectops (pro-launch owns the credential store commands)
 CRED_SET_COMMAND = ("python3 ~/.projectops/bin/projectops_cli.py launch cred set --name {name} --secret-field token "
                     "--prompt --json '{{\"kind\":\"token\",\"provider\":\"gbrain\",\"use_when\":\"team brain {mcp_name} MCP entry\"}}'")
+# No terminal (TTY) for hidden input, e.g. an agent session: the token saved to a file, read and the file deleted
+CRED_SET_FROM_FILE_COMMAND = ("python3 ~/.projectops/bin/projectops_cli.py launch cred set --name {name} --secret-field token "
+                              "--from-file <token-file> --delete-after")
 
 
 def claude_binary() -> str | None:
@@ -97,7 +100,8 @@ def plan(team: dict | None, cred_name: str | None, project: str, repo_root: Path
     result = {"team_brain": team, "cred_name": cred_name, "registered": is_registered,
               "token_state": _token_state(cred_name), "claude_cli": bool(claude_binary()), "rotate": is_rotate,
               "command": display_command(add_command(team, TOKEN_PLACEHOLDER)),
-              "store_token_command": CRED_SET_COMMAND.format(name=cred_name, mcp_name=team["mcp_name"])}
+              "store_token_command": CRED_SET_COMMAND.format(name=cred_name, mcp_name=team["mcp_name"]),
+              "store_token_without_tty": CRED_SET_FROM_FILE_COMMAND.format(name=cred_name)}
     if wants_project_file:
         project_file = plan_project_mcp_json(repo_root, team, project)
         result["project_mcp_json"] = {key: value for key, value in project_file.items() if key != "new_text"}

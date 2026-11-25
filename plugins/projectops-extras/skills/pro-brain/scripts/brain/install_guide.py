@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from . import brain_usage
 
-INSTALL_CHOICES = ("local", "postgres", "supabase", "thin-client", "team-server")
+INSTALL_CHOICES = ("local", "postgres", "supabase", "thin-client", "team-server", "existing-team-server")
 VERIFY_COMMANDS = ["gbrain engine status --json", "gbrain doctor --fast --json"]
 # The secret-bearing commands are typed by the user (Claude Code `!` prefix or a separate terminal), never through chat
 TYPE_IT_YOURSELF = "type this yourself in a terminal (it carries a password or key): never paste it into the chat"
@@ -53,6 +53,22 @@ GUIDES = {
         "secret_note": "hand each member their token privately; they store it with cred set --prompt (never chat)",
         "then": "each member: store the token once, then brain_cli.py connect --team (references/how-it-works.md)",
     },
+    "existing-team-server": {
+        "label": "My team already has a managed brain server (someone else runs it; I have its address)",
+        "requires": ["the server base URL (e.g. https://brain.example.com) and this project's brain key from the admin",
+                     "a personal key for that brain: read+write when members write directly, read-only for sync"],
+        "commands": ["brain_cli.py setup --team-server https://<host> --team-key <key> --team-model direct   # plan: "
+                     "derives https://<host>/team/<key>/mcp and gbrain-<key>, probes it",
+                     "brain_cli.py setup --apply --yes --team-server https://<host> --team-key <key> --team-model direct "
+                     "--capture MODE --claude-md add",
+                     "python3 ~/.projectops/bin/projectops_cli.py launch cred set --name gbrain-<key> --secret-field token "
+                     "--prompt   # or --from-file <file> --delete-after when there is no terminal",
+                     "brain_cli.py connect --team --apply --yes"],
+        "secret_note": "the admin page's guide text contains the raw key: never paste it into the chat",
+        "then": "restart the agent session, then brain_cli.py doctor --to team; creating the brain or member keys "
+                "on the server is pro-gbrain's job (/pro-gbrain)",
+        "skips_gbrain_install": True,
+    },
 }
 
 
@@ -83,9 +99,12 @@ def guide(choice: str | None) -> dict:
                 "summary": ("gbrain is not installed" if not detected["installed"] else "gbrain is installed but has no brain yet"),
                 "next": "ask the one question (recommended first), then install --choice <id>"}
     selected = GUIDES[choice]
-    steps = [] if detected["installed"] else [f"install gbrain first: {brain_usage.GBRAIN_INSTALL_URL} (README, Install)"]
+    # A member of a managed team server needs no local gbrain: only an MCP entry and a key
+    steps = [] if detected["installed"] or selected.get("skips_gbrain_install") else \
+        [f"install gbrain first: {brain_usage.GBRAIN_INSTALL_URL} (README, Install)"]
     return {**facts, "code": "guide", "choice": choice, "label": selected["label"], "requires": selected["requires"],
             "install_steps": steps, "commands": selected["commands"], "secret_note": selected.get("secret_note"),
-            "verify": VERIFY_COMMANDS, "then": selected["then"],
+            "verify": ["brain_cli.py doctor --to team"] if selected.get("skips_gbrain_install") else VERIFY_COMMANDS,
+            "then": selected["then"],
             "summary": f"{choice}: {len(selected['requires'])} prerequisite(s), {len(selected['commands'])} command(s)",
             "next": "show the commands; the user runs them (secret-bearing ones in a terminal); then run install again to verify"}

@@ -6,10 +6,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from . import common, context, flows, local_sync, mcp_check, provisioner as provisioner_module, registry_store
-
-SHARE_FOLDER_NAME = "share"
-
+from . import common, context, flows, local_sync, mcp_check, provisioner as provisioner_module, registry_store, repo_switch, teammate_kit
 
 class NeedsConsent(Exception):
     pass
@@ -26,15 +23,19 @@ def _open(section: dict | None):
 
 
 def _options(args) -> dict:
-    return {key: getattr(args, key, None) for key in ("capture", "claude_md", "contact", "mcp_url", "mcp_name", "no_first_sync")}
+    return {key: getattr(args, key, None) for key in ("capture", "claude_md", "contact", "mcp_url", "mcp_name", "no_first_sync",
+                                                       "write")}
 
 
 def cmd_detect(args) -> dict:
     facts = context.detect(Path(args.repo or ".").resolve(), args.project)
     question = facts["question"]
+    write_question = facts["team_write_question"]
+    team_next = f" (team: ask team_write_question too, then plan --mode team --write {write_question['recommended']})"
     return {"ok": True, "code": "detected", **facts,
             "summary": f"project {facts['project']} ({facts['project_from']}); recommended: {question['recommended']} ({question['why']})",
-            "next": f"ask the question once, then: plan --mode {question['recommended']}"}
+            "next": f"ask the question once, then: plan --mode {question['recommended']}"
+                    + (team_next if question["recommended"] == "team" else "")}
 
 
 def cmd_plan(args) -> dict:
@@ -50,11 +51,12 @@ def cmd_plan(args) -> dict:
     if args.mode == "team" and provisioner is not None:
         preview = provisioner.create(facts["project"], dry_run=True)
     repo_preview = flows.pro_brain.run_brain_cli(["setup"], run.repo_root)
-    return {"ok": True, "code": "plan", "project": facts["project"], "mode": args.mode, "steps": steps,
+    return {"ok": True, "code": "plan", "project": facts["project"], "mode": args.mode, "write": run.write_mode, "steps": steps,
             "server_preview": preview, "repo_preview": {key: repo_preview.get(key) for key in (
                 "version_yml_diff", "block_diff", "target_options", "recommended_capture") if key in repo_preview},
             "summary": f"{len(steps)} steps for {facts['project']} ({args.mode})",
-            "next": f"show the plan, ask once, then: add --mode {args.mode} --apply --yes"}
+            "next": f"show the plan, ask once, then: add --mode {args.mode}"
+                    + (f" --write {run.write_mode}" if run.write_mode else "") + " --apply --yes"}
 
 
 def _describe_step(run: flows.Run, step_name: str) -> str:
@@ -66,11 +68,14 @@ def _describe_step(run: flows.Run, step_name: str) -> str:
         "repo": "pro-brain setup in the repo: turn knowledge capture on, write the rule block"
                 + (" and the shared team brain name and URL (never a token)" if run.mode == "team" else ""),
         "connect": "pro-brain connect: add one source <project>-knowledge to your own GBrain and sync it",
-        "local": (f"{run.home_directory}: sparse clone of {run.facts['default_branch']} (knowledge/ + root files), gbrain config "
-                  "for the writer role (600), source, sync.sh (700), first sync") if run.provisioner else "skipped (no provisioner)",
+        "local": ("skipped (direct write: no sync machine)" if run.write_mode == "direct" else
+                  f"{run.home_directory}: sparse clone of {run.facts['default_branch']} (knowledge/ + root files), gbrain config "
+                  "for the writer role (600), source, sync.sh (700), first sync" if run.provisioner else "skipped (no provisioner)"),
         "registry": f"add {registry_store.team_brain_name(project)} and projects.{project}.knowledge to the private registry "
                     "(backup first, existing values kept)",
-        "verify": "throwaway read-only token: initialize 200, search, write refused, revoke, then 401",
+        "verify": ("throwaway read+write token: initialize 200, search, write allowed (probe page removed), revoke, then 401"
+                   if run.write_mode == "direct" else
+                   "throwaway read-only token: initialize 200, search, write refused, revoke, then 401"),
     }
     return descriptions[step_name]
 
@@ -110,7 +115,8 @@ def _finish(result: dict, run: flows.Run) -> dict:
     result.update({"project": run.project, "mode": run.mode, "state_file": str(flows.state_path(run.project))})
     if result["ok"]:
         result["summary"] = f"{run.project}: {', '.join(result['finished']) or 'nothing new'} done ({run.mode})"
-        result["next"] = (f"commit the repo changes with pro-commit; teammates: share --project {run.project} --member <name>"
+        result["next"] = (f"commit the repo changes with pro-commit; teammates: share --project {run.project} --member <name>; "
+                          "your own connection: brain_cli.py connect --team (pro-brain), restart, then brain_cli.py doctor --to team"
                           if run.mode == "team" else "commit the repo changes with pro-commit")
     return result
 
@@ -123,7 +129,8 @@ def cmd_verify(args) -> dict:
         return {"ok": False, "code": "no_provisioner", "summary": "no brain server token API configured",
                 "next": "verify by hand with a teammate token: pro-brain connect --team"}
     brain = registry_store.brains(section).get(registry_store.team_brain_name(project)) or {}
-    verification = mcp_check.run_verification(provisioner, project, brain.get("mcp_url"))
+    write_mode = args.write or flows.load_state(project).get("write") or brain.get("write") or repo_switch.DEFAULT_WRITE_MODE
+    verification = mcp_check.run_verification(provisioner, project, brain.get("mcp_url"), write_mode)
     return {"ok": verification["passed"], "code": "verified" if verification["passed"] else "verify_failed",
             "summary": f"{project}: end-to-end check {'passed' if verification['passed'] else 'failed'}", **verification}
 
@@ -152,9 +159,12 @@ def cmd_status(args) -> dict:
             rows.append(row)
     if args.project:
         rows = [row for row in rows if row["project"] == args.project]
-    return {"ok": True, "code": "status", "brains": rows, "server_error": server_error,
-            "summary": f"{len(rows)} team brain(s)" + (f"; server not reachable ({server_error['code']})" if server_error else ""),
-            "next": "repair --project <key> --apply --yes for a broken one"}
+    hint = None if registry_store.find_provisioner(section)[1] else context.provisioner_hint()
+    return {"ok": True, "code": "status", "brains": rows, "server_error": server_error, "provisioner_hint": hint,
+            "summary": f"{len(rows)} team brain(s)" + (f"; server not reachable ({server_error['code']})" if server_error else "")
+                       + ("; no brain server registered on this machine (see provisioner_hint)" if hint else ""),
+            "next": ("repair --project <key> --apply --yes for a broken one" if not hint else
+                     "a brain admin can register the server: " + hint["register"] + " (or " + hint["import"] + ")")}
 
 
 def _fill_row(row: dict, project: str, projects: dict, server_rows: dict, sync_root: Path) -> None:
@@ -166,25 +176,33 @@ def _fill_row(row: dict, project: str, projects: dict, server_rows: dict, sync_r
 
 
 def cmd_share(args) -> dict:
+    """One member key (scope by the team write mode) + one teammate kit in a private file; never in the output"""
     project = common.validate_project_key(args.project)
     section = registry_store.load_section()
     provisioner = _open(section)
+    brain = registry_store.brains(section).get(registry_store.team_brain_name(project)) or {}
+    write_mode = flows.load_state(project).get("write") or brain.get("write") or repo_switch.DEFAULT_WRITE_MODE
+    scope = args.scope or ("read_write" if write_mode == "direct" else "read_only")
     if provisioner is None:
         return {"ok": False, "code": "no_provisioner", "summary": "no brain server token API configured",
-                "next": "the brain admin issues a read-only token with the brain's admin tools"}
+                "next": f"the brain admin issues a {scope} key in the server's admin page; register the server for next time: "
+                        + context.provisioner_hint()["register"]}
     member = (args.member or "").strip()
     if not member:
-        return {"ok": False, "code": "member_required", "summary": "who is the token for?", "next": "share --member <name>"}
+        return {"ok": False, "code": "member_required", "summary": "who is the key for?", "next": "share --member <name>"}
     if not (args.apply and args.yes):
-        return {"ok": True, "code": "plan", "summary": f"issue one read-only token for {member} on {project}",
-                "next": f"share --project {project} --member {member} --apply --yes"}
-    issued = provisioner.issue_read_only_token(project, to_token_label(member))
-    message_path = _write_share_message(project, member, issued)
+        return {"ok": True, "code": "plan", "scope": scope, "write_mode": write_mode,
+                "summary": f"issue one {scope} key for {member} on {project} (team write: {write_mode}) and a teammate kit",
+                "next": f"share --project {project} --member {member} --scope {scope} --apply --yes"}
+    issued = provisioner.issue_token(project, to_token_label(member), scope)
+    kit = teammate_kit.build(project, member, issued, scope, write_mode, Path(args.repo or ".").resolve())
+    message_path = teammate_kit.write_private(project, member, kit["text"])
     copied = _copy_to_clipboard(message_path)
-    return {"ok": True, "code": "shared", "token_id": issued.get("token_id"), "scopes": issued.get("scopes"),
-            "message_file": str(message_path), "copied_to_clipboard": copied,
-            "summary": f"read-only token for {member} saved in a private file (600); the token is not shown here",
-            "next": "send the file's text to the member one to one (DM), then delete the file"}
+    return {"ok": True, "code": "shared", "token_id": issued.get("token_id"), "scopes": issued.get("scopes"), "scope": scope,
+            "message_file": str(message_path), "copied_to_clipboard": copied, "kit_parts": kit["parts"],
+            "rule_branch": kit["rule_branch"],
+            "summary": f"{scope} key for {member} saved with the teammate kit in a private file (600); the key is not shown here",
+            "next": "send the file's text to the member one to one (DM, never a group chat or an AI chat), then delete the file"}
 
 
 def to_token_label(member: str) -> str:
@@ -192,28 +210,6 @@ def to_token_label(member: str) -> str:
     import re
     slug = re.sub(r"[^a-z0-9]+", "-", member.lower()).strip("-")[:40] or "member"
     return f"{slug}-{common.compact_timestamp()}"
-
-
-def _write_share_message(project: str, member: str, issued: dict) -> Path:
-    name = issued.get("mcp_server_name") or f"gbrain-{project}"
-    lines = [
-        f"{member}, here is your read-only access to the {project} team brain.",
-        "",
-        "1. Install the projectops-extras plugin if you do not have it:",
-        "   claude plugin install projectops-extras@projectops-marketplace --scope user",
-        "2. In a terminal, store the token (hidden input; paste the token below when asked):",
-        f"   python3 ~/.projectops/bin/projectops_cli.py launch cred set --name {name} --secret-field token --prompt",
-        f"   token: {issued.get('secret')}",
-        "3. Open the project repo in Claude Code and say: /pro-brain connect the team brain",
-        f"   (it adds the MCP server {name} -> {issued.get('mcp_url')} for your user only; restart the session after)",
-        "",
-        "Keep the token to yourself; ask for a new one if it leaks.",
-    ]
-    path = common.state_directory() / SHARE_FOLDER_NAME / f"{project}-{member}-{common.compact_timestamp()}.txt"
-    common.ensure_private_directory(path.parent)
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    path.chmod(common.PRIVATE_FILE_MODE)
-    return path
 
 
 def _copy_to_clipboard(path: Path) -> bool:

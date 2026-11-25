@@ -169,11 +169,13 @@ def team_brain_instructions(team: dict, registered_names: list[str] | None, cred
     return {
         "mcp_name": name, "mcp_url": url, "contact": contact, "cred_name": cred_name,
         "registered": (name in registered_names) if registered_names is not None else None,
-        "steps": [f"ask {contact} for a personal read-only token for {name}",
+        "steps": [f"ask {contact} for a personal {'read+write' if team.get('write') == 'direct' else 'read-only'} token for {name}",
                   f"store it once in a terminal (hidden input): python3 ~/.projectops/bin/projectops_cli.py launch cred set "
-                  f"--name {cred_name} --secret-field token --prompt",
+                  f"--name {cred_name} --secret-field token --prompt  (no terminal: save it to a file, then "
+                  f"--from-file <file> --delete-after instead of --prompt)",
                   "brain_cli.py connect --team (plan), then connect --team --apply --yes: registers the user-scope MCP entry",
-                  "restart the agent session, then search the team brain first for design and decision questions"],
+                  "restart the agent session, then brain_cli.py doctor --to team (connected and, in direct mode, writable)",
+                  "search the team brain first for design and decision questions"],
         "manual_fallback": f'claude mcp add --scope user --transport http {name} {url} --header "Authorization: Bearer <token>"',
         "never": "put the token in the repo, a note, version.yml or the chat; replace or rename the personal 'gbrain' entry",
     }
