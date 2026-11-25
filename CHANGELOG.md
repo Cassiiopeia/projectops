@@ -1,7 +1,27 @@
 # Changelog
 
-**Current version:** 4.118.0  
-**Last updated:** 2026-11-24T08:44:38Z  
+**Current version:** 4.119.0  
+**Last updated:** 2026-11-25T00:08:31Z  
+
+---
+
+## [4.119.0] - 2026-11-25
+
+**PR:** #1283  
+
+**New features**
+- Team brains can be set up for direct writes in one answer
+- Connect to an existing team brain server with its address and key
+- Store tokens from a file or the clipboard, no terminal needed
+- One teammate guide with key, connect line and check step
+- Brain doctor confirms a token can really write
+
+**Improvements**
+- Setup fills in a missing version.yml section and keeps going
+- Brain settings can be imported from another computer
+
+**Documentation**
+- Knowledge note on the team brain write destinations
 
 ---
 

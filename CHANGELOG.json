@@ -1,14 +1,50 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-24T08:44:38Z",
-    "currentVersion": "4.118.0",
+    "lastUpdated": "2026-11-25T00:08:31Z",
+    "currentVersion": "4.119.0",
     "projectType": "basic",
-    "totalReleases": 438,
+    "totalReleases": 439,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.119.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-25",
+      "pr_number": 1283,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Team brains can be set up for direct writes in one answer\n  * Connect to an existing team brain server with its address and key\n  * Store tokens from a file or the clipboard, no terminal needed\n  * One teammate guide with key, connect line and check step\n  * Brain doctor confirms a token can really write\n\n* **Improvements**\n  * Setup fills in a missing version.yml section and keeps going\n  * Brain settings can be imported from another computer\n\n* **Documentation**\n  * Knowledge note on the team brain write destinations",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Team brains can be set up for direct writes in one answer",
+            "Connect to an existing team brain server with its address and key",
+            "Store tokens from a file or the clipboard, no terminal needed",
+            "One teammate guide with key, connect line and check step",
+            "Brain doctor confirms a token can really write"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Setup fills in a missing version.yml section and keeps going",
+            "Brain settings can be imported from another computer"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Knowledge note on the team brain write destinations"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.118.0",
       "project_type": "basic",
