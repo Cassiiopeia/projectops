@@ -27,31 +27,24 @@ def _location_row(location: catalog.Location, max_seconds: int) -> dict:
     if sizes.is_other_volume(location.path):
         return {**row, "size_gb": None, "size_bytes": 0, "is_other_volume": True,
                 "note": "Mount point or other volume; not counted"}
+    started = time.monotonic()
     byte_count, is_partial = sizes.folder_bytes(location.path, max_seconds)
     hint = NEXT_BY_KIND[location.kind]
-    row.update({
-        "size_gb": sizes.to_gigabytes(byte_count), "size_bytes": byte_count or 0, "is_partial_size": is_partial, "next": hint.format(key=location.key)
-        if hint else None,
-    })
-
+    row.update({"size_gb": sizes.to_gigabytes(byte_count), "size_bytes": byte_count or 0, "is_partial_size": is_partial,
+                "next": hint.format(key=location.key) if hint else None})
     if location.kind == "plugin-versions":
-        candidates = cleaners.plugin_version_candidates(location)
-        old_versions = [
-            item for item in candidates
-            if item["skip_reason"] is None
-        ]
+        # Per-version sizing spends what is left of this location's budget, not a fresh default per folder (#1255)
+        remaining_seconds = max(max_seconds - (time.monotonic() - started), 0)
+        candidates = cleaners.plugin_version_candidates(location, remaining_seconds)
+        old_versions = [item for item in candidates if item["skip_reason"] is None]
         row.update({
             "old_versions": old_versions,
-            "kept_versions": [
-                item for item in candidates
-                if item["skip_reason"] is not None
-            ],
-            "reclaimable_gb": sizes.to_gigabytes(
-                sum(item["size_bytes"] for item in old_versions)
-            ),
+            "kept_versions": [item for item in candidates if item["skip_reason"] is not None],
+            "reclaimable_gb": sizes.to_gigabytes(sum(item["size_bytes"] for item in old_versions)),
+            "is_partial_size": is_partial or any(item["is_partial_size"] for item in candidates),
         })
-
     return row
+
 
 def _worktree_summary(roots: list[Path], idle_hours: float, snapshot: ProcessSnapshot) -> dict:
     facts = worktrees.collect(roots, idle_hours, should_measure_size=False, snapshot=snapshot)

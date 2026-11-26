@@ -143,6 +143,7 @@ def cmd_aged(args) -> dict:
     return {**result, "location": location.key, "tier": location.tier, "older_than_days": args.older_than_days,
             "running_builds": snapshot.is_running("xcodebuild", "XCBBuildService", "GradleDaemon")}
 
+
 def cmd_plugin_versions(args) -> dict:
     location, failure = _location_or_failure(args.key, ("plugin-versions",))
     if failure:
@@ -156,6 +157,7 @@ def cmd_plugin_versions(args) -> dict:
         "tier": location.tier,
         "note": location.note,
     }
+
 
 def cmd_tool(args) -> dict:
     location, failure = _location_or_failure(args.key, ("tool",))

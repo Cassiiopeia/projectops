@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
 import re
+import shutil
 import time
 from pathlib import Path
 
@@ -79,6 +79,7 @@ def _profile_root(cache: Path) -> Path | None:
             return ancestor
     return None
 
+
 def _numeric_version(name: str) -> tuple[int, ...] | None:
     """Parse numeric versions; leave unrecognized names untouched."""
     if not re.fullmatch(r"\d+(?:\.\d+)*", name):
@@ -125,9 +126,14 @@ def _installed_plugin_paths() -> set[Path]:
     return paths
 
 
-def plugin_version_candidates(location: Location) -> list[dict]:
-    """List cached versions, keeping the newest two per plugin."""
+def plugin_version_candidates(location: Location, max_seconds: float | None = None) -> list[dict]:
+    """List cached versions, keeping the newest two per plugin.
+
+    max_seconds: one sizing budget shared by every version folder (None: default limit per folder).
+    Folders reached after it runs out are listed unmeasured (size 0, is_partial_size true).
+    """
     candidates = []
+    deadline = None if max_seconds is None else time.monotonic() + max_seconds
     # An install pinned in installed_plugins.json stays even when it is older than the newest two (read once)
     installed = _installed_plugin_paths()
 
@@ -159,7 +165,7 @@ def plugin_version_candidates(location: Location) -> list[dict]:
                 else:
                     skip_reason = None
 
-                byte_count, is_partial = sizes.folder_bytes(folder)
+                byte_count, is_partial = _folder_bytes_until(folder, deadline)
                 candidates.append({
                     "path": str(folder),
                     "marketplace": marketplace.name,
@@ -172,6 +178,17 @@ def plugin_version_candidates(location: Location) -> list[dict]:
                 })
 
     return sorted(candidates, key=lambda item: -item["size_bytes"])
+
+
+def _folder_bytes_until(folder: Path, deadline: float | None) -> tuple[int | None, bool]:
+    """Folder size within the time left until deadline > (bytes, partially counted). Past it: (None, True), not measured"""
+    if deadline is None:
+        return sizes.folder_bytes(folder)
+    remaining_seconds = deadline - time.monotonic()
+    if remaining_seconds <= 0:
+        return None, True
+    return sizes.folder_bytes(folder, remaining_seconds)
+
 
 def delete_candidates(candidates: list[dict], allowed_base: Path, is_confirmed: bool) -> dict:
     """Delete only candidates without skip_reason, through the gate > result summary"""
