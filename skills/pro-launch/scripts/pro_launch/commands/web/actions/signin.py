@@ -1,7 +1,8 @@
 """`web signin` — pick the sign-in engine and, for Ego Lite, hand the stored sign-in information to the agent (#1231).
 
-engine ego:    starts no browser. Returns provider, account, password, second-factor kind and sign-in policy so the agent signs in
-               through ego-browser by reading each page (no per-site script). The password is in this result on purpose (owner's choice).
+engine ego:    starts no browser. Returns provider, account, second-factor kind, sign-in policy and the path of a short-lived
+               owner-only file holding the password, so the agent signs in through ego-browser by reading each page (no per-site
+               script). The password never appears in the result: the Ego script reads the file and deletes it (#1239).
 engine legacy: starts nothing either; points to the current flow (web open, web type --cred, web login).
 `web login` is not touched: it still needs an attached page and still never prints values.
 Both successes use code `ok` (the attempt tracker counts any other code as a failure); the engine is told by the `engine` field.
@@ -58,9 +59,11 @@ def execute(args) -> int:
     if failure:
         return out(failure)
     return out({"ok": True, "code": "ok", "action": "signin", "engine": "ego", "reason": decision.reason,
-                "summary": "Sign in through Ego Lite with the information below (one Ego space for the goal)",
+                "summary": "Sign in through Ego Lite with the information below (one Ego space for the goal); "
+                           "the password is in handoff.password_file, not in this result",
                 "handoff": handoff,
-                "next": f"Follow {EGO_GUIDE_POINTER}: never retry a failed password or code, and never switch engines after typing"})
+                "next": f"Follow {EGO_GUIDE_POINTER}: the Ego script reads handoff.password_file, deletes it and never prints it; "
+                        "never retry a failed password or code, and never switch engines after typing"})
 
 
 def configure(p) -> None:
@@ -72,5 +75,5 @@ def configure(p) -> None:
 
 
 ACTION = Action(name="signin", needs="nothing", run=execute, configure=configure, options=(),
-                help="Pick the sign-in engine (Ego Lite when available) and hand over the stored sign-in information",
+                help="Pick the sign-in engine (Ego Lite when available) and hand over the sign-in information (password as a short-lived file path)",
                 example="web signin --cred google-work --engine auto")

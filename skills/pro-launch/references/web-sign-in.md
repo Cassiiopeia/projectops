@@ -39,14 +39,24 @@ engine when a current-engine profile is already marked signed in for that provid
 
 | Result | Meaning | Do |
 |---|---|---|
-| `code: ok`, `engine: ego` | Ego Lite will be used. `handoff` holds `provider`, `account`, `password`, `second_factor`, `login_policy` | Sign in through `ego-browser` as below |
+| `code: ok`, `engine: ego` | Ego Lite will be used. `handoff` holds `provider`, `account`, `password_file`, `password_file_valid_seconds`, `second_factor`, `login_policy`. The password is never in the result | Sign in through `ego-browser` as below |
 | `code: ok`, `engine: legacy` | The current engine is used (`reason` says why: `requested`, `signed_in_profile`, `ego_not_found`, `ego_not_onboarded`, `ego_no_display`, `ego_probe_timeout`) | Follow the [Common flow](#common-flow) |
 | `code: ego_unavailable` | `--engine ego` was forced and Ego Lite cannot run | Open the Ego Lite app once to finish its setup, or use `--engine legacy` |
 
 When `engine` is `ego`, follow the `ego-browser` skill and drive the page yourself. There is no per-site script, so read each screen before acting:
 
 1. Open one Ego space for the goal (`taskSpace`), go to the provider's sign-in page, and take a snapshot.
-2. Enter the account, continue, read the next screen, then enter the password once and continue.
+2. Enter the account, continue, read the next screen, then enter the password once and continue. The password is the whole content of
+   `handoff.password_file` (UTF-8, no newline). Read it inside the Ego script, delete the file, and fill the field in the same script.
+   Write the path into the script as text: Ego scripts do not inherit shell environment variables, so `$CRED_*` and `--text-env` do not reach them.
+
+   ```js
+   const fs = await import("node:fs/promises");
+   const passwordFile = "<handoff.password_file>";
+   const password = await fs.readFile(passwordFile, "utf8");
+   await fs.unlink(passwordFile);
+   await page.fill("<password input>", password);
+   ```
 3. Read the result. Answer interstitial screens (trust this device, stay signed in, passkey nags) only as `login_policy` allows; ask when it says `ask`.
 4. At a second factor, report its kind (compare `second_factor` with the screen) and wait for the person; see [Two-factor kinds](#two-factor-kinds). A passkey challenge may offer "try another way" with a phone prompt.
 5. When the page shows the signed-in state, finish the space.
@@ -56,7 +66,12 @@ Engine rules:
 - Never retry a failed password or code, and never switch engines after you typed a credential. Stop and ask.
 - Sign-in state is per engine. A sign-in through Ego Lite is not visible to the current engine's profiles, and the reverse. One job stays on one engine.
 - If the job goes on with other `web` actions after the sign-in (`shot`, `assert`, `route`, `console`, `click` and so on), call `web signin --cred <name> --engine legacy`: those actions only drive the current engine, whose profile must hold the sign-in.
-- The `handoff` values are plaintext in this result. Never copy them into issues, commits, reports, `learn`, `journal` or captures.
+- The result never holds the password. Never read `password_file` with a shell command (`cat`, `type`, `Get-Content`) or the Read tool, and never
+  `console.log` it or return it from the script: any of these puts the value into the conversation. Only the Ego script that fills the field reads it.
+- The file is owner-only (mode 600; on Windows it sits under the user profile), used once, and removed by itself after
+  `password_file_valid_seconds` (10 minutes). File gone or sign-in not started in time → call `web signin` again for a new one.
+  A new file is not a retry: a password the site rejected is still never typed twice.
+- Never copy the account or the file path into issues, commits, reports, `learn`, `journal` or captures.
 - Ego Lite's readiness probe opens its setup window when onboarding is not finished; that is why `ego_not_onboarded` can make a window appear.
 
 ## Two-factor kinds

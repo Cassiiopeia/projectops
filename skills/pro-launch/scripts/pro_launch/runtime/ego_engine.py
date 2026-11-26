@@ -1,7 +1,7 @@
 """Ego Lite engine for `web signin`: availability, engine choice, hand-over block (#1231).
 
-Pure logic. Every outside call (finding the command, the display check, the probe) is injectable so it is testable
-without Ego Lite installed.
+Pure logic. Every outside call (finding the command, the display check, the probe, the secret file) is injectable so it is
+testable without Ego Lite installed.
 """
 from __future__ import annotations
 
@@ -12,14 +12,16 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from pro_launch.runtime import secret_handoff
+
 EGO_BROWSER_COMMAND_NAME = "ego-browser"
 # The ego lite onboarding registers the command here when PATH does not have it
 EGO_BROWSER_FALLBACK_PATH = Path.home() / ".local" / "bin" / EGO_BROWSER_COMMAND_NAME
 # Time limit for the readiness probe (seconds)
 EGO_PROBE_TIMEOUT_SECONDS = 20
 EGO_PROBE_READY_TEXT = "ego-browser ready"
-# Fields handed to the agent, in this order. Notes and every other credential field stay out
-HANDOFF_FIELD_NAMES = ("provider", "account", "password", "second_factor", "login_policy")
+# Fields handed to the agent, in this order. The password itself, notes and every other credential field stay out (#1239)
+HANDOFF_FIELD_NAMES = ("provider", "account", "password_file", "password_file_valid_seconds", "second_factor", "login_policy")
 # Same names `web login` accepts for the user id (commands/web/actions/login.py); the first one with a value is handed over as `account`
 IDENTIFIER_FIELD_CANDIDATES = ("username", "account", "email", "user", "login", "id")
 
@@ -95,8 +97,10 @@ def decide_engine(requested: str, availability: EgoAvailability, has_signed_in_c
     return EngineDecision("legacy", availability.reason)
 
 
-def build_signin_handoff(credential: dict, login_policy: dict) -> tuple[dict | None, dict | None]:
-    """(hand-over block, None), or (None, cred_field_missing payload) when account or password is empty."""
+def build_signin_handoff(credential: dict, login_policy: dict,
+                         write_secret_file=secret_handoff.write_secret_file) -> tuple[dict | None, dict | None]:
+    """(hand-over block, None), or (None, cred_field_missing payload) when account or password is empty.
+    The password goes to a short-lived owner-only file; the block carries its path, never the value (#1239)."""
     account = next((credential[field] for field in IDENTIFIER_FIELD_CANDIDATES if credential.get(field) not in (None, "")), None)
     missing = [field for field, value in (("account", account), ("password", credential.get("password"))) if not value]
     if missing:
@@ -104,10 +108,13 @@ def build_signin_handoff(credential: dict, login_policy: dict) -> tuple[dict | N
         return None, {"ok": False, "code": "cred_field_missing",
                       "error": f"'{name}' has no '{missing[0]}' value", "fields": missing,
                       "next": f"cred set --name {name} --json '{{\"{missing[0]}\": \"...\"}}'"}
+    password_file = write_secret_file(str(credential["password"]))
     return {
         "provider": credential.get("provider"),
         "account": account,
-        "password": credential["password"],
+        # Forward slashes: the path is pasted into a JavaScript string, where a Windows backslash is an escape
+        "password_file": Path(password_file).as_posix(),
+        "password_file_valid_seconds": secret_handoff.SECRET_FILE_VALID_SECONDS,
         "second_factor": credential.get("two_factor"),
         "login_policy": login_policy,
     }, None
