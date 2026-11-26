@@ -44,7 +44,10 @@ def _invalid_path(code: str, error: str, hint: str) -> int:
 
 def _app_install(args) -> int:
     if not getattr(args, "path", None):
-        return _invalid_path("args_required", "--path is required",
+        # --file parses on the shared app parser (it belongs to app flow), so say it is not the install option (#1235)
+        error = "--path is required" + (" (--file is the app flow option; install takes the build with --path)"
+                                        if getattr(args, "file", None) else "")
+        return _invalid_path("args_required", error,
                              "app install --device $DEV --path build/app-debug.apk  (iOS simulator: the Runner.app folder)")
     platform, dev_id, _, err = resolve_target(args, is_package_required=False)
     if err is not None:

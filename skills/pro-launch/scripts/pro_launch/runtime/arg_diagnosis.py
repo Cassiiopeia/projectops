@@ -24,6 +24,8 @@ OPTION_ALIASES = {
     "--size": "--viewport",
     # Pressing by text (click uses --selector 'text=…') · input value name mix-ups — --timeout was wrongly suggested in practice
     "--text": "--selector", "--value": "--text",
+    # A wait length: difflib offered the unrelated --steps (#1235)
+    "--seconds": "--timeout", "--sleep": "--timeout", "--duration": "--timeout",
 }
 SIMILARITY_CUTOFF = 0.6
 # 'name' options easily passed as positional args by mistake (earlier ones win)
