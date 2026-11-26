@@ -18,13 +18,18 @@ from pro_launch.runtime.output import out, set_target
 from pro_launch.runtime.shots import add_shot_args
 
 ACTIONS = discover_actions(_actions)
-# Actions that read the shared positional word (session_verb); any other action rejects a stray word (#1224)
+# Actions that read the shared positional word; any other action rejects a stray word (#1224)
 POSITIONAL_WORD_ACTIONS = ("session", "record", "swipe")
+# (action, word) pairs that only read saved state: no ownership refusal on a device another session holds
+READ_ONLY_WORDS = (("record", "status"),)
 
 
 def configure(p) -> None:
     # Options shared by several actions. Options used by one action live in that action's configure
     p.add_argument("action", choices=sorted(ACTIONS))
+    # Shared positional word, checked by the action that reads it (#1224)
+    p.add_argument("positional_word", nargs="?", default=None, metavar="WORD",
+                   help="session: start · stop · status / record: start · stop · status / swipe: up · down · left · right")
     p.add_argument("--shot", default=None, help="tap·swipe·back·run: take a shot right after (name or path) — saves a separate shot call")
     p.add_argument("--root", default=".")
     p.add_argument("--device", default=None,
@@ -46,13 +51,14 @@ def cmd_app(args) -> int:
     # Reference point for the elapsed_seconds an action adds to its result (includes device pick and tool runs)
     args.started_monotonic = time.monotonic()
     action = ACTIONS.get(args.action, ACTIONS["launch"])
-    stray_word = getattr(args, "session_verb", None)
-    if stray_word and args.action not in POSITIONAL_WORD_ACTIONS:
-        return out({"ok": False, "code": "bad_args", "error": f"app {args.action} takes no positional word: {stray_word}",
-                    "summary": f"Argument error: unexpected '{stray_word}'",
+    word = getattr(args, "positional_word", None)
+    if word and args.action not in POSITIONAL_WORD_ACTIONS:
+        return out({"ok": False, "code": "bad_args", "error": f"app {args.action} takes no positional word: {word}",
+                    "summary": f"Argument error: unexpected '{word}'",
                     "next": f"launch_cli.py app {args.action} --help  # pass values with their option name"})
     # Ownership check and recording happen here only (declared per action via device_use)
-    refusal = gate_device_use(action.device_use, args.device, str(MEMORY_CTX["root"]), bool(getattr(args, "yes", False)))
+    device_use = "read" if (args.action, word) in READ_ONLY_WORDS else action.device_use
+    refusal = gate_device_use(device_use, args.device, str(MEMORY_CTX["root"]), bool(getattr(args, "yes", False)))
     if refusal is not None:
         return refusal
     return action.run(args)

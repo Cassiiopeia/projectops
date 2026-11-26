@@ -102,6 +102,7 @@ If the result has a `cause` (for example `android_system_not_ready`), the **devi
 {PYTHON} {SCRIPTS}/launch_cli.py app wait --device "$DEV" --settle --timeout 20                  # until the screen structure is the same twice in a row (transition·loading done)
 {PYTHON} {SCRIPTS}/launch_cli.py app record start --device "$DEV" --out login_flow                # iOS simctl recordVideo · Android screenrecord (180-second limit)
 {PYTHON} {SCRIPTS}/launch_cli.py app record stop  --device "$DEV" --gif                           # also poster · gif when ffmpeg is present
+{PYTHON} {SCRIPTS}/launch_cli.py app record status --device "$DEV"                               # is a recording running? reads saved state only (no device call)
 {PYTHON} {SCRIPTS}/launch_cli.py app tap --device "$DEV" --text "Continue" --burst 6:0.4          # 6 seconds around the action, every 0.4 seconds — returns only changed frames
 {PYTHON} {SCRIPTS}/launch_cli.py app shot --device "$DEV" --out store_01 --time 7:42              # set the status bar time to match a notification time (includes --clean-status)
 ```

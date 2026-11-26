@@ -32,7 +32,7 @@ MINIMUM_IDLE_MINUTES, MAXIMUM_IDLE_MINUTES = 1, 240
 
 def _app_session(args) -> int:
     """Pick the session verb > device and backend (iOS only) > start, stop, status."""
-    verb = getattr(args, "session_verb", None)
+    verb = getattr(args, "positional_word", None)
     if verb not in SESSION_VERBS:
         return out({"ok": False, "code": "session_verb_required",
                     "error": "One of start · stop · status is required",
@@ -201,9 +201,6 @@ def _session_payload(args, dev_id: str, session: dict, summary: str, **extra) ->
 
 
 def configure(p) -> None:
-    # Shared positional word, checked by the action that reads it (session, record verbs; swipe direction, #1224)
-    p.add_argument("session_verb", nargs="?", default=None, metavar="WORD",
-                   help="session: start · stop · status / record: start · stop / swipe: up · down · left · right")
     p.add_argument("--kill-stale", dest="kill_stale", action="store_true",
                    help="session stop: also end orphan Maestro drivers left on this device (xcodebuild·JVM whose parent is gone). Live ones of other sessions are left alone")
     p.add_argument("--idle-minutes", dest="idle_minutes", type=float, default=None,

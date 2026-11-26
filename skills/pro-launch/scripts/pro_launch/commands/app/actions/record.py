@@ -1,10 +1,11 @@
-"""`app record start|stop` — 화면을 영상으로 녹화한다 (#928).
+"""`app record start|stop|status` — 화면을 영상으로 녹화한다 (#928).
 
 iOS simctl recordVideo · Android 기기 screenrecord > stop 에서 SIGINT 로 마무리 > mp4 점검(moov · 실제 길이, #1130)
 """
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -23,7 +24,7 @@ from pro_launch.runtime.output import out
 from pro_launch.runtime.shots import shot_target
 from pro_launch.runtime.video_file import inspect_mp4
 
-RECORD_VERBS = ("start", "stop")
+RECORD_VERBS = ("start", "stop", "status")
 # screenrecord 한 번의 상한은 180초다 — 더 길게 필요하면 stop 후 다시 start
 ANDROID_RECORD_LIMIT_SECONDS = 180
 # 상한 도달 판정 여유 (초): 실제 파일은 179.9초처럼 조금 짧게 끝남
@@ -56,12 +57,14 @@ def _state_file(root: Path, dev_id: str) -> Path:
 
 
 def _app_record(args) -> int:
-    """동사 고르기 > 기기 > start · stop."""
-    verb = getattr(args, "session_verb", None)
+    """동사 고르기 > (status 는 상태 파일만) > 기기 > start · stop."""
+    verb = getattr(args, "positional_word", None)
     if verb not in RECORD_VERBS:
-        return out({"ok": False, "code": "record_verb_required", "error": "start or stop is required",
-                    "next": "app record start --device <device>  # app record stop to finish"})
+        return out({"ok": False, "code": "record_verb_required", "error": "start, stop or status is required",
+                    "next": "app record start --device <device>  # app record stop to finish, app record status to check"})
     root = project_root(args)
+    if verb == "status":
+        return _status(args, root)
     platform, dev_id, dev = pick_device(args.device)
     if not platform:
         return no_device_response(dev, args.device)
@@ -72,6 +75,30 @@ def _app_record(args) -> int:
     if verb == "start":
         return _start(args, root, platform, dev_id, state_file)
     return _stop(args, root, platform, dev_id, state_file)
+
+
+def _status(args, root: Path) -> int:
+    """Whether this device is recording: reads the state file only (no adb or simctl call)."""
+    dev_id = args.device or os.environ.get("DEV")
+    if not dev_id:
+        _, dev_id, dev = pick_device(None)
+        if not dev_id:
+            return no_device_response(dev, None)
+    state = _read_state(_state_file(root, dev_id))
+    if not state:
+        return out({"ok": True, "code": "ok", "action": "record", "device": dev_id, "recording": False,
+                    "summary": "not recording", "next": "app record start --device <device>"})
+    if not pid_alive(state["pid"]):
+        # The recorder ended by itself (Android 180s limit, device gone); stop still collects the file
+        return out({"ok": True, "code": "ok", "action": "record", "device": dev_id, "recording": False,
+                    "has_unsaved_take": True, "file": state["file"], "started_at": state["started_at"],
+                    "summary": "not recording — an earlier take ended by itself and is not saved yet",
+                    "next": "app record stop --device <device>  # saves that take"})
+    recording_seconds = round(time.time() - state["started_at"], 1)
+    return out({"ok": True, "code": "ok", "action": "record", "device": dev_id, "platform": state.get("platform"),
+                "recording": True, "file": state["file"], "started_at": state["started_at"],
+                "elapsed_seconds": recording_seconds, "summary": f"recording for {recording_seconds}s",
+                "next": "app record stop --device <device>"})
 
 
 def _start(args, root: Path, platform: str, dev_id: str, state_file: Path) -> int:
@@ -252,10 +279,10 @@ def _read_state(state_file: Path) -> dict | None:
 
 
 def configure(p) -> None:
-    # start · stop 동사는 session 과 같은 위치 인자(session_verb)를 쓴다. --out 은 shot 과 공유
+    # start · stop · status 동사는 공용 위치 인자(positional_word)를 쓴다. --out 은 shot 과 공유
     p.add_argument("--gif", action="store_true", help="record stop: also make a gif (needs ffmpeg)")
 
 
 ACTION = Action(name="record", device_use="mutate", run=_app_record, configure=configure,
-                help="Screen recording start·stop (iOS simctl · Android screenrecord) — stop also makes a poster (and --gif)",
+                help="Screen recording start·stop·status (iOS simctl · Android screenrecord) — stop also makes a poster (and --gif)",
                 example="app record start --device $DEV --out demo  →  app record stop --device $DEV --gif")

@@ -35,7 +35,7 @@ def _requested_direction(args) -> str | None:
     """--dir (or --direction), else a bare direction word (`app swipe up`)"""
     if getattr(args, "dir", None):
         return args.dir
-    word = getattr(args, "session_verb", None)
+    word = getattr(args, "positional_word", None)
     return word if word in app_input.SWIPE_DIRS else None
 
 
