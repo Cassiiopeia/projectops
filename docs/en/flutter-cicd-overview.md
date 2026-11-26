@@ -314,6 +314,7 @@ Write a comment on a PR or issue:
 | `APPLE_CERTIFICATE_PASSWORD` | `.p12` certificate password |
 | `APPLE_PROVISIONING_PROFILE_BASE64` | `.mobileprovision` file (base64 encoded) |
 | `IOS_PROVISIONING_PROFILE_NAME` | Provisioning profile name |
+| `APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64` (optional) | App extension (widget, etc.) `.mobileprovision` (base64). See the TestFlight wizard guide, "App extensions" |
 | `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API Key ID (10 characters) |
 | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID (UUID format) |
 | `APP_STORE_CONNECT_API_KEY_BASE64` | `AuthKey_XXXXXX.p8` file (base64 encoded) |

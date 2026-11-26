@@ -161,6 +161,11 @@ Regression guard: `.github/scripts/test/test_workflow_permissions.py` checks **e
 | `PROJECT-FLUTTER-PROJECTOPS-APP-BUILD-TRIGGER` | Comment-triggered build | Base |
 | `PROJECT-FLUTTER-ANDROID-SELFHOSTED-CICD` | APK deploy to a self-hosted server (SMB) | Base |
 
+> **Repo-root files under an `APP_ROOT` job default (#1288).** Flutter jobs set `defaults.run.working-directory: ${{ env.APP_ROOT }}`
+> (`client` in a monorepo). A step that runs `.github/scripts/...`, reads `version.yml` or `.github/config/...` by a relative path
+> must set `working-directory: ${{ github.workspace }}` or use `$GITHUB_WORKSPACE/...`. Otherwise it passes in single-app repos
+> and fails only in monorepos (PLAYSTORE-CICD store deploy config steps did).
+
 #### React Native Expo (#1240)
 | File | Purpose | Location |
 |--------|------|------|

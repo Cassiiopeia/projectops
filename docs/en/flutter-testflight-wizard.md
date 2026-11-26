@@ -160,6 +160,22 @@ The IPA export settings file.
 </plist>
 ```
 
+### App extensions (widget, notification service)
+
+An app with an extension target signs each target with its own provisioning profile (#1288).
+
+1. List every bundle id under `provisioningProfiles` in `ios/ExportOptions.plist` (app + each extension).
+2. Set each target's Release `PROVISIONING_PROFILE_SPECIFIER` in `project.pbxproj` (manual signing) to that target's profile name.
+3. Register the extension profile as `APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64` (optional secret). The install step adds it next to the app profile.
+
+When `ExportOptions.plist` lists more than one bundle id, `ios_release.py` does not pass `PROVISIONING_PROFILE_SPECIFIER` to
+`xcodebuild archive`, so each target keeps the profile from the project. A command-line build setting applies to every target,
+so forcing `IOS_PROVISIONING_PROFILE_NAME` would put the app profile on the extension and fail signing. With one bundle id it is
+passed as before. An empty name or `$(inherited)` also keeps the project values.
+
+The install step takes one extension profile. An app with two or more extensions needs extra install lines in its own workflow
+(they are replaced when the workflow is updated, so keep a note of them).
+
 ### 2. Fastfile
 
 The Fastlane deployment automation script.
@@ -206,6 +222,7 @@ Set the following Secrets so the workflows can run:
 | `APPLE_CERTIFICATE_PASSWORD` | Certificate password | String |
 | `APPLE_PROVISIONING_PROFILE_BASE64` | Provisioning Profile (.mobileprovision) | Base64 encoded |
 | `IOS_PROVISIONING_PROFILE_NAME` | Provisioning Profile name | String |
+| `APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64` (optional) | App extension profile (.mobileprovision), only for apps with a widget or other extension target | Base64 encoded |
 | `APP_STORE_CONNECT_API_KEY_ID` | API Key ID (10 characters) | String |
 | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | UUID format |
 | `APP_STORE_CONNECT_API_KEY_BASE64` | AuthKey_XXXXXX.p8 file | Base64 encoded |

@@ -70,7 +70,8 @@ const AUTO_SECRETS = new Set(["GITHUB_TOKEN"]);
 // would make the notice itself untrustworthy, so they are kept separate.
 //   MODEL_API_KEY      → if registered, external AI summary; otherwise Copilot → commit analysis (#455·#566 ladder)
 //   _GITHUB_PAT_TOKEN  → if missing, merge with GITHUB_TOKEN and wake follow-up workflows directly (#551)
-export const OPTIONAL_SECRETS = new Set(["MODEL_API_KEY", "_GITHUB_PAT_TOKEN"]);
+//   APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64 → only for iOS apps with an extension target; skipped when empty (#1288)
+export const OPTIONAL_SECRETS = new Set(["MODEL_API_KEY", "_GITHUB_PAT_TOKEN", "APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64"]);
 
 const SECRET_RE = /secrets\.([A-Z_][A-Z0-9_]*)/g;
 

@@ -60,6 +60,10 @@ permissions:
   # Needed to wake follow-up workflows with workflow_dispatch (#555 — HTTP 403 without it)
   actions: write
 
+# The commit step stages the whole working tree: keep Python from writing __pycache__/*.pyc there (#1288)
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   # Job 1: detect and parse the CodeRabbit Summary
   detect-and-parse:

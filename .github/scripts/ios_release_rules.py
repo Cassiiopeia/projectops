@@ -155,6 +155,28 @@ def write_runtime_export_options(src: Path, dst: Path) -> Path:
     with open(dst, "wb") as f:
         plistlib.dump(data, f)
     return dst
+# Value that keeps each target's own setting from project.pbxproj
+_INHERITED_BUILD_SETTING = "$(inherited)"
+def provisioning_profile_override(profile_name: str, export_options: Path) -> tuple[list[str], str]:
+    """Profile name + ExportOptions.plist > xcodebuild PROVISIONING_PROFILE_SPECIFIER override and a log note (#1288)
+    A command-line build setting applies to every target, so it is omitted in 3 cases: empty name, $(inherited),
+    more than one bundle id under provisioningProfiles (app extensions sign with their own profile from the project).
+    Unreadable ExportOptions.plist keeps the override (export reports that file itself)
+    """
+    name = profile_name.strip()
+    if not name:
+        return [], "no IOS_PROVISIONING_PROFILE_NAME, keeping each target's profile from the Xcode project"
+    if name == _INHERITED_BUILD_SETTING:
+        return [], "IOS_PROVISIONING_PROFILE_NAME is $(inherited), keeping each target's profile from the Xcode project"
+    try:
+        with open(export_options, "rb") as f:
+            profiles = plistlib.load(f).get("provisioningProfiles")
+    except (OSError, plistlib.InvalidFileException, ExpatError, ValueError, AttributeError):
+        profiles = None
+    if isinstance(profiles, dict) and len(profiles) > 1:
+        return [], (f"ExportOptions.plist lists {len(profiles)} bundle ids, keeping each target's profile "
+                    "from the Xcode project instead of forcing one profile onto every target")
+    return [f"PROVISIONING_PROFILE_SPECIFIER={name}"], ""
 def verify_ipa(ipa: Path, version: str, build: int) -> list[str]:
     """Check that every app/extension bundle in the IPA has the expected version and build number. Empty passes."""
     problems: list[str] = []

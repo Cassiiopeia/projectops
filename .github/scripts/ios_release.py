@@ -46,6 +46,7 @@ from ios_release_rules import (  # noqa: E402  pure rules (version, upload error
     decide_version,
     next_patch,
     parse_version,
+    provisioning_profile_override,
     stale_branch_reason,
     verify_ipa,
     write_runtime_export_options,
@@ -206,10 +207,14 @@ def _archive_and_export(cfg: _Cfg, version: str, number: int) -> Path:
     shutil.rmtree(build_dir / "Runner.xcarchive", ignore_errors=True)
     shutil.rmtree(build_dir / "ipa", ignore_errors=True)
 
+    # One profile for single-target apps; multi-target apps keep per-target profiles (#1288)
+    profile_settings, profile_note = provisioning_profile_override(cfg.profile, cfg.ios_dir / "ExportOptions.plist")
+    if profile_note:
+        print(f"info: {profile_note}", file=sys.stderr)
     rc, out = run_cmd([
         "xcodebuild", "-workspace", cfg.workspace, "-scheme", cfg.scheme,
         "-archivePath", "build/Runner.xcarchive", "-destination", "generic/platform=iOS", "archive",
-        "CODE_SIGN_STYLE=Manual", f"PROVISIONING_PROFILE_SPECIFIER={cfg.profile}",
+        "CODE_SIGN_STYLE=Manual", *profile_settings,
         "CODE_SIGN_IDENTITY=Apple Distribution",
         # Pass all four so it works whichever variable the extension targets use
         f"FLUTTER_BUILD_NUMBER={number}", f"CURRENT_PROJECT_VERSION={number}",

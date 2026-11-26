@@ -39,6 +39,10 @@ concurrency:
 permissions:
   contents: write
 
+# The commit step stages the whole working tree: keep Python from writing __pycache__/*.pyc there (#1288)
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+
 jobs:
   version-sync:
     name: Sync Version JSON to HTML

@@ -160,6 +160,21 @@ IPA 내보내기 설정 파일입니다.
 </plist>
 ```
 
+### 앱 확장 (위젯, 알림 서비스)
+
+확장 타깃이 있는 앱은 타깃마다 자기 프로비저닝 프로파일로 서명합니다 (#1288).
+
+1. `ios/ExportOptions.plist` 의 `provisioningProfiles` 에 번들 ID 를 모두 적습니다 (앱 + 확장마다 하나).
+2. `project.pbxproj` 의 타깃별 Release `PROVISIONING_PROFILE_SPECIFIER` (수동 서명) 에 그 타깃의 프로파일 이름을 넣습니다.
+3. 확장 프로파일은 `APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64` (선택 Secret) 로 등록합니다. 설치 단계가 앱 프로파일 옆에 함께 설치합니다.
+
+`ExportOptions.plist` 에 번들 ID 가 둘 이상이면 `ios_release.py` 는 `xcodebuild archive` 에 `PROVISIONING_PROFILE_SPECIFIER` 를
+넘기지 않아 타깃마다 프로젝트 값을 씁니다. 명령줄 빌드 설정은 모든 타깃에 적용되므로 `IOS_PROVISIONING_PROFILE_NAME` 을 강제하면
+확장에 앱 프로파일이 들어가 서명이 실패합니다. 번들 ID 가 하나면 지금처럼 넘깁니다. 이름이 비었거나 `$(inherited)` 여도 프로젝트 값을 씁니다.
+
+설치 단계는 확장 프로파일 하나만 받습니다. 확장이 둘 이상이면 자기 워크플로에 설치 줄을 더 넣어야 합니다
+(워크플로를 갱신하면 덮어써지므로 따로 적어 둡니다).
+
 ### 2. Fastfile
 
 Fastlane 배포 자동화 스크립트입니다.
@@ -206,6 +221,7 @@ gem "fastlane"
 | `APPLE_CERTIFICATE_PASSWORD` | 인증서 비밀번호 | 문자열 |
 | `APPLE_PROVISIONING_PROFILE_BASE64` | Provisioning Profile (.mobileprovision) | Base64 인코딩 |
 | `IOS_PROVISIONING_PROFILE_NAME` | Provisioning Profile 이름 | 문자열 |
+| `APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64` (선택) | 앱 확장 프로파일 (.mobileprovision). 위젯 등 확장 타깃이 있는 앱만 | Base64 인코딩 |
 | `APP_STORE_CONNECT_API_KEY_ID` | API Key ID (10자리) | 문자열 |
 | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID | UUID 형식 |
 | `APP_STORE_CONNECT_API_KEY_BASE64` | AuthKey_XXXXXX.p8 파일 | Base64 인코딩 |

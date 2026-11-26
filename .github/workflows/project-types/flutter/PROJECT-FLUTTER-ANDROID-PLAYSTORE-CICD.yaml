@@ -731,6 +731,7 @@ jobs:
       # Priority: manual run input > config file > repo variable ANDROID_DEPLOY_MODE > store_only.
       # Without the file it does nothing, keeping existing behavior. A mistyped value fails here.
       - name: Resolve store deploy config
+        working-directory: ${{ github.workspace }}   # .github/scripts and .github/config are relative to the repo root, not APP_ROOT (#1288)
         env:
           INPUT_DEPLOY_MODE: ${{ github.event.inputs.deploy_mode }}
           # Only a manual run choosing true/false wins over the file (default and push let the file win, #1005)
@@ -741,6 +742,7 @@ jobs:
       # Applies to manual runs too — only runs with force_promote_during_review on skip it (#1005).
       # If the check fails, only warn and proceed as configured — never block the deploy.
       - name: Guard production review in progress
+        working-directory: ${{ github.workspace }}   # .github/scripts and .github/config are relative to the repo root, not APP_ROOT (#1288)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FORCE_PROMOTE_DURING_REVIEW: ${{ github.event.inputs.force_promote_during_review }}
