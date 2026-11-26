@@ -1,7 +1,27 @@
 # Changelog
 
-**Current version:** 4.120.1  
-**Last updated:** 2026-11-26T10:43:49Z  
+**Current version:** 4.120.2  
+**Last updated:** 2026-11-26T22:43:05Z  
+
+---
+
+## [4.120.2] - 2026-11-26
+
+**PR:** #1290  
+
+**Bug fixes**
+- Flutter builds no longer stop at the Firebase config step after an install or update
+- Play Store deploy finds its settings script in monorepos
+- iOS apps with a widget or other extension now archive and sign
+- Release commits no longer pick up Python cache files
+
+**Improvements**
+- iOS workflows can install an optional app extension provisioning profile
+
+**Documentation**
+- TestFlight guide explains signing for apps with extensions
+- Workflows mode help says which version.yml parts it updates
+- Knowledge note for agent tool discovery
 
 ---
 
