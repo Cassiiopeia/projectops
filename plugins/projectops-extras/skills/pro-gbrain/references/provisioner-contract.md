@@ -89,6 +89,7 @@ only when the writer role was created by this call; the client stores it in `<sy
    issue the key by hand. Revoked tokens answer 401 on the next request.
 6. **Write tools on request.** A server may list write tools only after `request_tools` asks for them; `verify` asks
    before probing, so the result reflects the token's scope, not the advertised surface.
+   Granted tools count even when `tools/list` still omits them (they are callable, not relisted).
 
 ## Plugging in your own server
 

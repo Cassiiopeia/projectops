@@ -6,6 +6,7 @@ The token lives in memory only; output carries statuses and verdicts, never a bo
 from __future__ import annotations
 
 import json
+import uuid
 import urllib.error
 import urllib.request
 
@@ -22,6 +23,9 @@ DELETE_TOOL_NAMES = ("delete_page",)
 UNLOCK_TOOL_NAME = "request_tools"
 # Page the write probe would create if the token wrongly allowed writes (reported so the admin can remove it)
 WRITE_PROBE_SLUG = "pro-gbrain/verify-write-probe"
+READ_PAGE_TOOL_NAME = "get_page"
+# Longest tool error text kept in a check (shown so a refused write says why)
+ERROR_DETAIL_MAXIMUM_CHARACTERS = 200
 
 
 class McpSession:
@@ -75,20 +79,75 @@ def _is_tool_error(body: dict) -> bool:
     return "error" in body or bool((body.get("result") or {}).get("isError"))
 
 
-def _has_content(body: dict) -> bool:
+def _content_text(body: dict) -> str:
     content = (body.get("result") or {}).get("content") or []
-    text = " ".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
+    return " ".join(str(part.get("text", "")) for part in content if isinstance(part, dict))
+
+
+def _tool_data(body: dict):
+    """Structured answer of a tool call: structuredContent, else the text parsed as JSON, else None"""
+    result = body.get("result") or {}
+    if result.get("structuredContent") is not None:
+        return result["structuredContent"]
+    text = _content_text(body).strip()
+    try:
+        return json.loads(text) if text.startswith(("{", "[")) else None
+    except ValueError:
+        return None
+
+
+def _error_detail(body: dict, token: str) -> str:
+    """Short reason of a tool error for the check row (the token is never shown)"""
+    error = body.get("error")
+    text = str(error.get("message", "")) if isinstance(error, dict) else _content_text(body)
+    return text.replace(token, "<token>").strip()[:ERROR_DETAIL_MAXIMUM_CHARACTERS]
+
+
+def _has_content(body: dict) -> bool:
+    text = _content_text(body)
     return bool(text.strip()) and text.strip() not in ("[]", "{}", "No results", "no results")
 
 
 def _unlock_tools(session: McpSession, tool_names: list, wanted: tuple) -> list:
-    """Ask request_tools for unlisted write/delete tools, then list again (no-op when nothing is missing)"""
+    """Ask request_tools for unlisted write/delete tools > tool names usable now (no-op when nothing is missing).
+
+    The tools it grants become callable without appearing in tools/list (#1285), so the granted names in its
+    answer count as well as a fresh listing.
+    """
     missing = [name for name in wanted if name not in tool_names]
     if not missing or UNLOCK_TOOL_NAME not in tool_names:
         return tool_names
-    session.call("tools/call", {"name": UNLOCK_TOOL_NAME, "arguments": {"tools": missing}})
+    _, answer = session.call("tools/call", {"name": UNLOCK_TOOL_NAME, "arguments": {"tools": missing}})
+    data = _tool_data(answer)
+    granted_tools = data.get("tools") if isinstance(data, dict) else None
+    granted = [tool.get("name") for tool in granted_tools or [] if isinstance(tool, dict) and tool.get("name") in missing]
     _, listed = session.call("tools/list", {})
-    return [tool.get("name") for tool in (listed.get("result") or {}).get("tools") or [] if isinstance(tool, dict)] or tool_names
+    relisted = [tool.get("name") for tool in (listed.get("result") or {}).get("tools") or [] if isinstance(tool, dict)]
+    return list(dict.fromkeys([*(relisted or tool_names), *granted]))
+
+
+def _probe_page_revision(session: McpSession, tool_names: list) -> str | None:
+    """Revision of a probe page left by an earlier run (no delete tool then); put_page needs it to overwrite"""
+    if READ_PAGE_TOOL_NAME not in tool_names:
+        return None
+    _, answer = session.call("tools/call", {"name": READ_PAGE_TOOL_NAME, "arguments": {"slug": WRITE_PROBE_SLUG, "body": "none"}})
+    data = _tool_data(answer)
+    if _is_tool_error(answer) or not isinstance(data, dict):
+        return None
+    return str(data.get("revision") or "") or None
+
+
+def _write_probe_arguments(session: McpSession, tool_names: list, write_tool: str) -> dict:
+    if write_tool != "put_page":
+        # remember requires provenance on current gbrain; without it the call errors and reads as "refused" (#1285)
+        return {"fact": "pro-gbrain write probe", "visibility": "world", "kind": "fact",
+                "provenance": f"{USER_AGENT} write check"}
+    arguments = {"slug": WRITE_PROBE_SLUG, "content": "pro-gbrain write probe", "content_origin": "inferred",
+                 "reason": "pro-gbrain verify write check", "request_id": str(uuid.uuid4())}
+    revision = _probe_page_revision(session, tool_names)
+    if revision:
+        arguments["expected_revision"] = revision
+    return arguments
 
 
 def check_team_brain(url: str, token: str, query: str, write_mode: str = "sync") -> dict:
@@ -112,16 +171,18 @@ def check_team_brain(url: str, token: str, query: str, write_mode: str = "sync")
     else:
         checks["search"] = {"passed": False, "detail": "no search tool offered", "tools_offered": len(tool_names)}
 
-    tool_names = _unlock_tools(session, tool_names, WRITE_TOOL_NAMES[:1] + DELETE_TOOL_NAMES)
+    tool_names = _unlock_tools(session, tool_names, WRITE_TOOL_NAMES[:1] + DELETE_TOOL_NAMES + (READ_PAGE_TOOL_NAME,))
     write_tool = next((name for name in WRITE_TOOL_NAMES if name in tool_names), WRITE_TOOL_NAMES[0])
-    write_arguments = ({"slug": WRITE_PROBE_SLUG, "content": "pro-gbrain write probe"} if write_tool == "put_page"
-                       else {"fact": "pro-gbrain write probe", "visibility": "world"})
+    write_arguments = _write_probe_arguments(session, tool_names, write_tool)
     write_status, written = session.call("tools/call", {"name": write_tool, "arguments": write_arguments})
     refused = write_status in (401, 403) or _is_tool_error(written) or write_tool not in tool_names
     if write_mode == "direct":
         # Direct: members must be able to write; the probe page is removed again when the server offers a delete
         checks["write_allowed"] = {"passed": not refused, "tool": write_tool, "listed": write_tool in tool_names}
-        if not refused:
+        if refused:
+            checks["write_allowed"]["status"] = write_status
+            checks["write_allowed"]["detail"] = _error_detail(written, token) or "no reason given by the server"
+        else:
             checks["write_allowed"]["probe_cleaned"] = _delete_probe(session, tool_names, write_tool)
         return checks
     # Sync: write refused passes when the tool is not offered or the call errors (on success, report the probe page)

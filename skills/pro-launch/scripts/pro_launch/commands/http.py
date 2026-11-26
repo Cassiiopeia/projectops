@@ -15,6 +15,9 @@ from pro_launch.runtime.creds import load_cred
 from pro_launch.runtime.output import out, set_area, set_target, use_access
 
 
+DEFAULT_USER_AGENT = "projectops-launch-http/1"
+
+
 def cmd_http(args) -> int:
     """One HTTP request. A bare path is appended to access's base_url — the caller judges the result."""
     set_area("server", project_root(args))
@@ -32,7 +35,8 @@ def cmd_http(args) -> int:
         use_access(root, "base_url")
     set_target(url=url, root=root, area="server")
 
-    headers = {"Accept": "application/json"}
+    # Own User-Agent: bot filters (Cloudflare error 1010) refuse the default Python-urllib one (#1285). --header wins
+    headers = {"Accept": "application/json", "User-Agent": DEFAULT_USER_AGENT}
     cred, err = load_cred(getattr(args, "cred", None))
     if err:
         return out(err)

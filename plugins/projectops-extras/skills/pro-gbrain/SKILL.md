@@ -131,7 +131,7 @@ machines run `add --steps server,repo,registry,verify` and let the writer machin
 | `writer_secret_missing` | The writer role existed before; get its password from the brain admin into the shown 600 file, then `repair` |
 | `sync_database_unreachable` | Start the database tunnel to the brain server, then `repair` |
 | `sync_clone_mismatch` / `sync_folder_not_empty` / `source_id_taken` | Something else already lives there; nothing was changed. Report it |
-| `verify_failed` | Read `verification.checks`. Sync: `write_refused.passed: false` is serious (a read-only token can write): report `probe_slug`. Direct: `write_allowed.passed: false` means members cannot write; check the server's scope for read_write keys |
+| `verify_failed` | Read `verification.checks`. Sync: `write_refused.passed: false` is serious (a read-only token can write): report `probe_slug`. Direct: `write_allowed.passed: false` means members cannot write; `write_allowed.detail` is the server's reason (no secrets). Check the server's scope for read_write keys |
 | `invalid_scope_preset` | The brain server cannot issue read_write keys: the brain admin issues the member key in its admin page |
 | `needs_consent` / `confirmation_mismatch` | Ask, then re-run with `--apply --yes` (remove: `--confirm <project>` typed by the user) |
 
