@@ -58,9 +58,40 @@ def cmd_create_branch_name(args, api) -> int:
     return emit({"branch": name, "issue_number": issue_number, "summary": name})
 
 
+def _read_issue_of_branch(args, api) -> tuple:
+    """--branch form: <owner> <repo> --branch YYYYMMDD_#N_title > (issue title, issue url, None) | (None, None, response code)"""
+    from common.gh_client import GitHubAPIError
+    from common.issue_number import extract_from_branch
+    from pro_github.responses import api_error, missing_pat
+    owner, repo = args.issue_title, args.issue_url
+    if not owner or not repo:
+        return None, None, emit({"ok": False, "code": "missing_argument", "error": "--branch needs the owner and repo",
+                                 "usage": "get-commit-template <owner> <repo> --branch <YYYYMMDD_#number_title>"})
+    issue_number = extract_from_branch(args.branch)
+    if not issue_number:
+        return None, None, emit({"ok": False, "code": "issue_number_not_found",
+                                 "error": f"no issue number in the branch name: {args.branch}",
+                                 "next": "get-commit-template <issue_title> <issue_url>  # pass the title and URL yourself"})
+    pat = api.get_github_pat(owner, repo)
+    if not pat:
+        return None, None, missing_pat()
+    try:
+        issue = api.get_issue(owner, repo, int(issue_number), pat)
+    except GitHubAPIError as error:
+        return None, None, api_error(error)
+    return issue["title"], issue["url"], None
+
+
 def cmd_get_commit_template(args, api) -> int:
     # Same resolution path as the commit skill — so the template shown after issue creation matches the one at commit time
     from common.commit_style import render_for_issue, resolve_for_repo
+    if args.branch:
+        args.issue_title, args.issue_url, failure = _read_issue_of_branch(args, api)
+        if failure is not None:
+            return failure
+    elif not args.issue_title or not args.issue_url:
+        return emit({"ok": False, "code": "missing_argument", "error": "the issue title and URL are required",
+                     "usage": "get-commit-template <issue_title> <issue_url>  (or <owner> <repo> --branch <branch>)"})
     _, style = resolve_for_repo(getattr(args, "repo_root", None))
     template = render_for_issue(style, issue_title=args.issue_title, issue_url=args.issue_url,
                                 commit_type=getattr(args, "commit_type", None),
@@ -89,8 +120,12 @@ def _configure_create_branch_name(parser) -> None:
 
 
 def _configure_get_commit_template(parser) -> None:
-    parser.add_argument("issue_title")
-    parser.add_argument("issue_url")
+    # One pair of positionals read two ways (#622: no extra optional positional slots):
+    # <issue_title> <issue_url>, or with --branch <owner> <repo>
+    parser.add_argument("issue_title", nargs="?", metavar="issue_title|owner")
+    parser.add_argument("issue_url", nargs="?", metavar="issue_url|repo")
+    parser.add_argument("--branch", default=None, metavar="BRANCH",
+                        help="issue branch (YYYYMMDD_#number_title): reads the number, fetches the issue title and URL")
     # If omitted, derived from the title tag. Set it only when tag and content differ,
     # e.g. the issue is a feature but the actual work is a bug fix.
     parser.add_argument("--type", dest="commit_type", default=None, type=_commit_type_arg,

@@ -39,7 +39,7 @@ Every command is `PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py <subco
 | Add · list · edit · delete comments | `add-comment` · `list-comments` · `edit-comment` · `delete-comment` | `references/issues.md` |
 | List labels · add · remove one · replace all (**also removes non-status labels**) | `list-labels` · `add-labels` · `remove-label` · `set-labels` | `references/issues.md` |
 | Add · remove assignees | `add-assignees` · `remove-assignees` | `references/issues.md` |
-| Normalize title · branch name · commit template · issue doc path (no API) | `normalize-title` · `create-branch-name` · `get-commit-template` · `get-output-path issue` | `references/issues.md` |
+| Normalize title · branch name · commit template · issue doc path | `normalize-title "{title}"` · `create-branch-name "{title}" {number}` · `get-commit-template "{issue title}" "{issue URL}"` (or `{owner} {repo} --branch {branch}`, which fetches the issue) · `get-output-path issue` | `references/issues.md` |
 | Attach · delete images (attach by default, check first) | `upload-image` · `delete-image` | `references/images.md` · `../references/evidence-attach.md` |
 | Create · list · read · edit a PR | `create-pr` · `list-prs` · `get-pr` · `update-pr` | `references/prs.md` |
 | PR comment · close · reopen · merge | `add-pr-comment` · `close-pr` · `reopen-pr` · `merge-pr` | `references/prs.md` |
@@ -77,7 +77,7 @@ If that file is missing or answers `scripts_not_found`, find the scripts with th
 - **Do not guess response keys.** Get one value with `--field a.b` or shorten with `--brief`. Frequently read keys and global options: `../references/output-schemas.md`.
 - **MCP-style subcommand standard** (`../references/mcp-subcommand-rules.md`). Output is always JSON: read `ok` for success, `code` for the branch (decide by code, not by wording), `summary`, and `next` (the command to call next).
 - No long Python heredocs, temporary Python files, curl piped into Python, or one-off Python scripts. Pass arguments on the command line or as environment variables (the others break in Windows Git Bash).
-- **Save bodies (issue, comment, PR) to a file and pass the path.** This preserves non-ASCII text, emoji and line breaks.
+- **Save bodies (issue, comment, PR) to a file and pass the path.** This preserves non-ASCII text, emoji and line breaks. Every body-taking command accepts the path as a positional or as `--body-file PATH`.
 - **Transient errors**: the tool retries idempotent calls (read, edit, delete, replace) on 5xx and network drops by itself. `add-comment` checks whether the comment really went up even after a failure response and returns `reconciled: true`, so do not post the same comment again just because the response was lost.
 - Destructive actions (merging or closing a PR, closing or reopening someone else's issue, label changes outside the pipeline) happen **only when the user explicitly asks**. Status changes in the work pipeline (start `status: in progress`, done `status: done`, cancelled `status: cancelled`) need no confirmation.
 - Status labels exist in English standard form (`status: todo` and so on) and Korean form (`작업전` and so on). Whichever form you pass, the CLI maps it to the one the repo has (#776). Full mapping table: `references/issues.md`.

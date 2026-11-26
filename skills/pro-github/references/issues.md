@@ -157,6 +157,8 @@ PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py normalize-title "❗[Bug
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py create-branch-name "Login button does not respond" 235 --date 20260710
 # → {"branch":"20260710_#235_Login_button_does_not_respond","issue_number":235, ...}   Like other commands, {owner} {repo} "issue title" 235 also works
 PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-commit-template "❗[Bug][Skills] Login button does not respond" "https://github.com/o/r/issues/235" --repo-root "{PROJECT_ROOT}"
+# From the branch name instead (reads #N, fetches the issue title and URL):
+PYTHONIOENCODING=utf-8 {PYTHON} {SCRIPTS}/github_cli.py get-commit-template {owner} {repo} --branch "20260710_#235_Login_button_does_not_respond" --repo-root "{PROJECT_ROOT}"
 # → {"template":"...{description}...","source":"...","warnings":[]}   The format follows team and personal settings (with the team format: "Login button does not respond : fix : {description} https://..."). The type is inferred from the title tag (bug → fix, feature → feat)
 #   Always name the repo whose format to use with --repo-root (without it, the git root of the cwd). --scope S fills the {scope} placeholder. Tell the user about any warnings
 #   Pass --type fix|docs|chore etc. only when the tag and the actual work differ

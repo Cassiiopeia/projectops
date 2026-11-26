@@ -6,7 +6,7 @@ from pathlib import Path
 from common.emit import emit
 from common.gh_client import GitHubAPIError
 from pro_github.registry import Command
-from pro_github.responses import api_error, missing_pat
+from pro_github.responses import add_body_file_arguments, api_error, merge_body_file_argument, missing_pat
 
 
 def cmd_add_comment(args, api) -> int:
@@ -44,6 +44,9 @@ def cmd_list_comments(args, api) -> int:
 
 
 def cmd_edit_comment(args, api) -> int:
+    missing = merge_body_file_argument(args, "edit-comment <owner> <repo> <comment_id> <body_file> (or --body-file <file>)")
+    if missing is not None:
+        return missing
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
@@ -90,7 +93,7 @@ def _configure_edit_comment(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("comment_id", type=int)
-    parser.add_argument("body_file")
+    add_body_file_arguments(parser)
 
 
 def _configure_delete_comment(parser) -> None:

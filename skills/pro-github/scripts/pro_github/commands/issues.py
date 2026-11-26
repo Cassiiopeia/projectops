@@ -7,7 +7,7 @@ from common.emit import emit
 from common.gh_client import GitHubAPIError
 from pro_github.issue_followup import build_work_start_hints, rename_body_file_to_issue_number
 from pro_github.registry import Command
-from pro_github.responses import api_error, missing_pat, split_csv
+from pro_github.responses import add_body_file_arguments, api_error, merge_body_file_argument, missing_pat, split_csv
 
 
 def cmd_get_issue(args, api) -> int:
@@ -70,6 +70,12 @@ def cmd_get_issues(args, api) -> int:
 def cmd_create_issue(args, api) -> int:
     # Check input before credentials. A file name typo can be reported without a PAT,
     # but checking the PAT first only says "no PAT", and the typo shows up after the PAT is filled in.
+    if args.body_file_option and args.body_file and not args.labels:
+        # With --body-file, the next positional after the title is the labels csv, not a second body file
+        args.labels, args.body_file = args.body_file, None
+    missing = merge_body_file_argument(args, "create-issue <owner> <repo> <title> <body_file> [labels] (or --body-file <file>)")
+    if missing is not None:
+        return missing
     body_path = Path(args.body_file)
     if not body_path.exists():
         return emit({
@@ -234,7 +240,7 @@ def _configure_create_issue(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("title")
-    parser.add_argument("body_file")
+    add_body_file_arguments(parser)
     # Labels may be omitted (only the template's default labels apply): as a required positional it caused bad_args when left out (#940)
     parser.add_argument("labels", nargs="?", default="", help="csv")
     parser.add_argument("--labels", dest="labels_option", default="", help="csv (same as the labels positional argument)")

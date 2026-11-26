@@ -6,7 +6,7 @@ from pathlib import Path
 from common.emit import emit
 from common.gh_client import GitHubAPIError
 from pro_github.registry import Command
-from pro_github.responses import api_error, missing_pat
+from pro_github.responses import add_body_file_arguments, api_error, merge_body_file_argument, missing_pat
 
 
 def _preflight_head_branch(args, api, pat) -> int | None:
@@ -38,6 +38,10 @@ def _preflight_head_branch(args, api, pat) -> int | None:
 
 def _resolve_head_and_base(args) -> int | None:
     """Merge positional and --head/--base into one > args.head·args.base. Response code on a problem, otherwise None"""
+    if args.body_file_option and args.body_file:
+        # With --body-file, the positionals after the title are head and base (one slot to the left)
+        args.head_positional, args.base_positional = args.body_file, args.head_positional
+        args.body_file = None
     args.head = args.head_option or args.head_positional
     args.base = args.base_option or args.base_positional
     usage = "create-pr <owner> <repo> <title> <body_file> --head <branch> --base <branch>"
@@ -53,6 +57,9 @@ def _resolve_head_and_base(args) -> int | None:
 
 def cmd_create_pr(args, api) -> int:
     invalid = _resolve_head_and_base(args)
+    if invalid is None:
+        invalid = merge_body_file_argument(
+            args, "create-pr <owner> <repo> <title> <body_file> --head <branch> --base <branch> (or --body-file <file>)")
     if invalid is not None:
         return invalid
     pat = api.get_github_pat(args.owner, args.repo)
@@ -94,6 +101,7 @@ def cmd_update_pr(args, api) -> int:
     if not pat:
         return missing_pat()
     body = None
+    merge_body_file_argument(args, "", is_required=False)
     if args.body_file:
         body_path = Path(args.body_file)
         body = body_path.read_text(encoding="utf-8") if body_path.exists() else None
@@ -152,6 +160,9 @@ def cmd_add_pr_comment(args, api) -> int:
     pat = api.get_github_pat(args.owner, args.repo)
     if not pat:
         return missing_pat()
+    missing = merge_body_file_argument(args, "add-pr-comment <owner> <repo> <number> <body_file> (or --body-file <file>)")
+    if missing is not None:
+        return missing
     body_path = Path(args.body_file)
     if not body_path.exists():
         return emit({"ok": False, "code": "body_file_not_found", "error": f"{args.body_file} not found"})
@@ -220,7 +231,7 @@ def _configure_create_pr(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("title")
-    parser.add_argument("body_file")
+    add_body_file_arguments(parser)
     # The 6 positional arguments are often in the wrong order, so flags are accepted too (flags win)
     parser.add_argument("head_positional", nargs="?", metavar="head")
     parser.add_argument("base_positional", nargs="?", metavar="base")
@@ -238,7 +249,7 @@ def _configure_update_pr(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
-    parser.add_argument("body_file", nargs="?")
+    add_body_file_arguments(parser)
     parser.add_argument("--title")
     parser.add_argument("--state", choices=["open", "closed"])
 
@@ -253,7 +264,7 @@ def _configure_add_pr_comment(parser) -> None:
     parser.add_argument("owner")
     parser.add_argument("repo")
     parser.add_argument("number", type=int)
-    parser.add_argument("body_file")
+    add_body_file_arguments(parser)
 
 
 def _configure_close_pr(parser) -> None:
