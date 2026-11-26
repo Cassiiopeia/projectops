@@ -105,13 +105,18 @@ export function detectVersion(root, { hasJq } = {}) {
   return detectVersionFromFiles({ read, readJson, hasJq: jq, gitTag });
 }
 
-// Default branch detection — symbolic-ref → remote show → main.
+// Not a usable branch name: characters git forbids in a ref, plus parentheses —
+// an empty remote makes `git remote show origin` print the placeholder `HEAD branch: (unknown)` (#1236)
+const INVALID_BRANCH_NAME_RE = /[\s~^:?*[\\()]|\.\.|@\{/;
+export const isValidBranchName = (name) => Boolean(name) && !INVALID_BRANCH_NAME_RE.test(name);
+
+// Default branch detection — symbolic-ref → remote show → current branch → main.
 export function detectDefaultBranch(root) {
   let b = gitOut(root, ["symbolic-ref", "refs/remotes/origin/HEAD"]);
   if (b) return b.replace(/^refs\/remotes\/origin\//, "");
   const show = gitOut(root, ["remote", "show", "origin"]);
   const m = show.match(/HEAD branch:\s*(\S+)/);
-  if (m) return m[1];
+  if (m && isValidBranchName(m[1])) return m[1];
   // Local repo without origin (#477) — the current HEAD branch is the best guess (fixable in the interactive edit menu)
   const head = gitOut(root, ["branch", "--show-current"]);
   if (head) return head;

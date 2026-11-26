@@ -18,7 +18,7 @@ import { PATHS } from "../core/paths.js";
 import { parseExisting } from "../core/version-yml.js";
 import { verifyInstall } from "../core/verify.js";
 import { readBaseline } from "../core/baseline.js";
-import { detectRepoName } from "../core/detect-fs.js";
+import { detectRepoName, isValidBranchName } from "../core/detect-fs.js";
 import { detectMigrations } from "../core/migrations/index.js";
 import { scanPlaceholderTriggers } from "../core/placeholder-triggers.js";
 import { t } from "../i18n/index.js";
@@ -53,6 +53,27 @@ function detectSlug(cwd) {
   } catch {
     return null;
   }
+}
+
+// Optional keys that polish release notes with AI: workflows name them, but nothing requires them (#569)
+const AI_KEY_NAMES = ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"];
+
+// version.yml branch keys and workflow `branches:` entries whose value is not a usable branch name > [{ file, line, text }]
+const BRANCH_KEY_LINE_RE = /^\s*(default_branch|development_branch|deploy_branch|deploy_trigger_branch):\s*"?([^"#]*?)"?\s*(#.*)?$/;
+const GIT_REMOTE_PLACEHOLDER = "(unknown)";
+function findInvalidBranchLines(wfDir, workflowFiles, versionFilePath) {
+  const found = [];
+  const readLines = (path) => { try { return readFileSync(path, "utf8").split(/\r?\n/); } catch { return []; } };
+  readLines(versionFilePath).forEach((text, index) => {
+    const match = text.match(BRANCH_KEY_LINE_RE);
+    if (match && match[2] && !isValidBranchName(match[2])) found.push({ file: PATHS.versionFile, line: index + 1, text: text.trim() });
+  });
+  for (const file of workflowFiles) {
+    readLines(join(wfDir, file)).forEach((text, index) => {
+      if (!/^\s*#/.test(text) && text.includes(GIT_REMOTE_PLACEHOLDER)) found.push({ file, line: index + 1, text: text.trim() });
+    });
+  }
+  return found;
 }
 
 // ── Local checks ─────────────────────────────────────────────────────────
@@ -116,7 +137,22 @@ export function localChecks(cwd = ".") {
     ] : null,
   });
 
-  const secretNames = [...v.secrets.keys()];
+  // Branch names that cannot be real branches (#1236): saved in version.yml or substituted into workflow triggers
+  const invalidBranchLines = findInvalidBranchLines(wfDir, files, vyPath);
+  add({
+    name: t("doctor.br.name"), purpose: t("doctor.br.purpose"),
+    status: invalidBranchLines.length ? "WARN" : "OK",
+    value: invalidBranchLines.length ? t("doctor.cases", { n: invalidBranchLines.length }) : t("doctor.none"),
+    detail: invalidBranchLines.length ? [
+      t("doctor.br.l1"),
+      ...invalidBranchLines.slice(0, 8).map((found) => `  ${found.file}:${found.line}  ${found.text}`),
+      ...(invalidBranchLines.length > 8 ? [t("doctor.unres.more", { n: invalidBranchLines.length - 8 })] : []),
+      t("doctor.br.fix"),
+    ] : null,
+  });
+
+  // AI summary keys are optional and explained in their own row below, so they stay out of this list (#1237)
+  const secretNames = [...v.secrets.keys()].filter((n) => !AI_KEY_NAMES.includes(n));
   add({
     name: t("doctor.sec.name"), purpose: t("doctor.sec.purpose"),
     status: "INFO", value: secretNames.length ? t("doctor.count", { n: secretNames.length }) : t("doctor.none"),
@@ -129,7 +165,6 @@ export function localChecks(cwd = ".") {
   // AI summary keys (#569) — there was no way to check "I registered it, does it work?".
   // Repo secrets cannot be read locally, so this tells which names to use
   // and that not registering is fine. Whether they are actually registered is checked remotely.
-  const AI_KEY_NAMES = ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "MISTRAL_API_KEY"];
   const hasSummaryWf = files.some((f) => /AI-PR-SUMMARY|RELEASE-CHANGELOG/.test(f));
   if (hasSummaryWf) {
     add({
