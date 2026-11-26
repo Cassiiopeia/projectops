@@ -325,7 +325,7 @@ export const KEY_DETAILS = {
 export const RECIPES = [
   { goal: "Install everything in a new repo (stack auto-detected)", command: "npx projectops --mode full --force", note: "Add --type spring,react for several stacks." },
   { goal: "Update an existing install to the newest templates", command: "npx projectops --mode full --force", note: "Files you modified are kept; read .github/.projectops/incoming/ and the completion summary for what was skipped." },
-  { goal: "Refresh only the workflows, scripts and config", command: "npx projectops --mode workflows --force", note: "version.yml is not rewritten." },
+  { goal: "Refresh only the workflows, scripts and config", command: "npx projectops --mode workflows --force", note: "version.yml is not regenerated; only its deploy block and branch keys are updated." },
   { goal: "See the state of an install and the repository settings (read-only)", command: "npx projectops --mode doctor", note: "Add GITHUB_TOKEN=... to also check repository settings." },
   { goal: "Read every option with values, defaults and effects", command: "npx projectops --mode options --json" },
   { goal: "Install the CodeRabbit PR review config", command: "npx projectops --mode full --force --coderabbit", note: "Needs the CodeRabbit GitHub app; overwrites an existing .coderabbit.yaml (backup saved as .bak)." },

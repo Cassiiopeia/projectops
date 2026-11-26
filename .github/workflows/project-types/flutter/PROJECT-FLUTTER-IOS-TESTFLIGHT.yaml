@@ -31,6 +31,7 @@
 # APPLE_CERTIFICATE_PASSWORD: .p12 certificate password
 # APPLE_PROVISIONING_PROFILE_BASE64: .mobileprovision file (base64 encoded)
 # IOS_PROVISIONING_PROFILE_NAME: provisioning profile name
+# APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64 (optional): app extension profile .mobileprovision (base64), for an app with a widget or other extension target
 #
 # 🔑 App Store Connect API:
 # APP_STORE_CONNECT_API_KEY_ID: API Key ID (10 characters)
@@ -462,15 +463,26 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
 
+      # App profile + optional app extension profile (widget, notification service) for multi-target apps (#1288).
+      # Each target signs with the profile named in project.pbxproj when ExportOptions.plist lists more than one bundle id.
       - name: Install Provisioning Profile
         env:
           PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_PROVISIONING_PROFILE_BASE64 }}
+          EXTENSION_PROVISIONING_PROFILE_BASE64: ${{ secrets.APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64 }}
         run: |
-          echo "$PROVISIONING_PROFILE_BASE64" | base64 --decode > profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
-          uuid=$(grep -A1 -a "UUID" profile.mobileprovision | grep string | sed -e "s/<string>//" -e "s/<\/string>//" -e "s/[[:space:]]//g")
-          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$uuid.mobileprovision
+          # base64 secret > file > installed under its UUID
+          install_profile() {
+            echo "$1" | base64 --decode > "$2"
+            cp "$2" ~/Library/MobileDevice/Provisioning\ Profiles/
+            uuid=$(grep -A1 -a "UUID" "$2" | grep string | sed -e "s/<string>//" -e "s/<\/string>//" -e "s/[[:space:]]//g")
+            cp "$2" ~/Library/MobileDevice/Provisioning\ Profiles/"$uuid".mobileprovision
+          }
+          install_profile "$PROVISIONING_PROFILE_BASE64" profile.mobileprovision
+          if [ -n "$EXTENSION_PROVISIONING_PROFILE_BASE64" ]; then
+            install_profile "$EXTENSION_PROVISIONING_PROFILE_BASE64" extension-profile.mobileprovision
+            echo "✅ App extension provisioning profile installed"
+          fi
 
       # Per-app files the wizard creates — if missing, explain what to create and how, then stop (#785)
       - name: Verify ExportOptions.plist

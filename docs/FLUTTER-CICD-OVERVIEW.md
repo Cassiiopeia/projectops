@@ -314,6 +314,7 @@ PR 또는 이슈에 댓글 작성:
 | `APPLE_CERTIFICATE_PASSWORD` | `.p12` 인증서 비밀번호 |
 | `APPLE_PROVISIONING_PROFILE_BASE64` | `.mobileprovision` 파일 (base64 인코딩) |
 | `IOS_PROVISIONING_PROFILE_NAME` | 프로비저닝 프로파일 이름 |
+| `APPLE_EXTENSION_PROVISIONING_PROFILE_BASE64` (선택) | 앱 확장(위젯 등) `.mobileprovision` (base64). TestFlight 마법사 가이드 "앱 확장" 참고 |
 | `APP_STORE_CONNECT_API_KEY_ID` | App Store Connect API Key ID (10자리) |
 | `APP_STORE_CONNECT_ISSUER_ID` | Issuer ID (UUID 형식) |
 | `APP_STORE_CONNECT_API_KEY_BASE64` | `AuthKey_XXXXXX.p8` 파일 (base64 인코딩) |

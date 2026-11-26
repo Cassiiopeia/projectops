@@ -41,7 +41,8 @@ How it decides (read this before scripting)
 
 Modes  (-m, --mode MODE)
   full        everything: version.yml, workflows, scripts, issue/PR templates, setup guide (.coderabbit.yaml only with --coderabbit)
-  workflows   only .github/workflows plus the scripts, config and util they use. version.yml is not rewritten
+  workflows   only .github/workflows plus the scripts, config and util they use. version.yml is not regenerated:
+              only its deploy block and branch keys are updated
   version     only version.yml, the README version section and the version scripts
   issues      only issue and discussion templates
   skills      install or update agent skills for supported IDEs
@@ -126,7 +127,7 @@ AI agent 나 CI 는 항상 이렇게 실행한다:      npx projectops --mode <�
 
 모드  (-m, --mode MODE)
   full        전부: version.yml, 워크플로우, 스크립트, 이슈/PR 템플릿, 설정 안내서 (.coderabbit.yaml 은 --coderabbit 일 때만)
-  workflows   .github/workflows 와 그것이 쓰는 스크립트·config·util 만. version.yml 은 다시 쓰지 않는다
+  workflows   .github/workflows 와 그것이 쓰는 스크립트·config·util 만. version.yml 은 deploy 블록·브랜치 키만 갱신한다
   version     version.yml, README 버전 섹션, 버전 스크립트만
   issues      이슈·디스커션 템플릿만
   skills      지원 IDE 의 agent 스킬 설치·갱신

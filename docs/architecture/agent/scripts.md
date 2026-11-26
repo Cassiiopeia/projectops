@@ -109,6 +109,15 @@ could tell which service it was for.
 
 The npx copy engine (`src/core/copy/simple.js`) copies the provider .py files into the user's project — **when you add a new provider, add it to the copy list too** (if it is missing, the import fails in user repos).
 
+**Copy guard (#1288).** `copyScripts()` also copies every script a template workflow under `project-types/` calls
+(`.github/scripts/<path>` or `$SCRIPTS_DIR/<path>`) plus the local files those scripts import or name
+(`src/core/copy/script-references.js`). It exists because `firebase_config_files.py` and `toolchain_versions.py` were missing
+from the list for a month and every Flutter build in updated repos stopped at the Firebase step. Still add new scripts to the
+list with a one-line reason; the guard only keeps a forgotten entry from breaking user repos. A script loaded some other way
+(dynamic import, a path built at runtime) is not seen by the guard and must be in the list.
+The same step writes `.github/scripts/.gitignore` (`__pycache__/`, `*.pyc`), and the workflows that stage the whole tree
+(RELEASE-CHANGELOG, VERSION-CONTROL, TEMPLATE-UTIL-VERSION-SYNC) set `PYTHONDONTWRITEBYTECODE=1`, so bytecode never rides along with a release commit.
+
 ### issue_helper.py (issue branch/commit comment — brought in-house in #478)
 `PROJECT-COMMON-SUH-ISSUE-HELPER.yaml` runs it when an issue is created or its title is edited. No external action dependency (stdlib only).
 Settings: `version.yml` `metadata.template.options.issue_helper` (branch_prefix/commit_template/commit_type_map/timezone/show_guide, etc. — defaults when missing).

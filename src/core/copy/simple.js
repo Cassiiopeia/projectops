@@ -2,7 +2,11 @@
 import { join, basename } from "node:path";
 import { chmodSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { PATHS } from "../paths.js";
-import { exists, copyFileSync, copyDirSync } from "../fsutil.js";
+import { exists, copyFileSync, copyDirSync, writeText } from "../fsutil.js";
+import { collectReferencedScripts } from "./script-references.js";
+
+// .github/scripts/.gitignore: Python bytecode caches made when the scripts run (#1288)
+const SCRIPTS_GITIGNORE = "__pycache__/\n*.pyc\n";
 
 // Always overwrite only the version management/release note scripts + chmod +x.
 // version_manager is a .sh (delegating shim) + .py (real logic) pair — both must be copied to work (#448).
@@ -49,12 +53,19 @@ export function copyScripts(tempDir, targetRoot = ".") {
     "store_deploy_config.py",
     // Prepares store release notes per language (#829). Does nothing without store_locales in version.yml.
     "store_notes.py",
+    // Restores Firebase config files from secrets in the Flutter build workflows (CI, Android, iOS) (#1288).
+    "firebase_config_files.py",
+    // Flutter CI toolchain version check (#1288).
+    "toolchain_versions.py",
     "changelog_providers/_common.py", "changelog_providers/ladder.py",
     "changelog_providers/commit.py", "changelog_providers/copilot.py",
     "changelog_providers/openai_compatible.py",
   ];
+  // Guard (#1288): any script a template workflow calls, and the local files it loads, is copied even when
+  // the list above misses it. The list stays the documented set; add new scripts to it with a reason.
+  const scriptsToCopy = new Set([...scripts, ...collectReferencedScripts(tempDir)]);
   let copied = 0;
-  for (const s of scripts) {
+  for (const s of scriptsToCopy) {
     const src = join(tempDir, PATHS.scriptsDir, s);
     if (exists(src)) {
       const dst = join(targetRoot, PATHS.scriptsDir, s);
@@ -73,6 +84,9 @@ export function copyScripts(tempDir, targetRoot = ".") {
       copied++;
     }
   }
+  // The scripts folder carries its own ignore rule (same pattern as logs/ and incoming/, root .gitignore untouched):
+  // running the scripts writes __pycache__ next to them, which commit steps staging everything would pick up (#1288)
+  writeText(join(targetRoot, PATHS.scriptsDir, ".gitignore"), SCRIPTS_GITIGNORE);
   return copied;
 }
 
