@@ -38,7 +38,8 @@ def input_gate(be) -> dict | None:
     ready = be.readiness()
     if ready.get("secure_desktop") or ready.get("consent_prompt"):
         return {"ok": False, "code": "needs_user", "reason": "secure_desktop",
-                "error": "A security prompt (UAC, sign-in, Ctrl+Alt+Del) is in front. Only a person can answer it",
+                "error": "A security prompt is in front (Windows: UAC, sign-in, Ctrl+Alt+Del · macOS: a password or "
+                         "keychain prompt from SecurityAgent, the login window). Only a person can answer it",
                 "ask_user": "Please answer the security prompt on the screen, then tell me when it is done",
                 "next": "desktop windows  # after the user says it is done"}
     if ready.get("locked"):

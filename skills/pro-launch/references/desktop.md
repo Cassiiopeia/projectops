@@ -94,6 +94,7 @@ because it throws work away.
 | Situation | code | What to say |
 |---|---|---|
 | UAC consent, sign-in, Ctrl+Alt+Del (the secure desktop) | `needs_user` | relay `ask_user`, wait for "done", then `desktop windows` |
+| macOS password prompts owned by `SecurityAgent` (keychain access, administrator password) and the login window | `needs_user` | same. `find` can still read the prompt, but click, type and press are refused; no option overrides it (#1226). A user away from the computer answers it through their own remote desktop |
 | Locked screen | `screen_locked` | ask the user to unlock |
 | The window runs as administrator and this session does not (Windows blocks the input) | `elevated_window` | ask the user to press it |
 | A password field | `secret_requires_cred` for plain `--text` | use `--cred <name>` or `--text-env VAR`; never paste the value into the command |
