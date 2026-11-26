@@ -111,7 +111,8 @@ def close_blank_tabs(ctx, keep) -> int:
 def web_connect(state: dict, allow_missing_tab: bool = False):
     """Attach to the open browser and re-apply settings that only live while attached (hooks, stealth, viewport, rules, dialogs).
 
-    Tab: the tab named by LAUNCH_TAB if set, otherwise the last tab not claimed by another session (#878).
+    Tab: the tab named by LAUNCH_TAB if set, then the tab `web open` named for this session (#1238),
+    otherwise the last tab not claimed by another session (#878).
     allow_missing_tab: attach to the default tab even if the named tab is gone (when web tab shows the list).
     """
     sync_playwright, err = require_playwright()
@@ -171,7 +172,7 @@ def _hung_failure(state: dict, error: str) -> dict:
 
 def _session_page(ctx, state: dict, allow_missing_tab: bool):
     """Tab this session drives > (page, failure result)."""
-    name = tabs.session_tab_name()
+    name = tabs.env_tab_name()
     if name:
         page = tabs.named_tab_page(ctx, state, name)
         if page is not None:
@@ -180,6 +181,12 @@ def _session_page(ctx, state: dict, allow_missing_tab: bool):
             return None, {"ok": False, "code": "tab_gone",
                           "error": f"Tab {tabs.TAB_ENV_VAR}={name} does not exist (closed, or the browser restarted)",
                           "next": f"web tab new --name {name}  # create a new tab with the same name (or web tab list)"}
+    # A closed recorded tab is not an error: the session falls back to an unnamed tab
+    recorded = tabs.recorded_session_tab(state)
+    recorded_page = tabs.named_tab_page(ctx, state, recorded) if recorded else None
+    if recorded_page is not None:
+        tabs.adopt_session_tab(recorded)
+        return recorded_page, None
     last_used = tabs.last_used_tab_page(ctx, state)
     if last_used is not None:
         return last_used, None

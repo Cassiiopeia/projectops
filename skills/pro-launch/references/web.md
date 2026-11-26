@@ -196,6 +196,10 @@ launch_cli.py web tab close --name edit-form                # closes only when y
 ```
 
 - An unnamed session does not grab a tab another session has named. If the `LAUNCH_TAB` tab was closed, you get `tab_gone`.
+- A tab that `web open` names (`--tab-name`, or `--new-tab` on a running browser) becomes this session's tab: its later `web` commands drive it without `LAUNCH_TAB`,
+  and `web tab list` shows it as `session_tab`. On a fresh launch the first tab takes the name. `LAUNCH_TAB` still wins, and other sessions reach the tab only with it.
+  `web tab new` does not bind; prefix `LAUNCH_TAB` after it. Sessions are told apart as described below, so set `LAUNCH_SESSION` when neither variable is present.
+- The `url` in a `web open` result is the address that really loaded (after redirects). A URL that did not load is a failure (`goto_failed` or the attach error), never `ok`.
 - `web tab new` and `web open --new-tab` open the tab **in the background**, so the tab a person or another session is looking at does not change. `--front` brings it forward.
 - `web open` with no tab name will not navigate a tab another session used in the last 6 hours. It opens a background tab for this session (`isolated_from_other_session: true`) and lists the others in `other_sessions` (tab · URL · idle minutes).
   Any other command from a session that has no tab yet carries `tab_warning: {code: tab_used_by_other_session}` when it lands on someone else's tab.

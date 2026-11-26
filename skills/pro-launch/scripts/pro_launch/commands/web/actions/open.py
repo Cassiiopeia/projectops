@@ -2,6 +2,7 @@
 
 Recorded browser verdict (#887): alive and responding > reattach · hung > stop and relaunch · dead > clear leftover locks and relaunch.
 What was cleaned up is returned as `recovered`. State lost a browser still running on the profile > adopt it (#1154). Tabs (#878): `--new-tab` · `--tab-name` · `LAUNCH_TAB` give a session its own tab.
+A tab named here becomes this session's tab for later commands, and the reply reports the URL that really loaded (#1238).
 """
 from __future__ import annotations
 
@@ -47,19 +48,30 @@ def _goto_failed(error: Exception) -> dict:
 def _pick_tab(ctx, page, state: dict, args):
     """Tab this open will drive > (page, tab name, whether auto-split).
     If no name was given and the chosen tab is in use by another session, do not take it over; open a new tab for this session at the end (#1094)."""
-    name = args.tab_name or tabs.session_tab_name()
+    # Only an explicit name reuses a tab: the tab an earlier open bound to this session must not swallow --new-tab (#1238)
+    name = args.tab_name or tabs.env_tab_name()
     if name:
         existing = tabs.named_tab_page(ctx, state, name)
         if existing is not None:
+            tabs.bind_session_tab(state, name)
             return existing, name, False
     if args.new_tab or name:
         name = name or f"tab-{time.strftime('%H%M%S')}"
         page = tabs.new_tab_page(ctx, is_front=args.front)
         tabs.register_tab(state, name, page)
+        tabs.bind_session_tab(state, name)
         return page, name, False
     if tabs.is_other_session_tab(page, state):
         return tabs.new_tab_page(ctx, is_front=args.front), None, True
-    return page, name, False
+    return page, tabs.session_tab_name(), False
+
+
+def _session_tab_note(tab_name: str | None) -> tuple[str, str]:
+    """(summary part, next part) naming the tab this session now drives. Empty for an unnamed tab."""
+    if not tab_name:
+        return "", ""
+    return (f" — tab '{tab_name}'",
+            f"; this session's web commands now drive tab '{tab_name}' ({tabs.TAB_ENV_VAR}={tab_name} from another session)")
 
 
 def _close_stale_browsers(pid_to_keep) -> list[dict]:
@@ -107,15 +119,17 @@ def _reuse(args, prev: dict, state_f: Path, recovered: list[str], stale_closed: 
         warnings.append("headed only changes on a fresh launch — to change it, run web close, then open again")
     warnings += [setting["warning"] for setting in LAUNCH_ONLY_SETTINGS if not prev.get(setting["state_key"])]
     warn = " / ".join(warnings) or None
+    tab_summary_note, tab_next_note = _session_tab_note(tab_name)
     return out({"action": "open", "reused": True, "pid": prev["pid"], "url": url, "title": title,
                 "browser": prev.get("browser"), "browser_source": prev.get("browser_source"),
                 "readonly": prev["readonly"], "opened_at": prev.get("opened_at"), "warning": warn,
                 "tabs": tab_summary, "recovered": recovered, "stale_closed": stale_closed,
                 "other_sessions": other_sessions, "isolated_from_other_session": is_isolated,
                 "summary": f"Attached to the running browser (since {prev.get('opened_at')}, {tab_summary['count']} tabs)"
+                           + tab_summary_note
                            + (" — another session was using that tab, so this session got its own background tab" if is_isolated else "")
                            + _stale_closed_note(stale_closed),
-                "next": "web text  # read the screen text first"})
+                "next": f"web text  # read the screen text first{tab_next_note}"})
 
 
 def _merge_reuse_state(state_f: Path, prev: dict) -> None:
@@ -126,7 +140,7 @@ def _merge_reuse_state(state_f: Path, prev: dict) -> None:
         write_state(state_f, prev)
         return
     fresh.update(readonly=prev["readonly"], last_used=prev["last_used"])
-    for key in ("tabs", "tab_marks"):
+    for key in ("tabs", "tab_marks", tabs.SESSION_TABS_KEY):
         fresh[key] = {**(fresh.get(key) or {}), **(prev.get(key) or {})}
     write_state(state_f, fresh)
 
@@ -284,8 +298,12 @@ def _web_open(args, root: Path, state_f: Path) -> int:
     write_state(state_f, state)
     set_watched_browser(proc.pid)
 
-    hooked, tab_summary = False, None
+    hooked, tab_summary, name = False, None, None
+    loaded_url, loaded_title = None, None
     conn, cerr = web_connect(state, allow_missing_tab=True)
+    if cerr and args.url:
+        # The browser started but the URL never loaded: an ok reply naming that URL would be false (#1238)
+        return out({**cerr, "action": "open", "url": None, "requested_url": args.url, "pid": proc.pid, "cdp": cdp})
     if not cerr:
         _pw, _br, page = conn
         hooked = True
@@ -294,10 +312,13 @@ def _web_open(args, root: Path, state_f: Path) -> int:
             close_blank_tabs(page.context, page)
             name = args.tab_name or tabs.session_tab_name()
             if name:
+                # Fresh browser: the first tab takes the name, so --new-tab needs no second tab
                 tabs.register_tab(state, name, page)
+                tabs.bind_session_tab(state, name)
             if args.url:
                 page.goto(args.url, wait_until="domcontentloaded", timeout=args.timeout * 1000)
                 settle(page, state, args.timeout)
+                loaded_url, loaded_title = read_url_title(page)
             tab_summary = tabs.tabs_summary(page.context, page, state, name)
             state.setdefault("tab_marks", {})[tabs.mark_key(name)] = tabs.tab_mark(page)
         except Exception as e:
@@ -305,18 +326,20 @@ def _web_open(args, root: Path, state_f: Path) -> int:
             return out(_goto_failed(e))
         _pw.stop()
         write_state(state_f, state)
-    return out({"action": "open", "url": args.url, "cdp": cdp, "pid": proc.pid,
+    tab_summary_note, tab_next_note = _session_tab_note(name)
+    return out({"action": "open", "url": loaded_url, "title": loaded_title, "cdp": cdp, "pid": proc.pid,
                 "state_file": str(state_f), "console_hook": hooked,
                 "routes": len(state["routes"]), "viewport": state["viewport"],
                 "stealth": use_stealth, "readonly": bool(args.readonly), "reused": False,
                 "recovered": recovered, "stale_closed": stale_closed, "tabs": tab_summary,
                 "browser": pick["label"], "browser_source": pick["source"], "browser_reason": pick["reason"],
                 "profile": browser_profiles.chosen_profile(root) or browser_profiles.REPO_PROFILE_NAME,
-                "summary": f"Opened the browser ({args.url or 'blank tab'})"
+                "summary": f"Opened the browser ({loaded_url or 'blank tab'})"
+                           + tab_summary_note
                            + (" — read-only" if args.readonly else "")
                            + (f" — cleaned up: {', '.join(recovered)}" if recovered else "")
                            + _stale_closed_note(stale_closed),
-                "next": "web text  # read the screen text first (web shot only when you need to see the layout)"})
+                "next": "web text  # read the screen text first (web shot only when you need to see the layout)" + tab_next_note})
 
 
 def configure(p) -> None:

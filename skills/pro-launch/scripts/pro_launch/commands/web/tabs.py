@@ -6,6 +6,7 @@ Several agent sessions share one repo's persistent browser. If all drive "the cu
 Tabs are identified by CDP targetId — it stays the same while the tab lives, even though each call reattaches and gets a new Playwright Page.
 State file (browser.json):
     tabs:      {name: {"target_id": ..., "created_at": ...}}
+    session_tabs: {session: name}   # tab `web open` named for that session; its later commands drive it without LAUNCH_TAB (#1238)
     tab_marks: {"<tab>@<session>": {"target_id": ..., "url": ...}}   # state when that session's last command finished
 
 Sessions are told apart by LAUNCH_SESSION > CLAUDE_CODE_SESSION_ID. With neither, all sessions on the same tab share one record.
@@ -22,13 +23,41 @@ from pro_launch.runtime.session_identity import ANONYMOUS_SESSION, SESSION_ENV_V
 # Environment variable holding the tab name a session drives
 TAB_ENV_VAR = "LAUNCH_TAB"
 DEFAULT_TAB_KEY = "default"
+# State key: named tab each session got from `web open` (#1238)
+SESSION_TABS_KEY = "session_tabs"
 # Guide tabs Chrome opens on its own. Not working tabs
 BROWSER_INTERNAL_PREFIXES = ("chrome://", "chrome-untrusted://", "devtools://", "edge://")
 
 
-def session_tab_name() -> str | None:
+# Recorded tab adopted for this call (one CLI call = one process)
+_adopted_tab_name: str | None = None
+
+
+def env_tab_name() -> str | None:
     name = (os.environ.get(TAB_ENV_VAR) or "").strip()
     return name or None
+
+
+def session_tab_name() -> str | None:
+    """Tab name this session drives: LAUNCH_TAB > the tab `web open` named for this session."""
+    return env_tab_name() or _adopted_tab_name
+
+
+def recorded_session_tab(state: dict) -> str | None:
+    return (state.get(SESSION_TABS_KEY) or {}).get(session_identity())
+
+
+def adopt_session_tab(name: str) -> None:
+    """Drive this named tab for the rest of the call, so mark keys and summaries use the same name."""
+    global _adopted_tab_name
+    _adopted_tab_name = name
+
+
+def bind_session_tab(state: dict, name: str) -> None:
+    """Record that this session drives the named tab from now on.
+    Without it an unnamed session skips every named tab and reads a blank one (#1238)."""
+    state.setdefault(SESSION_TABS_KEY, {})[session_identity()] = name
+    adopt_session_tab(name)
 
 
 def mark_key(tab_name: str | None = None) -> str:
@@ -160,6 +189,9 @@ def forget_tab(state: dict, name: str) -> None:
     marks = state.get("tab_marks") or {}
     for key in [k for k in marks if tab_of_mark_key(k) == name]:
         marks.pop(key, None)
+    session_tabs = state.get(SESSION_TABS_KEY) or {}
+    for session in [s for s, tab in session_tabs.items() if tab == name]:
+        session_tabs.pop(session, None)
 
 
 def _page_identity(url: str | None) -> tuple[str, str, str]:

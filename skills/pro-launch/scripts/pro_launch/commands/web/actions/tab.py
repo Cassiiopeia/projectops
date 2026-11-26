@@ -138,6 +138,10 @@ def _save_tab_records(state_f: Path, state: dict, tab_names_before: set) -> None
     for key in list(fresh["tab_marks"]):
         if tabs.tab_of_mark_key(key) not in set(fresh["tabs"]) | {tabs.DEFAULT_TAB_KEY}:
             fresh["tab_marks"].pop(key, None)
+    # A session must not follow a closed tab's name onto a tab someone creates later with the same name
+    if fresh.get(tabs.SESSION_TABS_KEY):
+        fresh[tabs.SESSION_TABS_KEY] = {session: name for session, name in fresh[tabs.SESSION_TABS_KEY].items()
+                                        if name in fresh["tabs"]}
     write_state(state_f, fresh)
 
 
