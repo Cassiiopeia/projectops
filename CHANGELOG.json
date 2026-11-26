@@ -1,14 +1,59 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-25T00:08:31Z",
-    "currentVersion": "4.119.0",
+    "lastUpdated": "2026-11-26T10:18:32Z",
+    "currentVersion": "4.120.0",
     "projectType": "basic",
-    "totalReleases": 439,
+    "totalReleases": 440,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.120.0",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-26",
+      "pr_number": 1284,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **New features**\n  * Ask whether a screen recording is running on a device\n  * Pass issue, PR and comment bodies with a --body-file option\n  * Build a commit message frame from a branch name\n\n* **Bug fixes**\n  * Ctrl+C now really stops the installer and says what was already changed\n  * A new, empty GitHub repo no longer gets \"(unknown)\" as its default branch\n  * Doctor no longer lists the optional AI keys as required secrets\n  * A browser tab opened by name is the one later commands read\n  * Sign-in hand-over no longer shows the stored password\n  * Clearer hints for wrong app wait and app install options\n  * Plugin cache scan stays within its time budget\n\n* **Improvements**\n  * Doctor flags branch values that cannot be real branch names\n\n* **Documentation**\n  * Options reference tables brought up to date",
+      "parsed_changes": {
+        "new_features": {
+          "title": "New features",
+          "items": [
+            "Ask whether a screen recording is running on a device",
+            "Pass issue, PR and comment bodies with a --body-file option",
+            "Build a commit message frame from a branch name"
+          ]
+        },
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Ctrl+C now really stops the installer and says what was already changed",
+            "A new, empty GitHub repo no longer gets \"(unknown)\" as its default branch",
+            "Doctor no longer lists the optional AI keys as required secrets",
+            "A browser tab opened by name is the one later commands read",
+            "Sign-in hand-over no longer shows the stored password",
+            "Clearer hints for wrong app wait and app install options",
+            "Plugin cache scan stays within its time budget"
+          ]
+        },
+        "improvements": {
+          "title": "Improvements",
+          "items": [
+            "Doctor flags branch values that cannot be real branch names"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Options reference tables brought up to date"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.119.0",
       "project_type": "basic",

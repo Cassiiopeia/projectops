@@ -1,7 +1,33 @@
 # Changelog
 
-**Current version:** 4.119.0  
-**Last updated:** 2026-11-25T00:08:31Z  
+**Current version:** 4.120.0  
+**Last updated:** 2026-11-26T10:18:32Z  
+
+---
+
+## [4.120.0] - 2026-11-26
+
+**PR:** #1284  
+
+**New features**
+- Ask whether a screen recording is running on a device
+- Pass issue, PR and comment bodies with a --body-file option
+- Build a commit message frame from a branch name
+
+**Bug fixes**
+- Ctrl+C now really stops the installer and says what was already changed
+- A new, empty GitHub repo no longer gets "(unknown)" as its default branch
+- Doctor no longer lists the optional AI keys as required secrets
+- A browser tab opened by name is the one later commands read
+- Sign-in hand-over no longer shows the stored password
+- Clearer hints for wrong app wait and app install options
+- Plugin cache scan stays within its time budget
+
+**Improvements**
+- Doctor flags branch values that cannot be real branch names
+
+**Documentation**
+- Options reference tables brought up to date
 
 ---
 
