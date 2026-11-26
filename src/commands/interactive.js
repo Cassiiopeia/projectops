@@ -17,7 +17,7 @@ import { runMigrations } from "../core/migrations/index.js";
 import { detectOrphanWorkflows, applyOrphanCleanup } from "../core/orphan-workflows.js";
 import { resolveProjectPaths, filterExcludedTypes } from "../core/paths-resolve.js";
 import { askAllOptionalWorkflows, OPTION_AXES, applicableTargets } from "../core/options-ask.js";
-import { createRunTrace, MIGRATION_DIR } from "../core/run-trace.js";
+import { createRunTrace, MIGRATION_DIR, yieldToSignals } from "../core/run-trace.js";
 import { appendGuideEntry } from "../core/migration-guide.js";
 import { promptEnvPlan } from "../ui/env-plan.js";
 import { listWorkflowConflicts } from "../core/copy/workflows.js";
@@ -33,6 +33,7 @@ import { t, getLang, withLang } from "../i18n/index.js";
 import { resolveLabelStyle } from "../core/label-style.js";
 import { resolveRepoLanguage } from "../core/repo-language.js";
 import { printSummary } from "../ui/summary.js";
+import { printCancelNotice } from "../ui/cancel-notice.js";
 import { listUnappliedBranchValues } from "../core/branch-report.js";
 
 const CANCEL = prompts.CANCEL;
@@ -45,10 +46,16 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
   // Run trace (#494) — the terminal mirror is on only in the real CLI (io=prompts) (test stub io records events only).
   const trace = createRunTrace();
   // The record stays even when cut off with Ctrl+C (#561) — people often stop the interactive wizard midway.
-  const disarmSignals = trace.armSignals({ targetRoot: cwd, now: clock?.now || "" });
   // Values used when recording in finally — kept outside because a cancel may come before try settles them (#561).
   let traceFrom = "";
   let traceTo = "";
+  // Timestamp in the record file names: one value for the announced paths and the files written (#1275)
+  let recordNow = clock?.now || "";
+  const recordOptions = () => ({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: recordNow });
+  const disarmSignals = trace.armSignals(() => ({
+    ...recordOptions(),
+    onCancel: () => { remove(tempDir); printCancelNotice(trace.events); },
+  }));
   // Whether this mode leaves record files — false by default since a cancel may come before mode selection.
   let recordArtifacts = false;
   // true only when ending without a record (normal finish of version/issues modes).
@@ -335,6 +342,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     }
 
     const { now, today } = clock || utcNow();
+    recordNow = now;
     const ctx = createContext({
       mode, force: true, types, version, versionCode, branch, paths, deployTarget, publishTargets, includeSecretBackup,
       aiPrSummary, codeReviewCoderabbit, changelogProvider, changelogBaseUrl, deployBranch, intent, semverAuto, appRelease, labelStyle, closeOnRelease, projectsSync, language, excludedWorkflows, storeLocales, storeLocalesIos, storeLocalesPlay,
@@ -408,6 +416,8 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       }
     }
 
+    // Last point where a Ctrl+C pressed during the questions stops the run before files are written (#1275)
+    await yieldToSignals();
     let result = null;
     if (mode === "full") result = trace.step("install-full", () => runFull(ctx, tempDir, cwd, { ...hooks, trace }));
     else if (mode === "version") result = trace.step("install-version", () => runVersion(ctx, tempDir, cwd));
@@ -419,6 +429,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       workflowsResult: result?.workflows, isBranchRecorded: result?.isBranchRecorded !== false, trace,
     }) : [];
 
+    await yieldToSignals();
     // IDE skills offer after integration (gate question first, default N)
     // Update mode (#502): update only already-installed IDE skills without asking (IDEs not installed are left alone)
     if (updateRun) {
@@ -428,6 +439,7 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
       if (wantSkills === true) { io.ideStatus?.(); await skills({ templateVersion, tempDir, interactive: true }); }
     }
 
+    await yieldToSignals();
     // Migration record (#493/#494) — Layer 2/3 trace files + Layer 1 guide entry (full/workflows only)
     let migrationGuidePath = null;
     recordArtifacts = mode === "full" || mode === "workflows";
@@ -492,7 +504,9 @@ export async function runInteractive(baseCtx, { cwd = process.cwd(), source = { 
     // Leave a record however it exits (#561) — including mid-run cancel, exceptions and Ctrl+C.
     // The finish screen output must be inside try so it is captured in the mirror before closing here.
     if (skipRecord) trace.mirrorStop();
-    else trace.finalize({ targetRoot: cwd, fromVersion: traceFrom, toVersion: traceTo, now: clock?.now || "" });
+    else trace.finalize(recordOptions());
+    // A Ctrl+C that arrived during the last sync steps is handled here instead of being dropped by disarming
+    await yieldToSignals();
     disarmSignals();
     remove(tempDir);
   }

@@ -74,6 +74,11 @@ asset and **stays tracked** — that is why the folders are separate.
   If a value is not secret but its key name matches (e.g. `token` → `placeholder`), **rename the key**.
 - **The log must survive every exit path**: normal completion, mid-way cancel and exceptions are handled by `trace.finalize()` (idempotent) in `finally`,
   and forced exit (Ctrl+C) by `trace.armSignals()`. If you create a new exit path, check this contract.
+- **Ctrl+C stops the run; ESC only skips one prompt (#1275).** In raw mode the prompt engine (`src/ui/readline-engine.js`) gets Ctrl+C as a key,
+  not a signal, so it hands it to the armed SIGINT handler (`stopRunOnCtrlC`). Returning `CANCEL` for it made every caller fall back to a default
+  and the "cancelled" update finished as a success. The handler records, prints `src/ui/cancel-notice.js` (`onCancel`), then exits.
+- **Signal handlers run only when the event loop turns.** After a run of synchronous steps (file copies, `spawnSync`), `await yieldToSignals()`
+  (`run-trace.js`) before the next step and before `disarmSignals()`, or a Ctrl+C pressed during them is dropped.
 - **Print the completion screen inside `try`, and call `finalize()` only in `finally` (#561).** `finally` runs right after leaving
   the try block, so if the completion screen is outside the try, the log closes first and **that screen is missing from the `.log` entirely.**
   A user's run log really did stop at `step/done install-full` and came back as a report that "the log has no guidance at all".

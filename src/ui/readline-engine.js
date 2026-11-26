@@ -3,13 +3,26 @@
 //   and freezes (confirmed by measurement). node:readline keypress events work fine on Windows.
 //   Zero external dependencies → safe on internal networks too.
 //
-// Contract: cancel (ESC/Ctrl+C) returns the CANCEL symbol. Every function is async.
+// Contract: ESC returns the CANCEL symbol (callers treat it as "skip / keep the default").
+//   Ctrl+C stops the whole run (#1275) — it used to return CANCEL too, so the wizard kept going with defaults.
+//   Every function is async.
 import { emitKeypressEvents } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { visualWidth } from "./ansi.js";
 import { t } from "../i18n/index.js";
 
 export const CANCEL = Symbol("cancel");
+
+// Exit code of a run stopped by Ctrl+C (128 + SIGINT 2)
+const INTERRUPTED_EXIT_CODE = 130;
+
+// Ctrl+C at a prompt: raw mode swallows the real signal, so hand it to the armed SIGINT handler
+// (run log + cancel notice, src/core/run-trace.js). With no handler armed, say so and exit here.
+function stopRunOnCtrlC() {
+  if (process.emit("SIGINT")) return;
+  cancelMessage();
+  process.exit(INTERRUPTED_EXIT_CODE);
+}
 
 // ── ANSI helpers (replaces picocolors — zero dependencies) ───────────────────────────
 const ESC = "\x1b[";
@@ -77,8 +90,9 @@ function keySession(renderFn, onKey) {
 
     const handler = (str, key) => {
       key = key || {};
-      // Cancel: Ctrl+C / ESC
-      if ((key.ctrl && key.name === "c") || key.name === "escape") {
+      // Ctrl+C stops the run (the prompt never resolves) · ESC cancels this prompt only
+      if (key.ctrl && key.name === "c") { cleanup(); stopRunOnCtrlC(); return; }
+      if (key.name === "escape") {
         cleanup();
         resolve(CANCEL);
         return;
@@ -223,7 +237,8 @@ export async function text({ message, defaultValue = "" }) {
 
     const handler = (str, key) => {
       key = key || {};
-      if ((key.ctrl && key.name === "c") || key.name === "escape") { cleanup(); resolve(CANCEL); return; }
+      if (key.ctrl && key.name === "c") { cleanup(); stopRunOnCtrlC(); return; }
+      if (key.name === "escape") { cleanup(); resolve(CANCEL); return; }
       if (key.name === "return" || key.name === "enter") {
         cleanup();
         resolve(buf.length ? buf : defaultValue);

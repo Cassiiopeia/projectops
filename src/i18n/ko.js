@@ -97,6 +97,11 @@ export default {
 
   // interactive flow
   "flow.cancelInstall": "설치를 취소했습니다.",
+  "flow.cancelCtrlC": "Ctrl+C 로 중단했습니다. 더 이상 변경하지 않습니다.",
+  "flow.cancelUntouched": "프로젝트 파일은 변경되지 않았습니다.",
+  "flow.cancelPartial": "중단 전에 이 저장소의 일부 파일이 이미 변경되었습니다.",
+  "flow.cancelReview": "`git status` 와 `git diff` 로 확인하세요. 되돌리기: 수정된 파일은 `git restore <경로>`, 새로 생긴 파일은 삭제.",
+  "flow.cancelLog": "실행 기록: {dir}",
   "flow.cancelBreaking": "통합을 안전하게 취소했습니다.",
   "flow.doneSkills": "AI 스킬 설치를 마쳤습니다.",
   "flow.doneIssues": "이슈·PR 템플릿을 설치했습니다.",

@@ -17,7 +17,7 @@ import { parseExisting } from "./core/version-yml.js";
 import { runBreakingCheck } from "./core/breaking-check.js";
 import { runMigrations } from "./core/migrations/index.js";
 import { detectOrphanWorkflows } from "./core/orphan-workflows.js";
-import { createRunTrace, MIGRATION_DIR } from "./core/run-trace.js";
+import { createRunTrace, MIGRATION_DIR, yieldToSignals } from "./core/run-trace.js";
 import { appendGuideEntry } from "./core/migration-guide.js";
 import { resolveProjectPaths, markerForType } from "./core/paths-resolve.js";
 import { resolveOptions } from "./core/resolve-options.js";
@@ -26,6 +26,7 @@ import { runDevelopmentBranchStep } from "./core/development-branch.js";
 import { listUnappliedBranchValues } from "./core/branch-report.js";
 import { printBannerCompact } from "./ui/banner.js";
 import { printSummary } from "./ui/summary.js";
+import { printCancelNotice } from "./ui/cancel-notice.js";
 import { runFull } from "./commands/full.js";
 import { runVersion } from "./commands/version.js";
 import { runWorkflows } from "./commands/workflows.js";
@@ -101,12 +102,16 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
   if (opts.mode === "skills") {
     const tempDir = join(cwd, PATHS.tempDir);
     const interactive = !opts.force && process.stdout.isTTY;
+    // Ctrl+C at a prompt exits the process directly (no trace armed in this mode): still drop the template copy (#1275)
+    const removeTempDirOnExit = () => remove(tempDir);
+    process.once("exit", removeTempDirOnExit);
     try {
       // skills mode: skill CLIs import scripts/common > keep it out of the exclusions (#994)
       acquireTemplate({ tempDir, source, keep: [SHARED_SCRIPTS_DIR_NAME] });
       const templateVersion = readTemplateVersion(tempDir);
       return await runSkills({ templateVersion, tempDir, interactive });
     } finally {
+      process.removeListener("exit", removeTempDirOnExit);
       remove(tempDir);
     }
   }
@@ -132,7 +137,7 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     trace.mirrorStart();
     // Even when cut off with Ctrl+C, the record up to here stays (#561). The path is settled below, but
     // a signal can come at any time, so arm with targetRoot alone first.
-    disarmSignals = trace.armSignals({ targetRoot: cwd, now: "" });
+    disarmSignals = trace.armSignals({ targetRoot: cwd, now: "", onCancel: () => printCancelNotice(trace.events) });
   }
 
   // Load the existing version.yml — single source of truth for keeping version/version_code/project_paths
@@ -387,6 +392,8 @@ async function runCore(argv, { cwd = process.cwd(), source = { type: "git" }, cl
     } else {
       trace.mirrorStop();
     }
+    // A Ctrl+C that arrived during the sync steps is handled here instead of being dropped by disarming (#1275)
+    await yieldToSignals();
     disarmSignals();
     remove(tempDir);
   }

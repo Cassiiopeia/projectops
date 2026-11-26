@@ -104,6 +104,11 @@ export default {
 
   // interactive flow
   "flow.cancelInstall": "Installation cancelled.",
+  "flow.cancelCtrlC": "Stopped by Ctrl+C. Nothing more will be changed.",
+  "flow.cancelUntouched": "No project files were changed.",
+  "flow.cancelPartial": "Some files in this repository were already changed before the stop.",
+  "flow.cancelReview": "Review them with `git status` and `git diff`. Undo: `git restore <path>` for edited files, delete the new ones.",
+  "flow.cancelLog": "Run log: {dir}",
   "flow.cancelBreaking": "Cancelled safely, nothing was changed.",
   "flow.doneSkills": "AI skills installed.",
   "flow.doneIssues": "Issue and PR templates installed.",

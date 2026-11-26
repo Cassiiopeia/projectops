@@ -94,6 +94,11 @@ export function stampFromNow(now) {
   return `${digits.slice(0, 8)}_${digits.slice(8, 14)}`;
 }
 
+// Let a pending Ctrl+C be handled between synchronous steps (#1275).
+// Signal handlers run only when the event loop turns; a run of sync steps (file copies, spawnSync) up to
+// disarming would drop the signal, and the cancelled run would finish as a success.
+export const yieldToSignals = () => new Promise((resolve) => setImmediate(resolve));
+
 // Trace factory. clockIso can be injected (test determinism) — default is the real UTC.
 export function createRunTrace({ clockIso = null } = {}) {
   const events = [];
@@ -183,7 +188,8 @@ export function createRunTrace({ clockIso = null } = {}) {
     // Leave a record even on forced exit (Ctrl+C) (#561).
     // If SIGINT's default kills the process, finally never runs — yet when the user cuts it off is exactly when
     // "how far did it get" matters most, so missing it here halves the log's value.
-    // The handler only records, then exits as before (behavior unchanged).
+    // The handler records, shows the cancel notice (opts.onCancel), then exits as before.
+    // opts may be a function: versions and the timestamp settle after arming, so they are read at signal time (#1275).
     armSignals(opts = {}) {
       if (signalsArmed) return () => {};
       signalsArmed = true;
@@ -191,8 +197,11 @@ export function createRunTrace({ clockIso = null } = {}) {
       const handlers = [];
       for (const sig of ["SIGINT", "SIGTERM"]) {
         const h = () => {
+          const { onCancel, ...finalizeOptions } = typeof opts === "function" ? opts() : opts;
           self.event("run", "cancelled", sig, { reason: "user forced exit (signal received)" });
-          self.finalize(opts);
+          // Before finalize, so the notice is captured in the .log mirror. A failing notice must not block the exit
+          try { onCancel?.(sig); } catch { /* exit anyway */ }
+          self.finalize(finalizeOptions);
           process.removeListener(sig, h);
           process.kill(process.pid, sig);   // Hand over to the original exit behavior
         };

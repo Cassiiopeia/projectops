@@ -6,6 +6,7 @@ import { versionTag } from "../core/ide/util.js";
 import { defaultIo } from "../core/ide/runner.js";
 import * as skillsPrompts from "../ui/skills-prompts.js";
 import { t } from "../i18n/index.js";
+import { yieldToSignals } from "../core/run-trace.js";
 
 // Collect status → [{adapter, status}]. Optional adapters are left out when undetectable (cliMissing).
 export function collectStatuses(io) {
@@ -51,6 +52,8 @@ export async function runSkills(opts = {}) {
     for (const { adapter, status } of rows) {
       if (opts.installedOnly && !status.installed) continue;
       safe(() => adapter.apply(io, ctx), false);
+      // Each adapter runs synchronously (spawnSync, file copies): let a Ctrl+C stop the run before the next one (#1275)
+      await yieldToSignals();
     }
     return 0;
   }
@@ -82,6 +85,7 @@ export async function runSkills(opts = {}) {
     io.log("");
     io.log(t(action === "apply" ? "skills.header.apply" : "skills.header.remove", { label: adapter.label }));
     safe(() => (action === "apply" ? adapter.apply(io, ctx) : adapter.remove(io, ctx)), false);
+    await yieldToSignals();
   }
   return 0;
 }
