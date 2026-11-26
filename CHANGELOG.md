@@ -1,7 +1,22 @@
 # Changelog
 
-**Current version:** 4.120.0  
-**Last updated:** 2026-11-26T10:18:32Z  
+**Current version:** 4.120.1  
+**Last updated:** 2026-11-26T10:43:49Z  
+
+---
+
+## [4.120.1] - 2026-11-26
+
+**PR:** #1287  
+
+**Bug fixes**
+- Team brain check no longer says members cannot write when they can
+- A refused team brain write now shows the server's reason
+- HTTP checks are no longer blocked by bot filters
+
+**Documentation**
+- Desktop guide names the macOS password prompts only a person can answer
+- Knowledge notes for the installer, sign-in and browser tab fixes
 
 ---
 

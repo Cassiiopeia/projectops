@@ -1,14 +1,42 @@
 {
   "metadata": {
-    "lastUpdated": "2026-11-26T10:18:32Z",
-    "currentVersion": "4.120.0",
+    "lastUpdated": "2026-11-26T10:43:49Z",
+    "currentVersion": "4.120.1",
     "projectType": "basic",
-    "totalReleases": 440,
+    "totalReleases": 441,
     "projectTypes": [
       "basic"
     ]
   },
   "releases": [
+    {
+      "version": "4.120.1",
+      "project_type": "basic",
+      "project_types": [
+        "basic"
+      ],
+      "date": "2026-11-26",
+      "pr_number": 1287,
+      "raw_summary": "## Summary by CodeRabbit\n\n## Release notes\n\n* **Bug fixes**\n  * Team brain check no longer says members cannot write when they can\n  * A refused team brain write now shows the server's reason\n  * HTTP checks are no longer blocked by bot filters\n\n* **Documentation**\n  * Desktop guide names the macOS password prompts only a person can answer\n  * Knowledge notes for the installer, sign-in and browser tab fixes",
+      "parsed_changes": {
+        "bug_fixes": {
+          "title": "Bug fixes",
+          "items": [
+            "Team brain check no longer says members cannot write when they can",
+            "A refused team brain write now shows the server's reason",
+            "HTTP checks are no longer blocked by bot filters"
+          ]
+        },
+        "documentation": {
+          "title": "Documentation",
+          "items": [
+            "Desktop guide names the macOS password prompts only a person can answer",
+            "Knowledge notes for the installer, sign-in and browser tab fixes"
+          ]
+        }
+      },
+      "parse_method": "markdown"
+    },
     {
       "version": "4.120.0",
       "project_type": "basic",
